@@ -4,11 +4,17 @@ Handles downloading, caching, and configuring the Windows embeddable
 Python distribution for use in Coil-built executables.
 """
 
+from __future__ import annotations
+
 import os
 import shutil
 import urllib.request
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from coil.ui import BuildUI
 
 
 CACHE_DIR = Path.home() / ".coil" / "cache" / "runtimes"
@@ -45,6 +51,7 @@ def download_runtime(
     python_version: str,
     arch: str = "amd64",
     verbose: bool = False,
+    ui: Optional[BuildUI] = None,
 ) -> Path:
     """Download the Windows embeddable Python distribution.
 
@@ -54,6 +61,7 @@ def download_runtime(
         python_version: Full Python version (e.g. "3.12.1").
         arch: Architecture, "amd64" or "win32".
         verbose: Print download progress.
+        ui: Optional BuildUI for progress display.
 
     Returns:
         Path to the downloaded zip file.
@@ -61,27 +69,43 @@ def download_runtime(
     zip_path = get_cached_zip_path(python_version, arch)
 
     if zip_path.is_file():
-        if verbose:
+        if ui is not None:
+            ui.detail(f"Using cached runtime: {zip_path}")
+        elif verbose:
             print(f"Using cached runtime: {zip_path}")
         return zip_path
 
     url = get_embed_url(python_version, arch)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
-    if verbose:
-        print(f"Downloading Python {python_version} embeddable from {url}...")
+    if ui is not None:
+        ui.detail(f"Downloading from {url}")
+        with ui.download_progress() as progress:
+            task = progress.add_task("download", total=None)
+            hook = ui.make_download_hook(progress, task)
+            try:
+                urllib.request.urlretrieve(url, str(zip_path), reporthook=hook)
+            except Exception as e:
+                if zip_path.exists():
+                    zip_path.unlink()
+                raise RuntimeError(
+                    f"Failed to download Python {python_version} embeddable distribution: {e}"
+                ) from e
+    else:
+        if verbose:
+            print(f"Downloading Python {python_version} embeddable from {url}...")
 
-    try:
-        urllib.request.urlretrieve(url, str(zip_path))
-    except Exception as e:
-        if zip_path.exists():
-            zip_path.unlink()
-        raise RuntimeError(
-            f"Failed to download Python {python_version} embeddable distribution: {e}"
-        ) from e
+        try:
+            urllib.request.urlretrieve(url, str(zip_path))
+        except Exception as e:
+            if zip_path.exists():
+                zip_path.unlink()
+            raise RuntimeError(
+                f"Failed to download Python {python_version} embeddable distribution: {e}"
+            ) from e
 
-    if verbose:
-        print(f"Downloaded to {zip_path}")
+        if verbose:
+            print(f"Downloaded to {zip_path}")
 
     return zip_path
 
@@ -90,6 +114,7 @@ def extract_runtime(
     zip_path: Path,
     dest_dir: Path,
     verbose: bool = False,
+    ui: Optional[BuildUI] = None,
 ) -> Path:
     """Extract the embeddable Python distribution to a destination directory.
 
@@ -97,6 +122,7 @@ def extract_runtime(
         zip_path: Path to the downloaded zip file.
         dest_dir: Directory to extract into.
         verbose: Print extraction progress.
+        ui: Optional BuildUI for progress display.
 
     Returns:
         Path to the extracted runtime directory.
@@ -106,14 +132,19 @@ def extract_runtime(
 
     dest_dir.mkdir(parents=True, exist_ok=True)
 
-    if verbose:
-        print(f"Extracting runtime to {dest_dir}...")
+    if ui is not None:
+        with ui.spinner("Extracting runtime..."):
+            with zipfile.ZipFile(zip_path, "r") as zf:
+                zf.extractall(dest_dir)
+    else:
+        if verbose:
+            print(f"Extracting runtime to {dest_dir}...")
 
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(dest_dir)
+        with zipfile.ZipFile(zip_path, "r") as zf:
+            zf.extractall(dest_dir)
 
-    if verbose:
-        print("Runtime extracted.")
+        if verbose:
+            print("Runtime extracted.")
 
     return dest_dir
 
@@ -157,7 +188,11 @@ def configure_pth(runtime_dir: Path, extra_paths: list[str] | None = None) -> No
     pth_file.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
 
 
-def resolve_full_version(short_version: str, verbose: bool = False) -> str:
+def resolve_full_version(
+    short_version: str,
+    verbose: bool = False,
+    ui: Optional[BuildUI] = None,
+) -> str:
     """Resolve a short Python version (e.g. '3.12') to a full version (e.g. '3.12.1').
 
     Tries common patch versions starting from the highest.
@@ -165,6 +200,7 @@ def resolve_full_version(short_version: str, verbose: bool = False) -> str:
     Args:
         short_version: Version like "3.12" or already full like "3.12.1".
         verbose: Print resolution progress.
+        ui: Optional BuildUI for progress display.
 
     Returns:
         Full version string.
@@ -183,7 +219,9 @@ def resolve_full_version(short_version: str, verbose: bool = False) -> str:
             req = urllib.request.Request(url, method="HEAD")
             resp = urllib.request.urlopen(req, timeout=10)
             if resp.status == 200:
-                if verbose:
+                if ui is not None:
+                    ui.detail(f"Resolved Python {short_version} -> {full}")
+                elif verbose:
                     print(f"Resolved Python {short_version} -> {full}")
                 return full
         except Exception:
@@ -198,9 +236,10 @@ def resolve_full_version(short_version: str, verbose: bool = False) -> str:
 def prepare_runtime(
     python_version: str,
     dest_dir: Path,
-    app_paths: list[str] | None = None,
+    app_paths: Optional[list[str]] = None,
     arch: str = "amd64",
     verbose: bool = False,
+    ui: Optional[BuildUI] = None,
 ) -> Path:
     """Full pipeline: resolve version, download, extract, and configure runtime.
 
@@ -210,12 +249,13 @@ def prepare_runtime(
         app_paths: Extra paths to add to ._pth for application code.
         arch: Architecture.
         verbose: Verbose output.
+        ui: Optional BuildUI for progress display.
 
     Returns:
         Path to the configured runtime directory.
     """
-    full_version = resolve_full_version(python_version, verbose=verbose)
-    zip_path = download_runtime(full_version, arch=arch, verbose=verbose)
-    runtime_dir = extract_runtime(zip_path, dest_dir, verbose=verbose)
+    full_version = resolve_full_version(python_version, verbose=verbose, ui=ui)
+    zip_path = download_runtime(full_version, arch=arch, verbose=verbose, ui=ui)
+    runtime_dir = extract_runtime(zip_path, dest_dir, verbose=verbose, ui=ui)
     configure_pth(runtime_dir, extra_paths=app_paths)
     return runtime_dir

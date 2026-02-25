@@ -6,6 +6,8 @@ coil decompile to recover the original source.
 Secure mode: bytecode-only, stripped debug info, no recoverable metadata.
 """
 
+from __future__ import annotations
+
 import compileall
 import json
 import marshal
@@ -16,6 +18,10 @@ import struct
 import time
 import zipfile
 from pathlib import Path
+from typing import TYPE_CHECKING, Callable, Optional
+
+if TYPE_CHECKING:
+    from coil.ui import BuildUI
 
 
 COIL_METADATA_FILENAME = ".coil_meta.json"
@@ -47,6 +53,7 @@ def compile_directory(
     source_dir: Path,
     output_dir: Path,
     optimize: int = 0,
+    progress_callback: Optional[Callable[[int, int, Path], None]] = None,
 ) -> list[Path]:
     """Compile all .py files in a directory to .pyc files.
 
@@ -54,17 +61,22 @@ def compile_directory(
         source_dir: Source directory containing .py files.
         output_dir: Destination for compiled .pyc files.
         optimize: Optimization level.
+        progress_callback: Optional callback(current, total, file_path).
 
     Returns:
         List of compiled .pyc file paths.
     """
     compiled: list[Path] = []
+    py_files = sorted(source_dir.rglob("*.py"))
+    total = len(py_files)
 
-    for py_file in source_dir.rglob("*.py"):
+    for i, py_file in enumerate(py_files):
         relative = py_file.relative_to(source_dir)
         pyc_file = output_dir / relative.with_suffix(".pyc")
         compile_to_pyc(py_file, pyc_file, optimize=optimize)
         compiled.append(pyc_file)
+        if progress_callback is not None:
+            progress_callback(i + 1, total, py_file)
 
     return compiled
 
@@ -72,6 +84,7 @@ def compile_directory(
 def obfuscate_default(
     source_dir: Path,
     output_dir: Path,
+    ui: Optional[BuildUI] = None,
 ) -> Path:
     """Default obfuscation: compile to .pyc and embed recoverable source.
 
@@ -81,6 +94,7 @@ def obfuscate_default(
     Args:
         source_dir: Project source directory.
         output_dir: Build output directory.
+        ui: Optional BuildUI for progress display.
 
     Returns:
         Path to the output directory containing compiled files.
@@ -89,7 +103,18 @@ def obfuscate_default(
     app_dir.mkdir(parents=True, exist_ok=True)
 
     # Compile all .py to .pyc
-    compile_directory(source_dir, app_dir, optimize=0)
+    if ui is not None:
+        py_files = sorted(source_dir.rglob("*.py"))
+        total = len(py_files)
+        with ui.file_progress("Compiling source", total=total) as progress:
+            task = progress.add_task("", total=total)
+
+            def _cb(current: int, total: int, path: Path) -> None:
+                progress.advance(task)
+
+            compile_directory(source_dir, app_dir, optimize=0, progress_callback=_cb)
+    else:
+        compile_directory(source_dir, app_dir, optimize=0)
 
     # Archive original source for recovery
     source_archive = app_dir / COIL_SOURCE_ARCHIVE
@@ -114,6 +139,7 @@ def obfuscate_default(
 def obfuscate_secure(
     source_dir: Path,
     output_dir: Path,
+    ui: Optional[BuildUI] = None,
 ) -> Path:
     """Secure obfuscation: bytecode-only, no recoverable source.
 
@@ -123,6 +149,7 @@ def obfuscate_secure(
     Args:
         source_dir: Project source directory.
         output_dir: Build output directory.
+        ui: Optional BuildUI for progress display.
 
     Returns:
         Path to the output directory containing compiled files.
@@ -131,7 +158,18 @@ def obfuscate_secure(
     app_dir.mkdir(parents=True, exist_ok=True)
 
     # Compile with optimization level 2 (strips docstrings and asserts)
-    compile_directory(source_dir, app_dir, optimize=2)
+    if ui is not None:
+        py_files = sorted(source_dir.rglob("*.py"))
+        total = len(py_files)
+        with ui.file_progress("Compiling source", total=total) as progress:
+            task = progress.add_task("", total=total)
+
+            def _cb(current: int, total: int, path: Path) -> None:
+                progress.advance(task)
+
+            compile_directory(source_dir, app_dir, optimize=2, progress_callback=_cb)
+    else:
+        compile_directory(source_dir, app_dir, optimize=2)
 
     # Write metadata marking this as secure (no source archive)
     metadata = {

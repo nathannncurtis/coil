@@ -13,6 +13,7 @@ from coil.cli import detect_os, detect_python_version, resolve_entry_points
 from coil.packager import install_dependencies, package_bundled, package_portable
 from coil.resolver import resolve_dependencies
 from coil.runtime import prepare_runtime
+from coil.ui import BuildUI
 
 
 def build(
@@ -57,16 +58,18 @@ def build(
     name = name or project_dir.name
     out_path = Path(output_dir)
 
-    _log(f"Building {name}...", verbose=True)
-    _log(f"  Project:      {project_dir}", verbose)
-    _log(f"  Entry points: {', '.join(entry_points)}", verbose)
-    _log(f"  Mode:         {mode}", verbose)
-    _log(f"  Target OS:    {target_os}", verbose)
-    _log(f"  Python:       {python_version}", verbose)
-    _log(f"  Secure:       {secure}", verbose)
+    ui = BuildUI(verbose=verbose)
+    ui.build_header(name, mode)
+
+    if verbose:
+        ui.detail(f"Project:      {project_dir}")
+        ui.detail(f"Entry points: {', '.join(entry_points)}")
+        ui.detail(f"Target OS:    {target_os}")
+        ui.detail(f"Python:       {python_version}")
+        ui.detail(f"Secure:       {secure}")
 
     # Step 1: Resolve dependencies
-    _log("Resolving dependencies...", verbose=True)
+    ui.step("Resolving dependencies...")
     packages = resolve_dependencies(
         project_dir=project_dir,
         python_version=python_version,
@@ -75,12 +78,12 @@ def build(
         include=include,
     )
     if packages:
-        _log(f"  Found {len(packages)} dependencies: {', '.join(packages)}", verbose)
+        ui.detail(f"Found {len(packages)} dependencies: {', '.join(packages)}")
     else:
-        _log("  No third-party dependencies found.", verbose)
+        ui.detail("No third-party dependencies found.")
 
     # Step 2: Download and prepare runtime
-    _log("Preparing Python runtime...", verbose=True)
+    ui.step("Preparing runtime...")
     with tempfile.TemporaryDirectory() as tmp:
         tmp_path = Path(tmp)
 
@@ -89,24 +92,24 @@ def build(
             dest_dir=tmp_path / "runtime",
             app_paths=["../app", "../lib"],
             verbose=verbose,
+            ui=ui,
         )
-        _log("  Runtime ready.", verbose)
 
         # Step 3: Install dependencies
         deps_dir = None
         if packages:
-            _log("Installing dependencies...", verbose=True)
+            ui.step("Installing dependencies...")
             deps_dir = tmp_path / "lib"
             install_dependencies(
                 packages=packages,
                 dest_dir=deps_dir,
                 python_version=python_version,
                 verbose=verbose,
+                ui=ui,
             )
-            _log("  Dependencies installed.", verbose)
 
         # Step 4: Package
-        _log(f"Packaging ({mode} mode)...", verbose=True)
+        ui.step(f"Packaging ({mode})...")
         if mode == "bundled":
             result = package_bundled(
                 project_dir=project_dir,
@@ -120,6 +123,7 @@ def build(
                 icon=icon,
                 deps_dir=deps_dir,
                 verbose=verbose,
+                ui=ui,
             )
             outputs = [result]
         else:
@@ -135,11 +139,10 @@ def build(
                 icon=icon,
                 deps_dir=deps_dir,
                 verbose=verbose,
+                ui=ui,
             )
 
-    _log(f"Build complete!", verbose=True)
-    for output in outputs:
-        _log(f"  -> {output}", verbose=True)
+    ui.build_summary(outputs)
 
     return outputs
 

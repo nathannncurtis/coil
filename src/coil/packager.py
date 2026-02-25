@@ -4,6 +4,8 @@ Portable: single-file .exe (bootloader + zip of runtime/app/deps).
 Bundled: directory containing the exe and all supporting files.
 """
 
+from __future__ import annotations
+
 import io
 import os
 import shutil
@@ -14,9 +16,13 @@ import tempfile
 import zipfile
 import zlib
 from pathlib import Path
+from typing import TYPE_CHECKING, Callable, Optional
 
 from coil.obfuscator import obfuscate_default, obfuscate_secure
 from coil.platforms import get_handler
+
+if TYPE_CHECKING:
+    from coil.ui import BuildUI
 
 # Trailer magic appended after the zip data in portable exes.
 _COIL_MAGIC = 0x434F494C  # "COIL"
@@ -37,9 +43,10 @@ def package_portable(
     target_os: str,
     gui: bool = False,
     secure: bool = False,
-    icon: str | None = None,
-    deps_dir: Path | None = None,
+    icon: Optional[str] = None,
+    deps_dir: Optional[Path] = None,
     verbose: bool = False,
+    ui: Optional[BuildUI] = None,
 ) -> list[Path]:
     """Create a portable build: single self-contained .exe per entry point.
 
@@ -69,7 +76,9 @@ def package_portable(
     for entry in entry_points:
         entry_name = Path(entry).stem if len(entry_points) > 1 else name
 
-        if verbose:
+        if ui is not None:
+            ui.detail(f"Packaging portable exe for {entry}")
+        elif verbose:
             print(f"Packaging portable exe for {entry}...")
 
         # Step 1: Build the full directory in a temp location
@@ -86,12 +95,25 @@ def package_portable(
                 icon=icon,
                 deps_dir=deps_dir,
                 verbose=verbose,
+                ui=ui,
             )
 
             # Step 2: Zip the staged directory
-            if verbose:
-                print("  Creating portable archive...")
-            zip_data = _zip_directory(stage_dir)
+            if ui is not None:
+                # Count files for progress bar
+                all_files = [f for f in stage_dir.rglob("*") if f.is_file()]
+                total_files = len(all_files)
+                with ui.file_progress("Creating archive", total=total_files) as progress:
+                    task = progress.add_task("", total=total_files)
+
+                    def _zip_cb(current: int, total: int) -> None:
+                        progress.advance(task)
+
+                    zip_data = _zip_directory(stage_dir, progress_callback=_zip_cb)
+            else:
+                if verbose:
+                    print("  Creating portable archive...")
+                zip_data = _zip_directory(stage_dir)
 
         # Step 3: Prepare bootloader stub (apply icon BEFORE appending zip,
         # because UpdateResource rewrites the PE and would strip appended data)
@@ -106,11 +128,15 @@ def package_portable(
             try:
                 set_exe_icon(stub_path, Path(icon))
                 stub = stub_path.read_bytes()
-                if verbose:
+                if ui is not None:
+                    ui.detail(f"Applied icon: {icon}")
+                elif verbose:
                     print(f"  Applied icon: {icon}")
             except Exception as e:
                 stub = bootloader_stub
-                if verbose:
+                if ui is not None:
+                    ui.warning(f"Could not apply icon: {e}")
+                elif verbose:
                     print(f"  Warning: Could not apply icon: {e}")
             finally:
                 stub_path.unlink(missing_ok=True)
@@ -127,7 +153,10 @@ def package_portable(
         target_exe.write_bytes(exe_data)
 
         results.append(target_exe)
-        if verbose:
+        if ui is not None:
+            from coil.ui import format_size
+            ui.detail(f"Created {target_exe.name} ({format_size(target_exe.stat().st_size)})")
+        elif verbose:
             size_mb = target_exe.stat().st_size / (1024 * 1024)
             print(f"  Created {target_exe.name} ({size_mb:.1f} MB)")
 
@@ -143,9 +172,10 @@ def package_bundled(
     target_os: str,
     gui: bool = False,
     secure: bool = False,
-    icon: str | None = None,
-    deps_dir: Path | None = None,
+    icon: Optional[str] = None,
+    deps_dir: Optional[Path] = None,
     verbose: bool = False,
+    ui: Optional[BuildUI] = None,
 ) -> Path:
     """Create a bundled build: directory with exe and supporting files.
 
@@ -172,7 +202,9 @@ def package_bundled(
     if bundle_dir.exists():
         shutil.rmtree(bundle_dir)
 
-    if verbose:
+    if ui is not None:
+        ui.detail(f"Creating bundled build in {bundle_dir}")
+    elif verbose:
         print(f"Creating bundled build in {bundle_dir}")
 
     # Build the full directory for the first (primary) entry point
@@ -189,6 +221,7 @@ def package_bundled(
         icon=icon,
         deps_dir=deps_dir,
         verbose=verbose,
+        ui=ui,
     )
 
     # For multiple entry points, create additional launchers
@@ -218,10 +251,14 @@ def package_bundled(
                 except Exception:
                     pass
 
-            if verbose:
+            if ui is not None:
+                ui.detail(f"Created launcher for {extra_entry}")
+            elif verbose:
                 print(f"  Created launcher for {extra_entry}")
 
-    if verbose:
+    if ui is not None:
+        ui.detail(f"Bundled build complete: {bundle_dir}")
+    elif verbose:
         print(f"Bundled build complete: {bundle_dir}")
 
     return bundle_dir
@@ -235,9 +272,10 @@ def _build_app_directory(
     entry_name: str,
     gui: bool,
     secure: bool,
-    icon: str | None,
-    deps_dir: Path | None,
+    icon: Optional[str],
+    deps_dir: Optional[Path],
     verbose: bool,
+    ui: Optional[BuildUI] = None,
 ) -> None:
     """Build the full application directory structure.
 
@@ -295,10 +333,12 @@ def _build_app_directory(
 
     # Compile source into _internal/app/
     if secure:
-        obfuscate_secure(project_dir, internal_dir)
+        obfuscate_secure(project_dir, internal_dir, ui=ui)
     else:
-        obfuscate_default(project_dir, internal_dir)
-    if verbose:
+        obfuscate_default(project_dir, internal_dir, ui=ui)
+    if ui is not None:
+        ui.detail(f"Compiled source ({'secure' if secure else 'default'} mode)")
+    elif verbose:
         print(f"  Compiled source ({'secure' if secure else 'default'} mode)")
 
     # Copy dependencies into _internal/lib/
@@ -306,7 +346,9 @@ def _build_app_directory(
         lib_dir = internal_dir / "lib"
         shutil.copytree(deps_dir, lib_dir)
         _remove_py_files(lib_dir)
-        if verbose:
+        if ui is not None:
+            ui.detail("Bundled dependencies")
+        elif verbose:
             print("  Bundled dependencies")
 
     # Create bootstrap script
@@ -329,36 +371,47 @@ def _build_app_directory(
         from coil.platforms.windows import set_exe_icon
         try:
             set_exe_icon(target_exe, Path(icon))
-            if verbose:
+            if ui is not None:
+                ui.detail(f"Embedded icon: {Path(icon).name}")
+            elif verbose:
                 print(f"  Embedded icon: {Path(icon).name}")
         except Exception as e:
-            if verbose:
+            if ui is not None:
+                ui.warning(f"Could not embed icon: {e}")
+            elif verbose:
                 print(f"  Warning: Could not embed icon: {e}")
 
     # Copy project assets (icons, configs, etc.) to root
-    _copy_project_assets(project_dir, stage_dir, verbose)
+    _copy_project_assets(project_dir, stage_dir, verbose, ui=ui)
 
 
-def _zip_directory(directory: Path) -> bytes:
+def _zip_directory(
+    directory: Path,
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+) -> bytes:
     """Zip an entire directory tree into an in-memory bytes object.
 
     Uses ZIP_STORED (no compression) so the bootloader can extract
     without needing a decompression library.
     """
     buf = io.BytesIO()
+    files = sorted(f for f in directory.rglob("*") if f.is_file())
+    total = len(files)
     with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
-        for file_path in sorted(directory.rglob("*")):
-            if file_path.is_file():
-                arcname = str(file_path.relative_to(directory))
-                zf.write(file_path, arcname)
+        for i, file_path in enumerate(files):
+            arcname = str(file_path.relative_to(directory))
+            zf.write(file_path, arcname)
+            if progress_callback is not None:
+                progress_callback(i + 1, total)
     return buf.getvalue()
 
 
 def install_dependencies(
     packages: list[str],
     dest_dir: Path,
-    python_version: str | None = None,
+    python_version: Optional[str] = None,
     verbose: bool = False,
+    ui: Optional[BuildUI] = None,
 ) -> Path:
     """Install dependencies into a directory for bundling.
 
@@ -367,6 +420,7 @@ def install_dependencies(
         dest_dir: Directory to install into.
         python_version: Target Python version.
         verbose: Verbose output.
+        ui: Optional BuildUI for progress display.
 
     Returns:
         Path to the directory containing installed packages.
@@ -388,16 +442,27 @@ def install_dependencies(
 
     cmd.extend(packages)
 
-    if verbose:
-        print(f"Installing dependencies: {', '.join(packages)}")
+    if ui is not None:
+        ui.detail(f"Installing: {', '.join(packages)}")
+        with ui.spinner("Installing dependencies..."):
+            try:
+                subprocess.run(cmd, check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                raise RuntimeError(
+                    f"Failed to install dependencies: {e}\n"
+                    "Check that all package names are correct."
+                ) from e
+    else:
+        if verbose:
+            print(f"Installing dependencies: {', '.join(packages)}")
 
-    try:
-        subprocess.run(cmd, check=True, capture_output=not verbose)
-    except subprocess.CalledProcessError as e:
-        raise RuntimeError(
-            f"Failed to install dependencies: {e}\n"
-            "Check that all package names are correct."
-        ) from e
+        try:
+            subprocess.run(cmd, check=True, capture_output=not verbose)
+        except subprocess.CalledProcessError as e:
+            raise RuntimeError(
+                f"Failed to install dependencies: {e}\n"
+                "Check that all package names are correct."
+            ) from e
 
     # Remove unnecessary files to reduce size
     _strip_installed_packages(dest_dir)
@@ -531,7 +596,10 @@ def _get_python_ver_tag(runtime_dir: Path) -> str:
 
 
 def _copy_project_assets(
-    project_dir: Path, dest_dir: Path, verbose: bool = False
+    project_dir: Path,
+    dest_dir: Path,
+    verbose: bool = False,
+    ui: Optional[BuildUI] = None,
 ) -> None:
     """Copy non-code assets from the project directory into the output.
 
@@ -559,7 +627,9 @@ def _copy_project_assets(
             dest = dest_dir / item.name
             if not dest.exists():
                 shutil.copy2(item, dest)
-                if verbose:
+                if ui is not None:
+                    ui.detail(f"Copied asset: {item.name}")
+                elif verbose:
                     print(f"  Copied asset: {item.name}")
         elif item.is_dir() and item.name not in skip_names:
             dest = dest_dir / item.name
@@ -570,7 +640,9 @@ def _copy_project_assets(
                 )
                 if has_assets:
                     shutil.copytree(item, dest)
-                    if verbose:
+                    if ui is not None:
+                        ui.detail(f"Copied asset directory: {item.name}/")
+                    elif verbose:
                         print(f"  Copied asset directory: {item.name}/")
 
 

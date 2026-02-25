@@ -13,6 +13,9 @@ authors = [
     {name = "Nathan Curtis"},
 ]
 keywords = ["compiler", "executable", "exe", "packaging", "distribution"]
+dependencies = [
+    "rich>=13.0",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
