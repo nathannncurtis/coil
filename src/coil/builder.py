@@ -45,6 +45,7 @@ def build(
     requirements: str | None = None,
     verbose: bool = False,
     clean: bool = False,
+    optimize: int | None = None,
 ) -> list[Path]:
     """Execute the full build pipeline.
 
@@ -64,6 +65,7 @@ def build(
         requirements: Explicit requirements file path.
         verbose: Verbose output.
         clean: Build in a clean environment with only declared dependencies.
+        optimize: Bytecode optimization level (0, 1, 2). None = auto.
 
     Returns:
         List of paths to created output files/directories.
@@ -164,6 +166,7 @@ def build(
                 deps_dir=deps_dir,
                 verbose=verbose,
                 ui=ui,
+                optimize=optimize,
             )
             outputs = [result]
         else:
@@ -180,6 +183,7 @@ def build(
                 deps_dir=deps_dir,
                 verbose=verbose,
                 ui=ui,
+                optimize=optimize,
             )
 
     ui.build_summary(outputs)

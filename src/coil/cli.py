@@ -142,6 +142,13 @@ def create_parser() -> argparse.ArgumentParser:
         help="Build in a clean virtual environment with only declared dependencies.",
     )
     build_parser.add_argument(
+        "--optimize",
+        type=int,
+        choices=[0, 1, 2],
+        default=None,
+        help="Bytecode optimization level: 0 (none), 1 (strip asserts), 2 (strip asserts + docstrings). Default: 1 for normal builds, 2 for --secure.",
+    )
+    build_parser.add_argument(
         "--clear-cache",
         action="store_true",
         default=False,
@@ -615,6 +622,7 @@ def main(argv: list[str] | None = None) -> None:
             print(f"  Python:       {python_version}")
             print(f"  GUI:          {args.gui}")
             print(f"  Secure:       {args.secure}")
+            print(f"  Optimize:     {optimize}")
             print(f"  Output:       {args.output}")
             print(f"  Name:         {name}")
             if icon:
@@ -626,6 +634,11 @@ def main(argv: list[str] | None = None) -> None:
             if args.requirements:
                 print(f"  Requirements: {args.requirements}")
             sys.exit(0)
+
+        # Resolve optimize level: default depends on --secure
+        optimize = args.optimize
+        if optimize is None:
+            optimize = 2 if args.secure else 1
 
         try:
             from coil.builder import build
@@ -645,6 +658,7 @@ def main(argv: list[str] | None = None) -> None:
                 requirements=args.requirements,
                 verbose=args.verbose,
                 clean=args.clean,
+                optimize=optimize,
             )
         except Exception as e:
             if args.verbose:

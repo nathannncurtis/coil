@@ -334,3 +334,25 @@ def test_gui_explicit_gui():
     parser = create_parser()
     args = parser.parse_args(["build", ".", "--gui"])
     assert args.gui is True
+
+
+def test_optimize_flag_default():
+    """--optimize defaults to None (auto-detected from --secure)."""
+    parser = create_parser()
+    args = parser.parse_args(["build", "."])
+    assert args.optimize is None
+
+
+def test_optimize_flag_explicit():
+    """--optimize accepts 0, 1, or 2."""
+    parser = create_parser()
+    for level in [0, 1, 2]:
+        args = parser.parse_args(["build", ".", "--optimize", str(level)])
+        assert args.optimize == level
+
+
+def test_optimize_flag_invalid():
+    """--optimize rejects invalid values."""
+    parser = create_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["build", ".", "--optimize", "3"])

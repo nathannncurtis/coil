@@ -47,6 +47,7 @@ def package_portable(
     deps_dir: Optional[Path] = None,
     verbose: bool = False,
     ui: Optional[BuildUI] = None,
+    optimize: Optional[int] = None,
 ) -> list[Path]:
     """Create a portable build: single self-contained .exe per entry point.
 
@@ -96,6 +97,7 @@ def package_portable(
                 deps_dir=deps_dir,
                 verbose=verbose,
                 ui=ui,
+                optimize=optimize,
             )
 
             # Step 2: Zip the staged directory
@@ -176,6 +178,7 @@ def package_bundled(
     deps_dir: Optional[Path] = None,
     verbose: bool = False,
     ui: Optional[BuildUI] = None,
+    optimize: Optional[int] = None,
 ) -> Path:
     """Create a bundled build: directory with exe and supporting files.
 
@@ -222,6 +225,7 @@ def package_bundled(
         deps_dir=deps_dir,
         verbose=verbose,
         ui=ui,
+        optimize=optimize,
     )
 
     # For multiple entry points, create additional launchers
@@ -276,6 +280,7 @@ def _build_app_directory(
     deps_dir: Optional[Path],
     verbose: bool,
     ui: Optional[BuildUI] = None,
+    optimize: Optional[int] = None,
 ) -> None:
     """Build the full application directory structure.
 
@@ -343,14 +348,16 @@ def _build_app_directory(
         shutil.copy2(runtime_dir / "python.exe", target_exe)
 
     # Compile source into _internal/app/
+    # Default optimize: 1 for default mode, 2 for secure mode
+    opt_level = optimize if optimize is not None else (2 if secure else 1)
     if secure:
-        obfuscate_secure(project_dir, internal_dir, ui=ui)
+        obfuscate_secure(project_dir, internal_dir, ui=ui, optimize=opt_level)
     else:
-        obfuscate_default(project_dir, internal_dir, ui=ui)
+        obfuscate_default(project_dir, internal_dir, ui=ui, optimize=opt_level)
     if ui is not None:
-        ui.detail(f"Compiled source ({'secure' if secure else 'default'} mode)")
+        ui.detail(f"Compiled source ({'secure' if secure else 'default'} mode, optimize={opt_level})")
     elif verbose:
-        print(f"  Compiled source ({'secure' if secure else 'default'} mode)")
+        print(f"  Compiled source ({'secure' if secure else 'default'} mode, optimize={opt_level})")
 
     # Copy dependencies into _internal/lib/
     if deps_dir and deps_dir.is_dir():

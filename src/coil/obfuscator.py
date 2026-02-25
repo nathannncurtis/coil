@@ -85,6 +85,7 @@ def obfuscate_default(
     source_dir: Path,
     output_dir: Path,
     ui: Optional[BuildUI] = None,
+    optimize: int = 1,
 ) -> Path:
     """Default obfuscation: compile to .pyc and embed recoverable source.
 
@@ -95,6 +96,8 @@ def obfuscate_default(
         source_dir: Project source directory.
         output_dir: Build output directory.
         ui: Optional BuildUI for progress display.
+        optimize: Bytecode optimization level (0, 1, or 2). Default 1
+                  strips assert statements for smaller bytecode.
 
     Returns:
         Path to the output directory containing compiled files.
@@ -112,9 +115,9 @@ def obfuscate_default(
             def _cb(current: int, total: int, path: Path) -> None:
                 progress.advance(task)
 
-            compile_directory(source_dir, app_dir, optimize=0, progress_callback=_cb)
+            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb)
     else:
-        compile_directory(source_dir, app_dir, optimize=0)
+        compile_directory(source_dir, app_dir, optimize=optimize)
 
     # Archive original source for recovery
     source_archive = app_dir / COIL_SOURCE_ARCHIVE
@@ -140,6 +143,7 @@ def obfuscate_secure(
     source_dir: Path,
     output_dir: Path,
     ui: Optional[BuildUI] = None,
+    optimize: int = 2,
 ) -> Path:
     """Secure obfuscation: bytecode-only, no recoverable source.
 
@@ -150,6 +154,8 @@ def obfuscate_secure(
         source_dir: Project source directory.
         output_dir: Build output directory.
         ui: Optional BuildUI for progress display.
+        optimize: Bytecode optimization level. Default 2 strips
+                  docstrings and assert statements.
 
     Returns:
         Path to the output directory containing compiled files.
@@ -157,7 +163,7 @@ def obfuscate_secure(
     app_dir = output_dir / "app"
     app_dir.mkdir(parents=True, exist_ok=True)
 
-    # Compile with optimization level 2 (strips docstrings and asserts)
+    # Compile with specified optimization level
     if ui is not None:
         py_files = sorted(source_dir.rglob("*.py"))
         total = len(py_files)
@@ -167,9 +173,9 @@ def obfuscate_secure(
             def _cb(current: int, total: int, path: Path) -> None:
                 progress.advance(task)
 
-            compile_directory(source_dir, app_dir, optimize=2, progress_callback=_cb)
+            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb)
     else:
-        compile_directory(source_dir, app_dir, optimize=2)
+        compile_directory(source_dir, app_dir, optimize=optimize)
 
     # Write metadata marking this as secure (no source archive)
     metadata = {

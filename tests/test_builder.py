@@ -260,3 +260,56 @@ def test_build_no_clean_uses_temp_dir(
     mock_install.assert_called_once()
     call_kwargs = mock_install.call_args[1]
     assert "_clean_envs" not in str(call_kwargs["dest_dir"])
+
+
+@patch("coil.builder.prepare_runtime")
+@patch("coil.builder.install_dependencies")
+@patch("coil.builder.package_bundled")
+@patch("coil.builder.resolve_dependencies")
+def test_build_passes_optimize(
+    mock_resolve, mock_bundle, mock_install, mock_runtime, tmp_path: Path
+):
+    project = _make_project(tmp_path)
+    mock_resolve.return_value = []
+    mock_runtime.return_value = tmp_path / "runtime"
+    (tmp_path / "runtime").mkdir()
+    mock_bundle.return_value = tmp_path / "dist" / "testproject"
+
+    build(
+        project_dir=project,
+        entry_points=["main.py"],
+        mode="bundled",
+        target_os="windows",
+        python_version="3.12",
+        output_dir=str(tmp_path / "dist"),
+        optimize=2,
+    )
+
+    call_kwargs = mock_bundle.call_args[1]
+    assert call_kwargs["optimize"] == 2
+
+
+@patch("coil.builder.prepare_runtime")
+@patch("coil.builder.install_dependencies")
+@patch("coil.builder.package_portable")
+@patch("coil.builder.resolve_dependencies")
+def test_build_passes_optimize_none_by_default(
+    mock_resolve, mock_portable, mock_install, mock_runtime, tmp_path: Path
+):
+    project = _make_project(tmp_path)
+    mock_resolve.return_value = []
+    mock_runtime.return_value = tmp_path / "runtime"
+    (tmp_path / "runtime").mkdir()
+    mock_portable.return_value = [tmp_path / "dist" / "testproject.exe"]
+
+    build(
+        project_dir=project,
+        entry_points=["main.py"],
+        mode="portable",
+        target_os="windows",
+        python_version="3.12",
+        output_dir=str(tmp_path / "dist"),
+    )
+
+    call_kwargs = mock_portable.call_args[1]
+    assert call_kwargs["optimize"] is None

@@ -298,3 +298,54 @@ def test_bootloader_stub_unknown_arch():
     import pytest
     with pytest.raises(RuntimeError, match="No bootloader available"):
         get_bootloader_stub("mips64")
+
+
+def test_package_bundled_optimize_level(tmp_path: Path):
+    """Optimize level is passed through to obfuscator."""
+    project = _make_project(tmp_path)
+    runtime = _make_runtime(tmp_path)
+    output = tmp_path / "dist"
+
+    result = package_bundled(
+        project_dir=project,
+        output_dir=output,
+        runtime_dir=runtime,
+        entry_points=["main.py"],
+        name="MyApp",
+        target_os="windows",
+        optimize=0,
+    )
+
+    # Should succeed with optimize=0
+    assert result.is_dir()
+    assert (result / "_internal" / "app" / "main.pyc").is_file()
+
+
+def test_package_bundled_optimize_default(tmp_path: Path):
+    """Default optimize: 1 for non-secure, 2 for secure."""
+    project = _make_project(tmp_path)
+    runtime = _make_runtime(tmp_path)
+    output = tmp_path / "dist"
+
+    # Non-secure default (optimize=None → 1)
+    result = package_bundled(
+        project_dir=project,
+        output_dir=output,
+        runtime_dir=runtime,
+        entry_points=["main.py"],
+        name="MyApp",
+        target_os="windows",
+    )
+    assert result.is_dir()
+
+    # Secure default (optimize=None → 2)
+    result2 = package_bundled(
+        project_dir=project,
+        output_dir=output,
+        runtime_dir=runtime,
+        entry_points=["main.py"],
+        name="SecApp",
+        target_os="windows",
+        secure=True,
+    )
+    assert result2.is_dir()
