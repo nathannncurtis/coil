@@ -388,14 +388,15 @@ def _build_app_directory(
 def _zip_directory(
     directory: Path,
     progress_callback: Optional[Callable[[int, int], None]] = None,
-    compress: bool = True,
+    compress: bool = False,
 ) -> bytes:
     """Zip an entire directory tree into an in-memory bytes object.
 
     Args:
         directory: Directory to zip.
         progress_callback: Optional callback(current, total).
-        compress: Use ZIP_DEFLATED compression. Reduces size 30-50%.
+        compress: Use ZIP_DEFLATED compression. Default False for
+                  bootloader compatibility (C bootloader only handles STORED).
     """
     buf = io.BytesIO()
     method = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
