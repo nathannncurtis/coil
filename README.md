@@ -86,9 +86,16 @@ coil build ./myproject --mode bundled
 
 ### GUI Application
 
-Suppress the console window for desktop apps:
+Coil auto-detects GUI frameworks. If your project imports `tkinter`, `PyQt5`, `PyQt6`, `PySide2`, `PySide6`, `wx`, `kivy`, `pygame`, `pyglet`, `dearpygui`, `customtkinter`, `flet`, `pystray`, `infi.systray`, or `plyer`, the console window is hidden automatically.
 
 ```bash
+# No --gui needed — Coil detects tkinter/PyQt5/etc. and hides the console
+coil build ./myproject
+
+# Force console window even with GUI imports
+coil build ./myproject --console
+
+# Explicitly set GUI mode (redundant if auto-detected, but works)
 coil build ./myproject --gui
 ```
 
