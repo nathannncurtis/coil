@@ -28,6 +28,12 @@ pip install coil-compiler
 coil build ./myproject
 ```
 
+Or, if `coil` isn't on your PATH:
+
+```bash
+python -m coil build ./myproject
+```
+
 That's it. Your executable is in `./dist/`.
 
 ## Installation
@@ -40,6 +46,10 @@ pip install coil-compiler
 - Python 3.9 or later
 - Windows (macOS and Linux support planned)
 - pip (for dependency installation during builds)
+
+> **Windows note:** If `coil` isn't recognized after install, your pip Scripts directory may not be on PATH. You can either:
+> - Use `python -m coil` instead (works the same way — all examples below apply)
+> - Or add Python's Scripts directory to your PATH (`python -m site --user-site` will show you where it is)
 
 ## Usage
 
