@@ -95,12 +95,13 @@ def package_portable(
 
         # Step 3: Prepare bootloader stub (apply icon BEFORE appending zip,
         # because UpdateResource rewrites the PE and would strip appended data)
-        from coil.bootloader import BOOTLOADER_STUB
+        from coil.bootloader import get_bootloader_stub
+        bootloader_stub = get_bootloader_stub()
 
         if icon and sys.platform == "win32":
             from coil.platforms.windows import set_exe_icon
             with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as tf:
-                tf.write(BOOTLOADER_STUB)
+                tf.write(bootloader_stub)
                 stub_path = Path(tf.name)
             try:
                 set_exe_icon(stub_path, Path(icon))
@@ -108,13 +109,13 @@ def package_portable(
                 if verbose:
                     print(f"  Applied icon: {icon}")
             except Exception as e:
-                stub = BOOTLOADER_STUB
+                stub = bootloader_stub
                 if verbose:
                     print(f"  Warning: Could not apply icon: {e}")
             finally:
                 stub_path.unlink(missing_ok=True)
         else:
-            stub = BOOTLOADER_STUB
+            stub = bootloader_stub
 
         # Step 4: Combine stub + zip + 12-byte trailer
         zip_offset = len(stub)

@@ -1,19 +1,33 @@
-"""Pre-compiled bootloader stub for portable single-file executables.
+"""Pre-compiled bootloader stubs for portable single-file executables.
 
 Bootloader v2: hash-based cache, atomic extraction marker,
 mutex lock, fallback directories, cache cleanup.
+
+Architecture support:
+  - x86_64: Windows AMD64 (current)
+  - aarch64: Windows ARM64 (planned)
+
+Trailer format (12 bytes at end of portable exe):
+  [zip_offset: u32] [build_hash: u32] [magic: u32 = 0x434F494C]
 """
 
 import base64
+import platform
+
 
 BOOTLOADER_VERSION = 2
-BOOTLOADER_ARCH = "x86_64"
-BOOTLOADER_SIZE = 23040
 
+# Available bootloader stubs keyed by architecture.
+# Each entry: (size_bytes, base64_data)
+# Only x86_64 is compiled currently. ARM64 stub will be added when
+# an aarch64 target toolchain is available.
+_STUBS: dict[str, tuple[int, bytes]] = {}
+
+# --- x86_64 stub ---
 # 23040 bytes, compiled from templates/bootloader.c
 # zig cc -Os -target x86_64-windows-gnu -Wl,--subsystem,windows -Wl,--strip-all -municode
 
-BOOTLOADER_STUB = base64.b64decode(
+_STUBS["x86_64"] = (23040, base64.b64decode(
     b"TVp4AAEAAAAEAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     b"AAAAeAAAAA4fug4AtAnNIbgBTM0hVGhpcyBwcm9ncmFtIGNhbm5vdCBiZSBydW4gaW4gRE9TIG1v"
     b"ZGUuJAAAUEUAAGSGBwBXiUlkAAAAAAAAAADwACIACwIOAAAiAAAANAAAAAAAADAdAAAAEAAAAAAA"
@@ -419,4 +433,43 @@ BOOTLOADER_STUB = base64.b64decode(
     b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     b"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     b"AAAAAAAAAAAAAAAA"
-)
+))
+
+
+def get_bootloader_stub(arch: str | None = None) -> bytes:
+    """Get the pre-compiled bootloader stub for the given architecture.
+
+    Args:
+        arch: Target architecture ("x86_64" or "aarch64").
+              Defaults to the current machine's architecture.
+
+    Returns:
+        Raw bytes of the bootloader PE executable.
+
+    Raises:
+        RuntimeError: If no bootloader is available for the target arch.
+    """
+    if arch is None:
+        machine = platform.machine().lower()
+        if machine in ("amd64", "x86_64"):
+            arch = "x86_64"
+        elif machine in ("arm64", "aarch64"):
+            arch = "aarch64"
+        else:
+            arch = "x86_64"
+
+    if arch not in _STUBS:
+        available = ", ".join(_STUBS.keys()) or "none"
+        raise RuntimeError(
+            f"No bootloader available for architecture '{arch}'. "
+            f"Available: {available}"
+        )
+
+    _size, data = _STUBS[arch]
+    return data
+
+
+# Legacy alias for backwards compatibility
+BOOTLOADER_STUB = get_bootloader_stub("x86_64")
+BOOTLOADER_ARCH = "x86_64"
+BOOTLOADER_SIZE = _STUBS["x86_64"][0]

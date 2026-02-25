@@ -17,6 +17,12 @@ from coil.packager import (
     _zip_directory,
     _COIL_MAGIC,
 )
+from coil.bootloader import (
+    BOOTLOADER_VERSION,
+    BOOTLOADER_ARCH,
+    BOOTLOADER_SIZE,
+    get_bootloader_stub,
+)
 
 
 def _make_project(base: Path) -> Path:
@@ -268,3 +274,27 @@ def test_get_python_ver_tag(tmp_path: Path):
 
 def test_get_python_ver_tag_empty(tmp_path: Path):
     assert _get_python_ver_tag(tmp_path) == ""
+
+
+def test_bootloader_version():
+    assert BOOTLOADER_VERSION >= 2
+    assert BOOTLOADER_ARCH == "x86_64"
+    assert BOOTLOADER_SIZE > 0
+
+
+def test_bootloader_stub_valid_pe():
+    stub = get_bootloader_stub("x86_64")
+    assert len(stub) == BOOTLOADER_SIZE
+    assert stub[:2] == b"MZ"
+
+
+def test_bootloader_stub_default_arch():
+    stub = get_bootloader_stub()
+    assert len(stub) > 0
+    assert stub[:2] == b"MZ"
+
+
+def test_bootloader_stub_unknown_arch():
+    import pytest
+    with pytest.raises(RuntimeError, match="No bootloader available"):
+        get_bootloader_stub("mips64")
