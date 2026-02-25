@@ -440,6 +440,11 @@ if os.path.isdir(_lib) and _lib not in sys.path:
 
 _entry = os.path.join(_app, "{entry_point}")
 
+if not os.path.isfile(_entry):
+    print(f"Fatal: Entry point not found: {{_entry}}", file=sys.stderr)
+    print("The application may be corrupted. Try deleting the cache and re-launching.", file=sys.stderr)
+    sys.exit(1)
+
 try:
     if _entry.endswith(".pyc"):
         import importlib.util
@@ -455,8 +460,18 @@ try:
             exec(compile(f.read(), _entry, "exec"), {{"__name__": "__main__", "__file__": _entry}})
 except SystemExit:
     raise
+except ImportError as e:
+    print(f"Fatal: Missing module or extension: {{e}}", file=sys.stderr)
+    if hasattr(e, "name") and e.name:
+        print(f"  Module: {{e.name}}", file=sys.stderr)
+        _ext = os.path.join(_here, e.name.replace(".", os.sep))
+        _pyd = _ext + ".pyd"
+        _so = _ext + ".so"
+        if not os.path.isfile(_pyd) and not os.path.isfile(_so):
+            print(f"  Extension file not found. Was this dependency included in the build?", file=sys.stderr)
+    sys.exit(1)
 except Exception as e:
-    print(f"Error: {{e}}", file=sys.stderr)
+    print(f"Fatal: {{type(e).__name__}}: {{e}}", file=sys.stderr)
     sys.exit(1)
 '''
 

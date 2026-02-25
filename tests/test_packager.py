@@ -252,6 +252,13 @@ def test_generate_bootstrap_script():
     assert "main.pyc" in script
     assert "sys.path" in script
     assert "__main__" in script
+    # Should have error handling for missing entry point
+    assert "not found" in script.lower() or "isfile" in script
+    # Should catch ImportError specifically
+    assert "ImportError" in script
+    # Should not call sys.exit(0) — that breaks sitecustomize
+    lines = [l.strip() for l in script.splitlines()]
+    assert "sys.exit(0)" not in lines
 
 
 def test_get_python_ver_tag(tmp_path: Path):
