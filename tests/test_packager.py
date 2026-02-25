@@ -131,11 +131,16 @@ def test_package_portable(tmp_path: Path):
     # Should be a SINGLE file, no directory
     assert not (output / "MyApp").is_dir()
 
-    # Verify it starts with MZ (valid PE) and ends with COIL magic
+    # Verify it starts with MZ (valid PE) and ends with 12-byte COIL trailer
     data = exe_path.read_bytes()
     assert data[:2] == b"MZ"
+    # Trailer: [zip_offset:u32][build_hash:u32][magic:u32]
     magic = struct.unpack_from("<I", data, len(data) - 4)[0]
     assert magic == _COIL_MAGIC
+    build_hash = struct.unpack_from("<I", data, len(data) - 8)[0]
+    zip_offset = struct.unpack_from("<I", data, len(data) - 12)[0]
+    assert zip_offset > 0
+    assert build_hash != 0
 
 
 def test_package_portable_gui(tmp_path: Path):

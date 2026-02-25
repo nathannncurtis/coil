@@ -12,6 +12,7 @@ import subprocess
 import sys
 import tempfile
 import zipfile
+import zlib
 from pathlib import Path
 
 from coil.obfuscator import obfuscate_default, obfuscate_secure
@@ -115,9 +116,10 @@ def package_portable(
         else:
             stub = BOOTLOADER_STUB
 
-        # Step 4: Combine stub + zip + trailer
+        # Step 4: Combine stub + zip + 12-byte trailer
         zip_offset = len(stub)
-        trailer = struct.pack("<II", zip_offset, _COIL_MAGIC)
+        build_hash = zlib.crc32(zip_data) & 0xFFFFFFFF
+        trailer = struct.pack("<III", zip_offset, build_hash, _COIL_MAGIC)
         exe_data = bytes(stub) + zip_data + trailer
 
         target_exe = output_dir / f"{entry_name}.exe"
@@ -456,8 +458,6 @@ except SystemExit:
 except Exception as e:
     print(f"Error: {{e}}", file=sys.stderr)
     sys.exit(1)
-
-sys.exit(0)
 '''
 
 
