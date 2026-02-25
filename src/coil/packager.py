@@ -388,16 +388,21 @@ def _build_app_directory(
 def _zip_directory(
     directory: Path,
     progress_callback: Optional[Callable[[int, int], None]] = None,
+    compress: bool = True,
 ) -> bytes:
     """Zip an entire directory tree into an in-memory bytes object.
 
-    Uses ZIP_STORED (no compression) so the bootloader can extract
-    without needing a decompression library.
+    Args:
+        directory: Directory to zip.
+        progress_callback: Optional callback(current, total).
+        compress: Use ZIP_DEFLATED compression. Reduces size 30-50%.
     """
     buf = io.BytesIO()
+    method = zipfile.ZIP_DEFLATED if compress else zipfile.ZIP_STORED
+    compresslevel = 9 if compress else None
     files = sorted(f for f in directory.rglob("*") if f.is_file())
     total = len(files)
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+    with zipfile.ZipFile(buf, "w", method, compresslevel=compresslevel) as zf:
         for i, file_path in enumerate(files):
             arcname = str(file_path.relative_to(directory))
             zf.write(file_path, arcname)
