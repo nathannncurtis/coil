@@ -119,6 +119,14 @@ def run_inspect(
 
     console.print(f"Python target: {python_version}")
 
+    # GUI mode detection
+    from coil.scanner import detect_gui_imports
+    gui_imports = detect_gui_imports(project_dir)
+    if gui_imports:
+        console.print(f"GUI mode: auto-detected (found: {', '.join(gui_imports)})")
+    else:
+        console.print("GUI mode: no (console app)")
+
     # Dependencies
     dep_source = _get_dep_source(project_dir, requirements)
     console.print(f"\n[bold]Dependencies[/bold] ({dep_source}):")

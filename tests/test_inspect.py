@@ -116,6 +116,23 @@ def test_run_inspect_with_profile(tmp_path: Path, capsys):
     assert "release" in out
 
 
+def test_run_inspect_gui_detected(tmp_path: Path, capsys):
+    (tmp_path / "main.py").write_text("import tkinter\ntkinter.Tk()\n")
+    exit_code = run_inspect(tmp_path)
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "auto-detected" in out
+    assert "tkinter" in out
+
+
+def test_run_inspect_no_gui(tmp_path: Path, capsys):
+    (tmp_path / "main.py").write_text("import os\nprint(1)\n")
+    exit_code = run_inspect(tmp_path)
+    assert exit_code == 0
+    out = capsys.readouterr().out
+    assert "console app" in out
+
+
 def test_run_inspect_exclude(tmp_path: Path, capsys):
     (tmp_path / "main.py").write_text("import os\n")
     (tmp_path / "requirements.txt").write_text("requests\nnumpy\n")
