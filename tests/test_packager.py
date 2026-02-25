@@ -211,6 +211,40 @@ def test_zip_directory(tmp_path: Path):
         assert "sub\\b.txt" in names or "sub/b.txt" in names
 
 
+def test_zip_directory_compression(tmp_path: Path):
+    """Verify that compress=True produces DEFLATED entries and smaller output."""
+    src = tmp_path / "comptest"
+    src.mkdir()
+    # Write repetitive data so DEFLATED compresses well
+    (src / "data.txt").write_bytes(b"hello world\n" * 1000)
+
+    stored = _zip_directory(src, compress=False)
+    deflated = _zip_directory(src, compress=True)
+
+    # DEFLATED should be smaller than STORED for repetitive data
+    assert len(deflated) < len(stored)
+
+    # Both should be valid zips with the same content
+    import io
+    with zipfile.ZipFile(io.BytesIO(deflated), "r") as zf:
+        assert "data.txt" in zf.namelist()
+        assert zf.read("data.txt") == b"hello world\n" * 1000
+
+
+def test_zip_directory_default_is_compressed(tmp_path: Path):
+    """Verify _zip_directory defaults to compression (compress=True)."""
+    src = tmp_path / "deftest"
+    src.mkdir()
+    (src / "data.txt").write_text("aaaa" * 500)
+
+    zip_bytes = _zip_directory(src)
+
+    import io
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
+        info = zf.infolist()[0]
+        assert info.compress_type == zipfile.ZIP_DEFLATED
+
+
 def test_add_dir_to_zip(tmp_path: Path):
     src = tmp_path / "source"
     src.mkdir()
