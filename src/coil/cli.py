@@ -570,6 +570,7 @@ def main(argv: list[str] | None = None) -> None:
                 icon=icon,
                 requirements=args.requirements,
                 verbose=args.verbose,
+                clean=args.clean,
             )
         except Exception as e:
             if args.verbose:

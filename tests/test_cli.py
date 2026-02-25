@@ -289,3 +289,26 @@ def test_apply_toml_config_bad_profile(tmp_path: Path):
 
     with pytest.raises(SystemExit):
         _apply_toml_config(args, tmp_path)
+
+
+def test_apply_toml_config_clean(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\nclean = true\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.clean is True
+
+
+def test_apply_toml_config_clean_cli_override(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\nclean = false\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--clean"])
+    _apply_toml_config(args, tmp_path)
+
+    # CLI --clean should still be True
+    assert args.clean is True

@@ -4,16 +4,29 @@ Coordinates the full build pipeline: dependency resolution, runtime setup,
 compilation, obfuscation, and packaging.
 """
 
+import hashlib
 import shutil
 import sys
 import tempfile
 from pathlib import Path
 
-from coil.cli import detect_os, detect_python_version, resolve_entry_points
+from coil.cli import detect_os, detect_python_version, get_cache_dir, resolve_entry_points
 from coil.packager import install_dependencies, package_bundled, package_portable
 from coil.resolver import resolve_dependencies
 from coil.runtime import prepare_runtime
 from coil.ui import BuildUI
+
+
+def _compute_deps_hash(packages: list[str]) -> str:
+    """Compute a hash of the sorted dependency list for clean build caching."""
+    normalized = sorted(p.lower().strip() for p in packages)
+    content = "\n".join(normalized)
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()[:16]
+
+
+def _get_clean_env_dir(deps_hash: str) -> Path:
+    """Get the cache directory for a clean build environment."""
+    return get_cache_dir() / "_clean_envs" / deps_hash
 
 
 def build(
@@ -31,6 +44,7 @@ def build(
     icon: str | None = None,
     requirements: str | None = None,
     verbose: bool = False,
+    clean: bool = False,
 ) -> list[Path]:
     """Execute the full build pipeline.
 
@@ -49,6 +63,7 @@ def build(
         icon: Path to icon file.
         requirements: Explicit requirements file path.
         verbose: Verbose output.
+        clean: Build in a clean environment with only declared dependencies.
 
     Returns:
         List of paths to created output files/directories.
@@ -98,15 +113,40 @@ def build(
         # Step 3: Install dependencies
         deps_dir = None
         if packages:
-            ui.step("Installing dependencies...")
-            deps_dir = tmp_path / "lib"
-            install_dependencies(
-                packages=packages,
-                dest_dir=deps_dir,
-                python_version=python_version,
-                verbose=verbose,
-                ui=ui,
-            )
+            if clean:
+                deps_hash = _compute_deps_hash(packages)
+                clean_dir = _get_clean_env_dir(deps_hash)
+                marker = clean_dir / ".coil_ready"
+
+                if marker.is_file():
+                    ui.step("Using cached clean environment...")
+                    ui.detail(f"Cache hit: {deps_hash}")
+                    deps_dir = clean_dir
+                else:
+                    ui.step("Creating clean build environment...")
+                    if clean_dir.exists():
+                        shutil.rmtree(clean_dir)
+                    clean_dir.mkdir(parents=True, exist_ok=True)
+                    install_dependencies(
+                        packages=packages,
+                        dest_dir=clean_dir,
+                        python_version=python_version,
+                        verbose=verbose,
+                        ui=ui,
+                    )
+                    marker.write_text(deps_hash, encoding="utf-8")
+                    ui.detail(f"Cached clean environment: {deps_hash}")
+                    deps_dir = clean_dir
+            else:
+                ui.step("Installing dependencies...")
+                deps_dir = tmp_path / "lib"
+                install_dependencies(
+                    packages=packages,
+                    dest_dir=deps_dir,
+                    python_version=python_version,
+                    verbose=verbose,
+                    ui=ui,
+                )
 
         # Step 4: Package
         ui.step(f"Packaging ({mode})...")
