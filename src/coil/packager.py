@@ -118,10 +118,11 @@ def package_portable(
     deps_dir: Path | None = None,
     verbose: bool = False,
 ) -> list[Path]:
-    """Create a portable build: single self-contained archive per entry point.
+    """Create a portable build: self-contained directory per entry point.
 
-    Each entry point produces its own standalone executable that
-    extracts to a temp directory and runs.
+    Produces a directory containing the embedded Python runtime renamed
+    to the application name, with all code and dependencies bundled.
+    The .exe is a real Python interpreter so it runs natively on Windows.
 
     Args:
         project_dir: Source project directory.
@@ -139,62 +140,82 @@ def package_portable(
     Returns:
         List of paths to created portable executables.
     """
-    import tempfile
-
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[Path] = []
 
-    # Build in a temp directory first
-    with tempfile.TemporaryDirectory() as tmp:
-        tmp_path = Path(tmp)
+    for entry in entry_points:
+        entry_pyc = entry.replace(".py", ".pyc")
+        entry_name = Path(entry).stem if len(entry_points) > 1 else name
 
-        # Obfuscate source
-        if secure:
-            app_dir = obfuscate_secure(project_dir, tmp_path)
+        if verbose:
+            print(f"Packaging portable exe for {entry}...")
+
+        # Create the portable directory
+        portable_dir = output_dir / entry_name
+        if portable_dir.exists():
+            shutil.rmtree(portable_dir)
+        portable_dir.mkdir(parents=True)
+
+        # Copy the entire runtime into the portable dir
+        for item in runtime_dir.iterdir():
+            dest = portable_dir / item.name
+            if item.is_dir():
+                shutil.copytree(item, dest)
+            else:
+                shutil.copy2(item, dest)
+
+        # Pick the right Python exe: pythonw.exe for GUI, python.exe for console
+        source_exe_name = "pythonw.exe" if gui else "python.exe"
+        source_exe = portable_dir / source_exe_name
+        target_exe = portable_dir / f"{entry_name}.exe"
+
+        if source_exe.is_file():
+            shutil.copy2(source_exe, target_exe)
         else:
-            app_dir = obfuscate_default(project_dir, tmp_path)
+            # Fallback: just copy python.exe
+            fallback = portable_dir / "python.exe"
+            if fallback.is_file():
+                shutil.copy2(fallback, target_exe)
 
-        for entry in entry_points:
-            entry_pyc = entry.replace(".py", ".pyc")
-            entry_name = Path(entry).stem if len(entry_points) > 1 else name
+        # Obfuscate and compile source into app/ subdirectory
+        if secure:
+            app_dir = obfuscate_secure(project_dir, portable_dir)
+        else:
+            app_dir = obfuscate_default(project_dir, portable_dir)
+        if verbose:
+            print(f"  Compiled source ({'secure' if secure else 'default'} mode)")
 
+        # Copy dependencies into lib/ subdirectory
+        if deps_dir and deps_dir.is_dir():
+            lib_dir = portable_dir / "lib"
+            shutil.copytree(deps_dir, lib_dir)
+            _remove_py_files(lib_dir)
             if verbose:
-                print(f"Packaging portable exe for {entry}...")
+                print("  Bundled dependencies")
 
-            # Create a zip containing everything
-            zip_name = f"{entry_name}.zip"
-            zip_path = output_dir / zip_name
-            exe_path = output_dir / f"{entry_name}.exe"
+        # Create the bootstrap __main__.py that the exe will run
+        bootstrap = _generate_bootstrap_script(entry_pyc)
+        bootstrap_path = portable_dir / f"_boot_{entry_name}.py"
+        bootstrap_path.write_text(bootstrap, encoding="utf-8")
 
-            with zipfile.ZipFile(zip_path, "w", zipfile.ZIP_DEFLATED) as zf:
-                # Add runtime
-                _add_dir_to_zip(zf, runtime_dir, "runtime")
+        # Configure the ._pth file so the exe finds everything
+        _configure_portable_pth(portable_dir, entry_name)
 
-                # Add compiled app
-                _add_dir_to_zip(zf, app_dir, "app")
+        # If GUI mode, set PE subsystem on the copied exe
+        if gui and target_exe.is_file():
+            from coil.platforms.windows import set_pe_subsystem
+            try:
+                set_pe_subsystem(target_exe, gui=True)
+            except Exception:
+                pass  # Best effort — pythonw.exe already has GUI subsystem
 
-                # Add dependencies
-                if deps_dir and deps_dir.is_dir():
-                    _add_dir_to_zip(zf, deps_dir, "lib")
-
-                # Add launcher script
-                handler = get_handler(target_os)
-                launcher_content = _generate_portable_launcher(
-                    entry_pyc, gui
-                )
-                zf.writestr("__main__.py", launcher_content)
-
-            # Create self-extracting exe by prepending a stub
-            _create_self_extracting_exe(zip_path, exe_path, gui, verbose)
-
-            # Remove the intermediate zip
-            if zip_path.exists() and exe_path.exists():
-                zip_path.unlink()
-
-            results.append(exe_path)
-            if verbose:
-                size_mb = exe_path.stat().st_size / (1024 * 1024)
-                print(f"  Created {exe_path} ({size_mb:.1f} MB)")
+        results.append(target_exe)
+        if verbose:
+            total_size = sum(
+                f.stat().st_size for f in portable_dir.rglob("*") if f.is_file()
+            )
+            size_mb = total_size / (1024 * 1024)
+            print(f"  Created {target_exe} ({size_mb:.1f} MB)")
 
     return results
 
@@ -262,93 +283,81 @@ def _add_dir_to_zip(
             zf.write(file_path, arcname)
 
 
-def _generate_portable_launcher(entry_point: str, gui: bool) -> str:
-    """Generate the launcher script embedded in the portable archive."""
+def _generate_bootstrap_script(entry_point: str) -> str:
+    """Generate the bootstrap script that runs the entry point."""
     return f'''\
 import os
 import sys
-import tempfile
-import zipfile
 
-def main():
-    # Get the path to this archive
-    archive = os.path.dirname(os.path.abspath(__file__))
-    if not os.path.isdir(os.path.join(archive, "runtime")):
-        # We're inside a zip/exe, need to extract
-        exe_path = sys.executable if getattr(sys, "frozen", False) else sys.argv[0]
-        cache_dir = os.path.join(tempfile.gettempdir(), "coil_cache")
-        app_name = os.path.splitext(os.path.basename(exe_path))[0]
-        extract_dir = os.path.join(cache_dir, app_name)
+_base = os.path.dirname(os.path.abspath(__file__))
+_app = os.path.join(_base, "app")
+_lib = os.path.join(_base, "lib")
 
-        if not os.path.isdir(os.path.join(extract_dir, "runtime")):
-            os.makedirs(extract_dir, exist_ok=True)
-            with zipfile.ZipFile(exe_path, "r") as zf:
-                zf.extractall(extract_dir)
+if _app not in sys.path:
+    sys.path.insert(0, _app)
+if os.path.isdir(_lib) and _lib not in sys.path:
+    sys.path.insert(0, _lib)
 
-        archive = extract_dir
-
-    runtime_python = os.path.join(archive, "runtime", "python.exe")
-    app_dir = os.path.join(archive, "app")
-    lib_dir = os.path.join(archive, "lib")
-    launcher = os.path.join(archive, "app", "{entry_point}")
-
-    env = os.environ.copy()
-    paths = [app_dir]
-    if os.path.isdir(lib_dir):
-        paths.append(lib_dir)
-    env["PYTHONPATH"] = os.pathsep.join(paths)
-
-    import subprocess
-    cmd = [runtime_python, "-c",
-        "import importlib.util, sys; "
-        "spec = importlib.util.spec_from_file_location(\\'__main__\\', r\\'"+launcher+"\\'); "
-        "mod = importlib.util.module_from_spec(spec); "
-        "sys.modules[\\'__main__\\'] = mod; "
-        "spec.loader.exec_module(mod)"
-    ]
-
-    sys.exit(subprocess.call(cmd, env=env))
-
-if __name__ == "__main__":
-    main()
+_entry = os.path.join(_app, "{entry_point}")
+if _entry.endswith(".pyc"):
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("__main__", _entry)
+    if spec and spec.loader:
+        mod = importlib.util.module_from_spec(spec)
+        mod.__name__ = "__main__"
+        mod.__file__ = _entry
+        sys.modules["__main__"] = mod
+        spec.loader.exec_module(mod)
+else:
+    with open(_entry) as f:
+        exec(compile(f.read(), _entry, "exec"), {{"__name__": "__main__", "__file__": _entry}})
 '''
 
 
-def _create_self_extracting_exe(
-    zip_path: Path,
-    exe_path: Path,
-    gui: bool,
-    verbose: bool,
-) -> None:
-    """Create a self-extracting executable from a zip file.
+def _configure_portable_pth(portable_dir: Path, entry_name: str) -> None:
+    """Configure the ._pth file so the portable exe finds the bootstrap script.
 
-    Prepends a small stub to the zip that extracts and runs the content.
+    The ._pth file controls sys.path for the embeddable distribution.
+    We configure it to include the app and lib directories, and to run
+    the bootstrap script.
     """
-    # For now, create a batch+zip combo that self-extracts
-    stub = _generate_sfx_stub(gui)
+    pth_files = list(portable_dir.glob("python*._pth"))
+    if not pth_files:
+        return
 
-    with open(exe_path, "wb") as out:
-        out.write(stub.encode("utf-8"))
-        with open(zip_path, "rb") as zf:
-            shutil.copyfileobj(zf, out)
+    pth_file = pth_files[0]
+    boot_script = f"_boot_{entry_name}.py"
 
-
-def _generate_sfx_stub(gui: bool) -> str:
-    """Generate the self-extracting stub script."""
-    return (
-        '@echo off\n'
-        'setlocal\n'
-        'set "TMPDIR=%TEMP%\\coil_sfx_%~n0"\n'
-        'if not exist "%TMPDIR%\\runtime\\python.exe" (\n'
-        '    mkdir "%TMPDIR%" 2>nul\n'
-        '    powershell -Command "'
-        "Expand-Archive -Path '%~f0' -DestinationPath '%TMPDIR%' -Force"
-        '"\n'
-        ')\n'
-        '"%TMPDIR%\\runtime\\python.exe" "%TMPDIR%\\__main__.py" %*\n'
-        'exit /b %errorlevel%\n'
-        '\n'
+    pth_file.write_text(
+        f"python{_get_python_ver_tag(portable_dir)}.zip\n"
+        f".\n"
+        f"app\n"
+        f"lib\n"
+        f"import site\n",
+        encoding="utf-8",
     )
+
+    # Create a sitecustomize.py that runs the bootstrap on startup
+    site_custom = portable_dir / "sitecustomize.py"
+    site_custom.write_text(
+        f"import os, sys\n"
+        f"_base = os.path.dirname(os.path.abspath(__file__))\n"
+        f"_boot = os.path.join(_base, '{boot_script}')\n"
+        f"if os.path.isfile(_boot) and '--help' not in sys.argv:\n"
+        f"    exec(open(_boot).read())\n"
+        f"    sys.exit(0)\n",
+        encoding="utf-8",
+    )
+
+
+def _get_python_ver_tag(runtime_dir: Path) -> str:
+    """Extract the python version tag (e.g. '313') from the runtime directory."""
+    for f in runtime_dir.glob("python*.dll"):
+        name = f.stem  # e.g. "python313"
+        tag = name.replace("python", "")
+        if tag and tag.isdigit():
+            return tag
+    return ""
 
 
 def _remove_py_files(directory: Path) -> None:

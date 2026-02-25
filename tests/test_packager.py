@@ -7,10 +7,12 @@ import zipfile
 
 from coil.packager import (
     package_bundled,
+    package_portable,
     _add_dir_to_zip,
     _remove_py_files,
     _strip_installed_packages,
-    _generate_sfx_stub,
+    _generate_bootstrap_script,
+    _get_python_ver_tag,
 )
 
 
@@ -27,7 +29,8 @@ def _make_runtime(base: Path) -> Path:
     """Create a fake runtime directory."""
     runtime = base / "runtime"
     runtime.mkdir()
-    (runtime / "python.exe").write_bytes(b"fake python")
+    (runtime / "python.exe").write_bytes(b"MZ" + b"\x00" * 200)
+    (runtime / "pythonw.exe").write_bytes(b"MZ" + b"\x00" * 200)
     (runtime / "python313.dll").write_bytes(b"fake dll")
     (runtime / "python313._pth").write_text("python313.zip\n.\n")
     return runtime
@@ -72,7 +75,6 @@ def test_package_bundled_secure(tmp_path: Path):
 
     assert result.is_dir()
     assert (result / "app" / "main.pyc").is_file()
-    # Secure mode should not have source archive
     from coil.obfuscator import COIL_SOURCE_ARCHIVE
     assert not (result / "app" / COIL_SOURCE_ARCHIVE).exists()
 
@@ -117,6 +119,71 @@ def test_package_bundled_with_deps(tmp_path: Path):
     assert (result / "lib").is_dir()
 
 
+def test_package_portable(tmp_path: Path):
+    project = _make_project(tmp_path)
+    runtime = _make_runtime(tmp_path)
+    output = tmp_path / "dist"
+
+    results = package_portable(
+        project_dir=project,
+        output_dir=output,
+        runtime_dir=runtime,
+        entry_points=["main.py"],
+        name="MyApp",
+        target_os="windows",
+    )
+
+    assert len(results) == 1
+    exe_path = results[0]
+    assert exe_path.name == "MyApp.exe"
+    assert exe_path.is_file()
+
+    portable_dir = exe_path.parent
+    assert (portable_dir / "app" / "main.pyc").is_file()
+    assert (portable_dir / "python313.dll").is_file()
+    assert (portable_dir / "_boot_MyApp.py").is_file()
+    assert (portable_dir / "sitecustomize.py").is_file()
+
+
+def test_package_portable_gui(tmp_path: Path):
+    project = _make_project(tmp_path)
+    runtime = _make_runtime(tmp_path)
+    output = tmp_path / "dist"
+
+    results = package_portable(
+        project_dir=project,
+        output_dir=output,
+        runtime_dir=runtime,
+        entry_points=["main.py"],
+        name="MyApp",
+        target_os="windows",
+        gui=True,
+    )
+
+    assert len(results) == 1
+    assert results[0].name == "MyApp.exe"
+
+
+def test_package_portable_multiple_entries(tmp_path: Path):
+    project = _make_project(tmp_path)
+    runtime = _make_runtime(tmp_path)
+    output = tmp_path / "dist"
+
+    results = package_portable(
+        project_dir=project,
+        output_dir=output,
+        runtime_dir=runtime,
+        entry_points=["main.py", "helper.py"],
+        name="MyApp",
+        target_os="windows",
+    )
+
+    assert len(results) == 2
+    names = {r.name for r in results}
+    assert "main.exe" in names
+    assert "helper.exe" in names
+
+
 def test_add_dir_to_zip(tmp_path: Path):
     src = tmp_path / "source"
     src.mkdir()
@@ -159,8 +226,17 @@ def test_strip_installed_packages(tmp_path: Path):
     assert (tmp_path / "actual_code.py").exists()
 
 
-def test_generate_sfx_stub():
-    stub = _generate_sfx_stub(gui=False)
-    assert "@echo off" in stub
-    assert "python.exe" in stub
-    assert "Expand-Archive" in stub
+def test_generate_bootstrap_script():
+    script = _generate_bootstrap_script("main.pyc")
+    assert "main.pyc" in script
+    assert "sys.path" in script
+    assert "__main__" in script
+
+
+def test_get_python_ver_tag(tmp_path: Path):
+    (tmp_path / "python313.dll").write_bytes(b"fake")
+    assert _get_python_ver_tag(tmp_path) == "313"
+
+
+def test_get_python_ver_tag_empty(tmp_path: Path):
+    assert _get_python_ver_tag(tmp_path) == ""
