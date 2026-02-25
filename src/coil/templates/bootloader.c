@@ -17,7 +17,12 @@
  *
  * Build: zig cc -Os -target x86_64-windows-gnu -Wl,--subsystem,windows
  *        -Wl,--strip-all -municode -o bootloader.exe bootloader.c
+ *
+ * Supports both STORED and DEFLATED zip entries via tinfl (miniz inflate).
  */
+
+#define TINFL_IMPLEMENTATION
+#include "tinfl.h"
 
 #define WIN32_LEAN_AND_MEAN
 #ifndef UNICODE
@@ -368,7 +373,7 @@ static BOOL ensure_directory(const WCHAR *path) {
     return TRUE;
 }
 
-/* Extract a stored (uncompressed) zip to dest directory */
+/* Extract a zip (STORED or DEFLATED entries) to dest directory */
 static BOOL extract_zip(const BYTE *data, DWORD size, const WCHAR *dest) {
     DWORD offset = 0;
 
@@ -393,9 +398,9 @@ static BOOL extract_zip(const BYTE *data, DWORD size, const WCHAR *dest) {
             if (*c == L'/') *c = L'\\';
 
         DWORD data_offset = header_end + hdr->name_len + hdr->extra_len;
-        DWORD data_size = hdr->compressed_size;
+        DWORD comp_size = hdr->compressed_size;
 
-        if (data_offset + data_size > size)
+        if (data_offset + comp_size > size)
             break;
 
         /* Build full output path */
@@ -420,15 +425,33 @@ static BOOL extract_zip(const BYTE *data, DWORD size, const WCHAR *dest) {
             HANDLE hOut = CreateFileW(out_path, GENERIC_WRITE, 0, NULL,
                                       CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
             if (hOut != INVALID_HANDLE_VALUE) {
-                if (data_size > 0) {
+                if (comp_size > 0) {
                     DWORD written;
-                    WriteFile(hOut, data + data_offset, data_size, &written, NULL);
+                    if (hdr->compression == 0) {
+                        /* STORED: write raw bytes directly */
+                        WriteFile(hOut, data + data_offset, comp_size, &written, NULL);
+                    } else if (hdr->compression == 8) {
+                        /* DEFLATED: inflate via tinfl */
+                        DWORD uncomp_size = hdr->uncompressed_size;
+                        BYTE *uncomp_buf = (BYTE *)VirtualAlloc(
+                            NULL, uncomp_size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+                        if (uncomp_buf) {
+                            size_t result = tinfl_decompress_mem_to_mem(
+                                uncomp_buf, uncomp_size,
+                                data + data_offset, comp_size, 0);
+                            if (result != TINFL_DECOMPRESS_MEM_TO_MEM_FAILED) {
+                                WriteFile(hOut, uncomp_buf, uncomp_size, &written, NULL);
+                            }
+                            VirtualFree(uncomp_buf, 0, MEM_RELEASE);
+                        }
+                    }
+                    /* else: unsupported compression method, skip */
                 }
                 CloseHandle(hOut);
             }
         }
 
-        offset = data_offset + data_size;
+        offset = data_offset + comp_size;
     }
 
     return TRUE;
