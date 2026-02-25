@@ -306,13 +306,19 @@ def _build_app_directory(
     pth_name = f"python{ver_tag}._pth" if ver_tag else ""
 
     # Copy runtime files — DLLs the exe needs go at root, everything else in _internal/
+    # Skip files not needed at runtime to reduce output size.
+    _skip_runtime = {
+        "python.exe", "pythonw.exe", "license.txt", "python.cat",
+        "news.txt", "py.exe", "pyw.exe",
+    }
     for item in runtime_dir.iterdir():
         name_lower = item.name.lower()
 
-        # Skip files we don't need
-        if name_lower in ("python.exe", "pythonw.exe", "license.txt", "python.cat"):
+        if name_lower in _skip_runtime:
             continue
-        if name_lower.endswith(".exe"):
+        if name_lower.endswith((".exe", ".pdb")):
+            continue
+        if item.is_dir() and name_lower == "__pycache__":
             continue
 
         if item.name in _EXE_DLLS or item.name == pth_name:
