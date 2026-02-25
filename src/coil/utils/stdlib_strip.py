@@ -8,12 +8,10 @@ These are never needed at runtime for typical Coil-built applications.
 ALWAYS_STRIP: set[str] = {
     "test",
     "tests",
-    "unittest",
     "idlelib",
     "turtledemo",
     "pydoc.pyc",
     "pydoc_data",
-    "doctest.pyc",
     "ensurepip",
     "lib2to3",
     "venv",
