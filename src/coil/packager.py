@@ -92,27 +92,36 @@ def package_portable(
                 print("  Creating portable archive...")
             zip_data = _zip_directory(stage_dir)
 
-        # Step 3: Combine bootloader stub + zip + trailer
+        # Step 3: Prepare bootloader stub (apply icon BEFORE appending zip,
+        # because UpdateResource rewrites the PE and would strip appended data)
         from coil.bootloader import BOOTLOADER_STUB
-        stub = bytearray(BOOTLOADER_STUB)
 
+        if icon and sys.platform == "win32":
+            from coil.platforms.windows import set_exe_icon
+            with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as tf:
+                tf.write(BOOTLOADER_STUB)
+                stub_path = Path(tf.name)
+            try:
+                set_exe_icon(stub_path, Path(icon))
+                stub = stub_path.read_bytes()
+                if verbose:
+                    print(f"  Applied icon: {icon}")
+            except Exception as e:
+                stub = BOOTLOADER_STUB
+                if verbose:
+                    print(f"  Warning: Could not apply icon: {e}")
+            finally:
+                stub_path.unlink(missing_ok=True)
+        else:
+            stub = BOOTLOADER_STUB
+
+        # Step 4: Combine stub + zip + trailer
         zip_offset = len(stub)
         trailer = struct.pack("<II", zip_offset, _COIL_MAGIC)
         exe_data = bytes(stub) + zip_data + trailer
 
         target_exe = output_dir / f"{entry_name}.exe"
         target_exe.write_bytes(exe_data)
-
-        # Step 4: Apply icon to the final portable exe
-        if icon and sys.platform == "win32":
-            from coil.platforms.windows import set_exe_icon
-            try:
-                set_exe_icon(target_exe, Path(icon))
-                if verbose:
-                    print(f"  Applied icon: {icon}")
-            except Exception as e:
-                if verbose:
-                    print(f"  Warning: Could not apply icon to exe: {e}")
 
         results.append(target_exe)
         if verbose:
