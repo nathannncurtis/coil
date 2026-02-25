@@ -147,6 +147,133 @@ def _generate_vbs_launcher(bat_name: str) -> str:
     )
 
 
+def set_exe_icon(exe_path: Path, icon_path: Path) -> None:
+    """Embed an .ico file into a PE executable's resources.
+
+    Uses the Windows UpdateResource API to write the icon data
+    directly into the exe's resource section.
+
+    Args:
+        exe_path: Path to the .exe file to modify.
+        icon_path: Path to the .ico file.
+    """
+    import ctypes
+
+    icon_path = Path(icon_path)
+    if not icon_path.is_file():
+        raise FileNotFoundError(f"Icon file not found: {icon_path}")
+
+    with open(icon_path, "rb") as f:
+        ico_data = f.read()
+
+    # Parse ICONDIR header
+    if len(ico_data) < 6:
+        raise ValueError("Invalid .ico file: too small")
+    reserved, ico_type, count = struct.unpack_from("<HHH", ico_data, 0)
+    if ico_type != 1 or count == 0:
+        raise ValueError("Not a valid .ico file")
+
+    # Parse ICONDIRENTRY entries (16 bytes each)
+    entries = []
+    for i in range(count):
+        offset = 6 + i * 16
+        if offset + 16 > len(ico_data):
+            raise ValueError("Invalid .ico file: truncated directory")
+        width, height, colors, res, planes, bits, size, img_offset = (
+            struct.unpack_from("<BBBBHHII", ico_data, offset)
+        )
+        entries.append({
+            "width": width,
+            "height": height,
+            "colors": colors,
+            "reserved": res,
+            "planes": planes,
+            "bits": bits,
+            "size": size,
+            "offset": img_offset,
+        })
+
+    # Windows resource constants
+    RT_ICON = 3
+    RT_GROUP_ICON = 14
+    LANG_NEUTRAL = 0
+
+    kernel32 = ctypes.windll.kernel32
+
+    # Set up proper function signatures for the Windows API
+    kernel32.BeginUpdateResourceW.argtypes = [ctypes.c_wchar_p, ctypes.c_bool]
+    kernel32.BeginUpdateResourceW.restype = ctypes.c_void_p
+
+    kernel32.UpdateResourceW.argtypes = [
+        ctypes.c_void_p,  # hUpdate
+        ctypes.c_void_p,  # lpType (MAKEINTRESOURCE)
+        ctypes.c_void_p,  # lpName (MAKEINTRESOURCE)
+        ctypes.c_ushort,  # wLanguage
+        ctypes.c_void_p,  # lpData
+        ctypes.c_ulong,   # cb
+    ]
+    kernel32.UpdateResourceW.restype = ctypes.c_bool
+
+    kernel32.EndUpdateResourceW.argtypes = [ctypes.c_void_p, ctypes.c_bool]
+    kernel32.EndUpdateResourceW.restype = ctypes.c_bool
+
+    # Begin updating resources
+    handle = kernel32.BeginUpdateResourceW(str(exe_path), False)
+    if not handle:
+        raise OSError(f"BeginUpdateResource failed (error {ctypes.GetLastError()})")
+
+    try:
+        # Add each icon image as an RT_ICON resource
+        for i, entry in enumerate(entries):
+            raw = ico_data[entry["offset"]:entry["offset"] + entry["size"]]
+            buf = ctypes.create_string_buffer(raw)
+            resource_id = i + 1
+
+            ok = kernel32.UpdateResourceW(
+                handle, RT_ICON, resource_id, LANG_NEUTRAL,
+                buf, len(raw),
+            )
+            if not ok:
+                raise OSError(
+                    f"UpdateResource RT_ICON failed (error {ctypes.GetLastError()})"
+                )
+
+        # Build GRPICONDIR: header (6 bytes) + entries (14 bytes each)
+        grp_data = struct.pack("<HHH", 0, 1, count)
+        for i, entry in enumerate(entries):
+            grp_data += struct.pack(
+                "<BBBBHHIH",
+                entry["width"],
+                entry["height"],
+                entry["colors"],
+                entry["reserved"],
+                entry["planes"],
+                entry["bits"],
+                entry["size"],
+                i + 1,  # nID — references the RT_ICON resource ID
+            )
+
+        grp_buf = ctypes.create_string_buffer(grp_data)
+        ok = kernel32.UpdateResourceW(
+            handle, RT_GROUP_ICON, 1, LANG_NEUTRAL,
+            grp_buf, len(grp_data),
+        )
+        if not ok:
+            raise OSError(
+                f"UpdateResource RT_GROUP_ICON failed (error {ctypes.GetLastError()})"
+            )
+
+        # Commit
+        if not kernel32.EndUpdateResourceW(handle, False):
+            raise OSError(
+                f"EndUpdateResource failed (error {ctypes.GetLastError()})"
+            )
+    except Exception:
+        # Discard changes on failure
+        kernel32.EndUpdateResourceW(handle, True)
+        raise
+
+
 def set_pe_subsystem(exe_path: Path, gui: bool) -> None:
     """Modify a PE executable's subsystem flag.
 

@@ -99,6 +99,20 @@ def package_bundled(
         if verbose:
             print(f"  Created launcher for {entry}")
 
+    # Apply icon to the main exe if provided (bundled mode)
+    if icon and sys.platform == "win32":
+        # Find the exe created by the launcher — use the app name
+        main_exe = bundle_dir / f"{name}.exe"
+        if main_exe.is_file():
+            from coil.platforms.windows import set_exe_icon
+            try:
+                set_exe_icon(main_exe, Path(icon))
+                if verbose:
+                    print(f"  Applied icon: {icon}")
+            except Exception as e:
+                if verbose:
+                    print(f"  Warning: Could not apply icon: {e}")
+
     if verbose:
         print(f"Bundled build complete: {bundle_dir}")
 
@@ -208,6 +222,17 @@ def package_portable(
                 set_pe_subsystem(target_exe, gui=True)
             except Exception:
                 pass  # Best effort — pythonw.exe already has GUI subsystem
+
+        # Apply icon if provided
+        if icon and target_exe.is_file() and sys.platform == "win32":
+            from coil.platforms.windows import set_exe_icon
+            try:
+                set_exe_icon(target_exe, Path(icon))
+                if verbose:
+                    print(f"  Applied icon: {icon}")
+            except Exception as e:
+                if verbose:
+                    print(f"  Warning: Could not apply icon: {e}")
 
         results.append(target_exe)
         if verbose:

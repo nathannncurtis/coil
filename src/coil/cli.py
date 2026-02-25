@@ -236,6 +236,16 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Error: {target_os} support is not yet implemented. Only Windows is supported.")
             sys.exit(1)
 
+        # Auto-detect icon: if --icon not specified, look for .ico in project dir
+        icon = args.icon
+        if not icon:
+            ico_files = list(project_dir.glob("*.ico"))
+            if ico_files:
+                # Prefer one matching the project/app name, else first alphabetically
+                name_match = [f for f in ico_files if f.stem.lower() == name.lower()]
+                icon = str(name_match[0] if name_match else sorted(ico_files)[0])
+                print(f"Found icon: {icon}")
+
         if args.dry_run:
             print("Dry run - would build with the following settings:")
             print(f"  Project:      {project_dir}")
@@ -247,8 +257,8 @@ def main(argv: list[str] | None = None) -> None:
             print(f"  Secure:       {args.secure}")
             print(f"  Output:       {args.output}")
             print(f"  Name:         {name}")
-            if args.icon:
-                print(f"  Icon:         {args.icon}")
+            if icon:
+                print(f"  Icon:         {icon}")
             if exclude:
                 print(f"  Exclude:      {', '.join(exclude)}")
             if include:
@@ -271,7 +281,7 @@ def main(argv: list[str] | None = None) -> None:
                 include=include,
                 output_dir=args.output,
                 name=name,
-                icon=args.icon,
+                icon=icon,
                 requirements=args.requirements,
                 verbose=args.verbose,
             )
