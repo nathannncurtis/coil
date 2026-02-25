@@ -322,6 +322,11 @@ def _build_app_directory(
         else:
             shutil.copy2(item, internal_dir / item.name)
 
+    # Strip unused modules from stdlib zip
+    from coil.scanner import scan_project
+    project_imports = scan_project(project_dir)
+    _strip_stdlib_zip(internal_dir, project_imports, ui=ui, verbose=verbose)
+
     # Copy the right python exe as AppName.exe
     source_exe_name = "pythonw.exe" if gui else "python.exe"
     source_exe = runtime_dir / source_exe_name
@@ -681,3 +686,76 @@ def _strip_installed_packages(dest_dir: Path) -> None:
         for match in dest_dir.rglob(pattern):
             if match.is_dir():
                 shutil.rmtree(match, ignore_errors=True)
+
+
+def _strip_stdlib_zip(
+    internal_dir: Path,
+    project_imports: Optional[set[str]] = None,
+    ui: Optional[BuildUI] = None,
+    verbose: bool = False,
+) -> int:
+    """Strip unnecessary modules from the bundled stdlib zip.
+
+    Returns bytes saved.
+    """
+    from coil.utils.stdlib_strip import ALWAYS_STRIP, STRIP_UNLESS_USED
+
+    stdlib_zips = list(internal_dir.glob("python*.zip"))
+    if not stdlib_zips:
+        return 0
+
+    stdlib_zip = stdlib_zips[0]
+    original_size = stdlib_zip.stat().st_size
+
+    project_imports = project_imports or set()
+
+    # Build set of entries to remove
+    strip_prefixes: set[str] = set()
+    for mod in ALWAYS_STRIP:
+        if mod.endswith(".pyc"):
+            strip_prefixes.add(mod)
+        else:
+            strip_prefixes.add(mod + "/")
+            strip_prefixes.add(mod + ".pyc")
+
+    for mod_path, import_name in STRIP_UNLESS_USED.items():
+        if import_name not in project_imports:
+            if mod_path.endswith(".pyc"):
+                strip_prefixes.add(mod_path)
+            else:
+                strip_prefixes.add(mod_path + "/")
+                strip_prefixes.add(mod_path + ".pyc")
+
+    # Rewrite the zip without stripped entries
+    import tempfile
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tf:
+        tmp_path = Path(tf.name)
+
+    try:
+        with zipfile.ZipFile(stdlib_zip, "r") as src:
+            with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as dst:
+                for item in src.infolist():
+                    should_strip = False
+                    for prefix in strip_prefixes:
+                        if item.filename == prefix or item.filename.startswith(prefix):
+                            should_strip = True
+                            break
+                    if not should_strip:
+                        dst.writestr(item, src.read(item.filename))
+
+        shutil.move(str(tmp_path), str(stdlib_zip))
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        return 0
+
+    new_size = stdlib_zip.stat().st_size
+    saved = original_size - new_size
+
+    if saved > 0:
+        if ui is not None:
+            from coil.ui import format_size
+            ui.detail(f"Stripped stdlib: saved {format_size(saved)}")
+        elif verbose:
+            print(f"  Stripped stdlib: saved {saved / 1024:.0f} KB")
+
+    return saved
