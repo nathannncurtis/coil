@@ -128,7 +128,7 @@ def package_portable(
         results.append(target_exe)
         if verbose:
             size_mb = target_exe.stat().st_size / (1024 * 1024)
-            print(f"  Created {target_exe} ({size_mb:.1f} MB)")
+            print(f"  Created {target_exe.name} ({size_mb:.1f} MB)")
 
     return results
 
@@ -329,10 +329,10 @@ def _build_app_directory(
         try:
             set_exe_icon(target_exe, Path(icon))
             if verbose:
-                print(f"  Applied icon to inner exe: {icon}")
+                print(f"  Embedded icon: {Path(icon).name}")
         except Exception as e:
             if verbose:
-                print(f"  Warning: Could not apply icon: {e}")
+                print(f"  Warning: Could not embed icon: {e}")
 
     # Copy project assets (icons, configs, etc.) to root
     _copy_project_assets(project_dir, stage_dir, verbose)
@@ -537,14 +537,22 @@ def _copy_project_assets(
     Copies files like .ico, .png, .json, .cfg, etc. that the app may
     reference at runtime via relative paths.
     """
-    skip_extensions = {".py", ".pyc", ".pyo", ".pyd"}
+    skip_extensions = {".py", ".pyc", ".pyo", ".pyd", ".pyi"}
+    skip_files = {
+        "requirements.txt", "pyproject.toml", "setup.py", "setup.cfg",
+        "Makefile", "Dockerfile", ".dockerignore",
+        ".gitignore", ".gitattributes", ".editorconfig",
+        "tox.ini", "pytest.ini", ".flake8", ".pylintrc",
+        "MANIFEST.in", "LICENSE", "CHANGELOG.md", "CONTRIBUTING.md",
+    }
     skip_names = {
         "__pycache__", ".git", ".venv", "venv", ".env", "node_modules",
         "dist", "build", ".mypy_cache", ".pytest_cache", ".tox",
+        ".github", ".vscode", ".idea", "egg-info",
     }
 
     for item in project_dir.iterdir():
-        if item.name in skip_names:
+        if item.name in skip_names or item.name.lower() in skip_files:
             continue
         if item.is_file() and item.suffix.lower() not in skip_extensions:
             dest = dest_dir / item.name
