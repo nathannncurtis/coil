@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from coil.scanner import extract_imports, find_py_files, scan_project
+from coil.scanner import extract_imports, find_py_files, scan_project, detect_gui_imports
 
 FIXTURES = Path(__file__).parent / "fixtures" / "sample_project"
 
@@ -72,3 +72,51 @@ def test_scan_project():
     assert "json" in result
     assert "csv" in result
     assert "collections" in result
+
+
+def test_detect_gui_imports_tkinter(tmp_path: Path):
+    (tmp_path / "app.py").write_text("import tkinter\nfrom tkinter import ttk\n")
+    found = detect_gui_imports(tmp_path)
+    assert "tkinter" in found
+
+
+def test_detect_gui_imports_pyqt5(tmp_path: Path):
+    (tmp_path / "app.py").write_text("from PyQt5.QtWidgets import QApplication\n")
+    found = detect_gui_imports(tmp_path)
+    assert "PyQt5" in found
+
+
+def test_detect_gui_imports_pygame(tmp_path: Path):
+    (tmp_path / "game.py").write_text("import pygame\npygame.init()\n")
+    found = detect_gui_imports(tmp_path)
+    assert "pygame" in found
+
+
+def test_detect_gui_imports_wx(tmp_path: Path):
+    (tmp_path / "app.py").write_text("import wx\n")
+    found = detect_gui_imports(tmp_path)
+    assert "wx" in found
+
+
+def test_detect_gui_imports_pystray(tmp_path: Path):
+    (tmp_path / "tray.py").write_text("import pystray\n")
+    found = detect_gui_imports(tmp_path)
+    assert "pystray" in found
+
+
+def test_detect_gui_imports_multiple(tmp_path: Path):
+    (tmp_path / "app.py").write_text("import tkinter\nimport pygame\n")
+    found = detect_gui_imports(tmp_path)
+    assert "tkinter" in found
+    assert "pygame" in found
+
+
+def test_detect_gui_imports_none(tmp_path: Path):
+    (tmp_path / "app.py").write_text("import os\nimport sys\nimport requests\n")
+    found = detect_gui_imports(tmp_path)
+    assert found == []
+
+
+def test_detect_gui_imports_empty(tmp_path: Path):
+    found = detect_gui_imports(tmp_path)
+    assert found == []
