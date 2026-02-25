@@ -71,8 +71,8 @@ def create_parser() -> argparse.ArgumentParser:
     gui_group.add_argument(
         "--console",
         action="store_true",
-        default=True,
-        help="Show console window (default).",
+        default=None,
+        help="Show console window. Overrides auto-detected GUI mode.",
     )
 
     build_parser.add_argument(
@@ -591,6 +591,20 @@ def main(argv: list[str] | None = None) -> None:
                 name_match = [f for f in ico_files if f.stem.lower() == name.lower()]
                 icon = str(name_match[0] if name_match else sorted(ico_files)[0])
                 print(f"Found icon: {icon}")
+
+        # Auto-detect GUI mode from imports (unless --console explicitly passed)
+        if not args.gui and args.console is None:
+            from coil.scanner import detect_gui_imports
+            gui_imports = detect_gui_imports(project_dir)
+            if gui_imports:
+                args.gui = True
+                if args.verbose:
+                    print(f"Auto-detected GUI framework: {', '.join(gui_imports)} — hiding console window")
+                else:
+                    print(f"Auto-detected GUI mode (found: {', '.join(gui_imports)})")
+        elif args.console is True:
+            # User explicitly passed --console, force console mode
+            args.gui = False
 
         if args.dry_run:
             print("Dry run - would build with the following settings:")
