@@ -15,6 +15,7 @@ from coil.cli import (
     get_cache_dir,
     clear_cache,
     show_cache_info,
+    _apply_toml_config,
 )
 
 
@@ -157,3 +158,134 @@ def test_cache_subcommand():
     args = parser.parse_args(["cache", "clear"])
     assert args.command == "cache"
     assert args.cache_action == "clear"
+
+
+def test_init_subcommand():
+    parser = create_parser()
+    args = parser.parse_args(["init", "/tmp/myproj"])
+    assert args.command == "init"
+    assert args.project == "/tmp/myproj"
+
+
+def test_init_subcommand_default_project():
+    parser = create_parser()
+    args = parser.parse_args(["init"])
+    assert args.command == "init"
+    assert args.project == "."
+
+
+def test_profile_flag():
+    parser = create_parser()
+    args = parser.parse_args(["build", ".", "--profile", "release"])
+    assert args.profile == "release"
+
+
+def test_clean_flag():
+    parser = create_parser()
+    args = parser.parse_args(["build", ".", "--clean"])
+    assert args.clean is True
+
+
+def test_apply_toml_config_entry(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\nname = "Test"\n[build]\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.entry == ["app.py"]
+    assert args.name == "Test"
+
+
+def test_apply_toml_config_cli_overrides(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\nname = "TomlName"\n[build]\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--entry", "other.py", "--name", "CLIName"])
+    _apply_toml_config(args, tmp_path)
+
+    # CLI values should win
+    assert args.entry == ["other.py"]
+    assert args.name == "CLIName"
+
+
+def test_apply_toml_config_gui(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\nconsole = false\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.gui is True
+
+
+def test_apply_toml_config_secure(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\nsecure = true\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.secure is True
+
+
+def test_apply_toml_config_python(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\npython = "3.12"\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.python == "3.12"
+
+
+def test_apply_toml_config_output(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\n[build.output]\ndir = "./out"\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.output == "./out"
+
+
+def test_apply_toml_config_profile(tmp_path: Path):
+    toml = (
+        '[project]\nentry = "app.py"\n[build]\nsecure = false\n'
+        '[profile.release]\nsecure = true\nverbose = true\n'
+    )
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--profile", "release"])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.secure is True
+    assert args.verbose is True
+
+
+def test_apply_toml_config_no_toml(tmp_path: Path):
+    """No coil.toml should not change anything."""
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.entry is None
+    assert args.name is None
+
+
+def test_apply_toml_config_bad_profile(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\n[profile.dev]\nmode = "bundled"\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--profile", "nope"])
+
+    with pytest.raises(SystemExit):
+        _apply_toml_config(args, tmp_path)

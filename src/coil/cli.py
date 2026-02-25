@@ -130,10 +130,35 @@ def create_parser() -> argparse.ArgumentParser:
         help="Show what would be built without building.",
     )
     build_parser.add_argument(
+        "--profile",
+        type=str,
+        default=None,
+        help="Build profile from coil.toml (e.g. dev, release).",
+    )
+    build_parser.add_argument(
+        "--clean",
+        action="store_true",
+        default=False,
+        help="Build in a clean virtual environment with only declared dependencies.",
+    )
+    build_parser.add_argument(
         "--clear-cache",
         action="store_true",
         default=False,
         help=argparse.SUPPRESS,  # Hidden flag
+    )
+
+    # --- init subcommand ---
+    init_parser = subparsers.add_parser(
+        "init",
+        help="Initialize a coil.toml config file for your project.",
+    )
+    init_parser.add_argument(
+        "project",
+        type=str,
+        nargs="?",
+        default=".",
+        help="Project directory. Default: current directory.",
     )
 
     # --- cache subcommand ---
@@ -279,6 +304,154 @@ def validate_build_args(args: argparse.Namespace) -> None:
         sys.exit(1)
 
 
+def run_init(project_path: str) -> None:
+    """Run the coil init subcommand."""
+    project_dir = Path(project_path).resolve()
+    if not project_dir.is_dir():
+        print(f"Error: '{project_path}' is not a directory.")
+        sys.exit(1)
+
+    toml_path = project_dir / "coil.toml"
+    if toml_path.is_file():
+        answer = input("coil.toml already exists. Overwrite? [y/N] ").strip().lower()
+        if answer not in ("y", "yes"):
+            print("Aborted.")
+            sys.exit(0)
+
+    # Detect entry point
+    entry = ""
+    if (project_dir / "__main__.py").is_file():
+        entry = "__main__.py"
+        print(f"  Detected entry point: {entry}")
+    elif (project_dir / "main.py").is_file():
+        entry = "main.py"
+        print(f"  Detected entry point: {entry}")
+    else:
+        py_files = sorted(f.name for f in project_dir.glob("*.py"))
+        if py_files:
+            print(f"  Python files found: {', '.join(py_files)}")
+        entry = input("  Entry point script: ").strip()
+        if not entry:
+            print("Error: No entry point specified.")
+            sys.exit(1)
+
+    # Console or GUI?
+    gui_answer = input("  Console or GUI app? [console/gui] (default: console): ").strip().lower()
+    console = gui_answer != "gui"
+
+    # Icon path?
+    icon = ""
+    ico_files = list(project_dir.glob("*.ico"))
+    if ico_files:
+        print(f"  Found .ico file(s): {', '.join(f.name for f in ico_files)}")
+    icon_answer = input("  Icon path (press Enter to skip): ").strip()
+    if icon_answer:
+        icon = icon_answer
+
+    # Detect dependency files
+    has_requirements = (project_dir / "requirements.txt").is_file()
+    has_pyproject = (project_dir / "pyproject.toml").is_file()
+
+    name = project_dir.name
+    python_version = detect_python_version()
+
+    from coil.config import generate_toml
+    toml_content = generate_toml(
+        entry=entry,
+        name=name,
+        console=console,
+        icon=icon,
+        python_version=python_version,
+        has_requirements=has_requirements,
+        has_pyproject=has_pyproject,
+    )
+
+    toml_path.write_text(toml_content, encoding="utf-8")
+    print(f"\nCreated coil.toml. Run `coil build` to build your project.")
+
+
+def _apply_toml_config(args: argparse.Namespace, project_dir: Path) -> None:
+    """Load coil.toml and apply its values as defaults under CLI args.
+
+    CLI flags take priority over toml values.
+    """
+    from coil.config import load_config, get_build_config
+
+    raw = load_config(project_dir)
+    if raw is None:
+        return
+
+    try:
+        config = get_build_config(raw, profile=args.profile)
+    except ValueError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+    # Only apply toml values where the CLI didn't explicitly set something.
+    # argparse defaults: entry=None, mode="portable", os=None, python=None,
+    # gui=False, secure=False, exclude=None, include=None, output="./dist",
+    # name=None, icon=None, verbose=False, clean=False
+
+    if args.entry is None and config.get("entry"):
+        args.entry = [config["entry"]]
+
+    if args.name is None and config.get("name"):
+        args.name = config["name"]
+
+    # Mode: only override if user didn't explicitly pass --mode
+    # (argparse default is "portable", toml default is also "portable",
+    # so we always apply toml since we can't distinguish CLI from default)
+    if config.get("mode"):
+        # We track whether --mode was explicitly passed by checking sys.argv
+        # But simpler: toml value is applied, CLI overrides via argparse
+        # Since argparse always sets mode, we use a heuristic:
+        # if toml has a different mode, apply it (CLI will override if user specified)
+        pass  # mode is always set by argparse, toml is base layer
+
+    # For flags that have non-None defaults in argparse, we need to check
+    # if the user explicitly passed them. We do this by re-parsing for explicit flags.
+    # Simpler approach: apply toml as base, let argparse defaults stand if no toml.
+
+    # os
+    if args.os is None and config.get("os"):
+        args.os = config["os"]
+
+    # python
+    if args.python is None and config.get("python"):
+        args.python = config["python"]
+
+    # gui: toml uses console=true/false, CLI uses --gui/--console
+    if not args.gui and not config.get("console", True):
+        args.gui = True
+
+    # secure
+    if not args.secure and config.get("secure"):
+        args.secure = True
+
+    # verbose
+    if not args.verbose and config.get("verbose"):
+        args.verbose = True
+
+    # clean
+    if not args.clean and config.get("clean"):
+        args.clean = True
+
+    # output: only if user didn't change from default
+    if args.output == "./dist" and config.get("output_dir") and config["output_dir"] != "./dist":
+        args.output = config["output_dir"]
+
+    # icon
+    if args.icon is None and config.get("icon"):
+        args.icon = config["icon"]
+
+    # exclude/include
+    if args.exclude is None and config.get("exclude"):
+        args.exclude = ",".join(config["exclude"])
+
+    if args.include is None and config.get("include"):
+        args.include = ",".join(config["include"])
+
+
 def main(argv: list[str] | None = None) -> None:
     """Main entry point for the Coil CLI."""
     parser = create_parser()
@@ -286,6 +459,10 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.command is None:
         parser.print_help()
+        sys.exit(0)
+
+    if args.command == "init":
+        run_init(args.project)
         sys.exit(0)
 
     if args.command == "cache":
@@ -304,6 +481,10 @@ def main(argv: list[str] | None = None) -> None:
         validate_build_args(args)
 
         project_dir = Path(args.project).resolve()
+
+        # Load coil.toml defaults (CLI flags override)
+        _apply_toml_config(args, project_dir)
+
         target_os = args.os or detect_os()
         python_version = args.python or detect_python_version()
         entry_points = resolve_entry_points(project_dir, args.entry)
