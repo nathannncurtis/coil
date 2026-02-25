@@ -157,7 +157,24 @@ coil build ./myproject \
 
 3. **Compilation** — All `.py` files are compiled to `.pyc` bytecode. No loose `.py` files in the output.
 
-4. **Packaging** — In portable mode, everything is packed into a single self-extracting executable. In bundled mode, a clean directory with the runtime, compiled code, and dependencies.
+4. **Packaging** — In portable mode, everything is packed into a single `.exe` file. In bundled mode, a clean directory with the runtime, compiled code, and dependencies.
+
+### Portable Mode Details
+
+The portable `.exe` is a single file you can copy anywhere and run. Here's what happens under the hood:
+
+- **You distribute one file.** The `.exe` contains a lightweight native launcher (~23 KB) with the full application payload appended.
+- **First launch** extracts the runtime to a local cache (`%LOCALAPPDATA%\coil\<app>\<build_hash>\`). This is a one-time operation.
+- **Subsequent launches** detect the cache and start instantly — no extraction needed.
+- **Each build gets a unique hash.** Rebuilding your app creates a new cache entry. Old cache entries are automatically cleaned up (only the 3 most recent are kept).
+- **Cache safety:** Extraction uses file locking to prevent corruption if multiple instances launch simultaneously. A marker file ensures only fully-extracted caches are used — if extraction is interrupted, it will restart cleanly.
+
+To manage the cache manually:
+
+```bash
+coil cache info     # Show cache location and size
+coil cache clear    # Delete all cached runtimes
+```
 
 > **Tip:** If you have a `requirements.txt` or `pyproject.toml`, Coil uses that instead of scanning imports. This is faster and more reliable.
 
@@ -181,6 +198,13 @@ coil build ./myproject \
 | `--verbose` | `false` | Detailed build output |
 | `--dry-run` | `false` | Preview build without executing |
 
+### Cache Management
+
+```bash
+coil cache info     # Show cache location and size
+coil cache clear    # Delete all cached runtimes
+```
+
 ## Obfuscation
 
 **Default mode:** Source is compiled to bytecode and packaged with metadata that `coil decompile` can use to recover the original `.py` files. This is a safety net — not cryptographic security, but your source isn't casually visible.
@@ -202,16 +226,23 @@ A minimal project produces an exe around 15-20 MB (mostly the Python runtime). D
 Not yet. Currently Coil only builds Windows executables on Windows. Cross-platform and cross-compilation are on the roadmap.
 
 **Q: What's the difference between portable and bundled?**
-Portable = single .exe file you can copy anywhere. Bundled = directory with the executable and its supporting files. Portable is more convenient; bundled starts faster since it doesn't need to extract.
+Portable = single `.exe` file you can copy anywhere. On first launch, it extracts the runtime to a local cache and runs from there. Later launches reuse the cache and start instantly. Bundled = directory with the executable and its supporting files. No extraction step — it runs directly from the directory.
+
+**Q: Where does the portable exe store its cache?**
+`%LOCALAPPDATA%\coil\<AppName>\<build_hash>\`. Run `coil cache info` to see details, or `coil cache clear` to remove it. If `%LOCALAPPDATA%` isn't available, it falls back to `%TEMP%` or the exe's own directory.
+
+**Q: Is the portable exe really a single file?**
+Yes. The build output is a single `.exe`. On first run, it extracts a cached copy of the runtime to a local directory. This is not visible to the user as a separate step — the app just starts. Subsequent runs skip extraction entirely.
 
 ## Roadmap
 
 - macOS .app support
 - Linux ELF binary support
+- ARM64 bootloader for Windows on ARM
 - `coil.toml` configuration file
 - Cross-compilation
 - Plugin system
-- Build caching for faster rebuilds
+- Optional runtime signing (helps with AV false positives)
 
 ## Contributing
 
