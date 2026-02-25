@@ -257,8 +257,29 @@ def main(argv: list[str] | None = None) -> None:
                 print(f"  Requirements: {args.requirements}")
             sys.exit(0)
 
-        # Actual build will be wired up in builder.py
-        print(f"Building {name}...")
+        try:
+            from coil.builder import build
+            build(
+                project_dir=project_dir,
+                entry_points=entry_points,
+                mode=args.mode,
+                target_os=target_os,
+                python_version=python_version,
+                gui=args.gui,
+                secure=args.secure,
+                exclude=exclude,
+                include=include,
+                output_dir=args.output,
+                name=name,
+                icon=args.icon,
+                requirements=args.requirements,
+                verbose=args.verbose,
+            )
+        except Exception as e:
+            if args.verbose:
+                raise
+            print(f"Error: {e}")
+            sys.exit(1)
 
     elif args.command == "decompile":
         exe_path = Path(args.executable)
@@ -266,5 +287,8 @@ def main(argv: list[str] | None = None) -> None:
             print(f"Error: Executable '{args.executable}' not found.")
             sys.exit(1)
 
-        # Actual decompile will be wired up in decompiler.py
-        print(f"Decompiling {exe_path}...")
+        from coil.decompiler import decompile
+        output = Path(args.output)
+        success = decompile(exe_path, output)
+        if not success:
+            sys.exit(1)
