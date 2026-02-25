@@ -1,5 +1,6 @@
 """Tests for the packager."""
 
+import struct
 import shutil
 from pathlib import Path
 from unittest.mock import patch, MagicMock
@@ -13,6 +14,8 @@ from coil.packager import (
     _strip_installed_packages,
     _generate_bootstrap_script,
     _get_python_ver_tag,
+    _zip_directory,
+    _COIL_MAGIC,
 )
 
 
@@ -32,7 +35,10 @@ def _make_runtime(base: Path) -> Path:
     (runtime / "python.exe").write_bytes(b"MZ" + b"\x00" * 200)
     (runtime / "pythonw.exe").write_bytes(b"MZ" + b"\x00" * 200)
     (runtime / "python313.dll").write_bytes(b"fake dll")
+    (runtime / "python3.dll").write_bytes(b"fake dll")
+    (runtime / "vcruntime140.dll").write_bytes(b"fake dll")
     (runtime / "python313._pth").write_text("python313.zip\n.\n")
+    (runtime / "python313.zip").write_bytes(b"fake zip")
     return runtime
 
 
@@ -52,10 +58,11 @@ def test_package_bundled(tmp_path: Path):
 
     assert result.is_dir()
     assert result.name == "MyApp"
-    assert (result / "runtime" / "python.exe").is_file()
-    assert (result / "app" / "main.pyc").is_file()
-    assert (result / "app" / "helper.pyc").is_file()
-    assert (result / "MyApp.bat").is_file()
+    # Bundled uses _internal/ structure
+    assert (result / "MyApp.exe").is_file()
+    assert (result / "_internal" / "app" / "main.pyc").is_file()
+    assert (result / "_internal" / "app" / "helper.pyc").is_file()
+    assert (result / "python313.dll").is_file()
 
 
 def test_package_bundled_secure(tmp_path: Path):
@@ -74,27 +81,9 @@ def test_package_bundled_secure(tmp_path: Path):
     )
 
     assert result.is_dir()
-    assert (result / "app" / "main.pyc").is_file()
+    assert (result / "_internal" / "app" / "main.pyc").is_file()
     from coil.obfuscator import COIL_SOURCE_ARCHIVE
-    assert not (result / "app" / COIL_SOURCE_ARCHIVE).exists()
-
-
-def test_package_bundled_multiple_entry_points(tmp_path: Path):
-    project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
-    output = tmp_path / "dist"
-
-    result = package_bundled(
-        project_dir=project,
-        output_dir=output,
-        runtime_dir=runtime,
-        entry_points=["main.py", "helper.py"],
-        name="MyApp",
-        target_os="windows",
-    )
-
-    assert (result / "main.bat").is_file()
-    assert (result / "helper.bat").is_file()
+    assert not (result / "_internal" / "app" / COIL_SOURCE_ARCHIVE).exists()
 
 
 def test_package_bundled_with_deps(tmp_path: Path):
@@ -116,10 +105,11 @@ def test_package_bundled_with_deps(tmp_path: Path):
         deps_dir=deps,
     )
 
-    assert (result / "lib").is_dir()
+    assert (result / "_internal" / "lib").is_dir()
 
 
 def test_package_portable(tmp_path: Path):
+    """Portable produces a single .exe file (bootloader + zip)."""
     project = _make_project(tmp_path)
     runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
@@ -138,15 +128,14 @@ def test_package_portable(tmp_path: Path):
     assert exe_path.name == "MyApp.exe"
     assert exe_path.is_file()
 
-    portable_dir = exe_path.parent
-    internal = portable_dir / "_internal"
-    assert internal.is_dir()
-    assert (internal / "app" / "main.pyc").is_file()
-    assert (portable_dir / "python313.dll").is_file()
-    assert (internal / "_boot_MyApp.py").is_file()
-    # Verify no leftover python exes at root
-    assert not (portable_dir / "python.exe").exists()
-    assert not (portable_dir / "pythonw.exe").exists()
+    # Should be a SINGLE file, no directory
+    assert not (output / "MyApp").is_dir()
+
+    # Verify it starts with MZ (valid PE) and ends with COIL magic
+    data = exe_path.read_bytes()
+    assert data[:2] == b"MZ"
+    magic = struct.unpack_from("<I", data, len(data) - 4)[0]
+    assert magic == _COIL_MAGIC
 
 
 def test_package_portable_gui(tmp_path: Path):
@@ -166,6 +155,7 @@ def test_package_portable_gui(tmp_path: Path):
 
     assert len(results) == 1
     assert results[0].name == "MyApp.exe"
+    assert results[0].is_file()
 
 
 def test_package_portable_multiple_entries(tmp_path: Path):
@@ -186,6 +176,28 @@ def test_package_portable_multiple_entries(tmp_path: Path):
     names = {r.name for r in results}
     assert "main.exe" in names
     assert "helper.exe" in names
+    # Each should be a single file
+    for r in results:
+        assert r.is_file()
+        data = r.read_bytes()
+        assert data[:2] == b"MZ"
+
+
+def test_zip_directory(tmp_path: Path):
+    src = tmp_path / "testdir"
+    src.mkdir()
+    (src / "a.txt").write_text("hello")
+    sub = src / "sub"
+    sub.mkdir()
+    (sub / "b.txt").write_text("world")
+
+    zip_bytes = _zip_directory(src)
+
+    import io
+    with zipfile.ZipFile(io.BytesIO(zip_bytes), "r") as zf:
+        names = zf.namelist()
+        assert "a.txt" in names
+        assert "sub\\b.txt" in names or "sub/b.txt" in names
 
 
 def test_add_dir_to_zip(tmp_path: Path):

@@ -1,18 +1,125 @@
 """Packaging logic for portable and bundled build modes.
 
-Portable: single self-extracting archive containing runtime + app + deps.
-Bundled: clean directory structure with compiled files.
+Portable: single-file .exe (bootloader + zip of runtime/app/deps).
+Bundled: directory containing the exe and all supporting files.
 """
 
+import io
 import os
 import shutil
+import struct
 import subprocess
 import sys
+import tempfile
 import zipfile
 from pathlib import Path
 
 from coil.obfuscator import obfuscate_default, obfuscate_secure
 from coil.platforms import get_handler
+
+# Trailer magic appended after the zip data in portable exes.
+_COIL_MAGIC = 0x434F494C  # "COIL"
+
+# DLLs the python exe links against at startup — must stay next to the exe.
+_EXE_DLLS = {
+    "python3.dll", "python313.dll", "python312.dll", "python311.dll",
+    "python310.dll", "python39.dll", "vcruntime140.dll", "vcruntime140_1.dll",
+}
+
+
+def package_portable(
+    project_dir: Path,
+    output_dir: Path,
+    runtime_dir: Path,
+    entry_points: list[str],
+    name: str,
+    target_os: str,
+    gui: bool = False,
+    secure: bool = False,
+    icon: str | None = None,
+    deps_dir: Path | None = None,
+    verbose: bool = False,
+) -> list[Path]:
+    """Create a portable build: single self-contained .exe per entry point.
+
+    Builds the full application directory in a temp location, zips it,
+    and appends it to the pre-compiled bootloader stub. The resulting
+    exe extracts on first launch and runs the app directly.
+
+    Args:
+        project_dir: Source project directory.
+        output_dir: Where to place the output exe(s).
+        runtime_dir: Path to the extracted embedded runtime.
+        entry_points: List of entry point scripts.
+        name: Application name.
+        target_os: Target OS.
+        gui: GUI mode.
+        secure: Secure obfuscation.
+        icon: Icon file path.
+        deps_dir: Directory containing installed dependencies.
+        verbose: Verbose output.
+
+    Returns:
+        List of paths to created portable executables.
+    """
+    output_dir.mkdir(parents=True, exist_ok=True)
+    results: list[Path] = []
+
+    for entry in entry_points:
+        entry_name = Path(entry).stem if len(entry_points) > 1 else name
+
+        if verbose:
+            print(f"Packaging portable exe for {entry}...")
+
+        # Step 1: Build the full directory in a temp location
+        with tempfile.TemporaryDirectory() as tmp:
+            stage_dir = Path(tmp) / entry_name
+            _build_app_directory(
+                project_dir=project_dir,
+                stage_dir=stage_dir,
+                runtime_dir=runtime_dir,
+                entry_point=entry,
+                entry_name=entry_name,
+                gui=gui,
+                secure=secure,
+                icon=icon,
+                deps_dir=deps_dir,
+                verbose=verbose,
+            )
+
+            # Step 2: Zip the staged directory
+            if verbose:
+                print("  Creating portable archive...")
+            zip_data = _zip_directory(stage_dir)
+
+        # Step 3: Combine bootloader stub + zip + trailer
+        from coil.bootloader import BOOTLOADER_STUB
+        stub = bytearray(BOOTLOADER_STUB)
+
+        zip_offset = len(stub)
+        trailer = struct.pack("<II", zip_offset, _COIL_MAGIC)
+        exe_data = bytes(stub) + zip_data + trailer
+
+        target_exe = output_dir / f"{entry_name}.exe"
+        target_exe.write_bytes(exe_data)
+
+        # Step 4: Apply icon to the final portable exe
+        if icon and sys.platform == "win32":
+            from coil.platforms.windows import set_exe_icon
+            try:
+                set_exe_icon(target_exe, Path(icon))
+                if verbose:
+                    print(f"  Applied icon: {icon}")
+            except Exception as e:
+                if verbose:
+                    print(f"  Warning: Could not apply icon to exe: {e}")
+
+        results.append(target_exe)
+        if verbose:
+            size_mb = target_exe.stat().st_size / (1024 * 1024)
+            print(f"  Created {target_exe} ({size_mb:.1f} MB)")
+
+    return results
 
 
 def package_bundled(
@@ -28,15 +135,10 @@ def package_bundled(
     deps_dir: Path | None = None,
     verbose: bool = False,
 ) -> Path:
-    """Create a bundled build: directory with compiled files.
+    """Create a bundled build: directory with exe and supporting files.
 
-    Produces a directory containing:
-    - Runtime (embedded Python)
-    - Compiled application code (.pyc)
-    - Bundled dependencies
-    - Launcher for each entry point
-
-    No loose .py files in output.
+    Produces a clean directory with the app exe at root, project assets
+    alongside it, and all runtime internals tucked into _internal/.
 
     Args:
         project_dir: Source project directory.
@@ -57,61 +159,55 @@ def package_bundled(
     bundle_dir = output_dir / name
     if bundle_dir.exists():
         shutil.rmtree(bundle_dir)
-    bundle_dir.mkdir(parents=True)
 
     if verbose:
         print(f"Creating bundled build in {bundle_dir}")
 
-    # Copy runtime
-    runtime_dest = bundle_dir / "runtime"
-    shutil.copytree(runtime_dir, runtime_dest)
-    if verbose:
-        print("  Copied runtime")
+    # Build the full directory for the first (primary) entry point
+    entry = entry_points[0]
+    entry_name = Path(entry).stem if len(entry_points) > 1 else name
+    _build_app_directory(
+        project_dir=project_dir,
+        stage_dir=bundle_dir,
+        runtime_dir=runtime_dir,
+        entry_point=entry,
+        entry_name=entry_name,
+        gui=gui,
+        secure=secure,
+        icon=icon,
+        deps_dir=deps_dir,
+        verbose=verbose,
+    )
 
-    # Obfuscate and compile source
-    if secure:
-        app_dir = obfuscate_secure(project_dir, bundle_dir)
-    else:
-        app_dir = obfuscate_default(project_dir, bundle_dir)
-    if verbose:
-        print(f"  Compiled source ({'secure' if secure else 'default'} mode)")
+    # For multiple entry points, create additional launchers
+    if len(entry_points) > 1:
+        for extra_entry in entry_points[1:]:
+            extra_name = Path(extra_entry).stem
+            extra_pyc = extra_entry.replace(".py", ".pyc")
 
-    # Copy dependencies
-    if deps_dir and deps_dir.is_dir():
-        lib_dir = bundle_dir / "lib"
-        shutil.copytree(deps_dir, lib_dir)
-        _remove_py_files(lib_dir)
-        if verbose:
-            print("  Bundled dependencies")
+            # Copy python exe as the extra entry
+            source_exe_name = "pythonw.exe" if gui else "python.exe"
+            source_exe = runtime_dir / source_exe_name
+            extra_exe = bundle_dir / f"{extra_name}.exe"
+            if source_exe.is_file():
+                shutil.copy2(source_exe, extra_exe)
 
-    # Create launchers
-    handler = get_handler(target_os)
-    for entry in entry_points:
-        entry_pyc = entry.replace(".py", ".pyc")
-        entry_name = Path(entry).stem if len(entry_points) > 1 else name
-        handler.create_launcher(
-            output_dir=bundle_dir,
-            entry_point=entry_pyc,
-            name=entry_name,
-            gui=gui,
-            icon=icon,
-        )
-        if verbose:
-            print(f"  Created launcher for {entry}")
+            # Create bootstrap for this entry
+            bootstrap = _generate_bootstrap_script(extra_pyc)
+            internal_dir = bundle_dir / "_internal"
+            (internal_dir / f"_boot_{extra_name}.py").write_text(
+                bootstrap, encoding="utf-8"
+            )
 
-    # Apply icon to the main exe if provided (bundled mode)
-    if icon and sys.platform == "win32":
-        # Find the exe created by the launcher — use the app name
-        main_exe = bundle_dir / f"{name}.exe"
-        if main_exe.is_file():
-            from coil.platforms.windows import set_exe_icon
-            try:
-                set_exe_icon(main_exe, Path(icon))
-                if verbose:
-                    print(f"  Applied icon: {icon}")
-            except Exception as e:
-                if verbose:
-                    print(f"  Warning: Could not apply icon: {e}")
+            if icon and sys.platform == "win32":
+                from coil.platforms.windows import set_exe_icon
+                try:
+                    set_exe_icon(extra_exe, Path(icon))
+                except Exception:
+                    pass
+
+            if verbose:
+                print(f"  Created launcher for {extra_entry}")
 
     if verbose:
         print(f"Bundled build complete: {bundle_dir}")
@@ -119,154 +215,131 @@ def package_bundled(
     return bundle_dir
 
 
-def package_portable(
+def _build_app_directory(
     project_dir: Path,
-    output_dir: Path,
+    stage_dir: Path,
     runtime_dir: Path,
-    entry_points: list[str],
-    name: str,
-    target_os: str,
-    gui: bool = False,
-    secure: bool = False,
-    icon: str | None = None,
-    deps_dir: Path | None = None,
-    verbose: bool = False,
-) -> list[Path]:
-    """Create a portable build: self-contained directory per entry point.
+    entry_point: str,
+    entry_name: str,
+    gui: bool,
+    secure: bool,
+    icon: str | None,
+    deps_dir: Path | None,
+    verbose: bool,
+) -> None:
+    """Build the full application directory structure.
 
-    Produces a directory containing the embedded Python runtime renamed
-    to the application name, with all code and dependencies bundled.
-    The .exe is a real Python interpreter so it runs natively on Windows.
-
-    Args:
-        project_dir: Source project directory.
-        output_dir: Where to create the output.
-        runtime_dir: Path to the extracted embedded runtime.
-        entry_points: List of entry point scripts.
-        name: Application name.
-        target_os: Target OS.
-        gui: GUI mode.
-        secure: Secure obfuscation.
-        icon: Icon file path.
-        deps_dir: Directory containing installed dependencies.
-        verbose: Verbose output.
-
-    Returns:
-        List of paths to created portable executables.
+    Creates:
+        stage_dir/
+            AppName.exe           (renamed python.exe)
+            python3.dll           (required next to exe)
+            python3xx.dll         (required next to exe)
+            python3xx._pth        (path config)
+            vcruntime140.dll      (required next to exe)
+            vcruntime140_1.dll    (required next to exe)
+            feather.ico           (project assets)
+            _internal/
+                python3xx.zip     (stdlib)
+                *.pyd             (extension modules)
+                *.dll             (other libs)
+                app/              (compiled source)
+                lib/              (dependencies)
+                sitecustomize.py  (bootstrap trigger)
+                _boot_AppName.py  (bootstrap script)
     """
-    output_dir.mkdir(parents=True, exist_ok=True)
-    results: list[Path] = []
+    stage_dir.mkdir(parents=True, exist_ok=True)
+    internal_dir = stage_dir / "_internal"
+    internal_dir.mkdir(exist_ok=True)
 
-    # DLLs the exe needs at startup — must stay next to the exe
-    _EXE_DLLS = {"python3.dll", "python313.dll", "python312.dll", "python311.dll",
-                 "python310.dll", "python39.dll", "vcruntime140.dll",
-                 "vcruntime140_1.dll"}
+    entry_pyc = entry_point.replace(".py", ".pyc")
+    ver_tag = _get_python_ver_tag(runtime_dir)
+    pth_name = f"python{ver_tag}._pth" if ver_tag else ""
 
-    for entry in entry_points:
-        entry_pyc = entry.replace(".py", ".pyc")
-        entry_name = Path(entry).stem if len(entry_points) > 1 else name
+    # Copy runtime files — DLLs the exe needs go at root, everything else in _internal/
+    for item in runtime_dir.iterdir():
+        name_lower = item.name.lower()
 
-        if verbose:
-            print(f"Packaging portable exe for {entry}...")
+        # Skip files we don't need
+        if name_lower in ("python.exe", "pythonw.exe", "license.txt", "python.cat"):
+            continue
+        if name_lower.endswith(".exe"):
+            continue
 
-        # Create the portable directory and _internal/ for runtime files
-        portable_dir = output_dir / entry_name
-        if portable_dir.exists():
-            shutil.rmtree(portable_dir)
-        portable_dir.mkdir(parents=True)
-        internal_dir = portable_dir / "_internal"
-        internal_dir.mkdir()
-
-        # Copy runtime — sort files between root (required DLLs) and _internal/
-        ver_tag = _get_python_ver_tag(runtime_dir)
-        pth_name = f"python{ver_tag}._pth" if ver_tag else ""
-
-        for item in runtime_dir.iterdir():
-            name_lower = item.name.lower()
-            # Skip files we never need
-            if name_lower in ("python.exe", "pythonw.exe", "license.txt", "python.cat"):
-                if name_lower in ("python.exe", "pythonw.exe"):
-                    # We still need to grab the exe to copy as the app exe
-                    pass
-                else:
-                    continue
-
-            if name_lower.endswith(".exe"):
-                continue  # Skip exes — we copy the right one below
-
-            # DLLs the exe links against and the ._pth go at root
-            if item.name in _EXE_DLLS or item.name == pth_name:
-                shutil.copy2(item, portable_dir / item.name)
-            elif item.is_dir():
-                shutil.copytree(item, internal_dir / item.name)
-            else:
-                shutil.copy2(item, internal_dir / item.name)
-
-        # Copy the right Python exe as AppName.exe at root
-        source_exe_name = "pythonw.exe" if gui else "python.exe"
-        source_exe = runtime_dir / source_exe_name
-        target_exe = portable_dir / f"{entry_name}.exe"
-        if source_exe.is_file():
-            shutil.copy2(source_exe, target_exe)
+        if item.name in _EXE_DLLS or item.name == pth_name:
+            shutil.copy2(item, stage_dir / item.name)
+        elif item.is_dir():
+            shutil.copytree(item, internal_dir / item.name)
         else:
-            shutil.copy2(runtime_dir / "python.exe", target_exe)
+            shutil.copy2(item, internal_dir / item.name)
 
-        # Obfuscate and compile source into _internal/app/
-        if secure:
-            app_dir = obfuscate_secure(project_dir, internal_dir)
-        else:
-            app_dir = obfuscate_default(project_dir, internal_dir)
+    # Copy the right python exe as AppName.exe
+    source_exe_name = "pythonw.exe" if gui else "python.exe"
+    source_exe = runtime_dir / source_exe_name
+    target_exe = stage_dir / f"{entry_name}.exe"
+    if source_exe.is_file():
+        shutil.copy2(source_exe, target_exe)
+    else:
+        shutil.copy2(runtime_dir / "python.exe", target_exe)
+
+    # Compile source into _internal/app/
+    if secure:
+        obfuscate_secure(project_dir, internal_dir)
+    else:
+        obfuscate_default(project_dir, internal_dir)
+    if verbose:
+        print(f"  Compiled source ({'secure' if secure else 'default'} mode)")
+
+    # Copy dependencies into _internal/lib/
+    if deps_dir and deps_dir.is_dir():
+        lib_dir = internal_dir / "lib"
+        shutil.copytree(deps_dir, lib_dir)
+        _remove_py_files(lib_dir)
         if verbose:
-            print(f"  Compiled source ({'secure' if secure else 'default'} mode)")
+            print("  Bundled dependencies")
 
-        # Copy dependencies into _internal/lib/
-        if deps_dir and deps_dir.is_dir():
-            lib_dir = internal_dir / "lib"
-            shutil.copytree(deps_dir, lib_dir)
-            _remove_py_files(lib_dir)
+    # Create bootstrap script
+    bootstrap = _generate_bootstrap_script(entry_pyc)
+    (internal_dir / f"_boot_{entry_name}.py").write_text(bootstrap, encoding="utf-8")
+
+    # Configure ._pth and sitecustomize.py
+    _configure_pth(stage_dir, internal_dir, entry_name, ver_tag)
+
+    # Set GUI subsystem if needed
+    if gui and target_exe.is_file():
+        from coil.platforms.windows import set_pe_subsystem
+        try:
+            set_pe_subsystem(target_exe, gui=True)
+        except Exception:
+            pass
+
+    # Apply icon to the inner exe
+    if icon and target_exe.is_file() and sys.platform == "win32":
+        from coil.platforms.windows import set_exe_icon
+        try:
+            set_exe_icon(target_exe, Path(icon))
             if verbose:
-                print("  Bundled dependencies")
+                print(f"  Applied icon to inner exe: {icon}")
+        except Exception as e:
+            if verbose:
+                print(f"  Warning: Could not apply icon: {e}")
 
-        # Create the bootstrap script inside _internal/
-        bootstrap = _generate_bootstrap_script(entry_pyc)
-        bootstrap_path = internal_dir / f"_boot_{entry_name}.py"
-        bootstrap_path.write_text(bootstrap, encoding="utf-8")
+    # Copy project assets (icons, configs, etc.) to root
+    _copy_project_assets(project_dir, stage_dir, verbose)
 
-        # Configure the ._pth file (at root, next to python3xx.dll)
-        _configure_portable_pth(portable_dir, internal_dir, entry_name, ver_tag)
 
-        # If GUI mode, set PE subsystem on the copied exe
-        if gui and target_exe.is_file():
-            from coil.platforms.windows import set_pe_subsystem
-            try:
-                set_pe_subsystem(target_exe, gui=True)
-            except Exception:
-                pass  # Best effort — pythonw.exe already has GUI subsystem
+def _zip_directory(directory: Path) -> bytes:
+    """Zip an entire directory tree into an in-memory bytes object.
 
-        # Apply icon if provided
-        if icon and target_exe.is_file() and sys.platform == "win32":
-            from coil.platforms.windows import set_exe_icon
-            try:
-                set_exe_icon(target_exe, Path(icon))
-                if verbose:
-                    print(f"  Applied icon to exe: {icon}")
-            except Exception as e:
-                if verbose:
-                    print(f"  Warning: Could not apply icon to exe: {e}")
-
-        # Copy non-code project assets (icons, images, configs, etc.)
-        # to root so the app can find them at runtime via relative paths
-        _copy_project_assets(project_dir, portable_dir, verbose)
-
-        results.append(target_exe)
-        if verbose:
-            total_size = sum(
-                f.stat().st_size for f in portable_dir.rglob("*") if f.is_file()
-            )
-            size_mb = total_size / (1024 * 1024)
-            print(f"  Created {target_exe} ({size_mb:.1f} MB)")
-
-    return results
+    Uses ZIP_STORED (no compression) so the bootloader can extract
+    without needing a decompression library.
+    """
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_STORED) as zf:
+        for file_path in sorted(directory.rglob("*")):
+            if file_path.is_file():
+                arcname = str(file_path.relative_to(directory))
+                zf.write(file_path, arcname)
+    return buf.getvalue()
 
 
 def install_dependencies(
@@ -335,7 +408,7 @@ def _add_dir_to_zip(
 def _generate_bootstrap_script(entry_point: str) -> str:
     """Generate the bootstrap script that runs the entry point.
 
-    This script is imported by the ._pth file when the exe starts.
+    This script is exec'd by sitecustomize.py when the exe starts.
     It sets up sys.path, loads the entry point, and exits.
     """
     return f'''\
@@ -379,22 +452,20 @@ sys.exit(0)
 '''
 
 
-def _configure_portable_pth(
-    portable_dir: Path,
+def _configure_pth(
+    root_dir: Path,
     internal_dir: Path,
     entry_name: str,
     ver_tag: str,
 ) -> None:
-    """Configure the ._pth file for the portable build.
+    """Configure the ._pth file and sitecustomize.py.
 
     The ._pth file lives at root (next to the exe and python3xx.dll).
-    All paths are relative to the ._pth file's location.
     Runtime files, app code, and deps live under _internal/.
     """
-    pth_file = portable_dir / f"python{ver_tag}._pth"
+    pth_file = root_dir / f"python{ver_tag}._pth"
     if not pth_file.is_file():
-        # Fallback: find any pth file
-        pth_files = list(portable_dir.glob("python*._pth"))
+        pth_files = list(root_dir.glob("python*._pth"))
         if not pth_files:
             return
         pth_file = sorted(pth_files, key=lambda p: len(p.name), reverse=True)[0]
@@ -409,7 +480,6 @@ def _configure_portable_pth(
         encoding="utf-8",
     )
 
-    # Create sitecustomize.py inside _internal/ — auto-imported by site module.
     site_custom = internal_dir / "sitecustomize.py"
     site_custom.write_text(
         f"import os, sys\n"
@@ -428,23 +498,26 @@ def _get_python_ver_tag(runtime_dir: Path) -> str:
     """
     best_tag = ""
     for f in runtime_dir.glob("python*.dll"):
-        name = f.stem  # e.g. "python313"
+        name = f.stem
         tag = name.replace("python", "")
         if tag and tag.isdigit() and len(tag) > len(best_tag):
             best_tag = tag
     return best_tag
 
 
-def _copy_project_assets(project_dir: Path, dest_dir: Path, verbose: bool = False) -> None:
+def _copy_project_assets(
+    project_dir: Path, dest_dir: Path, verbose: bool = False
+) -> None:
     """Copy non-code assets from the project directory into the output.
 
     Copies files like .ico, .png, .json, .cfg, etc. that the app may
-    reference at runtime via relative paths. Skips .py files (already
-    compiled) and common non-asset patterns.
+    reference at runtime via relative paths.
     """
     skip_extensions = {".py", ".pyc", ".pyo", ".pyd"}
-    skip_names = {"__pycache__", ".git", ".venv", "venv", ".env", "node_modules",
-                  "dist", "build", ".mypy_cache", ".pytest_cache", ".tox"}
+    skip_names = {
+        "__pycache__", ".git", ".venv", "venv", ".env", "node_modules",
+        "dist", "build", ".mypy_cache", ".pytest_cache", ".tox",
+    }
 
     for item in project_dir.iterdir():
         if item.name in skip_names:
@@ -456,10 +529,8 @@ def _copy_project_assets(project_dir: Path, dest_dir: Path, verbose: bool = Fals
                 if verbose:
                     print(f"  Copied asset: {item.name}")
         elif item.is_dir() and item.name not in skip_names:
-            # Copy asset directories (e.g. assets/, images/, resources/)
             dest = dest_dir / item.name
             if not dest.exists():
-                # Only copy if it contains non-Python files
                 has_assets = any(
                     f.suffix.lower() not in skip_extensions
                     for f in item.rglob("*") if f.is_file()
@@ -473,8 +544,6 @@ def _copy_project_assets(project_dir: Path, dest_dir: Path, verbose: bool = Fals
 def _remove_py_files(directory: Path) -> None:
     """Remove all .py files from a directory, keeping .pyc files."""
     for py_file in directory.rglob("*.py"):
-        # Keep __init__.py files as some packages need them
-        # but compile them to .pyc first
         pyc = py_file.with_suffix(".pyc")
         if not pyc.exists():
             import py_compile
