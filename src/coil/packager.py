@@ -191,6 +191,18 @@ def package_portable(
             if fallback.is_file():
                 shutil.copy2(fallback, target_exe)
 
+        # Remove the original python exes — only keep the renamed app exe
+        for leftover in ("python.exe", "pythonw.exe"):
+            lf = portable_dir / leftover
+            if lf.is_file() and lf.name != target_exe.name:
+                lf.unlink()
+
+        # Remove unnecessary runtime files to keep the directory clean
+        for junk in ("LICENSE.txt", "python.cat"):
+            jf = portable_dir / junk
+            if jf.is_file():
+                jf.unlink()
+
         # Obfuscate and compile source into app/ subdirectory
         if secure:
             app_dir = obfuscate_secure(project_dir, portable_dir)
@@ -229,10 +241,14 @@ def package_portable(
             try:
                 set_exe_icon(target_exe, Path(icon))
                 if verbose:
-                    print(f"  Applied icon: {icon}")
+                    print(f"  Applied icon to exe: {icon}")
             except Exception as e:
                 if verbose:
-                    print(f"  Warning: Could not apply icon: {e}")
+                    print(f"  Warning: Could not apply icon to exe: {e}")
+
+        # Copy non-code project assets (icons, images, configs, etc.)
+        # so the app can find them at runtime via relative paths
+        _copy_project_assets(project_dir, portable_dir, verbose)
 
         results.append(target_exe)
         if verbose:
@@ -319,6 +335,8 @@ import os
 import sys
 
 _base = os.path.dirname(os.path.abspath(__file__))
+os.chdir(_base)
+
 _app = os.path.join(_base, "app")
 _lib = os.path.join(_base, "lib")
 
@@ -402,6 +420,41 @@ def _get_python_ver_tag(runtime_dir: Path) -> str:
         if tag and tag.isdigit() and len(tag) > len(best_tag):
             best_tag = tag
     return best_tag
+
+
+def _copy_project_assets(project_dir: Path, dest_dir: Path, verbose: bool = False) -> None:
+    """Copy non-code assets from the project directory into the output.
+
+    Copies files like .ico, .png, .json, .cfg, etc. that the app may
+    reference at runtime via relative paths. Skips .py files (already
+    compiled) and common non-asset patterns.
+    """
+    skip_extensions = {".py", ".pyc", ".pyo", ".pyd"}
+    skip_names = {"__pycache__", ".git", ".venv", "venv", ".env", "node_modules",
+                  "dist", "build", ".mypy_cache", ".pytest_cache", ".tox"}
+
+    for item in project_dir.iterdir():
+        if item.name in skip_names:
+            continue
+        if item.is_file() and item.suffix.lower() not in skip_extensions:
+            dest = dest_dir / item.name
+            if not dest.exists():
+                shutil.copy2(item, dest)
+                if verbose:
+                    print(f"  Copied asset: {item.name}")
+        elif item.is_dir() and item.name not in skip_names:
+            # Copy asset directories (e.g. assets/, images/, resources/)
+            dest = dest_dir / item.name
+            if not dest.exists():
+                # Only copy if it contains non-Python files
+                has_assets = any(
+                    f.suffix.lower() not in skip_extensions
+                    for f in item.rglob("*") if f.is_file()
+                )
+                if has_assets:
+                    shutil.copytree(item, dest)
+                    if verbose:
+                        print(f"  Copied asset directory: {item.name}/")
 
 
 def _remove_py_files(directory: Path) -> None:
