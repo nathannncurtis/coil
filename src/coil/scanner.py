@@ -3,6 +3,8 @@
 import ast
 from pathlib import Path
 
+from coil.utils.gui_frameworks import GUI_IMPORTS
+
 
 def find_py_files(project_dir: Path) -> list[Path]:
     """Recursively find all .py files in a project directory."""
@@ -54,3 +56,13 @@ def scan_project(project_dir: Path) -> set[str]:
         all_imports.update(extract_imports(source))
 
     return all_imports
+
+
+def detect_gui_imports(project_dir: Path) -> list[str]:
+    """Detect GUI framework imports in a project.
+
+    Returns sorted list of GUI import names found, or empty list if none.
+    """
+    all_imports = scan_project(project_dir)
+    found = sorted(all_imports & GUI_IMPORTS)
+    return found
