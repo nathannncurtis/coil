@@ -1,12 +1,21 @@
 """Tests for the CLI."""
 
+import os
 import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pytest
 
-from coil.cli import create_parser, resolve_entry_points, detect_os, detect_python_version
+from coil.cli import (
+    create_parser,
+    resolve_entry_points,
+    detect_os,
+    detect_python_version,
+    get_cache_dir,
+    clear_cache,
+    show_cache_info,
+)
 
 
 def test_detect_os():
@@ -86,3 +95,65 @@ def test_icon_flag_overrides_auto(tmp_path: Path):
         "build", str(tmp_path), "--icon", str(tmp_path / "auto.ico"),
     ])
     assert args.icon == str(tmp_path / "auto.ico")
+
+
+def test_get_cache_dir():
+    cache = get_cache_dir()
+    assert isinstance(cache, Path)
+    assert "coil" in str(cache).lower()
+
+
+def test_clear_cache_empty(tmp_path: Path, capsys):
+    with patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}):
+        clear_cache()
+    out = capsys.readouterr().out
+    assert "empty" in out.lower() or "cleared" in out.lower()
+
+
+def test_clear_cache_with_entries(tmp_path: Path, capsys):
+    cache = tmp_path / "coil" / "TestApp" / "abc12345"
+    cache.mkdir(parents=True)
+    (cache / "dummy.dll").write_bytes(b"\x00" * 1000)
+    (cache / ".coil_ready").write_bytes(b"\x00" * 4)
+
+    with patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}):
+        clear_cache()
+
+    out = capsys.readouterr().out
+    assert "cleared" in out.lower()
+    assert not (tmp_path / "coil").exists()
+
+
+def test_show_cache_info_empty(tmp_path: Path, capsys):
+    with patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}):
+        show_cache_info()
+    out = capsys.readouterr().out
+    assert "empty" in out.lower()
+
+
+def test_show_cache_info_with_entries(tmp_path: Path, capsys):
+    cache = tmp_path / "coil" / "MyApp" / "deadbeef"
+    cache.mkdir(parents=True)
+    (cache / "MyApp.exe").write_bytes(b"\x00" * 5000)
+    (cache / ".coil_ready").write_bytes(b"\x00" * 4)
+
+    with patch.dict(os.environ, {"LOCALAPPDATA": str(tmp_path)}):
+        show_cache_info()
+
+    out = capsys.readouterr().out
+    assert "MyApp" in out
+    assert "deadbeef" in out
+    assert "ready" in out
+
+
+def test_clear_cache_flag_on_build():
+    parser = create_parser()
+    args = parser.parse_args(["build", ".", "--clear-cache"])
+    assert args.clear_cache is True
+
+
+def test_cache_subcommand():
+    parser = create_parser()
+    args = parser.parse_args(["cache", "clear"])
+    assert args.command == "cache"
+    assert args.cache_action == "clear"

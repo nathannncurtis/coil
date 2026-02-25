@@ -1,6 +1,8 @@
 """Command-line interface for Coil."""
 
 import argparse
+import os
+import shutil
 import sys
 from pathlib import Path
 
@@ -127,6 +129,27 @@ def create_parser() -> argparse.ArgumentParser:
         default=False,
         help="Show what would be built without building.",
     )
+    build_parser.add_argument(
+        "--clear-cache",
+        action="store_true",
+        default=False,
+        help=argparse.SUPPRESS,  # Hidden flag
+    )
+
+    # --- cache subcommand ---
+    cache_parser = subparsers.add_parser(
+        "cache",
+        help="Manage the portable exe runtime cache.",
+    )
+    cache_sub = cache_parser.add_subparsers(dest="cache_action")
+    cache_sub.add_parser(
+        "clear",
+        help="Delete all cached runtimes.",
+    )
+    cache_sub.add_parser(
+        "info",
+        help="Show cache location and size.",
+    )
 
     # --- decompile subcommand ---
     decompile_parser = subparsers.add_parser(
@@ -191,6 +214,55 @@ def resolve_entry_points(project_dir: Path, entries: list[str] | None) -> list[s
     sys.exit(1)
 
 
+def get_cache_dir() -> Path:
+    """Get the Coil runtime cache directory."""
+    local_app = os.environ.get("LOCALAPPDATA", "")
+    if local_app:
+        return Path(local_app) / "coil"
+    temp = os.environ.get("TEMP", os.environ.get("TMP", ""))
+    if temp:
+        return Path(temp) / "coil"
+    return Path.home() / ".coil" / "cache"
+
+
+def clear_cache() -> None:
+    """Delete the entire Coil runtime cache."""
+    cache = get_cache_dir()
+    if cache.is_dir():
+        size = sum(f.stat().st_size for f in cache.rglob("*") if f.is_file())
+        shutil.rmtree(cache, ignore_errors=True)
+        print(f"Cleared cache: {cache} ({size / 1024 / 1024:.1f} MB freed)")
+    else:
+        print(f"Cache is empty: {cache}")
+
+
+def show_cache_info() -> None:
+    """Show cache location, entries, and total size."""
+    cache = get_cache_dir()
+    if not cache.is_dir():
+        print(f"Cache directory: {cache}")
+        print("  (empty)")
+        return
+
+    total_size = 0
+    entries = 0
+    for app_dir in sorted(cache.iterdir()):
+        if not app_dir.is_dir():
+            continue
+        for hash_dir in sorted(app_dir.iterdir()):
+            if not hash_dir.is_dir():
+                continue
+            dir_size = sum(f.stat().st_size for f in hash_dir.rglob("*") if f.is_file())
+            total_size += dir_size
+            entries += 1
+            marker = hash_dir / ".coil_ready"
+            status = "ready" if marker.is_file() else "incomplete"
+            print(f"  {app_dir.name}/{hash_dir.name}  ({dir_size / 1024 / 1024:.1f} MB, {status})")
+
+    print(f"\nCache directory: {cache}")
+    print(f"  {entries} cached build(s), {total_size / 1024 / 1024:.1f} MB total")
+
+
 def validate_build_args(args: argparse.Namespace) -> None:
     """Validate build subcommand arguments."""
     project = Path(args.project)
@@ -216,7 +288,19 @@ def main(argv: list[str] | None = None) -> None:
         parser.print_help()
         sys.exit(0)
 
+    if args.command == "cache":
+        if args.cache_action == "clear":
+            clear_cache()
+        elif args.cache_action == "info":
+            show_cache_info()
+        else:
+            print("Usage: coil cache {clear,info}")
+        sys.exit(0)
+
     if args.command == "build":
+        if args.clear_cache:
+            clear_cache()
+
         validate_build_args(args)
 
         project_dir = Path(args.project).resolve()
