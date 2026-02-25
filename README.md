@@ -25,12 +25,14 @@ Coil takes a different approach: **directory in, executable out.** Point it at y
 
 ```bash
 pip install coil-compiler
-coil build ./myproject
+coil init ./myproject        # Generate coil.toml config
+coil build ./myproject       # Build your executable
 ```
 
 Or, if `coil` isn't on your PATH:
 
 ```bash
+python -m coil init ./myproject
 python -m coil build ./myproject
 ```
 
@@ -135,6 +137,70 @@ coil decompile ./dist/MyApp.exe --output ./recovered
 
 Secure builds cannot be decompiled.
 
+### Clean Build
+
+Build in an isolated environment with only declared dependencies. Guarantees reproducible builds:
+
+```bash
+coil build ./myproject --clean
+```
+
+The clean environment is cached — subsequent builds reuse it if dependencies haven't changed.
+
+### Project Setup
+
+Generate a `coil.toml` config file for your project:
+
+```bash
+coil init ./myproject
+```
+
+This asks a few questions (entry point, console/GUI, icon) and writes a `coil.toml` with sensible defaults. After that, `coil build ./myproject` uses the config automatically — no flags needed.
+
+### Build Profiles
+
+Define named profiles in `coil.toml` for different build scenarios:
+
+```toml
+[profile.dev]
+mode = "bundled"
+secure = false
+verbose = true
+
+[profile.release]
+mode = "portable"
+secure = true
+```
+
+Switch between them with `--profile`:
+
+```bash
+coil build ./myproject --profile dev
+coil build ./myproject --profile release
+```
+
+CLI flags always override profile settings.
+
+### Pre-Build Diagnostics
+
+Check for problems before building:
+
+```bash
+coil doctor ./myproject
+```
+
+Checks Python version, runtime availability, write permissions, config validity, and known package issues.
+
+### Build Preview
+
+See what Coil will include in a build without building:
+
+```bash
+coil inspect ./myproject
+```
+
+Shows entry point, dependencies (stdlib vs third-party), estimated output size, and config.
+
 ### Dry Run
 
 See what would be built without building:
@@ -188,7 +254,60 @@ coil cache clear    # Delete all cached runtimes
 
 > **Tip:** If you have a `requirements.txt` or `pyproject.toml`, Coil uses that instead of scanning imports. This is faster and more reliable.
 
+## Configuration (`coil.toml`)
+
+Run `coil init` to generate a config file, or create one manually:
+
+```toml
+[project]
+entry = "main.py"
+name = "MyApp"
+
+[build]
+mode = "portable"
+os = "windows"
+console = true
+python = "3.12"
+clean = false
+
+[build.dependencies]
+# Coil resolves deps automatically from requirements.txt or AST scan
+auto = true
+exclude = []
+include = []
+
+[build.output]
+dir = "./dist"
+icon = ""
+
+# Profiles override [build] settings
+# [profile.dev]
+# mode = "bundled"
+# secure = false
+# verbose = true
+
+# [profile.release]
+# mode = "portable"
+# secure = true
+```
+
+**Priority order:** CLI flags > profile values > `[build]` values > defaults.
+
 ## CLI Reference
+
+### Subcommands
+
+| Command | Description |
+|---------|-------------|
+| `coil build <project>` | Build a Python project into an executable |
+| `coil init [project]` | Generate a coil.toml config file |
+| `coil doctor [project]` | Run pre-build diagnostics |
+| `coil inspect [project]` | Preview what Coil will include in a build |
+| `coil decompile <exe>` | Recover source from a default Coil build |
+| `coil cache info` | Show cache location and size |
+| `coil cache clear` | Delete all cached runtimes |
+
+### Build Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
@@ -199,6 +318,8 @@ coil cache clear    # Delete all cached runtimes
 | `--gui` | `false` | Suppress console window |
 | `--console` | `true` | Show console window (default) |
 | `--secure` | `false` | Heavy obfuscation, not reversible |
+| `--clean` | `false` | Build in clean environment with only declared deps |
+| `--profile` | None | Build profile from coil.toml |
 | `--exclude` | None | Comma-separated packages to exclude |
 | `--include` | None | Comma-separated packages to force-include |
 | `--output` | `./dist` | Output directory |
@@ -207,13 +328,6 @@ coil cache clear    # Delete all cached runtimes
 | `--requirements` | Auto-detect | Path to requirements.txt or pyproject.toml |
 | `--verbose` | `false` | Detailed build output |
 | `--dry-run` | `false` | Preview build without executing |
-
-### Cache Management
-
-```bash
-coil cache info     # Show cache location and size
-coil cache clear    # Delete all cached runtimes
-```
 
 ## Obfuscation
 
@@ -249,9 +363,7 @@ Yes. The build output is a single `.exe`. On first run, it extracts a cached cop
 - macOS .app support
 - Linux ELF binary support
 - ARM64 bootloader for Windows on ARM
-- `coil.toml` configuration file
 - Cross-compilation
-- Plugin system
 - Optional runtime signing (helps with AV false positives)
 
 ## Contributing
