@@ -217,8 +217,8 @@ def set_exe_icon(exe_path: Path, icon_path: Path) -> None:
     kernel32.EndUpdateResourceW.argtypes = [ctypes.c_void_p, ctypes.c_bool]
     kernel32.EndUpdateResourceW.restype = ctypes.c_bool
 
-    # Begin updating resources
-    handle = kernel32.BeginUpdateResourceW(str(exe_path), False)
+    # Begin updating resources — use absolute path for Windows API
+    handle = kernel32.BeginUpdateResourceW(str(exe_path.resolve()), False)
     if not handle:
         raise OSError(f"BeginUpdateResource failed (error {ctypes.GetLastError()})")
 
