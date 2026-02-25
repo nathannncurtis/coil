@@ -44,7 +44,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--mode",
         type=str,
         choices=["portable", "bundled"],
-        default="portable",
+        default=None,
         help="Build mode: portable (single exe) or bundled (directory). Default: portable.",
     )
     build_parser.add_argument(
@@ -398,19 +398,9 @@ def _apply_toml_config(args: argparse.Namespace, project_dir: Path) -> None:
     if args.name is None and config.get("name"):
         args.name = config["name"]
 
-    # Mode: only override if user didn't explicitly pass --mode
-    # (argparse default is "portable", toml default is also "portable",
-    # so we always apply toml since we can't distinguish CLI from default)
-    if config.get("mode"):
-        # We track whether --mode was explicitly passed by checking sys.argv
-        # But simpler: toml value is applied, CLI overrides via argparse
-        # Since argparse always sets mode, we use a heuristic:
-        # if toml has a different mode, apply it (CLI will override if user specified)
-        pass  # mode is always set by argparse, toml is base layer
-
-    # For flags that have non-None defaults in argparse, we need to check
-    # if the user explicitly passed them. We do this by re-parsing for explicit flags.
-    # Simpler approach: apply toml as base, let argparse defaults stand if no toml.
+    # mode: None means user didn't pass --mode on CLI
+    if args.mode is None and config.get("mode"):
+        args.mode = config["mode"]
 
     # os
     if args.os is None and config.get("os"):
@@ -484,6 +474,10 @@ def main(argv: list[str] | None = None) -> None:
 
         # Load coil.toml defaults (CLI flags override)
         _apply_toml_config(args, project_dir)
+
+        # Apply final defaults for values that may still be unset
+        if args.mode is None:
+            args.mode = "portable"
 
         target_os = args.os or detect_os()
         python_version = args.python or detect_python_version()
