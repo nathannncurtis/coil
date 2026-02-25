@@ -139,9 +139,14 @@ def test_package_portable(tmp_path: Path):
     assert exe_path.is_file()
 
     portable_dir = exe_path.parent
-    assert (portable_dir / "app" / "main.pyc").is_file()
+    internal = portable_dir / "_internal"
+    assert internal.is_dir()
+    assert (internal / "app" / "main.pyc").is_file()
     assert (portable_dir / "python313.dll").is_file()
-    assert (portable_dir / "_boot_MyApp.py").is_file()
+    assert (internal / "_boot_MyApp.py").is_file()
+    # Verify no leftover python exes at root
+    assert not (portable_dir / "python.exe").exists()
+    assert not (portable_dir / "pythonw.exe").exists()
 
 
 def test_package_portable_gui(tmp_path: Path):

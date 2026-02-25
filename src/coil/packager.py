@@ -157,6 +157,11 @@ def package_portable(
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[Path] = []
 
+    # DLLs the exe needs at startup — must stay next to the exe
+    _EXE_DLLS = {"python3.dll", "python313.dll", "python312.dll", "python311.dll",
+                 "python310.dll", "python39.dll", "vcruntime140.dll",
+                 "vcruntime140_1.dll"}
+
     for entry in entry_points:
         entry_pyc = entry.replace(".py", ".pyc")
         entry_name = Path(entry).stem if len(entry_points) > 1 else name
@@ -164,68 +169,71 @@ def package_portable(
         if verbose:
             print(f"Packaging portable exe for {entry}...")
 
-        # Create the portable directory
+        # Create the portable directory and _internal/ for runtime files
         portable_dir = output_dir / entry_name
         if portable_dir.exists():
             shutil.rmtree(portable_dir)
         portable_dir.mkdir(parents=True)
+        internal_dir = portable_dir / "_internal"
+        internal_dir.mkdir()
 
-        # Copy the entire runtime into the portable dir
+        # Copy runtime — sort files between root (required DLLs) and _internal/
+        ver_tag = _get_python_ver_tag(runtime_dir)
+        pth_name = f"python{ver_tag}._pth" if ver_tag else ""
+
         for item in runtime_dir.iterdir():
-            dest = portable_dir / item.name
-            if item.is_dir():
-                shutil.copytree(item, dest)
+            name_lower = item.name.lower()
+            # Skip files we never need
+            if name_lower in ("python.exe", "pythonw.exe", "license.txt", "python.cat"):
+                if name_lower in ("python.exe", "pythonw.exe"):
+                    # We still need to grab the exe to copy as the app exe
+                    pass
+                else:
+                    continue
+
+            if name_lower.endswith(".exe"):
+                continue  # Skip exes — we copy the right one below
+
+            # DLLs the exe links against and the ._pth go at root
+            if item.name in _EXE_DLLS or item.name == pth_name:
+                shutil.copy2(item, portable_dir / item.name)
+            elif item.is_dir():
+                shutil.copytree(item, internal_dir / item.name)
             else:
-                shutil.copy2(item, dest)
+                shutil.copy2(item, internal_dir / item.name)
 
-        # Pick the right Python exe: pythonw.exe for GUI, python.exe for console
+        # Copy the right Python exe as AppName.exe at root
         source_exe_name = "pythonw.exe" if gui else "python.exe"
-        source_exe = portable_dir / source_exe_name
+        source_exe = runtime_dir / source_exe_name
         target_exe = portable_dir / f"{entry_name}.exe"
-
         if source_exe.is_file():
             shutil.copy2(source_exe, target_exe)
         else:
-            # Fallback: just copy python.exe
-            fallback = portable_dir / "python.exe"
-            if fallback.is_file():
-                shutil.copy2(fallback, target_exe)
+            shutil.copy2(runtime_dir / "python.exe", target_exe)
 
-        # Remove the original python exes — only keep the renamed app exe
-        for leftover in ("python.exe", "pythonw.exe"):
-            lf = portable_dir / leftover
-            if lf.is_file() and lf.name != target_exe.name:
-                lf.unlink()
-
-        # Remove unnecessary runtime files to keep the directory clean
-        for junk in ("LICENSE.txt", "python.cat"):
-            jf = portable_dir / junk
-            if jf.is_file():
-                jf.unlink()
-
-        # Obfuscate and compile source into app/ subdirectory
+        # Obfuscate and compile source into _internal/app/
         if secure:
-            app_dir = obfuscate_secure(project_dir, portable_dir)
+            app_dir = obfuscate_secure(project_dir, internal_dir)
         else:
-            app_dir = obfuscate_default(project_dir, portable_dir)
+            app_dir = obfuscate_default(project_dir, internal_dir)
         if verbose:
             print(f"  Compiled source ({'secure' if secure else 'default'} mode)")
 
-        # Copy dependencies into lib/ subdirectory
+        # Copy dependencies into _internal/lib/
         if deps_dir and deps_dir.is_dir():
-            lib_dir = portable_dir / "lib"
+            lib_dir = internal_dir / "lib"
             shutil.copytree(deps_dir, lib_dir)
             _remove_py_files(lib_dir)
             if verbose:
                 print("  Bundled dependencies")
 
-        # Create the bootstrap __main__.py that the exe will run
+        # Create the bootstrap script inside _internal/
         bootstrap = _generate_bootstrap_script(entry_pyc)
-        bootstrap_path = portable_dir / f"_boot_{entry_name}.py"
+        bootstrap_path = internal_dir / f"_boot_{entry_name}.py"
         bootstrap_path.write_text(bootstrap, encoding="utf-8")
 
-        # Configure the ._pth file so the exe finds everything
-        _configure_portable_pth(portable_dir, entry_name)
+        # Configure the ._pth file (at root, next to python3xx.dll)
+        _configure_portable_pth(portable_dir, internal_dir, entry_name, ver_tag)
 
         # If GUI mode, set PE subsystem on the copied exe
         if gui and target_exe.is_file():
@@ -247,7 +255,7 @@ def package_portable(
                     print(f"  Warning: Could not apply icon to exe: {e}")
 
         # Copy non-code project assets (icons, images, configs, etc.)
-        # so the app can find them at runtime via relative paths
+        # to root so the app can find them at runtime via relative paths
         _copy_project_assets(project_dir, portable_dir, verbose)
 
         results.append(target_exe)
@@ -334,11 +342,12 @@ def _generate_bootstrap_script(entry_point: str) -> str:
 import os
 import sys
 
-_base = os.path.dirname(os.path.abspath(__file__))
-os.chdir(_base)
+_here = os.path.dirname(os.path.abspath(__file__))
+_root = os.path.dirname(_here)
+os.chdir(_root)
 
-_app = os.path.join(_base, "app")
-_lib = os.path.join(_base, "lib")
+_app = os.path.join(_here, "app")
+_lib = os.path.join(_here, "lib")
 
 if _app not in sys.path:
     sys.path.insert(0, _app)
@@ -370,38 +379,42 @@ sys.exit(0)
 '''
 
 
-def _configure_portable_pth(portable_dir: Path, entry_name: str) -> None:
-    """Configure the ._pth file so the portable exe finds the bootstrap script.
+def _configure_portable_pth(
+    portable_dir: Path,
+    internal_dir: Path,
+    entry_name: str,
+    ver_tag: str,
+) -> None:
+    """Configure the ._pth file for the portable build.
 
-    The ._pth file controls sys.path for the embeddable distribution.
-    We configure it to include the app and lib directories, and to
-    auto-run the bootstrap script via an import line.
+    The ._pth file lives at root (next to the exe and python3xx.dll).
+    All paths are relative to the ._pth file's location.
+    Runtime files, app code, and deps live under _internal/.
     """
-    pth_files = list(portable_dir.glob("python*._pth"))
-    if not pth_files:
-        return
-
-    # Use the longest-named pth file (python313._pth, not python3._pth)
-    pth_file = sorted(pth_files, key=lambda p: len(p.name), reverse=True)[0]
-    ver_tag = _get_python_ver_tag(portable_dir)
-    boot_module = f"_boot_{entry_name}"
+    pth_file = portable_dir / f"python{ver_tag}._pth"
+    if not pth_file.is_file():
+        # Fallback: find any pth file
+        pth_files = list(portable_dir.glob("python*._pth"))
+        if not pth_files:
+            return
+        pth_file = sorted(pth_files, key=lambda p: len(p.name), reverse=True)[0]
 
     pth_file.write_text(
-        f"python{ver_tag}.zip\n"
+        f"_internal/python{ver_tag}.zip\n"
         f".\n"
-        f"app\n"
-        f"lib\n"
+        f"_internal\n"
+        f"_internal/app\n"
+        f"_internal/lib\n"
         f"import site\n",
         encoding="utf-8",
     )
 
-    # Create sitecustomize.py — auto-imported by the site module.
-    # This runs the bootstrap script when the exe starts.
-    site_custom = portable_dir / "sitecustomize.py"
+    # Create sitecustomize.py inside _internal/ — auto-imported by site module.
+    site_custom = internal_dir / "sitecustomize.py"
     site_custom.write_text(
         f"import os, sys\n"
-        f"_base = os.path.dirname(os.path.abspath(__file__))\n"
-        f"_boot = os.path.join(_base, '_boot_{entry_name}.py')\n"
+        f"_here = os.path.dirname(os.path.abspath(__file__))\n"
+        f"_boot = os.path.join(_here, '_boot_{entry_name}.py')\n"
         f"if os.path.isfile(_boot):\n"
         f"    exec(compile(open(_boot).read(), _boot, 'exec'))\n",
         encoding="utf-8",
