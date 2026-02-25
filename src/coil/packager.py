@@ -301,7 +301,7 @@ def main():
     import subprocess
     cmd = [runtime_python, "-c",
         "import importlib.util, sys; "
-        "spec = importlib.util.spec_from_file_location(\\'__main__\\', r\\'{entry_point_full}\\'); "
+        "spec = importlib.util.spec_from_file_location(\\'__main__\\', r\\'"+launcher+"\\'); "
         "mod = importlib.util.module_from_spec(spec); "
         "sys.modules[\\'__main__\\'] = mod; "
         "spec.loader.exec_module(mod)"
