@@ -284,7 +284,11 @@ def _add_dir_to_zip(
 
 
 def _generate_bootstrap_script(entry_point: str) -> str:
-    """Generate the bootstrap script that runs the entry point."""
+    """Generate the bootstrap script that runs the entry point.
+
+    This script is imported by the ._pth file when the exe starts.
+    It sets up sys.path, loads the entry point, and exits.
+    """
     return f'''\
 import os
 import sys
@@ -299,18 +303,27 @@ if os.path.isdir(_lib) and _lib not in sys.path:
     sys.path.insert(0, _lib)
 
 _entry = os.path.join(_app, "{entry_point}")
-if _entry.endswith(".pyc"):
-    import importlib.util
-    spec = importlib.util.spec_from_file_location("__main__", _entry)
-    if spec and spec.loader:
-        mod = importlib.util.module_from_spec(spec)
-        mod.__name__ = "__main__"
-        mod.__file__ = _entry
-        sys.modules["__main__"] = mod
-        spec.loader.exec_module(mod)
-else:
-    with open(_entry) as f:
-        exec(compile(f.read(), _entry, "exec"), {{"__name__": "__main__", "__file__": _entry}})
+
+try:
+    if _entry.endswith(".pyc"):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location("__main__", _entry)
+        if spec and spec.loader:
+            mod = importlib.util.module_from_spec(spec)
+            mod.__name__ = "__main__"
+            mod.__file__ = _entry
+            sys.modules["__main__"] = mod
+            spec.loader.exec_module(mod)
+    else:
+        with open(_entry) as f:
+            exec(compile(f.read(), _entry, "exec"), {{"__name__": "__main__", "__file__": _entry}})
+except SystemExit:
+    raise
+except Exception as e:
+    print(f"Error: {{e}}", file=sys.stderr)
+    sys.exit(1)
+
+sys.exit(0)
 '''
 
 
@@ -318,18 +331,20 @@ def _configure_portable_pth(portable_dir: Path, entry_name: str) -> None:
     """Configure the ._pth file so the portable exe finds the bootstrap script.
 
     The ._pth file controls sys.path for the embeddable distribution.
-    We configure it to include the app and lib directories, and to run
-    the bootstrap script.
+    We configure it to include the app and lib directories, and to
+    auto-run the bootstrap script via an import line.
     """
     pth_files = list(portable_dir.glob("python*._pth"))
     if not pth_files:
         return
 
-    pth_file = pth_files[0]
-    boot_script = f"_boot_{entry_name}.py"
+    # Use the longest-named pth file (python313._pth, not python3._pth)
+    pth_file = sorted(pth_files, key=lambda p: len(p.name), reverse=True)[0]
+    ver_tag = _get_python_ver_tag(portable_dir)
+    boot_module = f"_boot_{entry_name}"
 
     pth_file.write_text(
-        f"python{_get_python_ver_tag(portable_dir)}.zip\n"
+        f"python{ver_tag}.zip\n"
         f".\n"
         f"app\n"
         f"lib\n"
@@ -337,27 +352,31 @@ def _configure_portable_pth(portable_dir: Path, entry_name: str) -> None:
         encoding="utf-8",
     )
 
-    # Create a sitecustomize.py that runs the bootstrap on startup
+    # Create sitecustomize.py — auto-imported by the site module.
+    # This runs the bootstrap script when the exe starts.
     site_custom = portable_dir / "sitecustomize.py"
     site_custom.write_text(
         f"import os, sys\n"
         f"_base = os.path.dirname(os.path.abspath(__file__))\n"
-        f"_boot = os.path.join(_base, '{boot_script}')\n"
-        f"if os.path.isfile(_boot) and '--help' not in sys.argv:\n"
-        f"    exec(open(_boot).read())\n"
-        f"    sys.exit(0)\n",
+        f"_boot = os.path.join(_base, '_boot_{entry_name}.py')\n"
+        f"if os.path.isfile(_boot):\n"
+        f"    exec(compile(open(_boot).read(), _boot, 'exec'))\n",
         encoding="utf-8",
     )
 
 
 def _get_python_ver_tag(runtime_dir: Path) -> str:
-    """Extract the python version tag (e.g. '313') from the runtime directory."""
+    """Extract the python version tag (e.g. '313') from the runtime directory.
+
+    Looks for the versioned DLL like python313.dll (not python3.dll).
+    """
+    best_tag = ""
     for f in runtime_dir.glob("python*.dll"):
         name = f.stem  # e.g. "python313"
         tag = name.replace("python", "")
-        if tag and tag.isdigit():
-            return tag
-    return ""
+        if tag and tag.isdigit() and len(tag) > len(best_tag):
+            best_tag = tag
+    return best_tag
 
 
 def _remove_py_files(directory: Path) -> None:

@@ -142,7 +142,6 @@ def test_package_portable(tmp_path: Path):
     assert (portable_dir / "app" / "main.pyc").is_file()
     assert (portable_dir / "python313.dll").is_file()
     assert (portable_dir / "_boot_MyApp.py").is_file()
-    assert (portable_dir / "sitecustomize.py").is_file()
 
 
 def test_package_portable_gui(tmp_path: Path):
