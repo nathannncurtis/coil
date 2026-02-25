@@ -180,6 +180,49 @@ def create_parser() -> argparse.ArgumentParser:
         help="Project directory. Default: current directory.",
     )
 
+    # --- inspect subcommand ---
+    inspect_parser = subparsers.add_parser(
+        "inspect",
+        help="Preview what Coil will include in a build without building.",
+    )
+    inspect_parser.add_argument(
+        "project",
+        type=str,
+        nargs="?",
+        default=".",
+        help="Project directory to inspect. Default: current directory.",
+    )
+    inspect_parser.add_argument(
+        "--python",
+        type=str,
+        default=None,
+        help="Target Python version.",
+    )
+    inspect_parser.add_argument(
+        "--requirements",
+        type=str,
+        default=None,
+        help="Explicit path to requirements file.",
+    )
+    inspect_parser.add_argument(
+        "--exclude",
+        type=str,
+        default=None,
+        help="Comma-separated packages to exclude.",
+    )
+    inspect_parser.add_argument(
+        "--include",
+        type=str,
+        default=None,
+        help="Comma-separated packages to force-include.",
+    )
+    inspect_parser.add_argument(
+        "--profile",
+        type=str,
+        default=None,
+        help="Build profile from coil.toml.",
+    )
+
     # --- cache subcommand ---
     cache_parser = subparsers.add_parser(
         "cache",
@@ -481,6 +524,23 @@ def main(argv: list[str] | None = None) -> None:
     if args.command == "init":
         run_init(args.project)
         sys.exit(0)
+
+    if args.command == "inspect":
+        from coil.inspect import run_inspect
+        project_dir = Path(args.project).resolve()
+        if not project_dir.is_dir():
+            print(f"Error: '{args.project}' is not a directory.")
+            sys.exit(1)
+        exclude = [p.strip() for p in args.exclude.split(",")] if args.exclude else []
+        include = [p.strip() for p in args.include.split(",")] if args.include else []
+        sys.exit(run_inspect(
+            project_dir=project_dir,
+            python_version=args.python,
+            requirements=args.requirements,
+            exclude=exclude,
+            include=include,
+            profile=args.profile,
+        ))
 
     if args.command == "cache":
         if args.cache_action == "clear":
