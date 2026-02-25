@@ -312,3 +312,25 @@ def test_apply_toml_config_clean_cli_override(tmp_path: Path):
 
     # CLI --clean should still be True
     assert args.clean is True
+
+
+def test_gui_auto_detect_default():
+    """--console defaults to None (not True), enabling auto-detection."""
+    parser = create_parser()
+    args = parser.parse_args(["build", "."])
+    assert args.console is None
+    assert args.gui is False
+
+
+def test_gui_explicit_console():
+    """--console explicitly set should be True."""
+    parser = create_parser()
+    args = parser.parse_args(["build", ".", "--console"])
+    assert args.console is True
+
+
+def test_gui_explicit_gui():
+    """--gui explicitly set should be True."""
+    parser = create_parser()
+    args = parser.parse_args(["build", ".", "--gui"])
+    assert args.gui is True
