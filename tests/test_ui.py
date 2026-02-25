@@ -137,3 +137,46 @@ def test_make_download_hook():
         hook(0, 8192, 100000)
         hook(1, 8192, 100000)
         hook(12, 8192, 100000)
+
+
+def test_build_summary_dir_breakdown_verbose(tmp_path: Path):
+    """Verbose build summary shows component breakdown for bundled builds."""
+    ui, buf = _make_ui(verbose=True)
+    app_dir = tmp_path / "MyApp"
+    internal = app_dir / "_internal"
+    (internal / "app").mkdir(parents=True)
+    (internal / "lib").mkdir()
+
+    # Simulate runtime files
+    (internal / "python313.zip").write_bytes(b"\x00" * 10000)
+    (internal / "site.pyd").write_bytes(b"\x00" * 5000)
+
+    # Simulate app code
+    (internal / "app" / "main.pyc").write_bytes(b"\x00" * 1000)
+
+    # Simulate deps
+    (internal / "lib" / "requests.pyc").write_bytes(b"\x00" * 3000)
+
+    # Root-level exe
+    (app_dir / "MyApp.exe").write_bytes(b"\x00" * 2000)
+
+    ui.build_summary([app_dir])
+    output = buf.getvalue()
+    assert "runtime:" in output
+    assert "app:" in output
+    assert "deps:" in output
+
+
+def test_build_summary_dir_no_breakdown_non_verbose(tmp_path: Path):
+    """Non-verbose build summary does NOT show breakdown."""
+    ui, buf = _make_ui(verbose=False)
+    app_dir = tmp_path / "MyApp"
+    internal = app_dir / "_internal"
+    (internal / "app").mkdir(parents=True)
+    (internal / "app" / "main.pyc").write_bytes(b"\x00" * 1000)
+    (app_dir / "MyApp.exe").write_bytes(b"\x00" * 2000)
+
+    ui.build_summary([app_dir])
+    output = buf.getvalue()
+    assert "Finished" in output
+    assert "runtime:" not in output

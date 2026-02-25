@@ -91,6 +91,35 @@ class BuildUI:
                 self.console.print(
                     f"     [path]->[/path] {output} ({format_size(total)})"
                 )
+                if self.verbose:
+                    self._print_dir_breakdown(output)
+
+    def _print_dir_breakdown(self, bundle_dir: Path) -> None:
+        """Print a size breakdown of a bundled build directory."""
+        internal = bundle_dir / "_internal"
+        if not internal.is_dir():
+            return
+
+        def _dir_size(d: Path) -> int:
+            if not d.is_dir():
+                return 0
+            return sum(f.stat().st_size for f in d.rglob("*") if f.is_file())
+
+        # Runtime = _internal minus app/ and lib/
+        app_size = _dir_size(internal / "app")
+        lib_size = _dir_size(internal / "lib")
+        internal_total = _dir_size(internal)
+        runtime_size = internal_total - app_size - lib_size
+
+        # Root-level files (exe, DLLs, assets)
+        root_size = sum(
+            f.stat().st_size for f in bundle_dir.iterdir() if f.is_file()
+        )
+
+        self.console.print(f"            [info]runtime: {format_size(runtime_size + root_size)}[/info]")
+        self.console.print(f"            [info]app:     {format_size(app_size)}[/info]")
+        if lib_size > 0:
+            self.console.print(f"            [info]deps:    {format_size(lib_size)}[/info]")
 
     # --- Progress contexts ---
 
