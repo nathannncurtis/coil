@@ -148,6 +148,25 @@ def create_parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,  # Hidden flag
     )
 
+    # --- doctor subcommand ---
+    doctor_parser = subparsers.add_parser(
+        "doctor",
+        help="Run pre-build diagnostics.",
+    )
+    doctor_parser.add_argument(
+        "project",
+        type=str,
+        nargs="?",
+        default=".",
+        help="Project directory to check. Default: current directory.",
+    )
+    doctor_parser.add_argument(
+        "--verbose",
+        action="store_true",
+        default=False,
+        help="Show additional diagnostic detail.",
+    )
+
     # --- init subcommand ---
     init_parser = subparsers.add_parser(
         "init",
@@ -450,6 +469,14 @@ def main(argv: list[str] | None = None) -> None:
     if args.command is None:
         parser.print_help()
         sys.exit(0)
+
+    if args.command == "doctor":
+        from coil.doctor import run_doctor
+        project_dir = Path(args.project).resolve()
+        if not project_dir.is_dir():
+            print(f"Error: '{args.project}' is not a directory.")
+            sys.exit(1)
+        sys.exit(run_doctor(project_dir, verbose=args.verbose))
 
     if args.command == "init":
         run_init(args.project)
