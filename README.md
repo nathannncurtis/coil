@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![Version](https://img.shields.io/badge/version-0.1.0-orange)
+![Version](https://img.shields.io/badge/version-0.1.1-orange)
 
 **A Python-to-executable compiler that just works.**
 
@@ -120,11 +120,13 @@ coil build ./myproject --requirements ./reqs.txt
 
 ### Multiple Entry Points
 
-Each entry point produces its own executable:
+Each entry point produces its own executable. In bundled mode, all entry points share the same runtime:
 
 ```bash
 coil build ./myproject --entry cli.py --entry gui.py --mode bundled
 ```
+
+GUI detection is per-entry — if `gui.py` imports PyQt5 but `cli.py` doesn't, only `gui.exe` will have its console hidden.
 
 ### Secure Build
 
@@ -238,7 +240,7 @@ coil build ./myproject \
 
 2. **Runtime Bundling** — Downloads the official Windows embeddable Python distribution matching your target version. No C compiler needed.
 
-3. **Compilation** — All `.py` files are compiled to `.pyc` bytecode. No loose `.py` files in the output.
+3. **Compilation** — All `.py` files are compiled to `.pyc` bytecode using the target Python version. If your build machine runs a different Python version than your target, Coil delegates compilation to the embedded runtime so `.pyc` magic numbers always match. No loose `.py` files in the output.
 
 4. **Packaging** — In portable mode, everything is packed into a single `.exe` file. In bundled mode, a clean directory with the runtime, compiled code, and dependencies.
 
