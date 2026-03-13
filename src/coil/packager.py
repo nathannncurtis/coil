@@ -20,6 +20,7 @@ from typing import TYPE_CHECKING, Callable, Optional
 
 from coil.obfuscator import obfuscate_default, obfuscate_secure
 from coil.platforms import get_handler
+from coil.scanner import file_has_gui_imports
 
 if TYPE_CHECKING:
     from coil.ui import BuildUI
@@ -234,8 +235,12 @@ def package_bundled(
             extra_name = Path(extra_entry).stem
             extra_pyc = extra_entry.replace(".py", ".pyc")
 
+            # Per-entry GUI detection
+            extra_file = project_dir / extra_entry
+            extra_gui = file_has_gui_imports(extra_file) if extra_file.is_file() else gui
+
             # Copy python exe as the extra entry
-            source_exe_name = "pythonw.exe" if gui else "python.exe"
+            source_exe_name = "pythonw.exe" if extra_gui else "python.exe"
             source_exe = runtime_dir / source_exe_name
             extra_exe = bundle_dir / f"{extra_name}.exe"
             if source_exe.is_file():
@@ -348,12 +353,17 @@ def _build_app_directory(
         shutil.copy2(runtime_dir / "python.exe", target_exe)
 
     # Compile source into _internal/app/
+    # Use embedded python.exe for compilation so .pyc magic numbers match
+    runtime_python = runtime_dir / "python.exe"
+    if not runtime_python.is_file():
+        runtime_python = None
+
     # Default optimize: 1 for default mode, 2 for secure mode
     opt_level = optimize if optimize is not None else (2 if secure else 1)
     if secure:
-        obfuscate_secure(project_dir, internal_dir, ui=ui, optimize=opt_level)
+        obfuscate_secure(project_dir, internal_dir, ui=ui, optimize=opt_level, runtime_python=runtime_python)
     else:
-        obfuscate_default(project_dir, internal_dir, ui=ui, optimize=opt_level)
+        obfuscate_default(project_dir, internal_dir, ui=ui, optimize=opt_level, runtime_python=runtime_python)
     if ui is not None:
         ui.detail(f"Compiled source ({'secure' if secure else 'default'} mode, optimize={opt_level})")
     elif verbose:
@@ -460,6 +470,19 @@ def install_dependencies(
         "--no-user",
         "--disable-pip-version-check",
     ]
+
+    # If target Python differs from host, tell pip to fetch compatible wheels
+    if python_version:
+        import platform as _platform
+        host_ver = f"{sys.version_info.major}.{sys.version_info.minor}"
+        target_ver = python_version.strip().lstrip("v")
+        # Normalize short versions (e.g. "3.13" stays, "3.13.1" becomes "3.13")
+        target_short = ".".join(target_ver.split(".")[:2])
+        if target_short != host_ver:
+            cmd.extend([
+                "--python-version", target_short,
+                "--only-binary=:all:",
+            ])
 
     if not verbose:
         cmd.append("--quiet")
@@ -596,11 +619,22 @@ def _configure_pth(
 
     site_custom = internal_dir / "sitecustomize.py"
     site_custom.write_text(
-        f"import os, sys\n"
-        f"_here = os.path.dirname(os.path.abspath(__file__))\n"
-        f"_boot = os.path.join(_here, '_boot_{entry_name}.py')\n"
-        f"if os.path.isfile(_boot):\n"
-        f"    exec(compile(open(_boot).read(), _boot, 'exec'))\n",
+        "import os, sys, glob\n"
+        "_here = os.path.dirname(os.path.abspath(__file__))\n"
+        "_exe = os.path.splitext(os.path.basename(sys.executable))[0]\n"
+        "# Try exact match first, then scan for matching boot script\n"
+        "_boot = os.path.join(_here, f'_boot_{_exe}.py')\n"
+        "if not os.path.isfile(_boot):\n"
+        "    # Search boot scripts for one whose name is a substring of the exe name\n"
+        "    for _b in sorted(glob.glob(os.path.join(_here, '_boot_*.py'))):\n"
+        "        _stem = os.path.basename(_b)[6:-3]  # strip '_boot_' and '.py'\n"
+        "        if _stem in _exe.lower():\n"
+        "            _boot = _b\n"
+        "            break\n"
+        "    else:\n"
+        f"        _boot = os.path.join(_here, '_boot_{entry_name}.py')\n"
+        "if os.path.isfile(_boot):\n"
+        "    exec(compile(open(_boot).read(), _boot, 'exec'))\n",
         encoding="utf-8",
     )
 

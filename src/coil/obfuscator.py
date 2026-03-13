@@ -32,6 +32,7 @@ def compile_to_pyc(
     source_file: Path,
     output_file: Path,
     optimize: int = 0,
+    runtime_python: Optional[Path] = None,
 ) -> None:
     """Compile a single .py file to .pyc.
 
@@ -39,14 +40,39 @@ def compile_to_pyc(
         source_file: Path to the .py source file.
         output_file: Path for the output .pyc file.
         optimize: Optimization level (0, 1, or 2).
+        runtime_python: Path to the target Python exe. If provided and its
+            version differs from the host Python, compilation is delegated
+            to the target interpreter so the .pyc magic number matches.
     """
     output_file.parent.mkdir(parents=True, exist_ok=True)
-    py_compile.compile(
-        str(source_file),
-        cfile=str(output_file),
-        optimize=optimize,
-        doraise=True,
-    )
+
+    if runtime_python and runtime_python.is_file():
+        # Delegate to the target Python to ensure matching magic number
+        import subprocess
+        script = (
+            f"import py_compile; "
+            f"py_compile.compile({str(source_file)!r}, "
+            f"cfile={str(output_file)!r}, "
+            f"optimize={optimize}, doraise=True)"
+        )
+        result = subprocess.run(
+            [str(runtime_python), "-c", script],
+            capture_output=True, text=True,
+        )
+        if result.returncode != 0:
+            raise py_compile.PyCompileError(
+                "compilation failed",
+                str(source_file),
+                str(output_file),
+                result.stderr.strip(),
+            )
+    else:
+        py_compile.compile(
+            str(source_file),
+            cfile=str(output_file),
+            optimize=optimize,
+            doraise=True,
+        )
 
 
 def compile_directory(
@@ -54,6 +80,7 @@ def compile_directory(
     output_dir: Path,
     optimize: int = 0,
     progress_callback: Optional[Callable[[int, int, Path], None]] = None,
+    runtime_python: Optional[Path] = None,
 ) -> list[Path]:
     """Compile all .py files in a directory to .pyc files.
 
@@ -62,6 +89,8 @@ def compile_directory(
         output_dir: Destination for compiled .pyc files.
         optimize: Optimization level.
         progress_callback: Optional callback(current, total, file_path).
+        runtime_python: Path to the target Python exe for cross-version
+            compilation.
 
     Returns:
         List of compiled .pyc file paths.
@@ -73,7 +102,7 @@ def compile_directory(
     for i, py_file in enumerate(py_files):
         relative = py_file.relative_to(source_dir)
         pyc_file = output_dir / relative.with_suffix(".pyc")
-        compile_to_pyc(py_file, pyc_file, optimize=optimize)
+        compile_to_pyc(py_file, pyc_file, optimize=optimize, runtime_python=runtime_python)
         compiled.append(pyc_file)
         if progress_callback is not None:
             progress_callback(i + 1, total, py_file)
@@ -86,6 +115,7 @@ def obfuscate_default(
     output_dir: Path,
     ui: Optional[BuildUI] = None,
     optimize: int = 1,
+    runtime_python: Optional[Path] = None,
 ) -> Path:
     """Default obfuscation: compile to .pyc and embed recoverable source.
 
@@ -115,9 +145,9 @@ def obfuscate_default(
             def _cb(current: int, total: int, path: Path) -> None:
                 progress.advance(task)
 
-            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb)
+            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb, runtime_python=runtime_python)
     else:
-        compile_directory(source_dir, app_dir, optimize=optimize)
+        compile_directory(source_dir, app_dir, optimize=optimize, runtime_python=runtime_python)
 
     # Archive original source for recovery
     source_archive = app_dir / COIL_SOURCE_ARCHIVE
@@ -144,6 +174,7 @@ def obfuscate_secure(
     output_dir: Path,
     ui: Optional[BuildUI] = None,
     optimize: int = 2,
+    runtime_python: Optional[Path] = None,
 ) -> Path:
     """Secure obfuscation: bytecode-only, no recoverable source.
 
@@ -173,9 +204,9 @@ def obfuscate_secure(
             def _cb(current: int, total: int, path: Path) -> None:
                 progress.advance(task)
 
-            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb)
+            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb, runtime_python=runtime_python)
     else:
-        compile_directory(source_dir, app_dir, optimize=optimize)
+        compile_directory(source_dir, app_dir, optimize=optimize, runtime_python=runtime_python)
 
     # Write metadata marking this as secure (no source archive)
     metadata = {

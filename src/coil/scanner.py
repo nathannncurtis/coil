@@ -66,3 +66,13 @@ def detect_gui_imports(project_dir: Path) -> list[str]:
     all_imports = scan_project(project_dir)
     found = sorted(all_imports & GUI_IMPORTS)
     return found
+
+
+def file_has_gui_imports(file_path: Path) -> bool:
+    """Check if a single .py file imports any GUI frameworks."""
+    try:
+        source = file_path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return False
+    imports = extract_imports(source)
+    return bool(imports & GUI_IMPORTS)
