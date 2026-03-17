@@ -253,10 +253,16 @@ def package_bundled(
                 bootstrap, encoding="utf-8"
             )
 
-            if icon and sys.platform == "win32":
-                from coil.platforms.windows import set_exe_icon
+            if sys.platform == "win32":
+                if icon:
+                    from coil.platforms.windows import set_exe_icon
+                    try:
+                        set_exe_icon(extra_exe, Path(icon))
+                    except Exception:
+                        pass
+                from coil.platforms.windows import set_version_info
                 try:
-                    set_exe_icon(extra_exe, Path(icon))
+                    set_version_info(extra_exe, product_name=extra_name)
                 except Exception:
                     pass
 
@@ -408,6 +414,14 @@ def _build_app_directory(
                 ui.warning(f"Could not embed icon: {e}")
             elif verbose:
                 print(f"  Warning: Could not embed icon: {e}")
+
+    # Set version info so Windows shows the correct app name
+    if target_exe.is_file() and sys.platform == "win32":
+        from coil.platforms.windows import set_version_info
+        try:
+            set_version_info(target_exe, product_name=entry_name)
+        except Exception:
+            pass
 
     # Copy project assets (icons, configs, etc.) to root
     _copy_project_assets(project_dir, stage_dir, verbose, ui=ui)
