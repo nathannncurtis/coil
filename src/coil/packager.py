@@ -667,6 +667,39 @@ def _get_python_ver_tag(runtime_dir: Path) -> str:
     return best_tag
 
 
+def _load_coilignore(project_dir: Path) -> list[str]:
+    """Load .coilignore patterns from the project directory.
+
+    Works like .gitignore — one glob pattern per line, # for comments,
+    blank lines ignored.
+    """
+    ignore_file = project_dir / ".coilignore"
+    if not ignore_file.is_file():
+        return []
+    patterns = []
+    for line in ignore_file.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line and not line.startswith("#"):
+            patterns.append(line)
+    return patterns
+
+
+def _is_coilignored(path: Path, project_dir: Path, patterns: list[str]) -> bool:
+    """Check if a path matches any .coilignore pattern."""
+    import fnmatch
+    rel = str(path.relative_to(project_dir)).replace("\\", "/")
+    name = path.name
+    for pattern in patterns:
+        if fnmatch.fnmatch(name, pattern):
+            return True
+        if fnmatch.fnmatch(rel, pattern):
+            return True
+        # Support directory patterns like "somedir/"
+        if pattern.endswith("/") and path.is_dir() and fnmatch.fnmatch(name, pattern.rstrip("/")):
+            return True
+    return False
+
+
 def _copy_project_assets(
     project_dir: Path,
     dest_dir: Path,
@@ -676,7 +709,7 @@ def _copy_project_assets(
     """Copy non-code assets from the project directory into the output.
 
     Copies files like .ico, .png, .json, .cfg, etc. that the app may
-    reference at runtime via relative paths.
+    reference at runtime via relative paths. Respects .coilignore patterns.
     """
     skip_extensions = {".py", ".pyc", ".pyo", ".pyd", ".pyi"}
     skip_files = {
@@ -685,6 +718,7 @@ def _copy_project_assets(
         ".gitignore", ".gitattributes", ".editorconfig",
         "tox.ini", "pytest.ini", ".flake8", ".pylintrc",
         "MANIFEST.in", "LICENSE", "CHANGELOG.md", "CONTRIBUTING.md",
+        ".coilignore",
     }
     skip_names = {
         "__pycache__", ".git", ".venv", "venv", ".env", "node_modules",
@@ -692,8 +726,12 @@ def _copy_project_assets(
         ".github", ".vscode", ".idea", "egg-info",
     }
 
+    ignore_patterns = _load_coilignore(project_dir)
+
     for item in project_dir.iterdir():
         if item.name in skip_names or item.name.lower() in skip_files:
+            continue
+        if ignore_patterns and _is_coilignored(item, project_dir, ignore_patterns):
             continue
         if item.is_file() and item.suffix.lower() not in skip_extensions:
             dest = dest_dir / item.name
