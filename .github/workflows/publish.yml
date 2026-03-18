@@ -1,0 +1,53 @@
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Extract version from tag
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> $GITHUB_OUTPUT
+
+      - name: Update version in source
+        run: |
+          sed -i "s/__version__ = .*/__version__ = \"${{ steps.version.outputs.VERSION }}\"/" src/coil/__init__.py
+          sed -i "s/^version = .*/version = \"${{ steps.version.outputs.VERSION }}\"/" pyproject.toml
+
+      - name: Install build tools
+        run: pip install build twine
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI
+        run: twine upload dist/*
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Coil v${{ steps.version.outputs.VERSION }}
+          body: |
+            ## Coil v${{ steps.version.outputs.VERSION }}
+
+            ```
+            pip install coil-compiler==${{ steps.version.outputs.VERSION }}
+            ```
