@@ -781,7 +781,6 @@ def _strip_installed_packages(dest_dir: Path) -> None:
         "test",
         "docs",
         "doc",
-        "examples",
     ]
 
     for pattern in patterns_to_remove:
