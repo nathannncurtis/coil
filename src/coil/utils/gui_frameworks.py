@@ -28,4 +28,5 @@ GUI_IMPORTS: set[str] = {
     "infi",  # infi.systray imports as "infi"
     # Desktop notification / GUI-adjacent
     "plyer",
+    "windows_toasts",
 }

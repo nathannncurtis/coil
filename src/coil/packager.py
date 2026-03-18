@@ -770,9 +770,12 @@ def _remove_py_files(directory: Path) -> None:
 
 
 def _strip_installed_packages(dest_dir: Path) -> None:
-    """Remove unnecessary files from installed packages to reduce size."""
+    """Remove unnecessary files from installed packages to reduce size.
+
+    Keeps .dist-info directories since packages may use importlib.metadata
+    at runtime to read their own version info.
+    """
     patterns_to_remove = [
-        "*.dist-info",
         "__pycache__",
         "tests",
         "test",
