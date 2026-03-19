@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-Apache%202.0-green)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![Version](https://img.shields.io/badge/version-0.1.1-orange)
+![Version](https://img.shields.io/badge/version-0.1.3-orange)
 
 **A Python-to-executable compiler that just works.**
 
@@ -86,7 +86,7 @@ coil build ./myproject --mode bundled
 
 ### GUI Application
 
-Coil auto-detects GUI frameworks. If your project imports `tkinter`, `PyQt5`, `PyQt6`, `PySide2`, `PySide6`, `wx`, `kivy`, `pygame`, `pyglet`, `dearpygui`, `customtkinter`, `flet`, `pystray`, `infi.systray`, or `plyer`, the console window is hidden automatically.
+Coil auto-detects GUI frameworks. If your project imports `tkinter`, `PyQt5`, `PyQt6`, `PySide2`, `PySide6`, `wx`, `kivy`, `pygame`, `pyglet`, `dearpygui`, `customtkinter`, `flet`, `pystray`, `infi.systray`, `plyer`, or `windows_toasts`, the console window is hidden automatically.
 
 ```bash
 # No --gui needed — Coil detects tkinter/PyQt5/etc. and hides the console
@@ -116,6 +116,16 @@ coil build ./myproject --include extra-lib
 
 # Use a specific requirements file
 coil build ./myproject --requirements ./reqs.txt
+```
+
+### Bytecode Optimization
+
+Control the Python bytecode optimization level:
+
+```bash
+coil build ./myproject --optimize 0    # No optimization (default for dev)
+coil build ./myproject --optimize 1    # Strip assert statements (default)
+coil build ./myproject --optimize 2    # Strip asserts + docstrings (default for --secure)
 ```
 
 ### Multiple Entry Points
@@ -190,6 +200,22 @@ coil build ./myproject --profile release
 
 CLI flags always override profile settings.
 
+### Excluding Files (`.coilignore`)
+
+Create a `.coilignore` file in your project root to exclude files and directories from bundled builds. Works like `.gitignore` — one glob pattern per line, `#` for comments:
+
+```
+# Exclude test data and build artifacts
+*.zip
+*.log
+test_data/
+docs/
+build.bat
+setup.py
+```
+
+Without `.coilignore`, Coil copies all non-Python assets from your project into the output. Use this to keep large files, test data, and build tooling out of the bundled directory.
+
 ### Pre-Build Diagnostics
 
 Check for problems before building:
@@ -242,7 +268,7 @@ coil build ./myproject \
 
 3. **Compilation** — All `.py` files are compiled to `.pyc` bytecode using the target Python version. If your build machine runs a different Python version than your target, Coil delegates compilation to the embedded runtime so `.pyc` magic numbers always match. No loose `.py` files in the output.
 
-4. **Packaging** — In portable mode, everything is packed into a single `.exe` file. In bundled mode, a clean directory with the runtime, compiled code, and dependencies.
+4. **Packaging** — In portable mode, everything is packed into a single `.exe` file. In bundled mode, a clean directory with the runtime, compiled code, and dependencies. Each exe gets proper PE version info (product name, file description) so Windows shows the correct app name in task manager and file properties.
 
 ### Portable Mode Details
 
@@ -335,6 +361,7 @@ icon = ""
 | `--name` | Project dir name | Output executable name |
 | `--icon` | None | Icon file path (.ico) |
 | `--requirements` | Auto-detect | Path to requirements.txt or pyproject.toml |
+| `--optimize` | `1` (normal) / `2` (secure) | Bytecode optimization level (0, 1, or 2) |
 | `--verbose` | `false` | Detailed build output |
 | `--dry-run` | `false` | Preview build without executing |
 
@@ -373,7 +400,6 @@ Yes. The build output is a single `.exe`. On first run, it extracts a cached cop
 - Linux ELF binary support
 - ARM64 bootloader for Windows on ARM
 - Cross-compilation
-- Optional runtime signing (helps with AV false positives)
 
 ## Contributing
 
