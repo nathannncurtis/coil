@@ -83,10 +83,12 @@ def test_bundled_build_stamps_subsystem_per_entry(tmp_path: Path, monkeypatch):
     assert subsystems == {"gui_entry": "gui", "console_entry": "console"}
 
     # Skip real compilation: we don't need real .pyc files.
-    def _fake_obfuscate(project_dir, internal_dir, ui=None, optimize=0, runtime_python=None):
+    def _fake_obfuscate(project_dir, internal_dir, ui=None, optimize=0, runtime_python=None, skip=None):
         app_dir = internal_dir / "app"
         app_dir.mkdir(parents=True, exist_ok=True)
         for src in project_dir.glob("*.py"):
+            if skip is not None and skip(src):
+                continue
             (app_dir / (src.stem + ".pyc")).write_bytes(b"")
 
     monkeypatch.setattr("coil.packager.obfuscate_default", _fake_obfuscate)
@@ -121,10 +123,12 @@ def test_bundled_build_explicit_override_beats_gui_flag(tmp_path: Path, monkeypa
 
     subsystems = {"console_entry": "console"}
 
-    def _fake_obfuscate(project_dir, internal_dir, ui=None, optimize=0, runtime_python=None):
+    def _fake_obfuscate(project_dir, internal_dir, ui=None, optimize=0, runtime_python=None, skip=None):
         app_dir = internal_dir / "app"
         app_dir.mkdir(parents=True, exist_ok=True)
         for src in project_dir.glob("*.py"):
+            if skip is not None and skip(src):
+                continue
             (app_dir / (src.stem + ".pyc")).write_bytes(b"")
 
     monkeypatch.setattr("coil.packager.obfuscate_default", _fake_obfuscate)

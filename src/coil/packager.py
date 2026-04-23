@@ -431,6 +431,12 @@ def _build_app_directory(
         else:
             shutil.copy2(item, internal_dir / item.name)
 
+    # Build one exclude matcher (DEFAULT_EXCLUDE_PATTERNS + .coilignore) and
+    # apply it both to the project-asset copier and the obfuscator — a file
+    # that doesn't belong at bundle root also doesn't belong as a .pyc under
+    # _internal/app/.
+    exclude_matcher = _build_exclude_matcher(project_dir)
+
     # Strip unused modules from stdlib zip
     from coil.scanner import scan_project
     project_imports = scan_project(project_dir)
@@ -459,9 +465,9 @@ def _build_app_directory(
     # Default optimize: 1 for default mode, 2 for secure mode
     opt_level = optimize if optimize is not None else (2 if secure else 1)
     if secure:
-        obfuscate_secure(project_dir, internal_dir, ui=ui, optimize=opt_level, runtime_python=runtime_python)
+        obfuscate_secure(project_dir, internal_dir, ui=ui, optimize=opt_level, runtime_python=runtime_python, skip=exclude_matcher)
     else:
-        obfuscate_default(project_dir, internal_dir, ui=ui, optimize=opt_level, runtime_python=runtime_python)
+        obfuscate_default(project_dir, internal_dir, ui=ui, optimize=opt_level, runtime_python=runtime_python, skip=exclude_matcher)
     if ui is not None:
         ui.detail(f"Compiled source ({'secure' if secure else 'default'} mode, optimize={opt_level})")
     elif verbose:
@@ -532,7 +538,7 @@ def _build_app_directory(
             pass
 
     # Copy project assets (icons, configs, etc.) to root
-    _copy_project_assets(project_dir, stage_dir, verbose, ui=ui)
+    _copy_project_assets(project_dir, stage_dir, verbose, ui=ui, exclude_matcher=exclude_matcher)
 
 
 def _zip_directory(
@@ -811,37 +817,152 @@ def _get_python_ver_tag(runtime_dir: Path) -> str:
     return best_tag
 
 
+# Baseline project-root items that should never end up in a Coil bundle:
+# build/packaging metadata, VCS state, caches, virtualenvs, installer
+# scripts, and common docs. Each downstream project's build.bat used to
+# delete these by hand after `coil build`; they're excluded at the source
+# now so that tail can shrink to zero.
+DEFAULT_EXCLUDE_PATTERNS: list[str] = [
+    # Python caches and bytecode artifacts
+    "__pycache__/",
+    ".pytest_cache/",
+    ".mypy_cache/",
+    ".ruff_cache/",
+    ".tox/",
+    "*.egg-info/",
+    # Build output directories
+    "build/",
+    "dist/",
+    "Output/",
+    # VCS / editor metadata
+    ".git/",
+    ".github/",
+    ".vscode/",
+    ".idea/",
+    ".gitignore",
+    ".gitattributes",
+    ".editorconfig",
+    ".coilignore",
+    # Virtualenvs / dependency trees
+    ".venv/",
+    "venv/",
+    "node_modules/",
+    ".env",
+    # Build system / packaging config
+    "coil.toml",
+    "pyproject.toml",
+    "setup.py",
+    "setup.cfg",
+    "MANIFEST.in",
+    "build.bat",
+    "Makefile",
+    "tox.ini",
+    "pytest.ini",
+    ".flake8",
+    ".pylintrc",
+    "Dockerfile",
+    ".dockerignore",
+    # Requirements / lock files
+    "requirements*.txt",
+    "req.txt",
+    "req-*.txt",
+    # Installer artifacts
+    "*.iss",
+    # Common top-level docs
+    "README*",
+    "LICENSE*",
+    "CHANGELOG*",
+    "CONTRIBUTING*",
+    "CODE_OF_CONDUCT*",
+    "SECURITY*",
+    # Stray logs / prompt scratch
+    "*.log",
+    "prompt.md",
+]
+
+
 def _load_coilignore(project_dir: Path) -> list[str]:
     """Load .coilignore patterns from the project directory.
 
     Works like .gitignore — one glob pattern per line, # for comments,
-    blank lines ignored.
+    blank lines ignored, `!pattern` to re-include a file the defaults (or
+    an earlier pattern) would exclude. `\\!` / `\\#` escape literal leading
+    chars.
     """
     ignore_file = project_dir / ".coilignore"
     if not ignore_file.is_file():
         return []
-    patterns = []
+    patterns: list[str] = []
     for line in ignore_file.read_text(encoding="utf-8").splitlines():
         line = line.strip()
-        if line and not line.startswith("#"):
-            patterns.append(line)
+        if not line or line.startswith("#"):
+            continue
+        if line.startswith("\\!") or line.startswith("\\#"):
+            line = line[1:]
+        patterns.append(line)
     return patterns
 
 
-def _is_coilignored(path: Path, project_dir: Path, patterns: list[str]) -> bool:
-    """Check if a path matches any .coilignore pattern."""
+def _single_pattern_match(pattern: str, name: str, rel: str, is_dir: bool) -> bool:
+    """Match one fnmatch pattern against a path's name and project-relative form.
+
+    Directory patterns end with "/" and only match directories.
+    """
     import fnmatch
-    rel = str(path.relative_to(project_dir)).replace("\\", "/")
-    name = path.name
-    for pattern in patterns:
-        if fnmatch.fnmatch(name, pattern):
-            return True
-        if fnmatch.fnmatch(rel, pattern):
-            return True
-        # Support directory patterns like "somedir/"
-        if pattern.endswith("/") and path.is_dir() and fnmatch.fnmatch(name, pattern.rstrip("/")):
-            return True
-    return False
+    if pattern.endswith("/"):
+        if not is_dir:
+            return False
+        stripped = pattern.rstrip("/")
+        return fnmatch.fnmatch(name, stripped) or fnmatch.fnmatch(rel, stripped)
+    return fnmatch.fnmatch(name, pattern) or fnmatch.fnmatch(rel, pattern)
+
+
+def _eval_patterns(
+    name: str,
+    rel: str,
+    is_dir: bool,
+    patterns: list[str],
+) -> bool:
+    """Apply last-match-wins exclusion evaluation against one path identity."""
+    excluded = False
+    for raw in patterns:
+        negate = raw.startswith("!")
+        pattern = raw[1:] if negate else raw
+        if _single_pattern_match(pattern, name, rel, is_dir):
+            excluded = not negate
+    return excluded
+
+
+def _build_exclude_matcher(project_dir: Path) -> Callable[[Path], bool]:
+    """Build a predicate that returns True when a path should be excluded.
+
+    Evaluates DEFAULT_EXCLUDE_PATTERNS first, then the user's .coilignore,
+    last-match-wins per gitignore semantics. Two extensions:
+      * `!pattern` re-includes a leaf an earlier pattern would have excluded.
+      * An excluded ancestor directory cascades to its whole subtree — a
+        `!` pattern on a child cannot override a parent exclusion
+        (matches git's documented behavior).
+    """
+    patterns = list(DEFAULT_EXCLUDE_PATTERNS) + _load_coilignore(project_dir)
+
+    def matches(path: Path) -> bool:
+        try:
+            rel_parts = path.relative_to(project_dir).parts
+        except ValueError:
+            return False
+        for i in range(1, len(rel_parts)):
+            ancestor_name = rel_parts[i - 1]
+            ancestor_rel = "/".join(rel_parts[:i])
+            if _eval_patterns(ancestor_name, ancestor_rel, True, patterns):
+                return True
+        return _eval_patterns(
+            path.name,
+            "/".join(rel_parts),
+            path.is_dir(),
+            patterns,
+        )
+
+    return matches
 
 
 def _copy_project_assets(
@@ -849,35 +970,23 @@ def _copy_project_assets(
     dest_dir: Path,
     verbose: bool = False,
     ui: Optional[BuildUI] = None,
+    exclude_matcher: Optional[Callable[[Path], bool]] = None,
 ) -> None:
     """Copy non-code assets from the project directory into the output.
 
     Copies files like .ico, .png, .json, .cfg, etc. that the app may
-    reference at runtime via relative paths. Respects .coilignore patterns.
+    reference at runtime via relative paths. Code (.py/.pyc/etc.) lives in
+    _internal/app/; everything in DEFAULT_EXCLUDE_PATTERNS plus the user's
+    .coilignore is dropped.
     """
-    skip_extensions = {".py", ".pyc", ".pyo", ".pyd", ".pyi"}
-    skip_files = {
-        "requirements.txt", "pyproject.toml", "setup.py", "setup.cfg",
-        "Makefile", "Dockerfile", ".dockerignore",
-        ".gitignore", ".gitattributes", ".editorconfig",
-        "tox.ini", "pytest.ini", ".flake8", ".pylintrc",
-        "MANIFEST.in", "LICENSE", "CHANGELOG.md", "CONTRIBUTING.md",
-        ".coilignore",
-    }
-    skip_names = {
-        "__pycache__", ".git", ".venv", "venv", ".env", "node_modules",
-        "dist", "build", ".mypy_cache", ".pytest_cache", ".tox",
-        ".github", ".vscode", ".idea", "egg-info",
-    }
-
-    ignore_patterns = _load_coilignore(project_dir)
+    code_extensions = {".py", ".pyc", ".pyo", ".pyd", ".pyi"}
+    if exclude_matcher is None:
+        exclude_matcher = _build_exclude_matcher(project_dir)
 
     for item in project_dir.iterdir():
-        if item.name in skip_names or item.name.lower() in skip_files:
+        if exclude_matcher(item):
             continue
-        if ignore_patterns and _is_coilignored(item, project_dir, ignore_patterns):
-            continue
-        if item.is_file() and item.suffix.lower() not in skip_extensions:
+        if item.is_file() and item.suffix.lower() not in code_extensions:
             dest = dest_dir / item.name
             if not dest.exists():
                 shutil.copy2(item, dest)
@@ -885,11 +994,11 @@ def _copy_project_assets(
                     ui.detail(f"Copied asset: {item.name}")
                 elif verbose:
                     print(f"  Copied asset: {item.name}")
-        elif item.is_dir() and item.name not in skip_names:
+        elif item.is_dir():
             dest = dest_dir / item.name
             if not dest.exists():
                 has_assets = any(
-                    f.suffix.lower() not in skip_extensions
+                    f.suffix.lower() not in code_extensions
                     for f in item.rglob("*") if f.is_file()
                 )
                 if has_assets:
