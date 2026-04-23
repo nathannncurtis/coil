@@ -281,7 +281,9 @@ def set_version_info(
     file_version: str = "1.0.0.0",
     product_version: str = "1.0.0.0",
     company_name: str = "",
-    copyright_text: str = "",
+    legal_copyright: str = "",
+    internal_name: str | None = None,
+    original_filename: str | None = None,
 ) -> None:
     """Write VS_VERSION_INFO resource into a PE executable.
 
@@ -295,12 +297,18 @@ def set_version_info(
         file_version: File version string (e.g. "1.0.0.0").
         product_version: Product version string (e.g. "1.0.0.0").
         company_name: Company name for file properties.
-        copyright_text: Copyright string for file properties.
+        legal_copyright: Copyright string for file properties.
+        internal_name: InternalName field. Defaults to product_name.
+        original_filename: OriginalFilename field. Defaults to exe_path.name.
     """
     import ctypes
 
     if file_description is None:
         file_description = product_name
+    if internal_name is None:
+        internal_name = product_name
+    if original_filename is None:
+        original_filename = exe_path.name
 
     # Parse version into 4-part tuple
     def _parse_ver(v: str) -> tuple[int, int, int, int]:
@@ -348,15 +356,15 @@ def set_version_info(
     strings = {
         "FileDescription": file_description,
         "FileVersion": file_version,
-        "InternalName": product_name,
+        "InternalName": internal_name,
         "ProductName": product_name,
         "ProductVersion": product_version,
-        "OriginalFilename": exe_path.name,
+        "OriginalFilename": original_filename,
     }
     if company_name:
         strings["CompanyName"] = company_name
-    if copyright_text:
-        strings["LegalCopyright"] = copyright_text
+    if legal_copyright:
+        strings["LegalCopyright"] = legal_copyright
 
     # Build String entries
     string_entries = b''
@@ -395,9 +403,9 @@ def set_version_info(
     vfi += var_entry
     vfi = struct.pack('<H', len(vfi)) + vfi[2:]
 
-    # Build VS_FIXEDFILEINFO
+    # Build VS_FIXEDFILEINFO (13 DWORDs per the MS spec)
     fixed_info = struct.pack(
-        '<IIIIIIIIIIIIII',
+        '<IIIIIIIIIIIII',
         0xFEEF04BD,  # dwSignature
         0x00010000,  # dwStrucVersion
         (fv[0] << 16) | fv[1],  # dwFileVersionMS
@@ -425,9 +433,14 @@ def set_version_info(
     vs_root += vfi
     vs_root = struct.pack('<H', len(vs_root)) + vs_root[2:]
 
-    # Write to exe using UpdateResource
+    # Write to exe using UpdateResource.
+    # Must match the language ID of the existing VS_VERSION_INFO resource so we
+    # overwrite it rather than adding a second one. python.exe ships its
+    # VS_VERSION_INFO at 0x0409 (en-US); writing at LANG_NEUTRAL (0) leaves the
+    # original in place and Windows picks the en-US one first, so FileDescription
+    # still reads "Python".
     RT_VERSION = 16
-    LANG_NEUTRAL = 0
+    LANG_EN_US = 0x0409
 
     kernel32 = ctypes.windll.kernel32
     kernel32.BeginUpdateResourceW.argtypes = [ctypes.c_wchar_p, ctypes.c_bool]
@@ -447,7 +460,7 @@ def set_version_info(
     try:
         buf = ctypes.create_string_buffer(vs_root)
         ok = kernel32.UpdateResourceW(
-            handle, RT_VERSION, 1, LANG_NEUTRAL, buf, len(vs_root),
+            handle, RT_VERSION, 1, LANG_EN_US, buf, len(vs_root),
         )
         if not ok:
             raise OSError(f"UpdateResource RT_VERSION failed (error {ctypes.GetLastError()})")

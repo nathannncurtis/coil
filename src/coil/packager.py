@@ -49,6 +49,7 @@ def package_portable(
     verbose: bool = False,
     ui: Optional[BuildUI] = None,
     optimize: Optional[int] = None,
+    versioninfo: Optional[dict[str, dict[str, str]]] = None,
 ) -> list[Path]:
     """Create a portable build: single self-contained .exe per entry point.
 
@@ -118,29 +119,44 @@ def package_portable(
                     print("  Creating portable archive...")
                 zip_data = _zip_directory(stage_dir)
 
-        # Step 3: Prepare bootloader stub (apply icon BEFORE appending zip,
-        # because UpdateResource rewrites the PE and would strip appended data)
+        # Step 3: Prepare bootloader stub (apply icon + versioninfo BEFORE
+        # appending zip — UpdateResource rewrites the PE and would strip
+        # appended data).
         from coil.bootloader import get_bootloader_stub
         bootloader_stub = get_bootloader_stub()
 
-        if icon and sys.platform == "win32":
-            from coil.platforms.windows import set_exe_icon
+        vi_fields = (versioninfo or {}).get(entry_name)
+
+        if sys.platform == "win32" and (icon or vi_fields):
             with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as tf:
                 tf.write(bootloader_stub)
                 stub_path = Path(tf.name)
             try:
-                set_exe_icon(stub_path, Path(icon))
+                if icon:
+                    from coil.platforms.windows import set_exe_icon
+                    try:
+                        set_exe_icon(stub_path, Path(icon))
+                        if ui is not None:
+                            ui.detail(f"Applied icon: {icon}")
+                        elif verbose:
+                            print(f"  Applied icon: {icon}")
+                    except Exception as e:
+                        if ui is not None:
+                            ui.warning(f"Could not apply icon: {e}")
+                        elif verbose:
+                            print(f"  Warning: Could not apply icon: {e}")
+
+                if vi_fields:
+                    from coil.platforms.windows import set_version_info
+                    try:
+                        set_version_info(stub_path, **vi_fields)
+                    except Exception as e:
+                        if ui is not None:
+                            ui.warning(f"Could not set version info: {e}")
+                        elif verbose:
+                            print(f"  Warning: Could not set version info: {e}")
+
                 stub = stub_path.read_bytes()
-                if ui is not None:
-                    ui.detail(f"Applied icon: {icon}")
-                elif verbose:
-                    print(f"  Applied icon: {icon}")
-            except Exception as e:
-                stub = bootloader_stub
-                if ui is not None:
-                    ui.warning(f"Could not apply icon: {e}")
-                elif verbose:
-                    print(f"  Warning: Could not apply icon: {e}")
             finally:
                 stub_path.unlink(missing_ok=True)
         else:
@@ -180,6 +196,7 @@ def package_bundled(
     verbose: bool = False,
     ui: Optional[BuildUI] = None,
     optimize: Optional[int] = None,
+    versioninfo: Optional[dict[str, dict[str, str]]] = None,
 ) -> Path:
     """Create a bundled build: directory with exe and supporting files.
 
@@ -214,6 +231,10 @@ def package_bundled(
     # Build the full directory for the first (primary) entry point
     entry = entry_points[0]
     entry_name = Path(entry).stem if len(entry_points) > 1 else name
+    # Look up by entry stem for multi-entry, or by the requested exe name
+    # for single-entry (which may differ from the source filename via --name).
+    primary_vi_key = Path(entry).stem if len(entry_points) > 1 else entry_name
+    primary_vi = (versioninfo or {}).get(primary_vi_key)
     _build_app_directory(
         project_dir=project_dir,
         stage_dir=bundle_dir,
@@ -227,6 +248,7 @@ def package_bundled(
         verbose=verbose,
         ui=ui,
         optimize=optimize,
+        versioninfo=primary_vi,
     )
 
     # For multiple entry points, create additional launchers
@@ -261,8 +283,12 @@ def package_bundled(
                     except Exception:
                         pass
                 from coil.platforms.windows import set_version_info
+                extra_vi = (versioninfo or {}).get(extra_name)
                 try:
-                    set_version_info(extra_exe, product_name=extra_name)
+                    if extra_vi:
+                        set_version_info(extra_exe, **extra_vi)
+                    else:
+                        set_version_info(extra_exe, product_name=extra_name)
                 except Exception:
                     pass
 
@@ -292,6 +318,7 @@ def _build_app_directory(
     verbose: bool,
     ui: Optional[BuildUI] = None,
     optimize: Optional[int] = None,
+    versioninfo: Optional[dict[str, str]] = None,
 ) -> None:
     """Build the full application directory structure.
 
@@ -419,7 +446,10 @@ def _build_app_directory(
     if target_exe.is_file() and sys.platform == "win32":
         from coil.platforms.windows import set_version_info
         try:
-            set_version_info(target_exe, product_name=entry_name)
+            if versioninfo:
+                set_version_info(target_exe, **versioninfo)
+            else:
+                set_version_info(target_exe, product_name=entry_name)
         except Exception:
             pass
 
