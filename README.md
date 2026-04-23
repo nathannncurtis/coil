@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-GPL%203.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![Version](https://img.shields.io/badge/version-0.2.2-orange)
+![Version](https://img.shields.io/badge/version-0.2.3-orange)
 
 **A Python-to-executable compiler that just works.**
 
@@ -205,7 +205,7 @@ CLI flags always override profile settings.
 
 ### Excluding Files (`.coilignore`)
 
-Coil ships with sensible default excludes for things that don't belong in a bundle: `__pycache__/`, `.git/`, `.github/`, `*.egg-info/`, `build/`, `dist/`, `Output/`, `coil.toml`, `pyproject.toml`, `setup.py`, `requirements*.txt`, `*.iss`, `build.bat`, `Makefile`, `.gitignore`, `README*`, `LICENSE*`, `CHANGELOG*`, `*.log`, `prompt.md`, and helper scripts not declared as entry points.
+Coil ships with sensible default excludes for things that don't belong in a bundle: `__pycache__/`, `.git/`, `.github/`, `.vscode/`, `.idea/`, `.cursor/`, `*.egg-info/`, `build/`, `dist/`, `Output/`, `tests/`, `test/`, `memory/`, `coil.toml`, `pyproject.toml`, `setup.py`, `requirements*.txt`, `*.iss`, `build.bat`, `Makefile`, `.gitignore`, `README*`, `LICENSE*`, `CHANGELOG*`, `*.log`, `prompt.md`, and helper scripts not declared as entry points.
 
 Create a `.coilignore` file in your project root to extend those defaults. Works like `.gitignore` — one glob pattern per line, `#` for comments, and `!pattern` to negate (un-exclude) a default:
 
@@ -329,6 +329,7 @@ subsystem = "console"
 company_name    = "Acme Corp"
 product_name    = "MyApp"
 legal_copyright = "Copyright (c) 2026 Acme Corp"
+comments        = "Built by the platform team"   # Optional free-form metadata
 
 [build.versioninfo.entries.main]
 file_description = "MyApp Main Tool"
@@ -336,6 +337,7 @@ file_description = "MyApp Main Tool"
 [build.versioninfo.entries.update_checker]
 file_description = "MyApp Update Checker"
 internal_name    = "myapp-updater"
+comments         = ""                            # Suppress shared comments for this entry
 
 [build.output]
 dir = "./dist"
@@ -355,6 +357,8 @@ icon = ""
 **Priority order:** CLI flags > profile values > `[build]` values > defaults.
 
 **Stems with spaces** in `[build.versioninfo.entries.<stem>]` and `[build.entries.<stem>]` require quoted TOML keys: `[build.entries."My Tool"]`.
+
+**Per-entry overrides explicitly win**, even when set to an empty string. Declaring `comments = ""` on a single entry suppresses the shared `comments` for just that exe — useful when one helper shouldn't carry the same metadata as the rest. Same rule applies to every optional VERSIONINFO field.
 
 ## CLI Reference
 
