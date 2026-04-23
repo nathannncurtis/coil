@@ -108,7 +108,7 @@ def get_versioninfo_config(
     Returns:
         Dict with keys matching set_version_info kwargs: product_name,
         file_description, file_version, product_version, company_name,
-        legal_copyright, internal_name, original_filename.
+        legal_copyright, internal_name, original_filename, comments.
     """
     build = raw.get("build", {})
     vi = build.get("versioninfo", {}) or {}
@@ -132,6 +132,7 @@ def get_versioninfo_config(
     product_version = _pad_version(pick("product_version", file_version))
     company_name = pick("company_name", "")
     legal_copyright = pick("legal_copyright", "")
+    comments = pick("comments", "")
 
     return {
         "product_name": product_name,
@@ -142,6 +143,7 @@ def get_versioninfo_config(
         "product_version": product_version,
         "company_name": company_name,
         "legal_copyright": legal_copyright,
+        "comments": comments,
     }
 
 
