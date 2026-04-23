@@ -839,10 +839,15 @@ DEFAULT_EXCLUDE_PATTERNS: list[str] = [
     ".github/",
     ".vscode/",
     ".idea/",
+    ".cursor/",
     ".gitignore",
     ".gitattributes",
     ".editorconfig",
     ".coilignore",
+    # Test scaffolding and AI-assistant scratch
+    "tests/",
+    "test/",
+    "memory/",
     # Virtualenvs / dependency trees
     ".venv/",
     "venv/",
