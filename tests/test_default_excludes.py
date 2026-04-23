@@ -11,7 +11,6 @@ Covers:
 
 from __future__ import annotations
 
-import shutil
 import sys
 import zipfile
 from pathlib import Path
@@ -230,30 +229,8 @@ def test_dir_pattern_doesnt_match_file_of_same_name(tmp_path: Path):
 # ---------------------------------------------------------------------------
 
 
-def _find_embed_zip() -> Path:
-    cache = Path.home() / ".coil" / "cache" / "runtimes"
-    if not cache.is_dir():
-        pytest.skip(f"No embeddable runtime cache at {cache}.")
-    host = f"{sys.version_info.major}.{sys.version_info.minor}"
-    preferred = sorted(cache.glob(f"python-{host}.*-embed-amd64.zip"))
-    if preferred:
-        return preferred[-1]
-    fallback = sorted(cache.glob("python-*-embed-amd64.zip"))
-    if fallback:
-        return fallback[-1]
-    pytest.skip(f"No embeddable Python zip in {cache}.")
-
-
-def _make_real_runtime(tmp_path: Path) -> Path:
-    runtime = tmp_path / "runtime"
-    runtime.mkdir()
-    with zipfile.ZipFile(_find_embed_zip(), "r") as zf:
-        zf.extractall(runtime)
-    return runtime
-
-
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only bundle build")
-def test_bundled_build_does_not_leak_project_noise(tmp_path: Path):
+def test_bundled_build_does_not_leak_project_noise(tmp_path: Path, real_runtime: Path):
     """End-to-end: a project full of typical root-level noise produces a
     bundle with only the legitimate assets at root and only declared code
     under _internal/app/."""
@@ -293,13 +270,12 @@ def test_bundled_build_does_not_leak_project_noise(tmp_path: Path):
     (project / "set_console.py").write_text("# helper\n", encoding="utf-8")
     (project / ".coilignore").write_text("set_console.py\n", encoding="utf-8")
 
-    runtime = _make_real_runtime(tmp_path)
     output = tmp_path / "dist"
 
     bundle = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="MyApp",
         target_os="windows",
@@ -344,7 +320,7 @@ def test_bundled_build_does_not_leak_project_noise(tmp_path: Path):
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows-only bundle build")
-def test_user_negation_reincludes_readme_in_bundle(tmp_path: Path):
+def test_user_negation_reincludes_readme_in_bundle(tmp_path: Path, real_runtime: Path):
     """README.md is default-excluded, but `!README.md` in .coilignore re-adds it."""
     project = tmp_path / "proj"
     project.mkdir()
@@ -352,13 +328,12 @@ def test_user_negation_reincludes_readme_in_bundle(tmp_path: Path):
     (project / "README.md").write_text("docs\n", encoding="utf-8")
     (project / ".coilignore").write_text("!README.md\n", encoding="utf-8")
 
-    runtime = _make_real_runtime(tmp_path)
     output = tmp_path / "dist"
 
     bundle = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="App",
         target_os="windows",

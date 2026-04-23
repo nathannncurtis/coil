@@ -41,29 +41,14 @@ def _make_project(base: Path) -> Path:
     return project
 
 
-def _make_runtime(base: Path) -> Path:
-    """Create a fake runtime directory."""
-    runtime = base / "runtime"
-    runtime.mkdir()
-    (runtime / "python.exe").write_bytes(b"MZ" + b"\x00" * 200)
-    (runtime / "pythonw.exe").write_bytes(b"MZ" + b"\x00" * 200)
-    (runtime / "python313.dll").write_bytes(b"fake dll")
-    (runtime / "python3.dll").write_bytes(b"fake dll")
-    (runtime / "vcruntime140.dll").write_bytes(b"fake dll")
-    (runtime / "python313._pth").write_text("python313.zip\n.\n")
-    (runtime / "python313.zip").write_bytes(b"fake zip")
-    return runtime
-
-
-def test_package_bundled(tmp_path: Path):
+def test_package_bundled(tmp_path: Path, real_runtime: Path):
     project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
 
     result = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="MyApp",
         target_os="windows",
@@ -75,18 +60,18 @@ def test_package_bundled(tmp_path: Path):
     assert (result / "MyApp.exe").is_file()
     assert (result / "_internal" / "app" / "main.pyc").is_file()
     assert (result / "_internal" / "app" / "helper.pyc").is_file()
-    assert (result / "python313.dll").is_file()
+    ver_tag = _get_python_ver_tag(real_runtime)
+    assert (result / f"python{ver_tag}.dll").is_file()
 
 
-def test_package_bundled_secure(tmp_path: Path):
+def test_package_bundled_secure(tmp_path: Path, real_runtime: Path):
     project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
 
     result = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="MyApp",
         target_os="windows",
@@ -99,9 +84,8 @@ def test_package_bundled_secure(tmp_path: Path):
     assert not (result / "_internal" / "app" / COIL_SOURCE_ARCHIVE).exists()
 
 
-def test_package_bundled_with_deps(tmp_path: Path):
+def test_package_bundled_with_deps(tmp_path: Path, real_runtime: Path):
     project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
 
     deps = tmp_path / "deps"
@@ -111,7 +95,7 @@ def test_package_bundled_with_deps(tmp_path: Path):
     result = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="MyApp",
         target_os="windows",
@@ -121,16 +105,15 @@ def test_package_bundled_with_deps(tmp_path: Path):
     assert (result / "_internal" / "lib").is_dir()
 
 
-def test_package_portable(tmp_path: Path):
+def test_package_portable(tmp_path: Path, real_runtime: Path):
     """Portable produces a single .exe file (bootloader + zip)."""
     project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
 
     results = package_portable(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="MyApp",
         target_os="windows",
@@ -156,15 +139,14 @@ def test_package_portable(tmp_path: Path):
     assert build_hash != 0
 
 
-def test_package_portable_gui(tmp_path: Path):
+def test_package_portable_gui(tmp_path: Path, real_runtime: Path):
     project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
 
     results = package_portable(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="MyApp",
         target_os="windows",
@@ -176,15 +158,14 @@ def test_package_portable_gui(tmp_path: Path):
     assert results[0].is_file()
 
 
-def test_package_portable_multiple_entries(tmp_path: Path):
+def test_package_portable_multiple_entries(tmp_path: Path, real_runtime: Path):
     project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
 
     results = package_portable(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py", "helper.py"],
         name="MyApp",
         target_os="windows",
@@ -288,7 +269,11 @@ def test_strip_installed_packages(tmp_path: Path):
 
     _strip_installed_packages(tmp_path)
 
-    assert not (tmp_path / "pkg-1.0.dist-info").exists()
+    # .dist-info is preserved on purpose: the resolver uses
+    # importlib.metadata.packages_distributions() to map imports to
+    # distributions at build time, and bundled packages may also call
+    # importlib.metadata at runtime for their own version info.
+    assert (tmp_path / "pkg-1.0.dist-info").exists()
     assert not (tmp_path / "tests").exists()
     assert not (tmp_path / "docs").exists()
     assert (tmp_path / "actual_code.py").exists()
@@ -341,16 +326,15 @@ def test_bootloader_stub_unknown_arch():
         get_bootloader_stub("mips64")
 
 
-def test_package_bundled_optimize_level(tmp_path: Path):
+def test_package_bundled_optimize_level(tmp_path: Path, real_runtime: Path):
     """Optimize level is passed through to obfuscator."""
     project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
 
     result = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="MyApp",
         target_os="windows",
@@ -362,17 +346,16 @@ def test_package_bundled_optimize_level(tmp_path: Path):
     assert (result / "_internal" / "app" / "main.pyc").is_file()
 
 
-def test_package_bundled_optimize_default(tmp_path: Path):
+def test_package_bundled_optimize_default(tmp_path: Path, real_runtime: Path):
     """Default optimize: 1 for non-secure, 2 for secure."""
     project = _make_project(tmp_path)
-    runtime = _make_runtime(tmp_path)
     output = tmp_path / "dist"
 
     # Non-secure default (optimize=None → 1)
     result = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="MyApp",
         target_os="windows",
@@ -383,7 +366,7 @@ def test_package_bundled_optimize_default(tmp_path: Path):
     result2 = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="SecApp",
         target_os="windows",

@@ -6,7 +6,6 @@ exes are stampable PEs. Parses produced exes with pefile.
 
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 
@@ -25,32 +24,6 @@ from coil.packager import package_bundled
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "subsystem_sample"
 
 
-def _make_real_runtime(tmp_path: Path) -> Path:
-    """Synthetic embeddable-like runtime using the host interpreter's files."""
-    runtime = tmp_path / "runtime"
-    runtime.mkdir()
-    host_dir = Path(sys.executable).parent
-
-    for exe_name in ("python.exe", "pythonw.exe"):
-        src = host_dir / exe_name
-        if src.is_file():
-            shutil.copy2(src, runtime / exe_name)
-
-    for pattern in ("python*.dll", "vcruntime*.dll"):
-        for dll in host_dir.glob(pattern):
-            shutil.copy2(dll, runtime / dll.name)
-
-    ver_tag = f"{sys.version_info.major}{sys.version_info.minor}"
-    (runtime / f"python{ver_tag}._pth").write_text(f"python{ver_tag}.zip\n.\n")
-
-    import zipfile
-    zip_path = runtime / f"python{ver_tag}.zip"
-    with zipfile.ZipFile(zip_path, "w") as zf:
-        pass
-
-    return runtime
-
-
 def _read_subsystem(exe_path: Path) -> int:
     pe = pefile.PE(str(exe_path), fast_load=True)
     try:
@@ -59,7 +32,9 @@ def _read_subsystem(exe_path: Path) -> int:
         pe.close()
 
 
-def test_bundled_build_stamps_subsystem_per_entry(tmp_path: Path, monkeypatch):
+def test_bundled_build_stamps_subsystem_per_entry(
+    tmp_path: Path, monkeypatch, real_runtime: Path
+):
     """Full pipeline: 3 entries with different subsystem declarations.
 
     - main: no explicit subsystem → falls through (gui=False by default
@@ -94,13 +69,12 @@ def test_bundled_build_stamps_subsystem_per_entry(tmp_path: Path, monkeypatch):
     monkeypatch.setattr("coil.packager.obfuscate_default", _fake_obfuscate)
     monkeypatch.setattr("coil.packager.obfuscate_secure", _fake_obfuscate)
 
-    runtime = _make_real_runtime(tmp_path)
     output = tmp_path / "dist"
 
     bundle = package_bundled(
         project_dir=FIXTURE_DIR,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=entries,
         name="SubsystemSample",
         target_os="windows",
@@ -116,7 +90,9 @@ def test_bundled_build_stamps_subsystem_per_entry(tmp_path: Path, monkeypatch):
     assert _read_subsystem(bundle / "console_entry.exe") == 3
 
 
-def test_bundled_build_explicit_override_beats_gui_flag(tmp_path: Path, monkeypatch):
+def test_bundled_build_explicit_override_beats_gui_flag(
+    tmp_path: Path, monkeypatch, real_runtime: Path
+):
     """Top-level gui=True says GUI for everything, but an explicit
     "console" override on an entry must still produce Console."""
     entries = ["main.py", "console_entry.py"]
@@ -134,13 +110,12 @@ def test_bundled_build_explicit_override_beats_gui_flag(tmp_path: Path, monkeypa
     monkeypatch.setattr("coil.packager.obfuscate_default", _fake_obfuscate)
     monkeypatch.setattr("coil.packager.obfuscate_secure", _fake_obfuscate)
 
-    runtime = _make_real_runtime(tmp_path)
     output = tmp_path / "dist"
 
     bundle = package_bundled(
         project_dir=FIXTURE_DIR,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=entries,
         name="SubsystemSample",
         target_os="windows",
