@@ -1,15 +1,22 @@
 """Tests for the packager."""
 
+import os
 import struct
 import shutil
+import subprocess
+import sys
+import textwrap
 from pathlib import Path
 from unittest.mock import patch, MagicMock
 import zipfile
+
+import pytest
 
 from coil.packager import (
     package_bundled,
     package_portable,
     _add_dir_to_zip,
+    _configure_pth,
     _remove_py_files,
     _strip_installed_packages,
     _generate_bootstrap_script,
@@ -383,3 +390,194 @@ def test_package_bundled_optimize_default(tmp_path: Path):
         secure=True,
     )
     assert result2.is_dir()
+
+
+# ---------------------------------------------------------------------------
+# sitecustomize.py behavior tests (issue: bundled-app boilerplate elimination)
+# ---------------------------------------------------------------------------
+
+
+def _setup_fake_bundle(tmp_path: Path) -> tuple[Path, Path]:
+    """Create a minimal bundle layout and run _configure_pth against it.
+
+    Returns (root_dir, internal_dir).
+    """
+    root = tmp_path / "bundle"
+    internal = root / "_internal"
+    internal.mkdir(parents=True)
+    (internal / "lib").mkdir()
+    # _configure_pth needs an existing python*._pth to rewrite
+    (root / "python313._pth").write_text("python313.zip\n.\n")
+    _configure_pth(root, internal, entry_name="app", ver_tag="313")
+    return root, internal
+
+
+def _exec_sitecustomize(internal: Path, extra_globals: dict | None = None) -> dict:
+    """Exec the generated sitecustomize.py in an isolated namespace.
+
+    Captures sys.path state BEFORE restoration so callers can inspect the
+    additions site.addsitedir() made. Returns the ns dict augmented with
+    _captured_sys_path (list) for that purpose, and restores sys.path on exit.
+    """
+    site_file = internal / "sitecustomize.py"
+    source = site_file.read_text()
+    ns: dict = {
+        "__file__": str(site_file),
+        "__name__": "sitecustomize",
+    }
+    if extra_globals:
+        ns.update(extra_globals)
+    saved_path = list(sys.path)
+    try:
+        exec(compile(source, str(site_file), "exec"), ns)
+        ns["_captured_sys_path"] = list(sys.path)
+    finally:
+        sys.path[:] = saved_path
+    return ns
+
+
+def test_sitecustomize_processes_pth_files(tmp_path: Path):
+    """A .pth file in _internal/lib must have its paths added to sys.path.
+
+    Regression: pywin32.pth (which lists win32, win32/lib, Pythonwin) was
+    ignored because ._pth disables standard site-packages discovery. The
+    generated sitecustomize calls site.addsitedir(_internal/lib) to restore
+    .pth processing for bundled packages.
+    """
+    _, internal = _setup_fake_bundle(tmp_path)
+    lib = internal / "lib"
+    (lib / "win32").mkdir()
+    (lib / "win32" / "lib").mkdir()
+    (lib / "Pythonwin").mkdir()
+    # Emulate pywin32.pth (real file is "win32\nwin32\\lib\nPythonwin\n")
+    (lib / "fake_pywin32.pth").write_text("win32\nwin32/lib\nPythonwin\n")
+
+    ns = _exec_sitecustomize(internal)
+
+    normalized = {os.path.normcase(os.path.normpath(p)) for p in ns["_captured_sys_path"]}
+    for expected in (lib / "win32", lib / "win32" / "lib", lib / "Pythonwin"):
+        key = os.path.normcase(os.path.normpath(str(expected)))
+        assert key in normalized, f"{expected} not on sys.path after sitecustomize"
+
+
+def test_sitecustomize_pth_import_directive_runs(tmp_path: Path):
+    """`import X` lines in .pth files must be executed (site.py semantics)."""
+    _, internal = _setup_fake_bundle(tmp_path)
+    lib = internal / "lib"
+    # Create a tiny importable module and a .pth that imports it
+    (lib / "pth_probe.py").write_text("PROBE_TAG = 'hit'\n")
+    (lib / "probe.pth").write_text("import pth_probe\n")
+
+    ns = _exec_sitecustomize(internal)
+    # After sitecustomize runs, pth_probe should have been imported
+    assert "pth_probe" in sys.modules
+    assert sys.modules["pth_probe"].PROBE_TAG == "hit"
+    # Clean up so we don't pollute later tests
+    sys.modules.pop("pth_probe", None)
+
+
+def test_sitecustomize_registers_dll_dirs(tmp_path: Path, monkeypatch):
+    """os.add_dll_directory called for dirs with .dll or .pyd files, not others.
+
+    Heuristic: any leaf directory directly containing a .dll or .pyd file is
+    registered. Pure-Python dirs are not. Keeps the count bounded.
+    """
+    _, internal = _setup_fake_bundle(tmp_path)
+    lib = internal / "lib"
+
+    # Fixture tree
+    (lib / "pywin32_system32").mkdir()
+    (lib / "pywin32_system32" / "fake.dll").write_bytes(b"")
+    (lib / "pure_python").mkdir()
+    (lib / "pure_python" / "foo.py").write_text("")
+    (lib / "with_pyd").mkdir()
+    (lib / "with_pyd" / "ext.pyd").write_bytes(b"")
+    (lib / "nested").mkdir()
+    (lib / "nested" / "deeper").mkdir()
+    (lib / "nested" / "deeper" / "buried.dll").write_bytes(b"")
+
+    registered: list[str] = []
+
+    def fake_add_dll_directory(d):
+        registered.append(os.path.normcase(os.path.normpath(d)))
+
+        class _Cookie:
+            def close(self):
+                pass
+        return _Cookie()
+
+    # raising=False so the attribute is added on non-Windows platforms too
+    monkeypatch.setattr(os, "add_dll_directory", fake_add_dll_directory, raising=False)
+
+    _exec_sitecustomize(internal)
+
+    def _key(p: Path) -> str:
+        return os.path.normcase(os.path.normpath(str(p)))
+
+    assert _key(lib / "pywin32_system32") in registered
+    assert _key(lib / "with_pyd") in registered
+    assert _key(lib / "nested" / "deeper") in registered
+    assert _key(lib / "pure_python") not in registered
+    # Sanity: the test fixture triggers 3 registrations; the heuristic should
+    # stay in "handful" territory even as the tree grows.
+    assert len(registered) < 10
+
+
+def test_sitecustomize_no_dll_api_is_safe(tmp_path: Path, monkeypatch):
+    """If os.add_dll_directory isn't available (non-Win or old Py), skip cleanly."""
+    _, internal = _setup_fake_bundle(tmp_path)
+    (internal / "lib" / "something").mkdir()
+    (internal / "lib" / "something" / "x.dll").write_bytes(b"")
+
+    # Remove the attribute so the hasattr check is False
+    monkeypatch.delattr(os, "add_dll_directory", raising=False)
+
+    # Must not raise
+    _exec_sitecustomize(internal)
+
+
+def _host_boot_name() -> str:
+    """Boot script basename that the generated sitecustomize will look for
+    when driven by the host python (sys.executable)."""
+    return f"_boot_{Path(sys.executable).stem}.py"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
+def test_sitecustomize_exits_cleanly_after_boot_script(tmp_path: Path):
+    """Clean return from boot script → process exits 0, no stdin/REPL hang.
+
+    Without the sys.exit(0) guard, CPython falls through to stdin after
+    initialization and blocks (Inno Setup waituntilterminated). We test the
+    guard by running the host python, importing the generated sitecustomize,
+    and asserting a clean exit with stdin redirected to DEVNULL.
+    """
+    _, internal = _setup_fake_bundle(tmp_path)
+    (internal / _host_boot_name()).write_text("print('BOOT_OK')\n")
+
+    result = subprocess.run(
+        [sys.executable, "-c",
+         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=5,
+        text=True,
+    )
+    assert result.returncode == 0, f"stderr={result.stderr!r}"
+    assert "BOOT_OK" in result.stdout
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
+def test_sitecustomize_preserves_nonzero_exit_code(tmp_path: Path):
+    """Explicit sys.exit(N) from the boot script must win over the sys.exit(0)
+    guard that sitecustomize adds for the clean-return case."""
+    _, internal = _setup_fake_bundle(tmp_path)
+    (internal / _host_boot_name()).write_text("import sys; sys.exit(3)\n")
+
+    result = subprocess.run(
+        [sys.executable, "-c",
+         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=5,
+    )
+    assert result.returncode == 3, f"stderr={result.stderr!r}"
