@@ -214,6 +214,35 @@ def test_negation_cannot_reinclude_from_excluded_dir(tmp_path: Path):
     assert matches(tmp_path / "build" / "keepme.txt")
 
 
+def test_defaults_exclude_tests_memory_and_ai_state(tmp_path: Path):
+    """tests/, test/, memory/, .cursor/ — plus .vscode/, .idea/ as regression
+    guards — should all be caught by DEFAULT_EXCLUDE_PATTERNS."""
+    _touch(
+        tmp_path,
+        "tests/",
+        "test/",
+        "memory/",
+        ".cursor/",
+        ".vscode/",
+        ".idea/",
+    )
+    matches = _build_exclude_matcher(tmp_path)
+    for rel in ["tests", "test", "memory", ".cursor", ".vscode", ".idea"]:
+        assert matches(tmp_path / rel), f"expected default exclude for {rel}"
+
+
+def test_user_negation_reincludes_tests_directory(tmp_path: Path):
+    """Escape hatch: a project that legitimately ships a fixture-driven
+    self-test path can `!tests/` in .coilignore to re-include it — both the
+    directory itself and everything under it."""
+    _touch(tmp_path, "tests/fixtures/data.json")
+    (tmp_path / ".coilignore").write_text("!tests/\n", encoding="utf-8")
+    matches = _build_exclude_matcher(tmp_path)
+    assert not matches(tmp_path / "tests")
+    assert not matches(tmp_path / "tests" / "fixtures")
+    assert not matches(tmp_path / "tests" / "fixtures" / "data.json")
+
+
 def test_dir_pattern_doesnt_match_file_of_same_name(tmp_path: Path):
     """A pattern like `Output/` should not exclude a file literally named
     `Output` (no extension)."""
@@ -262,7 +291,10 @@ def test_bundled_build_does_not_leak_project_noise(tmp_path: Path, real_runtime:
         "Makefile",
     ]:
         (project / name).write_text("noise\n", encoding="utf-8")
-    for dname in [".github", "__pycache__", "Output", "pkg.egg-info", ".venv", "build", "dist"]:
+    for dname in [
+        ".github", "__pycache__", "Output", "pkg.egg-info", ".venv", "build", "dist",
+        "tests", "test", "memory", ".cursor",
+    ]:
         (project / dname).mkdir()
         (project / dname / "leaked.txt").write_text("leak\n", encoding="utf-8")
 
@@ -299,6 +331,7 @@ def test_bundled_build_does_not_leak_project_noise(tmp_path: Path, real_runtime:
         assert should_miss not in root_files, f"{should_miss} leaked into bundle root"
     for should_miss in [
         ".github", "__pycache__", "Output", "pkg.egg-info", ".venv", "build", "dist",
+        "tests", "test", "memory", ".cursor",
     ]:
         assert should_miss not in root_dirs, f"{should_miss}/ leaked into bundle root"
 
