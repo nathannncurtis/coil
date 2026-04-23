@@ -46,6 +46,7 @@ def build(
     verbose: bool = False,
     clean: bool = False,
     optimize: int | None = None,
+    versioninfo: dict[str, dict[str, str]] | None = None,
 ) -> list[Path]:
     """Execute the full build pipeline.
 
@@ -66,6 +67,7 @@ def build(
         verbose: Verbose output.
         clean: Build in a clean environment with only declared dependencies.
         optimize: Bytecode optimization level (0, 1, 2). None = auto.
+        versioninfo: Resolved per-entry VERSIONINFO fields, keyed by entry stem.
 
     Returns:
         List of paths to created output files/directories.
@@ -167,6 +169,7 @@ def build(
                 verbose=verbose,
                 ui=ui,
                 optimize=optimize,
+                versioninfo=versioninfo,
             )
             outputs = [result]
         else:
@@ -184,6 +187,7 @@ def build(
                 verbose=verbose,
                 ui=ui,
                 optimize=optimize,
+                versioninfo=versioninfo,
             )
 
     ui.build_summary(outputs)

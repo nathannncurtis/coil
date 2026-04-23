@@ -16,6 +16,12 @@ keywords = ["compiler", "executable", "exe", "packaging", "distribution"]
 dependencies = [
     "rich>=13.0",
 ]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pefile>=2023.0",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",

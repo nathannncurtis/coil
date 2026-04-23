@@ -51,6 +51,100 @@ def load_config(project_dir: Path) -> Optional[dict[str, Any]]:
         return tomllib.load(f)
 
 
+def _resolve_project_version(raw: dict[str, Any], project_dir: Optional[Path]) -> str:
+    """Return the project version string.
+
+    Priority: [project].version > version.txt at project root > "".
+    """
+    project = raw.get("project", {})
+    version = project.get("version", "")
+    if version:
+        return str(version).strip()
+    if project_dir is not None:
+        version_txt = project_dir / "version.txt"
+        if version_txt.is_file():
+            return version_txt.read_text(encoding="utf-8").strip()
+    return ""
+
+
+def _pad_version(version: str) -> str:
+    """Pad a version string to 4 dot-separated parts (e.g. "1.2" -> "1.2.0.0").
+
+    Accepts hyphen as separator. Non-numeric parts become 0.
+    """
+    if not version:
+        return "1.0.0.0"
+    parts = version.replace("-", ".").split(".")
+    nums = []
+    for p in parts[:4]:
+        try:
+            nums.append(str(int(p)))
+        except ValueError:
+            nums.append("0")
+    while len(nums) < 4:
+        nums.append("0")
+    return ".".join(nums)
+
+
+def get_versioninfo_config(
+    raw: dict[str, Any],
+    entry_name: str,
+    project_name: str,
+    project_dir: Optional[Path] = None,
+) -> dict[str, str]:
+    """Resolve VERSIONINFO fields for a single entry.
+
+    Merges shared [build.versioninfo] with per-entry
+    [build.versioninfo.entries.<stem>] overrides. Falls back to sensible
+    defaults derived from the entry name and project metadata.
+
+    Args:
+        raw: Parsed coil.toml.
+        entry_name: Entry point stem (e.g. "main" for "main.py"). For stems
+            with spaces, TOML requires quoted keys: ["With Spaces"].
+        project_name: Project name (from [project].name or directory name).
+        project_dir: Project directory, used for version.txt fallback.
+
+    Returns:
+        Dict with keys matching set_version_info kwargs: product_name,
+        file_description, file_version, product_version, company_name,
+        legal_copyright, internal_name, original_filename.
+    """
+    build = raw.get("build", {})
+    vi = build.get("versioninfo", {}) or {}
+    per_entry = (vi.get("entries", {}) or {}).get(entry_name, {}) or {}
+
+    version = _resolve_project_version(raw, project_dir)
+    default_version = _pad_version(version) if version else "1.0.0.0"
+
+    def pick(key: str, default: str) -> str:
+        if key in per_entry and per_entry[key] not in (None, ""):
+            return str(per_entry[key])
+        if key in vi and vi[key] not in (None, ""):
+            return str(vi[key])
+        return default
+
+    product_name = pick("product_name", project_name or entry_name)
+    file_description = pick("file_description", entry_name)
+    internal_name = pick("internal_name", entry_name)
+    original_filename = pick("original_filename", f"{entry_name}.exe")
+    file_version = _pad_version(pick("file_version", default_version))
+    product_version = _pad_version(pick("product_version", file_version))
+    company_name = pick("company_name", "")
+    legal_copyright = pick("legal_copyright", "")
+
+    return {
+        "product_name": product_name,
+        "file_description": file_description,
+        "internal_name": internal_name,
+        "original_filename": original_filename,
+        "file_version": file_version,
+        "product_version": product_version,
+        "company_name": company_name,
+        "legal_copyright": legal_copyright,
+    }
+
+
 def get_build_config(
     raw: dict[str, Any],
     profile: Optional[str] = None,

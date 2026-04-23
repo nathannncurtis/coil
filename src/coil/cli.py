@@ -640,6 +640,28 @@ def main(argv: list[str] | None = None) -> None:
         if optimize is None:
             optimize = 2 if args.secure else 1
 
+        # Resolve per-entry VERSIONINFO from coil.toml if present.
+        versioninfo: dict[str, dict[str, str]] | None = None
+        from coil.config import load_config, get_versioninfo_config
+        raw_toml = load_config(project_dir)
+        if raw_toml is not None:
+            versioninfo = {}
+            for ep in entry_points:
+                stem = Path(ep).stem
+                versioninfo[stem] = get_versioninfo_config(
+                    raw_toml,
+                    entry_name=stem,
+                    project_name=name,
+                    project_dir=project_dir,
+                )
+            # For single-entry builds, the exe is named `name`, not the
+            # source stem. Duplicate the entry under that key so the
+            # packager finds it.
+            if len(entry_points) == 1:
+                only_stem = Path(entry_points[0]).stem
+                if name and name != only_stem:
+                    versioninfo[name] = versioninfo[only_stem]
+
         try:
             from coil.builder import build
             build(
@@ -659,6 +681,7 @@ def main(argv: list[str] | None = None) -> None:
                 verbose=args.verbose,
                 clean=args.clean,
                 optimize=optimize,
+                versioninfo=versioninfo,
             )
         except Exception as e:
             if args.verbose:

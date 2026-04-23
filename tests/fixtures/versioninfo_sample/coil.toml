@@ -1,0 +1,23 @@
+[project]
+name = "AcmeSuite"
+version = "1.2.3"
+
+[build]
+mode = "bundled"
+os = "windows"
+console = true
+
+[build.versioninfo]
+company_name = "Acme Corp"
+product_name = "Acme Suite"
+legal_copyright = "Copyright (c) 2026 Acme Corp"
+
+[build.versioninfo.entries.main]
+file_description = "Acme Suite - Main Tool"
+
+[build.versioninfo.entries.worker]
+file_description = "Acme Suite - Worker"
+internal_name = "acme-worker"
+
+[build.versioninfo.entries."With Spaces"]
+file_description = "Acme Suite - Spaced Tool"
