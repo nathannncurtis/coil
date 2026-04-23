@@ -81,6 +81,7 @@ def compile_directory(
     optimize: int = 0,
     progress_callback: Optional[Callable[[int, int, Path], None]] = None,
     runtime_python: Optional[Path] = None,
+    skip: Optional[Callable[[Path], bool]] = None,
 ) -> list[Path]:
     """Compile all .py files in a directory to .pyc files.
 
@@ -91,12 +92,17 @@ def compile_directory(
         progress_callback: Optional callback(current, total, file_path).
         runtime_python: Path to the target Python exe for cross-version
             compilation.
+        skip: Optional predicate; .py files for which it returns True are
+            not compiled. Used to honor .coilignore / default-exclude
+            patterns so helper scripts don't land in _internal/app/.
 
     Returns:
         List of compiled .pyc file paths.
     """
     compiled: list[Path] = []
     py_files = sorted(source_dir.rglob("*.py"))
+    if skip is not None:
+        py_files = [p for p in py_files if not skip(p)]
     total = len(py_files)
 
     for i, py_file in enumerate(py_files):
@@ -116,6 +122,7 @@ def obfuscate_default(
     ui: Optional[BuildUI] = None,
     optimize: int = 1,
     runtime_python: Optional[Path] = None,
+    skip: Optional[Callable[[Path], bool]] = None,
 ) -> Path:
     """Default obfuscation: compile to .pyc and embed recoverable source.
 
@@ -128,6 +135,8 @@ def obfuscate_default(
         ui: Optional BuildUI for progress display.
         optimize: Bytecode optimization level (0, 1, or 2). Default 1
                   strips assert statements for smaller bytecode.
+        skip: Optional predicate excluding files from compilation AND the
+            recovery archive.
 
     Returns:
         Path to the output directory containing compiled files.
@@ -135,9 +144,10 @@ def obfuscate_default(
     app_dir = output_dir / "app"
     app_dir.mkdir(parents=True, exist_ok=True)
 
-    # Compile all .py to .pyc
     if ui is not None:
         py_files = sorted(source_dir.rglob("*.py"))
+        if skip is not None:
+            py_files = [p for p in py_files if not skip(p)]
         total = len(py_files)
         with ui.file_progress("Compiling source", total=total) as progress:
             task = progress.add_task("", total=total)
@@ -145,18 +155,20 @@ def obfuscate_default(
             def _cb(current: int, total: int, path: Path) -> None:
                 progress.advance(task)
 
-            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb, runtime_python=runtime_python)
+            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb, runtime_python=runtime_python, skip=skip)
     else:
-        compile_directory(source_dir, app_dir, optimize=optimize, runtime_python=runtime_python)
+        compile_directory(source_dir, app_dir, optimize=optimize, runtime_python=runtime_python, skip=skip)
 
-    # Archive original source for recovery
+    # Archive original source for recovery — honors the same filter so the
+    # archive mirrors what's compiled.
     source_archive = app_dir / COIL_SOURCE_ARCHIVE
     with zipfile.ZipFile(source_archive, "w", zipfile.ZIP_DEFLATED) as zf:
         for py_file in source_dir.rglob("*.py"):
+            if skip is not None and skip(py_file):
+                continue
             arcname = str(py_file.relative_to(source_dir))
             zf.write(py_file, arcname)
 
-    # Write metadata
     metadata = {
         "coil_version": _get_version(),
         "secure": False,
@@ -175,6 +187,7 @@ def obfuscate_secure(
     ui: Optional[BuildUI] = None,
     optimize: int = 2,
     runtime_python: Optional[Path] = None,
+    skip: Optional[Callable[[Path], bool]] = None,
 ) -> Path:
     """Secure obfuscation: bytecode-only, no recoverable source.
 
@@ -187,6 +200,7 @@ def obfuscate_secure(
         ui: Optional BuildUI for progress display.
         optimize: Bytecode optimization level. Default 2 strips
                   docstrings and assert statements.
+        skip: Optional predicate excluding files from compilation.
 
     Returns:
         Path to the output directory containing compiled files.
@@ -194,9 +208,10 @@ def obfuscate_secure(
     app_dir = output_dir / "app"
     app_dir.mkdir(parents=True, exist_ok=True)
 
-    # Compile with specified optimization level
     if ui is not None:
         py_files = sorted(source_dir.rglob("*.py"))
+        if skip is not None:
+            py_files = [p for p in py_files if not skip(p)]
         total = len(py_files)
         with ui.file_progress("Compiling source", total=total) as progress:
             task = progress.add_task("", total=total)
@@ -204,11 +219,10 @@ def obfuscate_secure(
             def _cb(current: int, total: int, path: Path) -> None:
                 progress.advance(task)
 
-            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb, runtime_python=runtime_python)
+            compile_directory(source_dir, app_dir, optimize=optimize, progress_callback=_cb, runtime_python=runtime_python, skip=skip)
     else:
-        compile_directory(source_dir, app_dir, optimize=optimize, runtime_python=runtime_python)
+        compile_directory(source_dir, app_dir, optimize=optimize, runtime_python=runtime_python, skip=skip)
 
-    # Write metadata marking this as secure (no source archive)
     metadata = {
         "coil_version": _get_version(),
         "secure": True,
