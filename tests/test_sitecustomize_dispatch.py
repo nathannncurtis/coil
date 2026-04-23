@@ -15,10 +15,8 @@ bug (not just a latent one in the Step 2/3 fallbacks).
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
-import zipfile
 from pathlib import Path
 
 import pytest
@@ -27,45 +25,6 @@ pytestmark = pytest.mark.skipif(
     sys.platform != "win32",
     reason="sitecustomize dispatch uses the python.exe launcher (Windows-only)",
 )
-
-
-def _find_embed_zip() -> Path:
-    """Locate a cached Windows embeddable Python zip.
-
-    Prefers a version matching the host interpreter (so runtime_python pyc
-    magic is compatible with pytest's compile step). Falls back to any
-    available embeddable zip.
-    """
-    cache = Path.home() / ".coil" / "cache" / "runtimes"
-    if not cache.is_dir():
-        pytest.skip(
-            f"No embeddable Python cache at {cache}. "
-            "Run any `coil build` to populate it."
-        )
-    host = f"{sys.version_info.major}.{sys.version_info.minor}"
-    preferred = sorted(cache.glob(f"python-{host}.*-embed-amd64.zip"))
-    if preferred:
-        return preferred[-1]
-    fallback = sorted(cache.glob("python-*-embed-amd64.zip"))
-    if fallback:
-        return fallback[-1]
-    pytest.skip(f"No embeddable Python zip in {cache}.")
-
-
-def _make_real_runtime(tmp_path: Path) -> Path:
-    """Extract a cached embeddable Python distribution as the build runtime.
-
-    A full embeddable dist is required (not just python.exe + DLLs): the
-    generated sitecustomize runs under a renamed python.exe, and CPython
-    aborts during init if the bundled stdlib zip is missing `encodings`.
-    """
-    runtime = tmp_path / "runtime"
-    runtime.mkdir()
-
-    zip_path = _find_embed_zip()
-    with zipfile.ZipFile(zip_path, "r") as zf:
-        zf.extractall(runtime)
-    return runtime
 
 
 def _fake_obfuscate(project_dir, internal_dir, ui=None, optimize=0, runtime_python=None, skip=None):
@@ -98,6 +57,7 @@ def _tag_boot_scripts(internal_dir: Path) -> list[str]:
 def _build_and_run(
     tmp_path: Path,
     monkeypatch,
+    real_runtime: Path,
     entries: list[str],
     name: str,
 ) -> dict[str, str]:
@@ -112,13 +72,12 @@ def _build_and_run(
     monkeypatch.setattr("coil.packager.obfuscate_default", _fake_obfuscate)
     monkeypatch.setattr("coil.packager.obfuscate_secure", _fake_obfuscate)
 
-    runtime = _make_real_runtime(tmp_path)
     output = tmp_path / "dist"
 
     bundle = package_bundled(
         project_dir=project,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=entries,
         name=name,
         target_os="windows",
@@ -153,27 +112,36 @@ def _build_and_run(
     return observed
 
 
-def test_single_entry_no_rename(tmp_path: Path, monkeypatch):
-    observed = _build_and_run(tmp_path, monkeypatch, entries=["main.py"], name="main")
+def test_single_entry_no_rename(tmp_path: Path, monkeypatch, real_runtime: Path):
+    observed = _build_and_run(
+        tmp_path, monkeypatch, real_runtime, entries=["main.py"], name="main"
+    )
     assert observed == {"main": "main"}
 
 
-def test_single_entry_with_rename(tmp_path: Path, monkeypatch):
-    observed = _build_and_run(tmp_path, monkeypatch, entries=["main.py"], name="Renamed")
+def test_single_entry_with_rename(tmp_path: Path, monkeypatch, real_runtime: Path):
+    observed = _build_and_run(
+        tmp_path, monkeypatch, real_runtime, entries=["main.py"], name="Renamed"
+    )
     assert observed == {"Renamed": "Renamed"}
 
 
-def test_multi_entry(tmp_path: Path, monkeypatch):
+def test_multi_entry(tmp_path: Path, monkeypatch, real_runtime: Path):
     observed = _build_and_run(
-        tmp_path, monkeypatch, entries=["main.py", "worker.py"], name="MultiApp"
+        tmp_path,
+        monkeypatch,
+        real_runtime,
+        entries=["main.py", "worker.py"],
+        name="MultiApp",
     )
     assert observed == {"main": "main", "worker": "worker"}
 
 
-def test_multi_entry_with_spaces(tmp_path: Path, monkeypatch):
+def test_multi_entry_with_spaces(tmp_path: Path, monkeypatch, real_runtime: Path):
     observed = _build_and_run(
         tmp_path,
         monkeypatch,
+        real_runtime,
         entries=["main.py", "Helper With Space.py"],
         name="SpacedApp",
     )
