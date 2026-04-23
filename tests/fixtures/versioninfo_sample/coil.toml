@@ -11,9 +11,11 @@ console = true
 company_name = "Acme Corp"
 product_name = "Acme Suite"
 legal_copyright = "Copyright (c) 2026 Acme Corp"
+comments = "Built by the platform team"
 
 [build.versioninfo.entries.main]
 file_description = "Acme Suite - Main Tool"
+comments = "Built by the platform team - main entry"
 
 [build.versioninfo.entries.worker]
 file_description = "Acme Suite - Worker"
