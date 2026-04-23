@@ -11,6 +11,37 @@ def find_py_files(project_dir: Path) -> list[Path]:
     return sorted(project_dir.rglob("*.py"))
 
 
+_DYNAMIC_IMPORT_CALLEES = {"import_module", "__import__"}
+
+
+def _dynamic_import_literal(node: ast.Call) -> str | None:
+    """Return the first positional arg of a dynamic-import call if it's a string literal.
+
+    Matches:
+    - ``importlib.import_module("x")``
+    - ``import_module("x")`` (when ``from importlib import import_module`` is in scope)
+    - ``__import__("x")``
+
+    Non-literal first args (variables, expressions) return None.
+    """
+    func = node.func
+    if isinstance(func, ast.Attribute):
+        if func.attr != "import_module":
+            return None
+    elif isinstance(func, ast.Name):
+        if func.id not in _DYNAMIC_IMPORT_CALLEES:
+            return None
+    else:
+        return None
+
+    if not node.args:
+        return None
+    first = node.args[0]
+    if isinstance(first, ast.Constant) and isinstance(first.value, str):
+        return first.value
+    return None
+
+
 def extract_imports(source: str) -> set[str]:
     """Extract top-level module names from Python source code using AST.
 
@@ -18,6 +49,12 @@ def extract_imports(source: str) -> set[str]:
     - ``import os.path`` returns ``os``
     - ``from collections.abc import Mapping`` returns ``collections``
     - ``import numpy`` returns ``numpy``
+
+    Also detects dynamic imports with a string literal argument:
+    - ``importlib.import_module("win32pipe")`` returns ``win32pipe``
+    - ``__import__("win32file")`` returns ``win32file``
+
+    Dynamic imports with non-literal arguments are skipped silently.
     """
     try:
         tree = ast.parse(source)
@@ -34,6 +71,12 @@ def extract_imports(source: str) -> set[str]:
             if node.module is not None and node.level == 0:
                 root = node.module.split(".")[0]
                 modules.add(root)
+        elif isinstance(node, ast.Call):
+            literal = _dynamic_import_literal(node)
+            if literal:
+                root = literal.split(".")[0]
+                if root:
+                    modules.add(root)
 
     return modules
 

@@ -642,9 +642,15 @@ def main(argv: list[str] | None = None) -> None:
 
         # Resolve per-entry VERSIONINFO from coil.toml if present.
         versioninfo: dict[str, dict[str, str]] | None = None
-        from coil.config import load_config, get_versioninfo_config
+        deps_auto = True
+        from coil.config import load_config, get_build_config, get_versioninfo_config
         raw_toml = load_config(project_dir)
         if raw_toml is not None:
+            try:
+                _build_cfg = get_build_config(raw_toml, profile=args.profile)
+                deps_auto = bool(_build_cfg.get("deps_auto", True))
+            except ValueError:
+                pass
             versioninfo = {}
             for ep in entry_points:
                 stem = Path(ep).stem
@@ -682,6 +688,7 @@ def main(argv: list[str] | None = None) -> None:
                 clean=args.clean,
                 optimize=optimize,
                 versioninfo=versioninfo,
+                deps_auto=deps_auto,
             )
         except Exception as e:
             if args.verbose:

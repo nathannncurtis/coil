@@ -43,6 +43,50 @@ def test_extract_imports_syntax_error():
     assert result == set()
 
 
+def test_extract_imports_importlib_literal():
+    source = (
+        "import importlib\n"
+        "win32pipe = importlib.import_module('win32pipe')\n"
+    )
+    result = extract_imports(source)
+    assert "win32pipe" in result
+
+
+def test_extract_imports_importlib_aliased():
+    source = (
+        "from importlib import import_module\n"
+        "mod = import_module('pywintypes')\n"
+    )
+    result = extract_imports(source)
+    assert "pywintypes" in result
+
+
+def test_extract_imports_dunder_import_literal():
+    source = "mod = __import__('win32file')\n"
+    result = extract_imports(source)
+    assert "win32file" in result
+
+
+def test_extract_imports_dynamic_non_literal_skipped():
+    source = (
+        "import importlib\n"
+        "name = get_name()\n"
+        "mod = importlib.import_module(name)\n"
+    )
+    result = extract_imports(source)
+    assert "importlib" in result  # the plain import is still picked up
+    # But no spurious module should be added from the dynamic call.
+    assert result == {"importlib"}
+
+
+def test_extract_imports_importlib_dotted_literal():
+    source = "import importlib\nm = importlib.import_module('a.b.c')\n"
+    result = extract_imports(source)
+    assert "a" in result
+    assert "b" not in result
+    assert "c" not in result
+
+
 def test_extract_imports_deep_in_file():
     source = (
         "x = 1\n" * 100

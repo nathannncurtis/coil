@@ -1,10 +1,18 @@
-"""Mapping of Python import names to PyPI package names.
+"""Fallback mapping of Python import names to PyPI distribution names.
 
-Many packages have import names that differ from their PyPI distribution name.
-This module maintains a mapping for common cases.
+The canonical source of import→distribution mapping is
+``importlib.metadata.packages_distributions()``, which introspects the Python
+environment Coil is running in. This module is consulted **only** when that
+mapping has no entry for a given top-level module — typically the fresh-clone
+case where the dependency hasn't been installed in Coil's env yet.
+
+Keeping this list lean is deliberate: the more the hand-map covers, the more
+likely it drifts out of sync with upstream package renames. The distributions
+we carry entries for are ones where the "fresh clone before install" failure
+mode is common enough to be worth guarding.
 """
 
-# Import name -> PyPI package name
+# Import name -> PyPI distribution name
 IMPORT_TO_PYPI: dict[str, str] = {
     "PIL": "Pillow",
     "cv2": "opencv-python",
@@ -29,9 +37,19 @@ IMPORT_TO_PYPI: dict[str, str] = {
     "Crypto": "pycryptodome",
     "OpenSSL": "pyOpenSSL",
     "psutil": "psutil",
-    "win32com": "pywin32",
+    # pywin32 ships many top-level modules; cover the common ones so that a
+    # fresh clone without pywin32 installed still resolves them to a single
+    # distribution instead of trying to pip-install nonexistent packages.
     "win32api": "pywin32",
+    "win32com": "pywin32",
+    "win32con": "pywin32",
+    "win32event": "pywin32",
+    "win32file": "pywin32",
     "win32gui": "pywin32",
+    "win32job": "pywin32",
+    "win32pipe": "pywin32",
+    "win32process": "pywin32",
+    "win32service": "pywin32",
     "pythoncom": "pywin32",
     "pywintypes": "pywin32",
     "googleapiclient": "google-api-python-client",
@@ -54,9 +72,13 @@ IMPORT_TO_PYPI: dict[str, str] = {
 
 
 def resolve_package_name(import_name: str) -> str:
-    """Resolve a Python import name to its PyPI package name.
+    """Resolve a Python import name to its PyPI distribution name via the fallback map.
 
-    If the import name is in the known mapping, returns the PyPI name.
-    Otherwise, assumes the import name matches the package name.
+    If the import name is in the hand-maintained mapping, returns the PyPI
+    name. Otherwise, assumes the distribution name matches the import name.
+
+    Prefer ``importlib.metadata.packages_distributions()`` for accurate
+    resolution — this function is a fallback used by the resolver only when
+    that metadata lookup has no entry for the module.
     """
     return IMPORT_TO_PYPI.get(import_name, import_name)
