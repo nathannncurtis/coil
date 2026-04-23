@@ -472,24 +472,35 @@ def set_version_info(
         raise
 
 
-def set_pe_subsystem(exe_path: Path, gui: bool) -> None:
+def set_pe_subsystem(exe_path: Path, subsystem: "bool | str") -> None:
     """Modify a PE executable's subsystem flag.
 
-    Sets the subsystem to GUI (2) or Console (3) in the PE header.
-    This is used to prevent a console window from appearing for GUI apps.
+    Sets the subsystem to GUI (2) or Console (3) in the PE header. The
+    subsystem WORD lives at pe_offset + 0x5C (4-byte PE sig + 20-byte
+    COFF header + 68 into the optional header), identical for PE32 and
+    PE32+.
 
     Args:
         exe_path: Path to the .exe file.
-        gui: True for GUI subsystem, False for console.
+        subsystem: Either a bool (True = GUI, False = Console) or one of
+            the strings "gui" / "console".
+
+    Raises:
+        ValueError: If subsystem is a string other than "gui" or "console".
     """
-    subsystem = _PE_GUI_SUBSYSTEM if gui else _PE_CONSOLE_SUBSYSTEM
+    if isinstance(subsystem, str):
+        if subsystem not in ("gui", "console"):
+            raise ValueError(
+                f"Invalid subsystem {subsystem!r}: expected 'gui' or 'console'"
+            )
+        subsystem_value = _PE_GUI_SUBSYSTEM if subsystem == "gui" else _PE_CONSOLE_SUBSYSTEM
+    else:
+        subsystem_value = _PE_GUI_SUBSYSTEM if subsystem else _PE_CONSOLE_SUBSYSTEM
 
     with open(exe_path, "r+b") as f:
-        # Read DOS header to find PE offset
         f.seek(0x3C)
         pe_offset = struct.unpack("<I", f.read(4))[0]
 
-        # PE subsystem is at PE offset + 0x5C
         subsystem_offset = pe_offset + 0x5C
         f.seek(subsystem_offset)
-        f.write(struct.pack("<H", subsystem))
+        f.write(struct.pack("<H", subsystem_value))

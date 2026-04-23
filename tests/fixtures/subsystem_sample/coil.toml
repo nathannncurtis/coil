@@ -1,0 +1,21 @@
+[project]
+name = "SubsystemSample"
+version = "1.0.0"
+
+[build]
+mode = "bundled"
+os = "windows"
+
+# main: no [build.entries.main] block — falls through to the default
+# hybrid (top-level gui flag + file_has_gui_imports autodetect).
+#
+# gui_entry: explicit GUI subsystem — overrides any autodetect.
+# console_entry: explicit Console subsystem — even though the file has
+# no GUI imports, the explicit override is what gets stamped. Used to
+# prove the override path runs end-to-end.
+
+[build.entries.gui_entry]
+subsystem = "gui"
+
+[build.entries.console_entry]
+subsystem = "console"

@@ -47,6 +47,7 @@ def build(
     clean: bool = False,
     optimize: int | None = None,
     versioninfo: dict[str, dict[str, str]] | None = None,
+    subsystems: dict[str, str] | None = None,
     deps_auto: bool = True,
 ) -> list[Path]:
     """Execute the full build pipeline.
@@ -69,6 +70,9 @@ def build(
         clean: Build in a clean environment with only declared dependencies.
         optimize: Bytecode optimization level (0, 1, 2). None = auto.
         versioninfo: Resolved per-entry VERSIONINFO fields, keyed by entry stem.
+        subsystems: Explicit per-entry PE subsystem overrides, keyed by
+            entry stem. Values are "gui" or "console". Entries without an
+            override fall through to the existing hybrid default.
         deps_auto: When True, auto-detect imports and union with declared
             dependencies. Reflects [build.dependencies].auto in coil.toml.
 
@@ -175,6 +179,7 @@ def build(
                 ui=ui,
                 optimize=optimize,
                 versioninfo=versioninfo,
+                subsystems=subsystems,
             )
             outputs = [result]
         else:
@@ -193,6 +198,7 @@ def build(
                 ui=ui,
                 optimize=optimize,
                 versioninfo=versioninfo,
+                subsystems=subsystems,
             )
 
     ui.build_summary(outputs)
