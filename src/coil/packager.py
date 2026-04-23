@@ -35,6 +35,24 @@ _EXE_DLLS = {
 }
 
 
+def _lookup_subsystem(
+    subsystems: Optional[dict[str, str]],
+    *keys: str,
+) -> Optional[str]:
+    """Pick the explicit subsystem for the first matching key, or None.
+
+    The CLI stores subsystem overrides under the entry stem and, for
+    single-entry builds renamed via --name, also under the final exe name.
+    Try both.
+    """
+    if not subsystems:
+        return None
+    for key in keys:
+        if key in subsystems:
+            return subsystems[key]
+    return None
+
+
 def package_portable(
     project_dir: Path,
     output_dir: Path,
@@ -50,6 +68,7 @@ def package_portable(
     ui: Optional[BuildUI] = None,
     optimize: Optional[int] = None,
     versioninfo: Optional[dict[str, dict[str, str]]] = None,
+    subsystems: Optional[dict[str, str]] = None,
 ) -> list[Path]:
     """Create a portable build: single self-contained .exe per entry point.
 
@@ -78,6 +97,8 @@ def package_portable(
 
     for entry in entry_points:
         entry_name = Path(entry).stem if len(entry_points) > 1 else name
+        entry_stem = Path(entry).stem
+        explicit_sub = _lookup_subsystem(subsystems, entry_stem, entry_name)
 
         if ui is not None:
             ui.detail(f"Packaging portable exe for {entry}")
@@ -100,6 +121,7 @@ def package_portable(
                 verbose=verbose,
                 ui=ui,
                 optimize=optimize,
+                subsystem=explicit_sub,
             )
 
             # Step 2: Zip the staged directory
@@ -127,7 +149,7 @@ def package_portable(
 
         vi_fields = (versioninfo or {}).get(entry_name)
 
-        if sys.platform == "win32" and (icon or vi_fields):
+        if sys.platform == "win32" and (icon or vi_fields or explicit_sub is not None):
             with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as tf:
                 tf.write(bootloader_stub)
                 stub_path = Path(tf.name)
@@ -155,6 +177,21 @@ def package_portable(
                             ui.warning(f"Could not set version info: {e}")
                         elif verbose:
                             print(f"  Warning: Could not set version info: {e}")
+
+                if explicit_sub is not None:
+                    from coil.platforms.windows import set_pe_subsystem
+                    try:
+                        set_pe_subsystem(stub_path, explicit_sub)
+                        if ui is not None:
+                            ui.detail(
+                                f"Subsystem {explicit_sub!r} applied to entry "
+                                f"{entry_stem!r} (explicit override)"
+                            )
+                    except Exception as e:
+                        if ui is not None:
+                            ui.warning(f"Could not set subsystem: {e}")
+                        elif verbose:
+                            print(f"  Warning: Could not set subsystem: {e}")
 
                 stub = stub_path.read_bytes()
             finally:
@@ -197,6 +234,7 @@ def package_bundled(
     ui: Optional[BuildUI] = None,
     optimize: Optional[int] = None,
     versioninfo: Optional[dict[str, dict[str, str]]] = None,
+    subsystems: Optional[dict[str, str]] = None,
 ) -> Path:
     """Create a bundled build: directory with exe and supporting files.
 
@@ -235,6 +273,7 @@ def package_bundled(
     # for single-entry (which may differ from the source filename via --name).
     primary_vi_key = Path(entry).stem if len(entry_points) > 1 else entry_name
     primary_vi = (versioninfo or {}).get(primary_vi_key)
+    primary_sub = _lookup_subsystem(subsystems, Path(entry).stem, entry_name)
     _build_app_directory(
         project_dir=project_dir,
         stage_dir=bundle_dir,
@@ -249,6 +288,7 @@ def package_bundled(
         ui=ui,
         optimize=optimize,
         versioninfo=primary_vi,
+        subsystem=primary_sub,
     )
 
     # For multiple entry points, create additional launchers
@@ -257,9 +297,15 @@ def package_bundled(
             extra_name = Path(extra_entry).stem
             extra_pyc = extra_entry.replace(".py", ".pyc")
 
-            # Per-entry GUI detection
+            # Explicit subsystem config wins over GUI-import autodetect.
+            extra_sub = _lookup_subsystem(subsystems, extra_name, extra_name)
             extra_file = project_dir / extra_entry
-            extra_gui = file_has_gui_imports(extra_file) if extra_file.is_file() else gui
+            if extra_sub is not None:
+                extra_gui = (extra_sub == "gui")
+            else:
+                extra_gui = (
+                    file_has_gui_imports(extra_file) if extra_file.is_file() else gui
+                )
 
             # Copy python exe as the extra entry
             source_exe_name = "pythonw.exe" if extra_gui else "python.exe"
@@ -292,6 +338,19 @@ def package_bundled(
                 except Exception:
                     pass
 
+                if extra_sub is not None and extra_exe.is_file():
+                    from coil.platforms.windows import set_pe_subsystem
+                    try:
+                        set_pe_subsystem(extra_exe, extra_sub)
+                        if ui is not None:
+                            ui.detail(
+                                f"Subsystem {extra_sub!r} applied to entry "
+                                f"{extra_name!r} (explicit override)"
+                            )
+                    except Exception as e:
+                        if ui is not None:
+                            ui.warning(f"Could not set subsystem: {e}")
+
             if ui is not None:
                 ui.detail(f"Created launcher for {extra_entry}")
             elif verbose:
@@ -319,6 +378,7 @@ def _build_app_directory(
     ui: Optional[BuildUI] = None,
     optimize: Optional[int] = None,
     versioninfo: Optional[dict[str, str]] = None,
+    subsystem: Optional[str] = None,
 ) -> None:
     """Build the full application directory structure.
 
@@ -376,8 +436,13 @@ def _build_app_directory(
     project_imports = scan_project(project_dir)
     _strip_stdlib_zip(internal_dir, project_imports, ui=ui, verbose=verbose)
 
-    # Copy the right python exe as AppName.exe
-    source_exe_name = "pythonw.exe" if gui else "python.exe"
+    # Copy the right python exe as AppName.exe. Explicit subsystem (from
+    # [build.entries.<stem>].subsystem) wins over the top-level gui flag.
+    if subsystem is not None:
+        use_gui = (subsystem == "gui")
+    else:
+        use_gui = gui
+    source_exe_name = "pythonw.exe" if use_gui else "python.exe"
     source_exe = runtime_dir / source_exe_name
     target_exe = stage_dir / f"{entry_name}.exe"
     if source_exe.is_file():
@@ -419,13 +484,26 @@ def _build_app_directory(
     # Configure ._pth and sitecustomize.py
     _configure_pth(stage_dir, internal_dir, entry_name, ver_tag)
 
-    # Set GUI subsystem if needed
-    if gui and target_exe.is_file():
+    # Stamp subsystem. Explicit config wins; otherwise fall through to the
+    # top-level gui flag (preserves existing behavior).
+    if target_exe.is_file() and sys.platform == "win32":
         from coil.platforms.windows import set_pe_subsystem
-        try:
-            set_pe_subsystem(target_exe, gui=True)
-        except Exception:
-            pass
+        if subsystem is not None:
+            try:
+                set_pe_subsystem(target_exe, subsystem)
+                if ui is not None:
+                    ui.detail(
+                        f"Subsystem {subsystem!r} applied to entry "
+                        f"{entry_name!r} (explicit override)"
+                    )
+            except Exception as e:
+                if ui is not None:
+                    ui.warning(f"Could not set subsystem: {e}")
+        elif gui:
+            try:
+                set_pe_subsystem(target_exe, True)
+            except Exception:
+                pass
 
     # Apply icon to the inner exe
     if icon and target_exe.is_file() and sys.platform == "win32":

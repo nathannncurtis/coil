@@ -642,8 +642,12 @@ def main(argv: list[str] | None = None) -> None:
 
         # Resolve per-entry VERSIONINFO from coil.toml if present.
         versioninfo: dict[str, dict[str, str]] | None = None
+        subsystems: dict[str, str] | None = None
         deps_auto = True
-        from coil.config import load_config, get_build_config, get_versioninfo_config
+        from coil.config import (
+            load_config, get_build_config, get_versioninfo_config,
+            get_subsystem_config,
+        )
         raw_toml = load_config(project_dir)
         if raw_toml is not None:
             try:
@@ -652,6 +656,7 @@ def main(argv: list[str] | None = None) -> None:
             except ValueError:
                 pass
             versioninfo = {}
+            subsystems = {}
             for ep in entry_points:
                 stem = Path(ep).stem
                 versioninfo[stem] = get_versioninfo_config(
@@ -660,6 +665,13 @@ def main(argv: list[str] | None = None) -> None:
                     project_name=name,
                     project_dir=project_dir,
                 )
+                try:
+                    sub = get_subsystem_config(raw_toml, entry_name=stem)
+                except ValueError as e:
+                    print(f"Error: {e}")
+                    sys.exit(1)
+                if sub is not None:
+                    subsystems[stem] = sub
             # For single-entry builds, the exe is named `name`, not the
             # source stem. Duplicate the entry under that key so the
             # packager finds it.
@@ -667,6 +679,8 @@ def main(argv: list[str] | None = None) -> None:
                 only_stem = Path(entry_points[0]).stem
                 if name and name != only_stem:
                     versioninfo[name] = versioninfo[only_stem]
+                    if only_stem in subsystems:
+                        subsystems[name] = subsystems[only_stem]
 
         try:
             from coil.builder import build
@@ -688,6 +702,7 @@ def main(argv: list[str] | None = None) -> None:
                 clean=args.clean,
                 optimize=optimize,
                 versioninfo=versioninfo,
+                subsystems=subsystems,
                 deps_auto=deps_auto,
             )
         except Exception as e:
