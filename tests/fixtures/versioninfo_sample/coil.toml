@@ -23,3 +23,8 @@ internal_name = "acme-worker"
 
 [build.versioninfo.entries."With Spaces"]
 file_description = "Acme Suite - Spaced Tool"
+
+[build.versioninfo.entries.no_comment]
+file_description = "Acme Suite - Silent Tool"
+# Explicit empty override: blanks out the shared `comments` for this entry.
+comments = ""

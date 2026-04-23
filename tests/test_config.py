@@ -297,6 +297,65 @@ def test_versioninfo_comments_default_empty():
     assert vi["comments"] == ""
 
 
+def test_versioninfo_per_entry_empty_overrides_shared_comments():
+    """Per-entry comments = "" explicitly blanks out an inherited shared value."""
+    raw = {
+        "project": {"name": "Suite"},
+        "build": {
+            "versioninfo": {
+                "comments": "Shared comment",
+                "entries": {
+                    "helper": {"comments": ""},
+                },
+            }
+        },
+    }
+    helper = get_versioninfo_config(raw, entry_name="helper", project_name="Suite")
+    worker = get_versioninfo_config(raw, entry_name="worker", project_name="Suite")
+    # Explicit empty override wins.
+    assert helper["comments"] == ""
+    # Sibling entry with no per-entry key still inherits shared.
+    assert worker["comments"] == "Shared comment"
+
+
+def test_versioninfo_per_entry_empty_overrides_shared_company_name():
+    """Empty-override semantics apply uniformly to company_name too."""
+    raw = {
+        "project": {"name": "Suite"},
+        "build": {
+            "versioninfo": {
+                "company_name": "Acme Corp",
+                "entries": {
+                    "helper": {"company_name": ""},
+                },
+            }
+        },
+    }
+    helper = get_versioninfo_config(raw, entry_name="helper", project_name="Suite")
+    worker = get_versioninfo_config(raw, entry_name="worker", project_name="Suite")
+    assert helper["company_name"] == ""
+    assert worker["company_name"] == "Acme Corp"
+
+
+def test_versioninfo_per_entry_empty_overrides_shared_legal_copyright():
+    """Empty-override semantics apply uniformly to legal_copyright too."""
+    raw = {
+        "project": {"name": "Suite"},
+        "build": {
+            "versioninfo": {
+                "legal_copyright": "Copyright (c) 2026 Acme Corp",
+                "entries": {
+                    "helper": {"legal_copyright": ""},
+                },
+            }
+        },
+    }
+    helper = get_versioninfo_config(raw, entry_name="helper", project_name="Suite")
+    worker = get_versioninfo_config(raw, entry_name="worker", project_name="Suite")
+    assert helper["legal_copyright"] == ""
+    assert worker["legal_copyright"] == "Copyright (c) 2026 Acme Corp"
+
+
 def test_versioninfo_version_txt_fallback(tmp_path: Path):
     (tmp_path / "version.txt").write_text("4.5.6", encoding="utf-8")
     raw = {"project": {"name": "App"}}
