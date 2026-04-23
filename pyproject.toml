@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "coil-compiler"
-version = "0.2.1"
+version = "0.2.2"
 description = "A Python-to-executable compiler that just works."
 readme = "README.md"
 license = "GPL-3.0-or-later"
@@ -19,7 +19,6 @@ dependencies = [
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
