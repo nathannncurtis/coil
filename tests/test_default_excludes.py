@@ -215,19 +215,20 @@ def test_negation_cannot_reinclude_from_excluded_dir(tmp_path: Path):
 
 
 def test_defaults_exclude_tests_memory_and_ai_state(tmp_path: Path):
-    """tests/, test/, memory/, .cursor/ — plus .vscode/, .idea/ as regression
-    guards — should all be caught by DEFAULT_EXCLUDE_PATTERNS."""
+    """tests/, test/, testing/, memory/, .cursor/ — plus .vscode/, .idea/ as
+    regression guards — should all be caught by DEFAULT_EXCLUDE_PATTERNS."""
     _touch(
         tmp_path,
         "tests/",
         "test/",
+        "testing/",
         "memory/",
         ".cursor/",
         ".vscode/",
         ".idea/",
     )
     matches = _build_exclude_matcher(tmp_path)
-    for rel in ["tests", "test", "memory", ".cursor", ".vscode", ".idea"]:
+    for rel in ["tests", "test", "testing", "memory", ".cursor", ".vscode", ".idea"]:
         assert matches(tmp_path / rel), f"expected default exclude for {rel}"
 
 
@@ -293,7 +294,7 @@ def test_bundled_build_does_not_leak_project_noise(tmp_path: Path, real_runtime:
         (project / name).write_text("noise\n", encoding="utf-8")
     for dname in [
         ".github", "__pycache__", "Output", "pkg.egg-info", ".venv", "build", "dist",
-        "tests", "test", "memory", ".cursor",
+        "tests", "test", "testing", "memory", ".cursor",
     ]:
         (project / dname).mkdir()
         (project / dname / "leaked.txt").write_text("leak\n", encoding="utf-8")
@@ -331,7 +332,7 @@ def test_bundled_build_does_not_leak_project_noise(tmp_path: Path, real_runtime:
         assert should_miss not in root_files, f"{should_miss} leaked into bundle root"
     for should_miss in [
         ".github", "__pycache__", "Output", "pkg.egg-info", ".venv", "build", "dist",
-        "tests", "test", "memory", ".cursor",
+        "tests", "test", "testing", "memory", ".cursor",
     ]:
         assert should_miss not in root_dirs, f"{should_miss}/ leaked into bundle root"
 

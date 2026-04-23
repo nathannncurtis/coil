@@ -847,6 +847,7 @@ DEFAULT_EXCLUDE_PATTERNS: list[str] = [
     # Test scaffolding and AI-assistant scratch
     "tests/",
     "test/",
+    "testing/",
     "memory/",
     # Virtualenvs / dependency trees
     ".venv/",
