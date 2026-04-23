@@ -118,10 +118,17 @@ def get_versioninfo_config(
     default_version = _pad_version(version) if version else "1.0.0.0"
 
     def pick(key: str, default: str) -> str:
-        if key in per_entry and per_entry[key] not in (None, ""):
-            return str(per_entry[key])
-        if key in vi and vi[key] not in (None, ""):
-            return str(vi[key])
+        # Explicit-override-wins: presence of the key in per_entry (resp. vi)
+        # is what qualifies as an override, not truthiness. This lets a user
+        # blank out an inherited shared value with `field = ""` on an entry,
+        # which matters for optional fields (company_name, legal_copyright,
+        # comments) that the writer omits when empty.
+        if key in per_entry:
+            v = per_entry[key]
+            return "" if v is None else str(v)
+        if key in vi:
+            v = vi[key]
+            return "" if v is None else str(v)
         return default
 
     product_name = pick("product_name", project_name or entry_name)

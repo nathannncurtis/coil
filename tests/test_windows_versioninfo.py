@@ -98,6 +98,7 @@ def test_writer_stamps_all_fields(tmp_path: Path):
         legal_copyright="Copyright (c) 2026 Acme Corp",
         internal_name="acme-main",
         original_filename="app.exe",
+        comments="Built by the platform team",
     )
 
     strings = _read_version_strings(exe)
@@ -109,6 +110,7 @@ def test_writer_stamps_all_fields(tmp_path: Path):
     assert strings["LegalCopyright"] == "Copyright (c) 2026 Acme Corp"
     assert strings["InternalName"] == "acme-main"
     assert strings["OriginalFilename"] == "app.exe"
+    assert strings["Comments"] == "Built by the platform team"
 
 
 def test_writer_evicts_python_filedescription(tmp_path: Path):

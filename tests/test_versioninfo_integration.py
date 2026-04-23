@@ -56,7 +56,7 @@ def test_bundled_build_stamps_versioninfo_from_fixture(
     raw = load_config(FIXTURE_DIR)
     assert raw is not None
 
-    entries = ["main.py", "worker.py", "With Spaces.py"]
+    entries = ["main.py", "worker.py", "With Spaces.py", "no_comment.py"]
     stems = [Path(e).stem for e in entries]
 
     versioninfo = {
@@ -124,6 +124,13 @@ def test_bundled_build_stamps_versioninfo_from_fixture(
             "OriginalFilename": "With Spaces.exe",
             "Comments": "Built by the platform team",
         },
+        "no_comment.exe": {
+            "ProductName": "Acme Suite",
+            "FileDescription": "Acme Suite - Silent Tool",
+            "CompanyName": "Acme Corp",
+            "InternalName": "no_comment",
+            "OriginalFilename": "no_comment.exe",
+        },
     }
 
     for exe_name, want in expected.items():
@@ -136,6 +143,14 @@ def test_bundled_build_stamps_versioninfo_from_fixture(
             )
         # Canary: must not have inherited python.exe's FileDescription
         assert got["FileDescription"].lower() != "python"
+
+    # Explicit empty override on no_comment must blank out the shared
+    # `comments` value — the writer omits empty optional fields, so Comments
+    # should not appear in the stamped PE at all.
+    silent = _read_version_strings(bundle / "no_comment.exe")
+    assert "Comments" not in silent, (
+        f"no_comment.exe should have no Comments (got {silent.get('Comments')!r})"
+    )
 
 
 def test_bundled_build_with_quoted_stem_loads_and_stamps(tmp_path: Path):
