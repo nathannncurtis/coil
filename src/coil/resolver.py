@@ -1,10 +1,12 @@
 """Dependency resolution for Python projects."""
 
+import importlib.metadata
 import re
+from collections.abc import Callable
 from pathlib import Path
 
 from coil.scanner import scan_project
-from coil.utils.package_map import resolve_package_name
+from coil.utils.package_map import IMPORT_TO_PYPI
 from coil.utils.stdlib_list import get_stdlib_modules
 
 
@@ -47,71 +49,146 @@ def parse_pyproject_toml(path: Path) -> list[str]:
     return packages
 
 
+def _build_dist_map() -> dict[str, list[str]]:
+    """Return {top_level_module: sorted_distribution_names} for the current env.
+
+    Wraps ``importlib.metadata.packages_distributions()`` and sorts each value
+    so that multi-distribution resolution is deterministic. Returns an empty
+    dict if metadata lookup fails.
+    """
+    try:
+        raw = importlib.metadata.packages_distributions()
+    except Exception:
+        return {}
+    return {mod: sorted(dists) for mod, dists in raw.items()}
+
+
+def resolve_from_imports(
+    project_dir: Path,
+    python_version: str,
+    dist_map: dict[str, list[str]] | None = None,
+    warn: Callable[[str], None] | None = None,
+) -> list[str]:
+    """Resolve third-party distribution names from the project's imports.
+
+    Walks every ``.py`` file under ``project_dir``, filters out stdlib and
+    first-party modules, and maps each remaining top-level module name to a
+    PyPI distribution name.
+
+    Mapping strategy (per module):
+
+    1. If ``dist_map`` has an entry for the module, use the first distribution
+       in sorted order. If there is more than one, call ``warn`` with a
+       one-line message so the caller can surface the ambiguity.
+    2. Otherwise, fall back to the hand-maintained ``IMPORT_TO_PYPI`` map.
+       This only fires for modules that aren't installed in Coil's own env
+       — the typical fresh-clone case.
+    3. If neither has an entry, assume the distribution name equals the
+       module name.
+
+    A single distribution that exposes several top-level modules (e.g. pywin32
+    ships ``win32api``, ``win32file``, ``win32pipe``, ``pywintypes``, ...) is
+    naturally deduplicated because all of its modules map to the same name.
+    """
+    if dist_map is None:
+        dist_map = _build_dist_map()
+
+    stdlib = get_stdlib_modules(python_version)
+    local = _get_local_modules(project_dir)
+    imports = scan_project(project_dir) - stdlib - local
+
+    result: set[str] = set()
+    for mod in sorted(imports):
+        dists = dist_map.get(mod)
+        if dists:
+            chosen = dists[0]
+            if len(dists) > 1 and warn is not None:
+                warn(
+                    f"Module '{mod}' is provided by multiple distributions "
+                    f"({', '.join(dists)}); using '{chosen}'."
+                )
+            result.add(chosen)
+            continue
+        mapped = IMPORT_TO_PYPI.get(mod)
+        if mapped is not None:
+            result.add(mapped)
+        else:
+            result.add(mod)
+    return sorted(result)
+
+
 def resolve_dependencies(
     project_dir: Path,
     python_version: str,
     requirements_path: str | None = None,
     exclude: list[str] | None = None,
     include: list[str] | None = None,
+    auto: bool = True,
+    dist_map: dict[str, list[str]] | None = None,
+    warn: Callable[[str], None] | None = None,
 ) -> list[str]:
     """Resolve all third-party dependencies for a project.
 
-    Priority order:
-    1. Explicit requirements path (--requirements flag)
-    2. requirements.txt in project dir
-    3. pyproject.toml with dependencies in project dir
-    4. AST-based import scanning
+    Sources, in order:
+
+    1. An explicit ``requirements_path`` — exclusive source (legacy escape
+       hatch). Still unioned with ``include`` at the end.
+    2. ``requirements.txt`` in ``project_dir`` — same: exclusive when present.
+    3. Otherwise, unions:
+       - ``[project].dependencies`` from ``pyproject.toml`` (if present),
+       - Imports auto-detected from project source (when ``auto`` is True),
+       - Anything in ``include``.
+
+    ``exclude`` trims the final set as the last step, regardless of source.
+
+    Auto-detection is additive: it never drops version pins declared in
+    ``[project].dependencies``.
 
     Args:
         project_dir: Path to the project directory.
         python_version: Target Python version (e.g. "3.12").
-        requirements_path: Explicit path to requirements file.
-        exclude: Package names to exclude.
+        requirements_path: Explicit path to a requirements file.
+        exclude: Package names to exclude (case-insensitive).
         include: Package names to force-include.
+        auto: When True, auto-detect imports and union with declared deps.
+        dist_map: Override for ``importlib.metadata.packages_distributions()``
+            (primarily for tests). When None, introspects the current env.
+        warn: Optional one-arg callable for non-fatal warnings (e.g.
+            ambiguous multi-distribution resolutions).
 
     Returns:
-        Sorted list of PyPI package names.
+        Sorted list of PyPI distribution names.
     """
     exclude = exclude or []
     include = include or []
-    packages: list[str] = []
+    packages: set[str] = set()
 
-    # Priority 1: explicit requirements path
     if requirements_path:
         req_path = Path(requirements_path)
         if req_path.name.endswith(".toml"):
-            packages = parse_pyproject_toml(req_path)
+            packages.update(parse_pyproject_toml(req_path))
         else:
-            packages = parse_requirements_txt(req_path)
-
-    # Priority 2: requirements.txt in project dir
+            packages.update(parse_requirements_txt(req_path))
     elif (project_dir / "requirements.txt").is_file():
-        packages = parse_requirements_txt(project_dir / "requirements.txt")
-
-    # Priority 3: pyproject.toml in project dir
-    elif (project_dir / "pyproject.toml").is_file():
-        packages = parse_pyproject_toml(project_dir / "pyproject.toml")
-
-    # Priority 4: AST scan
+        packages.update(parse_requirements_txt(project_dir / "requirements.txt"))
     else:
-        stdlib = get_stdlib_modules(python_version)
-        all_imports = scan_project(project_dir)
+        pyproject = project_dir / "pyproject.toml"
+        if pyproject.is_file():
+            packages.update(parse_pyproject_toml(pyproject))
+        if auto:
+            packages.update(
+                resolve_from_imports(
+                    project_dir,
+                    python_version,
+                    dist_map=dist_map,
+                    warn=warn,
+                )
+            )
 
-        # Filter out stdlib and local project modules
-        local_modules = _get_local_modules(project_dir)
-        third_party = all_imports - stdlib - local_modules
+    packages.update(include)
 
-        packages = [resolve_package_name(name) for name in third_party]
-
-    # Apply exclude/include
     exclude_lower = {e.lower() for e in exclude}
-    packages = [p for p in packages if p.lower() not in exclude_lower]
-
-    for inc in include:
-        if inc not in packages:
-            packages.append(inc)
-
-    return sorted(set(packages))
+    return sorted({p for p in packages if p.lower() not in exclude_lower})
 
 
 def _get_local_modules(project_dir: Path) -> set[str]:
