@@ -9,6 +9,7 @@ from coil.config import (
     get_build_config,
     generate_toml,
     get_versioninfo_config,
+    get_subsystem_config,
     _pad_version,
     _resolve_project_version,
 )
@@ -365,3 +366,59 @@ def test_roundtrip_generate_then_load(tmp_path: Path):
     assert config["python"] == "3.12"
     assert config["icon"] == "test.ico"
     assert config["mode"] == "portable"
+
+
+def test_subsystem_absent_returns_none():
+    """No [build.entries] config at all — resolver returns None."""
+    raw = {"project": {"name": "X"}, "build": {}}
+    assert get_subsystem_config(raw, "main") is None
+
+
+def test_subsystem_entry_missing_returns_none():
+    """Other entries have config but this one doesn't — returns None."""
+    raw = {"build": {"entries": {"worker": {"subsystem": "console"}}}}
+    assert get_subsystem_config(raw, "main") is None
+
+
+def test_subsystem_explicit_console_returned():
+    raw = {"build": {"entries": {"update_checker": {"subsystem": "console"}}}}
+    assert get_subsystem_config(raw, "update_checker") == "console"
+
+
+def test_subsystem_explicit_gui_returned():
+    raw = {"build": {"entries": {"main": {"subsystem": "gui"}}}}
+    assert get_subsystem_config(raw, "main") == "gui"
+
+
+def test_subsystem_invalid_value_raises():
+    raw = {"build": {"entries": {"helper": {"subsystem": "neither"}}}}
+    with pytest.raises(ValueError) as exc:
+        get_subsystem_config(raw, "helper")
+    # Error message names the entry and the bad value.
+    assert "helper" in str(exc.value)
+    assert "neither" in str(exc.value)
+
+
+def test_subsystem_empty_string_raises():
+    raw = {"build": {"entries": {"helper": {"subsystem": ""}}}}
+    with pytest.raises(ValueError):
+        get_subsystem_config(raw, "helper")
+
+
+def test_subsystem_load_from_toml(tmp_path: Path):
+    """Full round-trip: write toml, load, resolve per entry."""
+    (tmp_path / "coil.toml").write_text(
+        '[project]\n'
+        'entry = ["MyApp.py", "update_checker.py"]\n'
+        'name = "MyApp"\n'
+        '\n'
+        '[build]\n'
+        'mode = "bundled"\n'
+        '\n'
+        '[build.entries.update_checker]\n'
+        'subsystem = "console"\n'
+    )
+    raw = load_config(tmp_path)
+    assert raw is not None
+    assert get_subsystem_config(raw, "update_checker") == "console"
+    assert get_subsystem_config(raw, "MyApp") is None

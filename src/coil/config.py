@@ -145,6 +145,39 @@ def get_versioninfo_config(
     }
 
 
+def get_subsystem_config(raw: dict[str, Any], entry_name: str) -> Optional[str]:
+    """Resolve the explicit PE subsystem for a single entry.
+
+    Reads [build.entries.<stem>].subsystem. Returns "gui" or "console" when
+    set, None when absent (callers fall through to the existing hybrid
+    default: top-level --gui flag for the primary entry, per-file GUI-import
+    autodetect for extras).
+
+    Args:
+        raw: Parsed coil.toml.
+        entry_name: Entry point stem (e.g. "main" for "main.py").
+
+    Returns:
+        "gui", "console", or None.
+
+    Raises:
+        ValueError: If the configured value is not "gui" or "console".
+    """
+    build = raw.get("build", {})
+    entries = build.get("entries", {}) or {}
+    per_entry = entries.get(entry_name, {}) or {}
+    value = per_entry.get("subsystem")
+
+    if value is None:
+        return None
+    if value not in ("gui", "console"):
+        raise ValueError(
+            f"Invalid subsystem for entry {entry_name!r}: "
+            f"expected 'console' or 'gui', got {value!r}"
+        )
+    return value
+
+
 def get_build_config(
     raw: dict[str, Any],
     profile: Optional[str] = None,
