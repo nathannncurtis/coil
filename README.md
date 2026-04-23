@@ -1,9 +1,9 @@
 # Coil
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![License](https://img.shields.io/badge/license-Apache%202.0-green)
+![License](https://img.shields.io/badge/license-GPL%203.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![Version](https://img.shields.io/badge/version-0.1.3-orange)
+![Version](https://img.shields.io/badge/version-0.2.0-orange)
 
 **A Python-to-executable compiler that just works.**
 
@@ -16,9 +16,12 @@ Existing tools for turning Python projects into executables — PyInstaller, cx_
 Coil takes a different approach: **directory in, executable out.** Point it at your project folder, and it handles the rest. No spec files. No hook scripts. No per-file configuration.
 
 - Auto-detects entry points
-- Auto-detects dependencies (or reads your requirements.txt)
+- Auto-detects dependencies via `importlib.metadata` — handles distribution-name mismatches (Pillow→PIL, windows-toasts→windows_toasts) and multi-module packages (pywin32) for free
 - Bundles an embedded Python runtime — no Python installation needed on the target machine
 - Produces a single portable .exe or a clean bundled directory
+- Per-entry VERSIONINFO stamping — Task Manager shows your app name, not "Python"
+- Per-entry PE subsystem control — pick console or GUI per executable in `coil.toml`
+- Processes nested `.pth` files and registers DLL search directories at runtime, so packages like `pywin32` work with no shim
 - Built-in decompiler to recover your own source if you need it
 
 ## Quick Start
@@ -202,19 +205,21 @@ CLI flags always override profile settings.
 
 ### Excluding Files (`.coilignore`)
 
-Create a `.coilignore` file in your project root to exclude files and directories from bundled builds. Works like `.gitignore` — one glob pattern per line, `#` for comments:
+Coil ships with sensible default excludes for things that don't belong in a bundle: `__pycache__/`, `.git/`, `.github/`, `*.egg-info/`, `build/`, `dist/`, `Output/`, `coil.toml`, `pyproject.toml`, `setup.py`, `requirements*.txt`, `*.iss`, `build.bat`, `Makefile`, `.gitignore`, `README*`, `LICENSE*`, `CHANGELOG*`, `*.log`, `prompt.md`, and helper scripts not declared as entry points.
+
+Create a `.coilignore` file in your project root to extend those defaults. Works like `.gitignore` — one glob pattern per line, `#` for comments, and `!pattern` to negate (un-exclude) a default:
 
 ```
-# Exclude test data and build artifacts
+# Project-specific excludes
 *.zip
-*.log
 test_data/
 docs/
-build.bat
-setup.py
+
+# Un-exclude a file the defaults would have caught
+!README.md
 ```
 
-Without `.coilignore`, Coil copies all non-Python assets from your project into the output. Use this to keep large files, test data, and build tooling out of the bundled directory.
+`.coilignore` patterns are unioned with the built-in defaults; negation patterns let you override defaults when they're wrong for your project.
 
 ### Pre-Build Diagnostics
 
@@ -262,7 +267,7 @@ coil build ./myproject \
 
 ## How It Works
 
-1. **Dependency Resolution** — Coil checks for a `requirements.txt` or `pyproject.toml`. If neither exists, it scans every `.py` file using Python's `ast` module to find all imports, separates stdlib from third-party, and resolves import names to PyPI packages.
+1. **Dependency Resolution** — Coil scans every `.py` file with Python's `ast` module to find imports, then maps each top-level module to its PyPI distribution via `importlib.metadata.packages_distributions()`. That mapping correctly handles distribution-name mismatches (Pillow → PIL), hyphen/underscore conventions (windows-toasts → windows_toasts), and multi-module packages (pywin32 ships `win32api`, `win32com`, `pywintypes`, etc.). When `auto = true`, the import-detected set is unioned with `[project].dependencies`, `requirements.txt`, and explicit `include = [...]`, so version pins are preserved.
 
 2. **Runtime Bundling** — Downloads the official Windows embeddable Python distribution matching your target version. No C compiler needed.
 
@@ -297,6 +302,7 @@ Run `coil init` to generate a config file, or create one manually:
 [project]
 entry = "main.py"
 name = "MyApp"
+version = "1.0.0"   # Optional. Falls back to a `version.txt` at the project root.
 
 [build]
 mode = "portable"
@@ -306,10 +312,30 @@ python = "3.12"
 clean = false
 
 [build.dependencies]
-# Coil resolves deps automatically from requirements.txt or AST scan
+# auto = true means import-detected deps union with [project].dependencies
+# and `include`. Version pins in [project].dependencies are preserved.
 auto = true
 exclude = []
 include = []
+
+# Per-entry PE subsystem override. Without this block, Coil auto-detects
+# console vs GUI from imports.
+[build.entries.update_checker]
+subsystem = "console"
+
+# VERSIONINFO stamped into each produced exe. Shared fields apply to all
+# entries; per-entry overrides under [build.versioninfo.entries.<stem>].
+[build.versioninfo]
+company_name    = "Acme Corp"
+product_name    = "MyApp"
+legal_copyright = "Copyright (c) 2026 Acme Corp"
+
+[build.versioninfo.entries.main]
+file_description = "MyApp Main Tool"
+
+[build.versioninfo.entries.update_checker]
+file_description = "MyApp Update Checker"
+internal_name    = "myapp-updater"
 
 [build.output]
 dir = "./dist"
@@ -327,6 +353,8 @@ icon = ""
 ```
 
 **Priority order:** CLI flags > profile values > `[build]` values > defaults.
+
+**Stems with spaces** in `[build.versioninfo.entries.<stem>]` and `[build.entries.<stem>]` require quoted TOML keys: `[build.entries."My Tool"]`.
 
 ## CLI Reference
 
@@ -415,4 +443,4 @@ python -m pytest
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE) for the full text.
+GNU General Public License v3.0 (or later). See [LICENSE](LICENSE) for the full text.
