@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-GPL%203.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![Version](https://img.shields.io/badge/version-0.2.3-orange)
+![Version](https://img.shields.io/badge/version-0.2.4-orange)
 
 **A Python-to-executable compiler that just works.**
 
@@ -205,7 +205,7 @@ CLI flags always override profile settings.
 
 ### Excluding Files (`.coilignore`)
 
-Coil ships with sensible default excludes for things that don't belong in a bundle: `__pycache__/`, `.git/`, `.github/`, `.vscode/`, `.idea/`, `.cursor/`, `*.egg-info/`, `build/`, `dist/`, `Output/`, `tests/`, `test/`, `memory/`, `coil.toml`, `pyproject.toml`, `setup.py`, `requirements*.txt`, `*.iss`, `build.bat`, `Makefile`, `.gitignore`, `README*`, `LICENSE*`, `CHANGELOG*`, `*.log`, `prompt.md`, and helper scripts not declared as entry points.
+Coil ships with sensible default excludes for things that don't belong in a bundle: `__pycache__/`, `.git/`, `.github/`, `.vscode/`, `.idea/`, `.cursor/`, `*.egg-info/`, `build/`, `dist/`, `Output/`, `tests/`, `test/`, `testing/`, `memory/`, `coil.toml`, `pyproject.toml`, `setup.py`, `requirements*.txt`, `*.iss`, `build.bat`, `Makefile`, `.gitignore`, `README*`, `LICENSE*`, `CHANGELOG*`, `*.log`, `prompt.md`, and helper scripts not declared as entry points.
 
 Create a `.coilignore` file in your project root to extend those defaults. Works like `.gitignore` — one glob pattern per line, `#` for comments, and `!pattern` to negate (un-exclude) a default:
 
