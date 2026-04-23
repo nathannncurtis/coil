@@ -6,7 +6,6 @@ exes are stampable PEs. Parses the produced exes with pefile.
 
 from __future__ import annotations
 
-import shutil
 import sys
 from pathlib import Path
 
@@ -23,33 +22,6 @@ from coil.packager import package_bundled
 
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "versioninfo_sample"
-
-
-def _make_real_runtime(tmp_path: Path) -> Path:
-    """Build a synthetic embeddable-like runtime with a real python.exe + DLLs."""
-    runtime = tmp_path / "runtime"
-    runtime.mkdir()
-    host_dir = Path(sys.executable).parent
-
-    for exe_name in ("python.exe", "pythonw.exe"):
-        src = host_dir / exe_name
-        if src.is_file():
-            shutil.copy2(src, runtime / exe_name)
-
-    for pattern in ("python*.dll", "vcruntime*.dll"):
-        for dll in host_dir.glob(pattern):
-            shutil.copy2(dll, runtime / dll.name)
-
-    ver_tag = f"{sys.version_info.major}{sys.version_info.minor}"
-    (runtime / f"python{ver_tag}._pth").write_text(f"python{ver_tag}.zip\n.\n")
-
-    # Minimal valid (empty) zip so _strip_stdlib_zip is a no-op.
-    import zipfile
-    zip_path = runtime / f"python{ver_tag}.zip"
-    with zipfile.ZipFile(zip_path, "w") as zf:
-        pass
-
-    return runtime
 
 
 def _read_version_strings(exe_path: Path) -> dict[str, str]:
@@ -73,7 +45,9 @@ def _read_version_strings(exe_path: Path) -> dict[str, str]:
     return result
 
 
-def test_bundled_build_stamps_versioninfo_from_fixture(tmp_path: Path, monkeypatch):
+def test_bundled_build_stamps_versioninfo_from_fixture(
+    tmp_path: Path, monkeypatch, real_runtime: Path
+):
     """Full pipeline: parse fixture coil.toml, build, verify each exe.
 
     Mocks the .pyc compilation step — we're testing VERSIONINFO wiring,
@@ -107,13 +81,12 @@ def test_bundled_build_stamps_versioninfo_from_fixture(tmp_path: Path, monkeypat
     monkeypatch.setattr("coil.packager.obfuscate_default", _fake_obfuscate)
     monkeypatch.setattr("coil.packager.obfuscate_secure", _fake_obfuscate)
 
-    runtime = _make_real_runtime(tmp_path)
     output = tmp_path / "dist"
 
     bundle = package_bundled(
         project_dir=FIXTURE_DIR,
         output_dir=output,
-        runtime_dir=runtime,
+        runtime_dir=real_runtime,
         entry_points=entries,
         name="AcmeSuite",
         target_os="windows",

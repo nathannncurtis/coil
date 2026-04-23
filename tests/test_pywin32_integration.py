@@ -72,30 +72,29 @@ def _copy_pywin32(src: Path, dst: Path) -> None:
             shutil.copy2(s, d)
 
 
-def _find_matching_runtime_zip() -> Path | None:
-    from coil.runtime import CACHE_DIR
-    host_short = f"{sys.version_info.major}.{sys.version_info.minor}"
-    matches = sorted(CACHE_DIR.glob(f"python-{host_short}.*-embed-amd64.zip"))
-    return matches[-1] if matches else None
+def _is_host_version_match(runtime: Path) -> bool:
+    """True if the runtime's pythonXX.dll matches the host minor version.
+
+    The bundled pywin32 .pyd files are ABI-specific, so this test only makes
+    sense when the runtime's Python matches the host interpreter that owns
+    the pywin32 install we're copying from.
+    """
+    host_short = f"{sys.version_info.major}{sys.version_info.minor}"
+    return (runtime / f"python{host_short}.dll").is_file()
 
 
-def test_pywin32_import_end_to_end(tmp_path: Path):
+def test_pywin32_import_end_to_end(tmp_path: Path, real_runtime: Path):
     if importlib.util.find_spec("win32pipe") is None:
         pytest.skip("pywin32 not importable in host environment")
     site_pkgs = _host_site_packages()
     if site_pkgs is None or not (site_pkgs / "pywin32.pth").is_file():
         pytest.skip("pywin32.pth not found in host site-packages")
-    runtime_zip = _find_matching_runtime_zip()
-    if runtime_zip is None:
+    if not _is_host_version_match(real_runtime):
         pytest.skip(
-            "No cached Coil runtime matching host Python "
-            f"{sys.version_info.major}.{sys.version_info.minor}"
+            f"real_runtime doesn't match host Python "
+            f"{sys.version_info.major}.{sys.version_info.minor}; "
+            "pywin32 .pyd ABI would mismatch"
         )
-
-    # Extract the real embeddable runtime (stdlib, python.exe, DLLs)
-    from coil.runtime import extract_runtime
-    runtime_dir = tmp_path / "runtime"
-    extract_runtime(runtime_zip, runtime_dir)
 
     # Materialize deps dir mimicking a pip install --target
     deps = tmp_path / "deps"
@@ -116,7 +115,7 @@ def test_pywin32_import_end_to_end(tmp_path: Path):
     bundle = package_bundled(
         project_dir=project,
         output_dir=tmp_path / "dist",
-        runtime_dir=runtime_dir,
+        runtime_dir=real_runtime,
         entry_points=["main.py"],
         name="pywin32probe",
         target_os="windows",
