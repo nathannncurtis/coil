@@ -205,6 +205,7 @@ def test_versioninfo_no_config_defaults():
     assert vi["product_version"] == "1.0.0.0"
     assert vi["company_name"] == ""
     assert vi["legal_copyright"] == ""
+    assert vi["comments"] == ""
 
 
 def test_versioninfo_shared_fields_applied_to_all_entries():
@@ -252,6 +253,48 @@ def test_versioninfo_per_entry_override():
     assert b["product_name"] == "Acme Suite"  # shared
     assert b["file_description"] == "Acme Worker"
     assert b["internal_name"] == "acme-worker"
+
+
+def test_versioninfo_comments_shared():
+    """Shared [build.versioninfo].comments applies to all entries."""
+    raw = {
+        "project": {"name": "Suite"},
+        "build": {
+            "versioninfo": {
+                "comments": "Built by the platform team",
+            }
+        },
+    }
+    a = get_versioninfo_config(raw, entry_name="main", project_name="Suite")
+    b = get_versioninfo_config(raw, entry_name="worker", project_name="Suite")
+    assert a["comments"] == "Built by the platform team"
+    assert b["comments"] == "Built by the platform team"
+
+
+def test_versioninfo_comments_per_entry_override():
+    """Per-entry comments wins over shared comments."""
+    raw = {
+        "project": {"name": "Suite"},
+        "build": {
+            "versioninfo": {
+                "comments": "Shared comment",
+                "entries": {
+                    "main": {"comments": "Main-only comment"},
+                },
+            }
+        },
+    }
+    a = get_versioninfo_config(raw, entry_name="main", project_name="Suite")
+    b = get_versioninfo_config(raw, entry_name="worker", project_name="Suite")
+    assert a["comments"] == "Main-only comment"
+    assert b["comments"] == "Shared comment"
+
+
+def test_versioninfo_comments_default_empty():
+    """When no comments configured anywhere, resolved value is empty string."""
+    raw = {"project": {"name": "App"}}
+    vi = get_versioninfo_config(raw, entry_name="main", project_name="App")
+    assert vi["comments"] == ""
 
 
 def test_versioninfo_version_txt_fallback(tmp_path: Path):

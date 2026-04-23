@@ -284,6 +284,7 @@ def set_version_info(
     legal_copyright: str = "",
     internal_name: str | None = None,
     original_filename: str | None = None,
+    comments: str = "",
 ) -> None:
     """Write VS_VERSION_INFO resource into a PE executable.
 
@@ -300,6 +301,7 @@ def set_version_info(
         legal_copyright: Copyright string for file properties.
         internal_name: InternalName field. Defaults to product_name.
         original_filename: OriginalFilename field. Defaults to exe_path.name.
+        comments: Free-form Comments field for file properties.
     """
     import ctypes
 
@@ -365,6 +367,8 @@ def set_version_info(
         strings["CompanyName"] = company_name
     if legal_copyright:
         strings["LegalCopyright"] = legal_copyright
+    if comments:
+        strings["Comments"] = comments
 
     # Build String entries
     string_entries = b''

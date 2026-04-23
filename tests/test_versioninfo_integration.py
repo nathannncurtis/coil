@@ -106,6 +106,7 @@ def test_bundled_build_stamps_versioninfo_from_fixture(
             "ProductVersion": "1.2.3.0",
             "InternalName": "main",
             "OriginalFilename": "main.exe",
+            "Comments": "Built by the platform team - main entry",
         },
         "worker.exe": {
             "ProductName": "Acme Suite",
@@ -113,6 +114,7 @@ def test_bundled_build_stamps_versioninfo_from_fixture(
             "CompanyName": "Acme Corp",
             "InternalName": "acme-worker",
             "OriginalFilename": "worker.exe",
+            "Comments": "Built by the platform team",
         },
         "With Spaces.exe": {
             "ProductName": "Acme Suite",
@@ -120,6 +122,7 @@ def test_bundled_build_stamps_versioninfo_from_fixture(
             "CompanyName": "Acme Corp",
             "InternalName": "With Spaces",
             "OriginalFilename": "With Spaces.exe",
+            "Comments": "Built by the platform team",
         },
     }
 

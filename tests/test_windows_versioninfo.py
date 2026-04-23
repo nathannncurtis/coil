@@ -159,9 +159,22 @@ def test_writer_unicode_values(tmp_path: Path):
 
 
 def test_writer_omits_empty_optional_fields(tmp_path: Path):
-    """Empty company_name / legal_copyright are not written as blank strings."""
+    """Empty company_name / legal_copyright / comments are not written as blank strings."""
     exe = _copy_python_exe(tmp_path)
     set_version_info(exe, product_name="Thing")
     strings = _read_version_strings(exe)
     assert "CompanyName" not in strings
     assert "LegalCopyright" not in strings
+    assert "Comments" not in strings
+
+
+def test_writer_stamps_comments(tmp_path: Path):
+    """The new Comments field roundtrips through the writer."""
+    exe = _copy_python_exe(tmp_path)
+    set_version_info(
+        exe,
+        product_name="Thing",
+        comments="Developed by Nathan Curtis",
+    )
+    strings = _read_version_strings(exe)
+    assert strings["Comments"] == "Developed by Nathan Curtis"
