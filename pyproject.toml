@@ -16,15 +16,10 @@ keywords = ["compiler", "executable", "exe", "packaging", "distribution"]
 dependencies = [
     "rich>=13.0",
 ]
-
-[project.optional-dependencies]
-test = [
-    "pytest",
-    "pefile>=2023.0",
-]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
     "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",
@@ -34,6 +29,12 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Build Tools",
     "Topic :: Software Development :: Compilers",
+]
+
+[project.optional-dependencies]
+test = [
+    "pytest",
+    "pefile>=2023.0",
 ]
 
 [project.scripts]
