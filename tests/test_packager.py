@@ -564,3 +564,92 @@ def test_sitecustomize_preserves_nonzero_exit_code(tmp_path: Path):
         timeout=5,
     )
     assert result.returncode == 3, f"stderr={result.stderr!r}"
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
+def test_sitecustomize_runs_atexit_handlers_on_clean_exit(tmp_path: Path):
+    """atexit handlers fire even though we end with os._exit().
+
+    Regression: os._exit() bypasses Python's normal shutdown, including
+    atexit. The launcher now calls atexit._run_exitfuncs() before os._exit()
+    to honor the documented atexit contract — otherwise downstream code that
+    follows the standard `atexit.register(cleanup)` pattern silently loses
+    its cleanup (logging flushers, queue listeners, tempfile.TemporaryDirectory
+    finalizers, etc.).
+    """
+    _, internal = _setup_fake_bundle(tmp_path)
+    (internal / _host_boot_name()).write_text(
+        "import atexit\n"
+        "atexit.register(lambda: print('ATEXIT_FIRED'))\n"
+        "print('BOOT_OK')\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c",
+         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=5,
+        text=True,
+    )
+    assert result.returncode == 0, f"stderr={result.stderr!r}"
+    assert "BOOT_OK" in result.stdout
+    assert "ATEXIT_FIRED" in result.stdout, (
+        "atexit handler did not run before os._exit(); "
+        f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
+def test_sitecustomize_runs_atexit_handlers_on_nonzero_exit(tmp_path: Path):
+    """atexit handlers also fire when the boot script raises SystemExit(N).
+
+    Both contracts must hold simultaneously: the explicit exit code is
+    preserved AND atexit handlers run.
+    """
+    _, internal = _setup_fake_bundle(tmp_path)
+    (internal / _host_boot_name()).write_text(
+        "import atexit, sys\n"
+        "atexit.register(lambda: print('ATEXIT_FIRED'))\n"
+        "sys.exit(3)\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c",
+         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=5,
+        text=True,
+    )
+    assert result.returncode == 3, f"stderr={result.stderr!r}"
+    assert "ATEXIT_FIRED" in result.stdout, (
+        "atexit handler did not run alongside non-zero SystemExit; "
+        f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    )
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
+def test_sitecustomize_atexit_handler_exception_does_not_block_exit(tmp_path: Path):
+    """A misbehaving atexit handler must not prevent os._exit() from running.
+
+    Robustness contract: errors in atexit handlers are caught so a single bad
+    handler can't hang the process or change the exit code.
+    """
+    _, internal = _setup_fake_bundle(tmp_path)
+    (internal / _host_boot_name()).write_text(
+        "import atexit\n"
+        "atexit.register(lambda: (_ for _ in ()).throw(RuntimeError('boom')))\n"
+        "print('BOOT_OK')\n"
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c",
+         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
+        stdin=subprocess.DEVNULL,
+        capture_output=True,
+        timeout=5,
+        text=True,
+    )
+    assert result.returncode == 0, f"stderr={result.stderr!r}"
+    assert "BOOT_OK" in result.stdout
