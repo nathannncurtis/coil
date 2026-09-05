@@ -1,0 +1,6 @@
+include tools/build_launcher.py
+include scripts/build_bootloader.py
+include src/coil/templates/launcher.c
+include src/coil/templates/launcher.manifest
+include src/coil/templates/bootloader.c
+include src/coil/templates/tinfl.h

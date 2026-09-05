@@ -1,14 +1,20 @@
 """AST-based import scanner for Python projects."""
 
+from __future__ import annotations
+
 import ast
+import tokenize
 from pathlib import Path
 
 from coil.utils.gui_frameworks import GUI_IMPORTS
 
 
-def find_py_files(project_dir: Path) -> list[Path]:
-    """Recursively find all .py files in a project directory."""
-    return sorted(project_dir.rglob("*.py"))
+def find_py_files(project_dir: Path, excluded_paths=()) -> list[Path]:
+    """Find the same Python files that compilation includes in the bundle."""
+    # Import lazily: packaging itself imports scanner helpers.
+    from coil.packager import _build_exclude_matcher
+    skip = _build_exclude_matcher(project_dir, excluded_paths=excluded_paths)
+    return sorted(path for path in project_dir.rglob("*.py") if not skip(path))
 
 
 _DYNAMIC_IMPORT_CALLEES = {"import_module", "__import__"}
@@ -81,7 +87,7 @@ def extract_imports(source: str) -> set[str]:
     return modules
 
 
-def scan_project(project_dir: Path) -> set[str]:
+def scan_project(project_dir: Path, excluded_paths=()) -> set[str]:
     """Scan all .py files in a project and return all imported module names.
 
     Parses every .py file recursively using the ast module. Collects every
@@ -89,12 +95,13 @@ def scan_project(project_dir: Path) -> set[str]:
     file. Returns the set of top-level module names.
     """
     all_imports: set[str] = set()
-    py_files = find_py_files(project_dir)
+    py_files = find_py_files(project_dir, excluded_paths=excluded_paths)
 
     for py_file in py_files:
         try:
-            source = py_file.read_text(encoding="utf-8")
-        except (OSError, UnicodeDecodeError):
+            with tokenize.open(py_file) as stream:
+                source = stream.read()
+        except (OSError, UnicodeDecodeError, SyntaxError):
             continue
         all_imports.update(extract_imports(source))
 
@@ -114,8 +121,9 @@ def detect_gui_imports(project_dir: Path) -> list[str]:
 def file_has_gui_imports(file_path: Path) -> bool:
     """Check if a single .py file imports any GUI frameworks."""
     try:
-        source = file_path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+        with tokenize.open(file_path) as stream:
+            source = stream.read()
+    except (OSError, UnicodeDecodeError, SyntaxError):
         return False
     imports = extract_imports(source)
     return bool(imports & GUI_IMPORTS)
