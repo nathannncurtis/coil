@@ -1,4 +1,4 @@
-"""End-to-end tests for sitecustomize exe-to-boot dispatch.
+"""End-to-end tests for native per-entry boot identity.
 
 Builds real bundles with a host Python runtime copy, rewrites each produced
 _boot_*.py with a tagged stub, subprocess-runs the exes, and asserts the
@@ -23,7 +23,7 @@ import pytest
 
 pytestmark = pytest.mark.skipif(
     sys.platform != "win32",
-    reason="sitecustomize dispatch uses the python.exe launcher (Windows-only)",
+    reason="native launchers are Windows-only",
 )
 
 

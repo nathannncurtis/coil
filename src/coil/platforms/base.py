@@ -1,5 +1,7 @@
 """Abstract base class for platform-specific build handlers."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from pathlib import Path
 

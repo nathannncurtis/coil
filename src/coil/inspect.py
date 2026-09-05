@@ -97,15 +97,24 @@ def run_inspect(
     from rich.console import Console
     console = Console(highlight=False)
 
-    python_version = python_version or detect_python_version()
-    exclude = exclude or []
-    include = include or []
+    from coil.config import load_config, get_build_config
+    raw = load_config(project_dir)
+    try:
+        config = get_build_config(raw or {}, profile=profile)
+    except ValueError as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+        return 1
+    python_version = python_version or config.get("python") or detect_python_version()
+    exclude = exclude if exclude is not None else config.get("exclude", [])
+    include = include if include is not None else config.get("include", [])
 
     console.print(f"\n[bold]coil inspect[/bold]\n")
     console.print(f"Project: {project_dir}")
 
     # Entry point detection (without calling sys.exit)
-    if (project_dir / "__main__.py").is_file():
+    if config.get("entry"):
+        console.print(f"Entry point: {config['entry']} (configured)")
+    elif (project_dir / "__main__.py").is_file():
         console.print("Entry point: __main__.py (auto-detected)")
     elif (project_dir / "main.py").is_file():
         console.print("Entry point: main.py (auto-detected)")
@@ -149,6 +158,7 @@ def run_inspect(
         requirements_path=requirements,
         exclude=exclude,
         include=include,
+        auto=config.get("deps_auto", True),
     )
 
     total_deps_size = 0
@@ -183,8 +193,13 @@ def run_inspect(
     # Runtime size
     runtime_size = 0
     try:
-        full_version = resolve_full_version(python_version)
-        zip_path = get_cached_zip_path(full_version)
+        # Inspect is a local preview: do not perform up to 21 network HEAD
+        # requests just to estimate the runtime size.
+        zip_path = get_cached_zip_path(python_version)
+        if len(python_version.split(".")) == 2:
+            candidates = list(zip_path.parent.glob(f"python-{python_version}.*-embed-amd64.zip"))
+            if candidates:
+                zip_path = max(candidates, key=lambda p: tuple(int(x) for x in p.name.split("-")[1].split(".")))
         if zip_path.is_file():
             runtime_size = zip_path.stat().st_size
     except Exception:

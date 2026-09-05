@@ -4,6 +4,8 @@ Creates a launcher batch-turned-exe or Python-based launcher that
 boots the embedded Python runtime and runs the entry point.
 """
 
+from __future__ import annotations
+
 import os
 import platform
 import shutil

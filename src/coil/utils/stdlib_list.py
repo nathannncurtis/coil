@@ -32,7 +32,7 @@ _COMMON_STDLIB = frozenset({
     "sunau", "symtable", "sys", "sysconfig", "syslog", "tabnanny",
     "tarfile", "telnetlib", "tempfile", "termios", "test", "textwrap",
     "threading", "time", "timeit", "tkinter", "token", "tokenize",
-    "tomllib", "trace", "traceback", "tracemalloc", "tty", "turtle",
+    "trace", "traceback", "tracemalloc", "tty", "turtle",
     "turtledemo", "types", "typing", "unicodedata", "unittest", "urllib",
     "uu", "uuid", "venv", "warnings", "wave", "weakref", "webbrowser",
     "winreg", "winsound", "wsgiref", "xdrlib", "xml", "xmlrpc",
@@ -57,14 +57,17 @@ _ADDED_IN: dict[str, set[str]] = {
 
 # Modules removed in specific versions
 _REMOVED_IN: dict[str, set[str]] = {
+    "3.10": {"parser", "formatter"},
+    "3.11": {"binhex"},
     "3.12": {
         "asynchat", "asyncore", "distutils", "imp", "smtpd",
+    },
+    "3.13": {
         "aifc", "audioop", "cgi", "cgitb", "chunk", "crypt",
         "imghdr", "mailcap", "msilib", "nis", "nntplib",
         "ossaudiodev", "pipes", "sndhdr", "spwd", "sunau",
-        "telnetlib", "uu", "xdrlib",
+        "telnetlib", "uu", "xdrlib", "lib2to3",
     },
-    "3.13": set(),
 }
 
 
@@ -77,7 +80,7 @@ def get_stdlib_modules(python_version: str) -> frozenset[str]:
     Returns:
         Frozenset of stdlib module names for that version.
     """
-    major, minor = python_version.split(".")
+    major, minor = python_version.strip().lstrip("v").split(".")[:2]
     minor = int(minor)
 
     modules = set(_COMMON_STDLIB)

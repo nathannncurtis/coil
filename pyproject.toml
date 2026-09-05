@@ -15,6 +15,7 @@ authors = [
 keywords = ["compiler", "executable", "exe", "packaging", "distribution"]
 dependencies = [
     "rich>=13.0",
+    "tomli>=1.1.0; python_version < '3.11'",
 ]
 classifiers = [
     "Development Status :: 3 - Alpha",
@@ -46,6 +47,9 @@ Issues = "https://github.com/nathannncurtis/coil/issues"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+coil = ["py.typed", "templates/*.c", "templates/*.h", "templates/*.manifest"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

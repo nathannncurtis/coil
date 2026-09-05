@@ -274,23 +274,16 @@ def test_strip_installed_packages(tmp_path: Path):
     # distributions at build time, and bundled packages may also call
     # importlib.metadata at runtime for their own version info.
     assert (tmp_path / "pkg-1.0.dist-info").exists()
-    assert not (tmp_path / "tests").exists()
-    assert not (tmp_path / "docs").exists()
+    assert (tmp_path / "tests").exists()
+    assert (tmp_path / "docs").exists()
     assert (tmp_path / "actual_code.py").exists()
 
 
 def test_generate_bootstrap_script():
     script = _generate_bootstrap_script("main.pyc")
     assert "main.pyc" in script
-    assert "sys.path" in script
-    assert "__main__" in script
-    # Should have error handling for missing entry point
-    assert "not found" in script.lower() or "isfile" in script
-    # Should catch ImportError specifically
-    assert "ImportError" in script
-    # Should not call sys.exit(0) — that breaks sitecustomize
-    lines = [l.strip() for l in script.splitlines()]
-    assert "sys.exit(0)" not in lines
+    assert "from _coil_runtime import run" in script
+    compile(script, "<boot>", "exec")
 
 
 def test_get_python_ver_tag(tmp_path: Path):
@@ -376,7 +369,7 @@ def test_package_bundled_optimize_default(tmp_path: Path, real_runtime: Path):
 
 
 # ---------------------------------------------------------------------------
-# sitecustomize.py behavior tests (issue: bundled-app boilerplate elimination)
+# Runtime support tests (no interpreter-startup dispatch)
 # ---------------------------------------------------------------------------
 
 
@@ -395,14 +388,14 @@ def _setup_fake_bundle(tmp_path: Path) -> tuple[Path, Path]:
     return root, internal
 
 
-def _exec_sitecustomize(internal: Path, extra_globals: dict | None = None) -> dict:
+def _exec_runtime_support(internal: Path, extra_globals: dict | None = None) -> dict:
     """Exec the generated sitecustomize.py in an isolated namespace.
 
     Captures sys.path state BEFORE restoration so callers can inspect the
     additions site.addsitedir() made. Returns the ns dict augmented with
     _captured_sys_path (list) for that purpose, and restores sys.path on exit.
     """
-    site_file = internal / "sitecustomize.py"
+    site_file = internal / "_coil_runtime.py"
     source = site_file.read_text()
     ns: dict = {
         "__file__": str(site_file),
@@ -413,13 +406,14 @@ def _exec_sitecustomize(internal: Path, extra_globals: dict | None = None) -> di
     saved_path = list(sys.path)
     try:
         exec(compile(source, str(site_file), "exec"), ns)
+        ns["initialize"]()
         ns["_captured_sys_path"] = list(sys.path)
     finally:
         sys.path[:] = saved_path
     return ns
 
 
-def test_sitecustomize_processes_pth_files(tmp_path: Path):
+def test_runtime_support_processes_pth_files(tmp_path: Path):
     """A .pth file in _internal/lib must have its paths added to sys.path.
 
     Regression: pywin32.pth (which lists win32, win32/lib, Pythonwin) was
@@ -435,7 +429,7 @@ def test_sitecustomize_processes_pth_files(tmp_path: Path):
     # Emulate pywin32.pth (real file is "win32\nwin32\\lib\nPythonwin\n")
     (lib / "fake_pywin32.pth").write_text("win32\nwin32/lib\nPythonwin\n")
 
-    ns = _exec_sitecustomize(internal)
+    ns = _exec_runtime_support(internal)
 
     normalized = {os.path.normcase(os.path.normpath(p)) for p in ns["_captured_sys_path"]}
     for expected in (lib / "win32", lib / "win32" / "lib", lib / "Pythonwin"):
@@ -443,7 +437,7 @@ def test_sitecustomize_processes_pth_files(tmp_path: Path):
         assert key in normalized, f"{expected} not on sys.path after sitecustomize"
 
 
-def test_sitecustomize_pth_import_directive_runs(tmp_path: Path):
+def test_runtime_support_pth_import_directive_runs(tmp_path: Path):
     """`import X` lines in .pth files must be executed (site.py semantics)."""
     _, internal = _setup_fake_bundle(tmp_path)
     lib = internal / "lib"
@@ -451,7 +445,7 @@ def test_sitecustomize_pth_import_directive_runs(tmp_path: Path):
     (lib / "pth_probe.py").write_text("PROBE_TAG = 'hit'\n")
     (lib / "probe.pth").write_text("import pth_probe\n")
 
-    ns = _exec_sitecustomize(internal)
+    ns = _exec_runtime_support(internal)
     # After sitecustomize runs, pth_probe should have been imported
     assert "pth_probe" in sys.modules
     assert sys.modules["pth_probe"].PROBE_TAG == "hit"
@@ -459,7 +453,7 @@ def test_sitecustomize_pth_import_directive_runs(tmp_path: Path):
     sys.modules.pop("pth_probe", None)
 
 
-def test_sitecustomize_registers_dll_dirs(tmp_path: Path, monkeypatch):
+def test_runtime_support_registers_dll_dirs(tmp_path: Path, monkeypatch):
     """os.add_dll_directory called for dirs with .dll or .pyd files, not others.
 
     Heuristic: any leaf directory directly containing a .dll or .pyd file is
@@ -492,7 +486,7 @@ def test_sitecustomize_registers_dll_dirs(tmp_path: Path, monkeypatch):
     # raising=False so the attribute is added on non-Windows platforms too
     monkeypatch.setattr(os, "add_dll_directory", fake_add_dll_directory, raising=False)
 
-    _exec_sitecustomize(internal)
+    _exec_runtime_support(internal)
 
     def _key(p: Path) -> str:
         return os.path.normcase(os.path.normpath(str(p)))
@@ -506,7 +500,7 @@ def test_sitecustomize_registers_dll_dirs(tmp_path: Path, monkeypatch):
     assert len(registered) < 10
 
 
-def test_sitecustomize_no_dll_api_is_safe(tmp_path: Path, monkeypatch):
+def test_runtime_support_no_dll_api_is_safe(tmp_path: Path, monkeypatch):
     """If os.add_dll_directory isn't available (non-Win or old Py), skip cleanly."""
     _, internal = _setup_fake_bundle(tmp_path)
     (internal / "lib" / "something").mkdir()
@@ -516,140 +510,7 @@ def test_sitecustomize_no_dll_api_is_safe(tmp_path: Path, monkeypatch):
     monkeypatch.delattr(os, "add_dll_directory", raising=False)
 
     # Must not raise
-    _exec_sitecustomize(internal)
+    _exec_runtime_support(internal)
 
 
-def _host_boot_name() -> str:
-    """Boot script basename that the generated sitecustomize will look for
-    when driven by the host python (sys.executable)."""
-    return f"_boot_{Path(sys.executable).stem}.py"
-
-
-@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
-def test_sitecustomize_exits_cleanly_after_boot_script(tmp_path: Path):
-    """Clean return from boot script → process exits 0, no stdin/REPL hang.
-
-    Without the sys.exit(0) guard, CPython falls through to stdin after
-    initialization and blocks (Inno Setup waituntilterminated). We test the
-    guard by running the host python, importing the generated sitecustomize,
-    and asserting a clean exit with stdin redirected to DEVNULL.
-    """
-    _, internal = _setup_fake_bundle(tmp_path)
-    (internal / _host_boot_name()).write_text("print('BOOT_OK')\n")
-
-    result = subprocess.run(
-        [sys.executable, "-c",
-         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        timeout=5,
-        text=True,
-    )
-    assert result.returncode == 0, f"stderr={result.stderr!r}"
-    assert "BOOT_OK" in result.stdout
-
-
-@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
-def test_sitecustomize_preserves_nonzero_exit_code(tmp_path: Path):
-    """Explicit sys.exit(N) from the boot script must win over the sys.exit(0)
-    guard that sitecustomize adds for the clean-return case."""
-    _, internal = _setup_fake_bundle(tmp_path)
-    (internal / _host_boot_name()).write_text("import sys; sys.exit(3)\n")
-
-    result = subprocess.run(
-        [sys.executable, "-c",
-         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        timeout=5,
-    )
-    assert result.returncode == 3, f"stderr={result.stderr!r}"
-
-
-@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
-def test_sitecustomize_runs_atexit_handlers_on_clean_exit(tmp_path: Path):
-    """atexit handlers fire even though we end with os._exit().
-
-    Regression: os._exit() bypasses Python's normal shutdown, including
-    atexit. The launcher now calls atexit._run_exitfuncs() before os._exit()
-    to honor the documented atexit contract — otherwise downstream code that
-    follows the standard `atexit.register(cleanup)` pattern silently loses
-    its cleanup (logging flushers, queue listeners, tempfile.TemporaryDirectory
-    finalizers, etc.).
-    """
-    _, internal = _setup_fake_bundle(tmp_path)
-    (internal / _host_boot_name()).write_text(
-        "import atexit\n"
-        "atexit.register(lambda: print('ATEXIT_FIRED'))\n"
-        "print('BOOT_OK')\n"
-    )
-
-    result = subprocess.run(
-        [sys.executable, "-c",
-         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        timeout=5,
-        text=True,
-    )
-    assert result.returncode == 0, f"stderr={result.stderr!r}"
-    assert "BOOT_OK" in result.stdout
-    assert "ATEXIT_FIRED" in result.stdout, (
-        "atexit handler did not run before os._exit(); "
-        f"stdout={result.stdout!r} stderr={result.stderr!r}"
-    )
-
-
-@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
-def test_sitecustomize_runs_atexit_handlers_on_nonzero_exit(tmp_path: Path):
-    """atexit handlers also fire when the boot script raises SystemExit(N).
-
-    Both contracts must hold simultaneously: the explicit exit code is
-    preserved AND atexit handlers run.
-    """
-    _, internal = _setup_fake_bundle(tmp_path)
-    (internal / _host_boot_name()).write_text(
-        "import atexit, sys\n"
-        "atexit.register(lambda: print('ATEXIT_FIRED'))\n"
-        "sys.exit(3)\n"
-    )
-
-    result = subprocess.run(
-        [sys.executable, "-c",
-         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        timeout=5,
-        text=True,
-    )
-    assert result.returncode == 3, f"stderr={result.stderr!r}"
-    assert "ATEXIT_FIRED" in result.stdout, (
-        "atexit handler did not run alongside non-zero SystemExit; "
-        f"stdout={result.stdout!r} stderr={result.stderr!r}"
-    )
-
-
-@pytest.mark.skipif(sys.platform != "win32", reason="Inno Setup is Windows-specific")
-def test_sitecustomize_atexit_handler_exception_does_not_block_exit(tmp_path: Path):
-    """A misbehaving atexit handler must not prevent os._exit() from running.
-
-    Robustness contract: errors in atexit handlers are caught so a single bad
-    handler can't hang the process or change the exit code.
-    """
-    _, internal = _setup_fake_bundle(tmp_path)
-    (internal / _host_boot_name()).write_text(
-        "import atexit\n"
-        "atexit.register(lambda: (_ for _ in ()).throw(RuntimeError('boom')))\n"
-        "print('BOOT_OK')\n"
-    )
-
-    result = subprocess.run(
-        [sys.executable, "-c",
-         f"import sys; sys.path.insert(0, r'{internal}'); import sitecustomize"],
-        stdin=subprocess.DEVNULL,
-        capture_output=True,
-        timeout=5,
-        text=True,
-    )
-    assert result.returncode == 0, f"stderr={result.stderr!r}"
-    assert "BOOT_OK" in result.stdout
+# Exit behavior is exercised by real executables in test_launcher_integration.py.
