@@ -87,6 +87,25 @@ Directory containing compiled application files. Multiple scripts become multipl
 coil build ./myproject --mode bundled
 ```
 
+### Runtime behavior
+
+Bundled executables are native application launchers. `MyApp.exe --flag "a path"`
+reaches Python as `[absolute_exe_path, "--flag", "a path"]`; Python's command-line
+options and environment configuration do not consume application arguments.
+`sys.executable` identifies the application, `sys.frozen` is true, and Windows
+multiprocessing spawn is supported. Portable applications expose the outer exe
+as their executable identity. Renaming an exe preserves its bound entry point.
+
+Application code and dependencies use target-version bytecode. Project assets
+follow `.coilignore` recursively and are available at bundle root and beside
+compiled modules for package resource access. The working directory still changes
+to the bundle/cache root; resolve caller-relative inputs deliberately. A GUI app
+without stderr still needs application-level error reporting. `sys.executable`
+relaunches the app; it is not a Python command for `-c` or `-m` subprocesses.
+
+The [full audit report](docs/audit.md) lists reproduced defects, fixes, validation,
+and remaining choices, including stdlib stripping and dynamic-import limits.
+
 ### GUI Application
 
 Coil auto-detects GUI frameworks. If your project imports `tkinter`, `PyQt5`, `PyQt6`, `PySide2`, `PySide6`, `wx`, `kivy`, `pygame`, `pyglet`, `dearpygui`, `customtkinter`, `flet`, `pystray`, `infi.systray`, `plyer`, or `windows_toasts`, the console window is hidden automatically.
@@ -157,11 +176,11 @@ Recover source from a default (non-secure) Coil build:
 coil decompile ./dist/MyApp.exe --output ./recovered
 ```
 
-Secure builds cannot be decompiled.
+Secure builds cannot be recovered by Coil; Python bytecode remains inspectable.
 
 ### Clean Build
 
-Build in an isolated environment with only declared dependencies. Guarantees reproducible builds:
+Build in an isolated environment with only declared dependencies. Caches dependencies for the selected target runtime. Pin dependencies when repeatable version selection matters:
 
 ```bash
 coil build ./myproject --clean
@@ -267,11 +286,11 @@ coil build ./myproject \
 
 ## How It Works
 
-1. **Dependency Resolution** — Coil scans every `.py` file with Python's `ast` module to find imports, then maps each top-level module to its PyPI distribution via `importlib.metadata.packages_distributions()`. That mapping correctly handles distribution-name mismatches (Pillow → PIL), hyphen/underscore conventions (windows-toasts → windows_toasts), and multi-module packages (pywin32 ships `win32api`, `win32com`, `pywintypes`, etc.). When `auto = true`, the import-detected set is unioned with `[project].dependencies`, `requirements.txt`, and explicit `include = [...]`, so version pins are preserved.
+1. **Dependency Resolution** — Coil scans every `.py` file with Python's `ast` module to find imports, then maps each top-level module to its PyPI distribution via `importlib.metadata.packages_distributions()`. That mapping correctly handles distribution-name mismatches (Pillow → PIL), hyphen/underscore conventions (windows-toasts → windows_toasts), and multi-module packages (pywin32 ships `win32api`, `win32com`, `pywintypes`, etc.). When `auto = true`, the import-detected set is unioned with `[project].dependencies` and explicit `include = [...]`, preserving version pins. A requirements file is an exclusive source plus explicit includes.
 
 2. **Runtime Bundling** — Downloads the official Windows embeddable Python distribution matching your target version. No C compiler needed.
 
-3. **Compilation** — All `.py` files are compiled to `.pyc` bytecode using the target Python version. If your build machine runs a different Python version than your target, Coil delegates compilation to the embedded runtime so `.pyc` magic numbers always match. No loose `.py` files in the output.
+3. **Compilation** — All `.py` files are compiled to `.pyc` bytecode using the target Python version. If your build machine runs a different Python version than your target, Coil delegates compilation to the embedded runtime so `.pyc` magic numbers always match. Project/dependency source is compiled; small Coil runtime support scripts remain as `.py` files.
 
 4. **Packaging** — In portable mode, everything is packed into a single `.exe` file. In bundled mode, a clean directory with the runtime, compiled code, and dependencies. Each exe gets proper PE version info (product name, file description) so Windows shows the correct app name in task manager and file properties.
 
@@ -279,10 +298,10 @@ coil build ./myproject \
 
 The portable `.exe` is a single file you can copy anywhere and run. Here's what happens under the hood:
 
-- **You distribute one file.** The `.exe` contains a lightweight native launcher (~23 KB) with the full application payload appended.
+- **You distribute one file.** The `.exe` contains a lightweight native launcher (about 165 KB) with the full application payload appended.
 - **First launch** extracts the runtime to a local cache (`%LOCALAPPDATA%\coil\<app>\<build_hash>\`). This is a one-time operation.
-- **Subsequent launches** detect the cache and start instantly — no extraction needed.
-- **Each build gets a unique hash.** Rebuilding your app creates a new cache entry. Old cache entries are automatically cleaned up (only the 3 most recent are kept).
+- **Subsequent launches** validate the cache and repair missing or damaged runtime files when needed, preserving mutable data assets.
+- **Each build gets a unique hash.** Rebuilding your app creates a new cache entry. Old inactive cache entries are cleaned up, retaining three generations while protecting running builds. Legacy cache directories without leases remain for explicit cleanup.
 - **Cache safety:** Extraction uses file locking to prevent corruption if multiple instances launch simultaneously. A marker file ensures only fully-extracted caches are used — if extraction is interrupted, it will restart cleanly.
 
 To manage the cache manually:

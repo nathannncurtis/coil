@@ -1,5 +1,7 @@
 """Dependency resolution for Python projects."""
 
+from __future__ import annotations
+
 import importlib.metadata
 import re
 from collections.abc import Callable
@@ -10,20 +12,33 @@ from coil.utils.package_map import IMPORT_TO_PYPI
 from coil.utils.stdlib_list import get_stdlib_modules
 
 
-def parse_requirements_txt(path: Path) -> list[str]:
-    """Parse a requirements.txt file and return package names.
+def parse_requirements_txt(path: Path, _seen: set[Path] | None = None) -> list[str]:
+    """Read requirements without discarding pins, extras, URLs, or markers.
 
-    Strips version specifiers, comments, and blank lines.
+    Nested ``-r`` files are resolved relative to their containing file. Other
+    pip directives are rejected explicitly instead of silently ignored.
     """
+    path = path.resolve()
+    seen = set() if _seen is None else set(_seen)
+    if path in seen:
+        raise ValueError(f"Recursive requirements include: {path}")
+    seen.add(path)
     packages: list[str] = []
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or line.startswith("-"):
+    content = path.read_text(encoding="utf-8-sig").replace("\\\n", "")
+    for line in content.splitlines():
+        line = re.split(r"\s+#", line, maxsplit=1)[0].strip()
+        if not line or line.startswith("#"):
             continue
-        # Strip version specifiers, extras, and environment markers
-        name = re.split(r"[>=<!~;\[\]]", line)[0].strip()
-        if name:
-            packages.append(name)
+        match = re.match(r"^(?:-r\s*|--requirement(?:\s+|=))(.+)$", line)
+        if match:
+            packages.extend(parse_requirements_txt(path.parent / match[1].strip(), seen))
+        elif line.startswith("-"):
+            raise ValueError(
+                f"Unsupported requirements directive in {path}: {line!r}. "
+                "Use package requirements or nested -r files."
+            )
+        else:
+            packages.append(line)
     return packages
 
 
@@ -41,12 +56,14 @@ def parse_pyproject_toml(path: Path) -> list[str]:
     data = tomllib.loads(content)
 
     deps = data.get("project", {}).get("dependencies", [])
-    packages: list[str] = []
-    for dep in deps:
-        name = re.split(r"[>=<!~;\[\]]", dep)[0].strip()
-        if name:
-            packages.append(name)
-    return packages
+    return [dep.strip() for dep in deps if dep.strip()]
+
+
+def _requirement_name(requirement: str) -> str:
+    """Canonical distribution identity, preserving the requirement itself."""
+    match = re.match(r"[A-Za-z0-9][A-Za-z0-9._-]*", requirement.strip())
+    name = match[0] if match else requirement.strip()
+    return re.sub(r"[-_.]+", "-", name).lower()
 
 
 def _build_dist_map() -> dict[str, list[str]]:
@@ -68,6 +85,7 @@ def resolve_from_imports(
     python_version: str,
     dist_map: dict[str, list[str]] | None = None,
     warn: Callable[[str], None] | None = None,
+    excluded_paths=(),
 ) -> list[str]:
     """Resolve third-party distribution names from the project's imports.
 
@@ -95,7 +113,7 @@ def resolve_from_imports(
 
     stdlib = get_stdlib_modules(python_version)
     local = _get_local_modules(project_dir)
-    imports = scan_project(project_dir) - stdlib - local
+    imports = scan_project(project_dir, excluded_paths=excluded_paths) - stdlib - local
 
     result: set[str] = set()
     for mod in sorted(imports):
@@ -126,6 +144,7 @@ def resolve_dependencies(
     auto: bool = True,
     dist_map: dict[str, list[str]] | None = None,
     warn: Callable[[str], None] | None = None,
+    excluded_paths=(),
 ) -> list[str]:
     """Resolve all third-party dependencies for a project.
 
@@ -176,27 +195,31 @@ def resolve_dependencies(
         if pyproject.is_file():
             packages.update(parse_pyproject_toml(pyproject))
         if auto:
+            declared_names = {_requirement_name(p) for p in packages | set(include)}
             packages.update(
-                resolve_from_imports(
+                p for p in resolve_from_imports(
                     project_dir,
                     python_version,
                     dist_map=dist_map,
                     warn=warn,
-                )
+                    excluded_paths=excluded_paths,
+                ) if _requirement_name(p) not in declared_names
             )
 
     packages.update(include)
 
-    exclude_lower = {e.lower() for e in exclude}
-    return sorted({p for p in packages if p.lower() not in exclude_lower})
+    excluded_names = {_requirement_name(e) for e in exclude}
+    return sorted({p for p in packages if _requirement_name(p) not in excluded_names})
 
 
 def _get_local_modules(project_dir: Path) -> set[str]:
     """Get module names that are local to the project (not third-party)."""
     local: set[str] = set()
+    from coil.scanner import find_py_files
+    source_paths = find_py_files(project_dir)
     for item in project_dir.iterdir():
         if item.is_file() and item.suffix == ".py":
             local.add(item.stem)
-        elif item.is_dir() and (item / "__init__.py").is_file():
+        elif item.is_dir() and any(item in source.parents for source in source_paths):
             local.add(item.name)
     return local

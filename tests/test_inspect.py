@@ -109,11 +109,12 @@ def test_run_inspect_no_toml(tmp_path: Path, capsys):
 
 def test_run_inspect_with_profile(tmp_path: Path, capsys):
     (tmp_path / "main.py").write_text("print(1)\n")
-    (tmp_path / "coil.toml").write_text('[project]\nentry = "main.py"\n[build]\n')
+    (tmp_path / "coil.toml").write_text('[project]\nentry = "main.py"\n[build]\n[profile.release]\npython = "3.13"\n')
     exit_code = run_inspect(tmp_path, profile="release")
     assert exit_code == 0
     out = capsys.readouterr().out
     assert "release" in out
+    assert "Python target: 3.13" in out
 
 
 def test_run_inspect_gui_detected(tmp_path: Path, capsys):

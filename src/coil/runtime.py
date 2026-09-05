@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 import shutil
+import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -68,7 +69,14 @@ def download_runtime(
     """
     zip_path = get_cached_zip_path(python_version, arch)
 
-    if zip_path.is_file():
+    def valid_archive(path: Path) -> bool:
+        try:
+            with zipfile.ZipFile(path) as archive:
+                return "python.exe" in archive.namelist() and archive.testzip() is None
+        except (OSError, zipfile.BadZipFile):
+            return False
+
+    if zip_path.is_file() and valid_archive(zip_path):
         if ui is not None:
             ui.detail(f"Using cached runtime: {zip_path}")
         elif verbose:
@@ -77,6 +85,10 @@ def download_runtime(
 
     url = get_embed_url(python_version, arch)
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    # A reader must only see complete ZIPs, even when builds download the
+    # same runtime concurrently or a previous process was interrupted.
+    with tempfile.NamedTemporaryFile(prefix=".download-", suffix=".zip", dir=CACHE_DIR, delete=False) as stream:
+        download_path = Path(stream.name)
 
     if ui is not None:
         ui.detail(f"Downloading from {url}")
@@ -84,10 +96,12 @@ def download_runtime(
             task = progress.add_task("download", total=None)
             hook = ui.make_download_hook(progress, task)
             try:
-                urllib.request.urlretrieve(url, str(zip_path), reporthook=hook)
+                urllib.request.urlretrieve(url, str(download_path), reporthook=hook)
+                if not valid_archive(download_path):
+                    raise ValueError("Downloaded runtime is not a valid embeddable ZIP")
+                os.replace(download_path, zip_path)
             except Exception as e:
-                if zip_path.exists():
-                    zip_path.unlink()
+                download_path.unlink(missing_ok=True)
                 raise RuntimeError(
                     f"Failed to download Python {python_version} embeddable distribution: {e}"
                 ) from e
@@ -96,10 +110,12 @@ def download_runtime(
             print(f"Downloading Python {python_version} embeddable from {url}...")
 
         try:
-            urllib.request.urlretrieve(url, str(zip_path))
+            urllib.request.urlretrieve(url, str(download_path))
+            if not valid_archive(download_path):
+                raise ValueError("Downloaded runtime is not a valid embeddable ZIP")
+            os.replace(download_path, zip_path)
         except Exception as e:
-            if zip_path.exists():
-                zip_path.unlink()
+            download_path.unlink(missing_ok=True)
             raise RuntimeError(
                 f"Failed to download Python {python_version} embeddable distribution: {e}"
             ) from e

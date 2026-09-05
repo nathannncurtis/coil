@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import os
 import zipfile
 from pathlib import Path
 
@@ -17,6 +18,12 @@ def _find_cached_embed_zip() -> Path | None:
     important for tests that execute produced exes or generated .pyc files).
     Falls back to any cached embed zip if no host-version match exists.
     """
+    explicit = os.environ.get("COIL_TEST_RUNTIME_ZIP")
+    if explicit:
+        archive = Path(explicit)
+        if not archive.is_file():
+            raise FileNotFoundError(f"COIL_TEST_RUNTIME_ZIP does not exist: {archive}")
+        return archive
     cache = Path.home() / ".coil" / "cache" / "runtimes"
     if not cache.is_dir():
         return None
@@ -44,6 +51,8 @@ def real_runtime(tmp_path_factory) -> Path:
 
     zip_path = _find_cached_embed_zip()
     if zip_path is None:
+        if os.environ.get("CI"):
+            pytest.fail("Windows CI must supply COIL_TEST_RUNTIME_ZIP; executable tests may not skip")
         pytest.skip(
             "No cached embeddable Python runtime at ~/.coil/cache/runtimes. "
             "Run any `coil build` to populate it."

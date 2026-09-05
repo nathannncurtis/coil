@@ -1,5 +1,7 @@
 """Command-line interface for Coil."""
 
+from __future__ import annotations
+
 import argparse
 import os
 import shutil
@@ -538,8 +540,8 @@ def main(argv: list[str] | None = None) -> None:
         if not project_dir.is_dir():
             print(f"Error: '{args.project}' is not a directory.")
             sys.exit(1)
-        exclude = [p.strip() for p in args.exclude.split(",")] if args.exclude else []
-        include = [p.strip() for p in args.include.split(",")] if args.include else []
+        exclude = [p.strip() for p in args.exclude.split(",")] if args.exclude is not None else None
+        include = [p.strip() for p in args.include.split(",")] if args.include is not None else None
         sys.exit(run_inspect(
             project_dir=project_dir,
             python_version=args.python,
@@ -600,6 +602,7 @@ def main(argv: list[str] | None = None) -> None:
                 print(f"Found icon: {icon}")
 
         # Auto-detect GUI mode from imports (unless --console explicitly passed)
+        forced_gui = args.gui
         if not args.gui and args.console is None:
             from coil.scanner import detect_gui_imports
             gui_imports = detect_gui_imports(project_dir)
@@ -612,6 +615,11 @@ def main(argv: list[str] | None = None) -> None:
         elif args.console is True:
             # User explicitly passed --console, force console mode
             args.gui = False
+
+        # Resolve optimization before both preview and the real build.
+        optimize = args.optimize
+        if optimize is None:
+            optimize = 2 if args.secure else 1
 
         if args.dry_run:
             print("Dry run - would build with the following settings:")
@@ -634,11 +642,6 @@ def main(argv: list[str] | None = None) -> None:
             if args.requirements:
                 print(f"  Requirements: {args.requirements}")
             sys.exit(0)
-
-        # Resolve optimize level: default depends on --secure
-        optimize = args.optimize
-        if optimize is None:
-            optimize = 2 if args.secure else 1
 
         # Resolve per-entry VERSIONINFO from coil.toml if present.
         versioninfo: dict[str, dict[str, str]] | None = None
@@ -681,6 +684,20 @@ def main(argv: list[str] | None = None) -> None:
                     versioninfo[name] = versioninfo[only_stem]
                     if only_stem in subsystems:
                         subsystems[name] = subsystems[only_stem]
+
+        # Explicit per-entry settings win; global switches apply to every
+        # entry. Otherwise detect each entry separately in multi-entry builds.
+        subsystems = subsystems or {}
+        from coil.scanner import file_has_gui_imports
+        for ep in entry_points:
+            stem = Path(ep).stem
+            if stem not in subsystems:
+                if args.console is True:
+                    subsystems[stem] = "console"
+                elif forced_gui:
+                    subsystems[stem] = "gui"
+                elif len(entry_points) > 1:
+                    subsystems[stem] = "gui" if file_has_gui_imports(project_dir / ep) else "console"
 
         try:
             from coil.builder import build

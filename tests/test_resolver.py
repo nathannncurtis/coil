@@ -24,10 +24,9 @@ def test_parse_requirements_txt(tmp_path: Path):
         flask~=2.3
 
         Pillow>=9.0
-        -e ./local_package
     """))
     result = parse_requirements_txt(req)
-    assert result == ["requests", "numpy", "flask", "Pillow"]
+    assert result == ["requests>=2.28.0", "numpy==1.24.0", "flask~=2.3", "Pillow>=9.0"]
 
 
 def test_parse_pyproject_toml(tmp_path: Path):
@@ -43,7 +42,7 @@ def test_parse_pyproject_toml(tmp_path: Path):
         ]
     """))
     result = parse_pyproject_toml(toml)
-    assert result == ["requests", "click", "rich"]
+    assert result == ["requests>=2.28", "click>=8.0", "rich"]
 
 
 def test_resolve_with_requirements_txt(tmp_path: Path):
@@ -274,7 +273,7 @@ def test_resolve_dependencies_auto_unions_with_project_dependencies(tmp_path: Pa
     result = resolve_dependencies(
         tmp_path, "3.12", auto=True, dist_map=FAKE_DIST_MAP
     )
-    assert "pinned-lib" in result
+    assert "pinned-lib>=1.0" in result
     assert "psutil" in result
 
 

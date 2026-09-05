@@ -35,6 +35,48 @@ _EXE_DLLS = {
 }
 
 
+def _validate_build_paths(project_dir: Path, output_dir: Path,
+                          entry_points: list[str], name: str) -> None:
+    """Reject ambiguous launchers and paths that could overwrite source files."""
+    import re
+
+    def valid_name(value: str) -> bool:
+        return bool(value and value not in {".", ".."}
+                    and not re.search(r'[<>:"/\\|?*\x00-\x1f]', value)
+                    and value == value.rstrip(" .")
+                    and not re.fullmatch(r"(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?", value))
+
+    if not valid_name(name):
+        raise ValueError(f"Invalid application name: {name!r}; use a Windows filename without a path")
+    if not entry_points:
+        raise ValueError("At least one entry point is required")
+    project = project_dir.resolve()
+    stems: set[str] = set()
+    for entry in entry_points:
+        path = (project_dir / entry).resolve()
+        try:
+            path.relative_to(project)
+        except ValueError:
+            raise ValueError(f"Entry point is outside the project: {entry!r}") from None
+        if not path.is_file() or path.suffix.lower() != ".py":
+            raise ValueError(f"Entry point must be an existing .py file: {entry!r}")
+        stem = Path(entry).stem
+        if not valid_name(stem) or stem.casefold() in stems:
+            raise ValueError(f"Entry points must have distinct Windows executable names: {entry!r}")
+        stems.add(stem.casefold())
+    destination = (output_dir / name).resolve()
+    try:
+        destination.relative_to(output_dir.resolve())
+    except ValueError:
+        raise ValueError("Bundle output resolves outside its output directory") from None
+    try:
+        project.relative_to(destination)
+    except ValueError:
+        pass
+    else:
+        raise ValueError("Bundle output would overwrite the project directory")
+
+
 def _lookup_subsystem(
     subsystems: Optional[dict[str, str]],
     *keys: str,
@@ -92,6 +134,7 @@ def package_portable(
     Returns:
         List of paths to created portable executables.
     """
+    _validate_build_paths(project_dir, output_dir, entry_points, name)
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[Path] = []
 
@@ -122,6 +165,7 @@ def package_portable(
                 ui=ui,
                 optimize=optimize,
                 subsystem=explicit_sub,
+                portable=True,
             )
 
             # Step 2: Zip the staged directory
@@ -147,7 +191,8 @@ def package_portable(
         from coil.bootloader import get_bootloader_stub
         bootloader_stub = get_bootloader_stub()
 
-        vi_fields = (versioninfo or {}).get(entry_name)
+        vi_fields = (versioninfo or {}).get(entry_name) or {"product_name": entry_name}
+        effective_sub = explicit_sub or ("gui" if gui else "console")
 
         if sys.platform == "win32" and (icon or vi_fields or explicit_sub is not None):
             with tempfile.NamedTemporaryFile(suffix=".exe", delete=False) as tf:
@@ -178,10 +223,10 @@ def package_portable(
                         elif verbose:
                             print(f"  Warning: Could not set version info: {e}")
 
-                if explicit_sub is not None:
+                if effective_sub is not None:
                     from coil.platforms.windows import set_pe_subsystem
                     try:
-                        set_pe_subsystem(stub_path, explicit_sub)
+                        set_pe_subsystem(stub_path, effective_sub)
                         if ui is not None:
                             ui.detail(
                                 f"Subsystem {explicit_sub!r} applied to entry "
@@ -257,6 +302,7 @@ def package_bundled(
     Returns:
         Path to the bundled output directory.
     """
+    _validate_build_paths(project_dir, output_dir, entry_points, name)
     bundle_dir = output_dir / name
     if bundle_dir.exists():
         shutil.rmtree(bundle_dir)
@@ -295,7 +341,7 @@ def package_bundled(
     if len(entry_points) > 1:
         for extra_entry in entry_points[1:]:
             extra_name = Path(extra_entry).stem
-            extra_pyc = extra_entry.replace(".py", ".pyc")
+            extra_pyc = Path(extra_entry).with_suffix(".pyc").as_posix()
 
             # Explicit subsystem config wins over GUI-import autodetect.
             extra_sub = _lookup_subsystem(subsystems, extra_name, extra_name)
@@ -307,12 +353,14 @@ def package_bundled(
                     file_has_gui_imports(extra_file) if extra_file.is_file() else gui
                 )
 
-            # Copy python exe as the extra entry
-            source_exe_name = "pythonw.exe" if extra_gui else "python.exe"
-            source_exe = runtime_dir / source_exe_name
+            from coil.launcher import create_launcher
             extra_exe = bundle_dir / f"{extra_name}.exe"
-            if source_exe.is_file():
-                shutil.copy2(source_exe, extra_exe)
+            create_launcher(extra_exe, _get_python_ver_tag(runtime_dir),
+                            f"_boot_{extra_name}.py",
+                            optimization_level=optimize if optimize is not None else (2 if secure else 1))
+            if sys.platform == "win32":
+                from coil.platforms.windows import set_pe_subsystem
+                set_pe_subsystem(extra_exe, "gui" if extra_gui else "console")
 
             # Create bootstrap for this entry
             bootstrap = _generate_bootstrap_script(extra_pyc)
@@ -379,12 +427,13 @@ def _build_app_directory(
     optimize: Optional[int] = None,
     versioninfo: Optional[dict[str, str]] = None,
     subsystem: Optional[str] = None,
+    portable: bool = False,
 ) -> None:
     """Build the full application directory structure.
 
     Creates:
         stage_dir/
-            AppName.exe           (renamed python.exe)
+            AppName.exe           (native PyConfig launcher)
             python3.dll           (required next to exe)
             python3xx.dll         (required next to exe)
             python3xx._pth        (path config)
@@ -397,21 +446,21 @@ def _build_app_directory(
                 *.dll             (other libs)
                 app/              (compiled source)
                 lib/              (dependencies)
-                sitecustomize.py  (bootstrap trigger)
+                _coil_runtime.py (runtime support)
                 _boot_AppName.py  (bootstrap script)
     """
     stage_dir.mkdir(parents=True, exist_ok=True)
     internal_dir = stage_dir / "_internal"
     internal_dir.mkdir(exist_ok=True)
 
-    entry_pyc = entry_point.replace(".py", ".pyc")
+    entry_pyc = Path(entry_point).with_suffix(".pyc").as_posix()
     ver_tag = _get_python_ver_tag(runtime_dir)
     pth_name = f"python{ver_tag}._pth" if ver_tag else ""
 
     # Copy runtime files — DLLs the exe needs go at root, everything else in _internal/
     # Skip files not needed at runtime to reduce output size.
     _skip_runtime = {
-        "python.exe", "pythonw.exe", "license.txt", "python.cat",
+        "python.exe", "pythonw.exe", "python.cat",
         "news.txt", "py.exe", "pyw.exe",
     }
     for item in runtime_dir.iterdir():
@@ -435,26 +484,43 @@ def _build_app_directory(
     # apply it both to the project-asset copier and the obfuscator — a file
     # that doesn't belong at bundle root also doesn't belong as a .pyc under
     # _internal/app/.
-    exclude_matcher = _build_exclude_matcher(project_dir)
+    project_matcher = _build_exclude_matcher(project_dir)
+    resolved_stage = stage_dir.resolve()
+
+    def exclude_matcher(path: Path) -> bool:
+        # Custom output directories inside the project must never copy or
+        # compile themselves recursively.
+        try:
+            path.resolve().relative_to(resolved_stage)
+            return True
+        except ValueError:
+            return project_matcher(path)
 
     # Strip unused modules from stdlib zip
     from coil.scanner import scan_project
     project_imports = scan_project(project_dir)
+    if deps_dir is not None:
+        from coil.scanner import extract_imports
+        import tokenize
+        for source in deps_dir.rglob("*.py"):
+            try:
+                with tokenize.open(source) as stream:
+                    project_imports.update(extract_imports(stream.read()))
+            except (OSError, UnicodeError, SyntaxError):
+                continue
+    # site.sethelper() uses pydoc lazily, even without an app-level import.
+    project_imports.update({"pydoc", "pydoc_data"})
+    if "pydoc" in project_imports:
+        project_imports.add("pydoc_data")
+    if "turtle" in project_imports:
+        project_imports.add("tkinter")
     _strip_stdlib_zip(internal_dir, project_imports, ui=ui, verbose=verbose)
 
-    # Copy the right python exe as AppName.exe. Explicit subsystem (from
-    # [build.entries.<stem>].subsystem) wins over the top-level gui flag.
-    if subsystem is not None:
-        use_gui = (subsystem == "gui")
-    else:
-        use_gui = gui
-    source_exe_name = "pythonw.exe" if use_gui else "python.exe"
-    source_exe = runtime_dir / source_exe_name
+    from coil.launcher import create_launcher
     target_exe = stage_dir / f"{entry_name}.exe"
-    if source_exe.is_file():
-        shutil.copy2(source_exe, target_exe)
-    else:
-        shutil.copy2(runtime_dir / "python.exe", target_exe)
+    create_launcher(target_exe, ver_tag, f"_boot_{entry_name}.py",
+                    optimization_level=optimize if optimize is not None else (2 if secure else 1),
+                    portable=portable)
 
     # Compile source into _internal/app/
     # Use embedded python.exe for compilation so .pyc magic numbers match
@@ -477,7 +543,7 @@ def _build_app_directory(
     if deps_dir and deps_dir.is_dir():
         lib_dir = internal_dir / "lib"
         shutil.copytree(deps_dir, lib_dir)
-        _remove_py_files(lib_dir)
+        _remove_py_files(lib_dir, runtime_python=runtime_python, optimize=opt_level)
         if ui is not None:
             ui.detail("Bundled dependencies")
         elif verbose:
@@ -487,7 +553,7 @@ def _build_app_directory(
     bootstrap = _generate_bootstrap_script(entry_pyc)
     (internal_dir / f"_boot_{entry_name}.py").write_text(bootstrap, encoding="utf-8")
 
-    # Configure ._pth and sitecustomize.py
+    # Keep runtime paths explicit; the native launcher runs the boot script.
     _configure_pth(stage_dir, internal_dir, entry_name, ver_tag)
 
     # Stamp subsystem. Explicit config wins; otherwise fall through to the
@@ -539,6 +605,9 @@ def _build_app_directory(
 
     # Copy project assets (icons, configs, etc.) to root
     _copy_project_assets(project_dir, stage_dir, verbose, ui=ui, exclude_matcher=exclude_matcher)
+    # Python packages locate data beside __file__ and through importlib.resources.
+    # Retain root assets for existing applications while supplying that layout.
+    _copy_project_assets(project_dir, internal_dir / "app", exclude_matcher=exclude_matcher)
 
 
 def _zip_directory(
@@ -658,63 +727,8 @@ def _add_dir_to_zip(
 
 
 def _generate_bootstrap_script(entry_point: str) -> str:
-    """Generate the bootstrap script that runs the entry point.
-
-    This script is exec'd by sitecustomize.py when the exe starts.
-    It sets up sys.path, loads the entry point, and exits.
-    """
-    return f'''\
-import os
-import sys
-
-_here = os.path.dirname(os.path.abspath(__file__))
-_root = os.path.dirname(_here)
-os.chdir(_root)
-
-_app = os.path.join(_here, "app")
-_lib = os.path.join(_here, "lib")
-
-if _app not in sys.path:
-    sys.path.insert(0, _app)
-if os.path.isdir(_lib) and _lib not in sys.path:
-    sys.path.insert(0, _lib)
-
-_entry = os.path.join(_app, "{entry_point}")
-
-if not os.path.isfile(_entry):
-    print(f"Fatal: Entry point not found: {{_entry}}", file=sys.stderr)
-    print("The application may be corrupted. Try deleting the cache and re-launching.", file=sys.stderr)
-    sys.exit(1)
-
-try:
-    if _entry.endswith(".pyc"):
-        import importlib.util
-        spec = importlib.util.spec_from_file_location("__main__", _entry)
-        if spec and spec.loader:
-            mod = importlib.util.module_from_spec(spec)
-            mod.__name__ = "__main__"
-            mod.__file__ = _entry
-            sys.modules["__main__"] = mod
-            spec.loader.exec_module(mod)
-    else:
-        with open(_entry) as f:
-            exec(compile(f.read(), _entry, "exec"), {{"__name__": "__main__", "__file__": _entry}})
-except SystemExit:
-    raise
-except ImportError as e:
-    print(f"Fatal: Missing module or extension: {{e}}", file=sys.stderr)
-    if hasattr(e, "name") and e.name:
-        print(f"  Module: {{e.name}}", file=sys.stderr)
-        _ext = os.path.join(_here, e.name.replace(".", os.sep))
-        _pyd = _ext + ".pyd"
-        _so = _ext + ".so"
-        if not os.path.isfile(_pyd) and not os.path.isfile(_so):
-            print(f"  Extension file not found. Was this dependency included in the build?", file=sys.stderr)
-    sys.exit(1)
-except Exception as e:
-    print(f"Fatal: {{type(e).__name__}}: {{e}}", file=sys.stderr)
-    sys.exit(1)
-'''
+    """Run one bound entry after native Python initialization has completed."""
+    return "from _coil_runtime import run\nrun(" + repr(entry_point) + ")\n"
 
 
 def _configure_pth(
@@ -723,100 +737,15 @@ def _configure_pth(
     entry_name: str,
     ver_tag: str,
 ) -> None:
-    """Configure the ._pth file and sitecustomize.py.
-
-    The ._pth file lives at root (next to the exe and python3xx.dll).
-    Runtime files, app code, and deps live under _internal/.
-    """
+    """Write runtime paths without site import or executable-name dispatch."""
     pth_file = root_dir / f"python{ver_tag}._pth"
-    if not pth_file.is_file():
-        pth_files = list(root_dir.glob("python*._pth"))
-        if not pth_files:
-            return
-        pth_file = sorted(pth_files, key=lambda p: len(p.name), reverse=True)[0]
-
     pth_file.write_text(
-        f"_internal/python{ver_tag}.zip\n"
-        f".\n"
-        f"_internal\n"
-        f"_internal/app\n"
-        f"_internal/lib\n"
-        f"import site\n",
+        f"_internal/python{ver_tag}.zip\n.\n_internal\n"
+        "_internal/app\n_internal/lib\n",
         encoding="utf-8",
     )
-
-    site_custom = internal_dir / "sitecustomize.py"
-    site_custom.write_text(
-        "import atexit, os, sys, site, glob\n"
-        "_here = os.path.dirname(os.path.abspath(__file__))\n"
-        "_lib = os.path.join(_here, 'lib')\n"
-        "# Process .pth files under _internal/lib (pywin32.pth, etc.). ._pth\n"
-        "# governs top-level sys.path but does not parse nested .pth files;\n"
-        "# site.addsitedir() does.\n"
-        "if os.path.isdir(_lib):\n"
-        "    site.addsitedir(_lib)\n"
-        "# Register DLL search directories so native extensions find their\n"
-        "# dependent DLLs (pywin32_system32, numpy.libs, etc.). Python 3.8+\n"
-        "# blocks DLL loading from arbitrary paths.\n"
-        "if hasattr(os, 'add_dll_directory') and os.path.isdir(_lib):\n"
-        "    _seen = set()\n"
-        "    for _d, _subs, _files in os.walk(_lib):\n"
-        "        if any(f.lower().endswith(('.dll', '.pyd')) for f in _files):\n"
-        "            _r = os.path.realpath(_d)\n"
-        "            if _r in _seen:\n"
-        "                continue\n"
-        "            _seen.add(_r)\n"
-        "            try:\n"
-        "                os.add_dll_directory(_d)\n"
-        "            except OSError:\n"
-        "                pass\n"
-        "_exe = os.path.splitext(os.path.basename(sys.executable))[0]\n"
-        "# Try exact match first, then scan for matching boot script\n"
-        "_boot = os.path.join(_here, f'_boot_{_exe}.py')\n"
-        "if not os.path.isfile(_boot):\n"
-        "    # Search boot scripts for one whose name is a substring of the exe name\n"
-        "    for _b in sorted(glob.glob(os.path.join(_here, '_boot_*.py'))):\n"
-        "        _stem = os.path.basename(_b)[6:-3]  # strip '_boot_' and '.py'\n"
-        "        if _stem in _exe.lower():\n"
-        "            _boot = _b\n"
-        "            break\n"
-        "    else:\n"
-        f"        _boot = os.path.join(_here, '_boot_{entry_name}.py')\n"
-        "if os.path.isfile(_boot):\n"
-        "    # os._exit bypasses CPython's init-phase fatal-error handling.\n"
-        "    # SystemExit raised during site import becomes\n"
-        "    # 'Fatal Python error: init_import_site' + nonzero exit — we\n"
-        "    # want a clean numeric exit matching what the boot script asked\n"
-        "    # for (or 0 on clean return, to avoid REPL/stdin block).\n"
-        "    _code = 0\n"
-        "    try:\n"
-        "        exec(compile(open(_boot).read(), _boot, 'exec'))\n"
-        "    except SystemExit as _e:\n"
-        "        _c = _e.code\n"
-        "        _code = _c if isinstance(_c, int) else (0 if _c is None else 1)\n"
-        "    # Run registered atexit handlers before os._exit().\n"
-        "    # os._exit() bypasses Python's normal shutdown path, which would\n"
-        "    # otherwise silently skip every atexit-registered cleanup. We want\n"
-        "    # to honor the documented contract (logging flushers, queue\n"
-        "    # listeners, tempfile cleanup, etc.) while keeping the exit-code\n"
-        "    # preservation that os._exit() gives us. Catch BaseException (not\n"
-        "    # just Exception) so a pathological atexit handler that calls\n"
-        "    # sys.exit() can't derail the process exit either.\n"
-        "    # atexit._run_exitfuncs() is a stable CPython private API — it's\n"
-        "    # how the interpreter itself runs atexit handlers during normal\n"
-        "    # shutdown. The underscore is load-bearing; don't \"fix\" it.\n"
-        "    try: atexit._run_exitfuncs()\n"
-        "    except BaseException: pass\n"
-        "    # Flush AFTER atexit so any output from atexit handlers reaches the\n"
-        "    # tty/pipe before os._exit() (which doesn't flush). Covers both the\n"
-        "    # boot script's output and anything atexit handlers wrote.\n"
-        "    try: sys.stdout.flush()\n"
-        "    except Exception: pass\n"
-        "    try: sys.stderr.flush()\n"
-        "    except Exception: pass\n"
-        "    os._exit(_code)\n",
-        encoding="utf-8",
-    )
+    shutil.copyfile(Path(__file__).with_name("_bootstrap.py"),
+                    internal_dir / "_coil_runtime.py")
 
 
 def _get_python_ver_tag(runtime_dir: Path) -> str:
@@ -955,7 +884,7 @@ def _eval_patterns(
     return excluded
 
 
-def _build_exclude_matcher(project_dir: Path) -> Callable[[Path], bool]:
+def _build_exclude_matcher(project_dir: Path, excluded_paths=()) -> Callable[[Path], bool]:
     """Build a predicate that returns True when a path should be excluded.
 
     Evaluates DEFAULT_EXCLUDE_PATTERNS first, then the user's .coilignore,
@@ -966,8 +895,15 @@ def _build_exclude_matcher(project_dir: Path) -> Callable[[Path], bool]:
         (matches git's documented behavior).
     """
     patterns = list(DEFAULT_EXCLUDE_PATTERNS) + _load_coilignore(project_dir)
+    excluded_roots = [path.resolve() for path in excluded_paths]
 
     def matches(path: Path) -> bool:
+        for excluded in excluded_roots:
+            try:
+                path.resolve().relative_to(excluded)
+                return True
+            except ValueError:
+                pass
         try:
             rel_parts = path.relative_to(project_dir).parts
         except ValueError:
@@ -1005,42 +941,40 @@ def _copy_project_assets(
     if exclude_matcher is None:
         exclude_matcher = _build_exclude_matcher(project_dir)
 
-    for item in project_dir.iterdir():
-        if exclude_matcher(item):
+    for item in sorted(project_dir.rglob("*")):
+        if not item.is_file() or exclude_matcher(item):
             continue
-        if item.is_file() and item.suffix.lower() not in code_extensions:
-            dest = dest_dir / item.name
+        if item.suffix.lower() not in code_extensions:
+            dest = dest_dir / item.relative_to(project_dir)
             if not dest.exists():
+                dest.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(item, dest)
                 if ui is not None:
                     ui.detail(f"Copied asset: {item.name}")
                 elif verbose:
                     print(f"  Copied asset: {item.name}")
-        elif item.is_dir():
-            dest = dest_dir / item.name
-            if not dest.exists():
-                has_assets = any(
-                    f.suffix.lower() not in code_extensions
-                    for f in item.rglob("*") if f.is_file()
-                )
-                if has_assets:
-                    shutil.copytree(item, dest)
-                    if ui is not None:
-                        ui.detail(f"Copied asset directory: {item.name}/")
-                    elif verbose:
-                        print(f"  Copied asset directory: {item.name}/")
 
 
-def _remove_py_files(directory: Path) -> None:
-    """Remove all .py files from a directory, keeping .pyc files."""
+def _remove_py_files(directory: Path, runtime_python: Optional[Path] = None,
+                     optimize: int = 0) -> None:
+    """Compile dependencies for the target runtime before removing their source."""
+    from coil.obfuscator import compile_to_pyc
+    if runtime_python is not None:
+        # One target process for the entire dependency tree, even for large
+        # packages. Legacy pycs are importable without their source files.
+        script = (
+            "import compileall, sys; "
+            "sys.exit(0 if compileall.compile_dir(sys.argv[1], quiet=1, "
+            "force=True, legacy=True, optimize=int(sys.argv[2])) else 1)"
+        )
+        result = subprocess.run([str(runtime_python), "-c", script, str(directory), str(optimize)],
+                                capture_output=True, text=True)
+        if result.returncode:
+            raise RuntimeError("Dependency compilation failed:\n" + result.stdout + result.stderr)
     for py_file in directory.rglob("*.py"):
         pyc = py_file.with_suffix(".pyc")
-        if not pyc.exists():
-            import py_compile
-            try:
-                py_compile.compile(str(py_file), cfile=str(pyc), doraise=False)
-            except Exception:
-                pass
+        if runtime_python is None:
+            compile_to_pyc(py_file, pyc, optimize=optimize)
         py_file.unlink()
 
 
@@ -1050,13 +984,9 @@ def _strip_installed_packages(dest_dir: Path) -> None:
     Keeps .dist-info directories since packages may use importlib.metadata
     at runtime to read their own version info.
     """
-    patterns_to_remove = [
-        "__pycache__",
-        "tests",
-        "test",
-        "docs",
-        "doc",
-    ]
+    # Package names do not establish that their code/data is disposable.
+    # Runtime imports can legitimately depend on pkg.tests or pkg.docs.
+    patterns_to_remove = ["__pycache__"]
 
     for pattern in patterns_to_remove:
         for match in dest_dir.rglob(pattern):
@@ -1088,6 +1018,8 @@ def _strip_stdlib_zip(
     # Build set of entries to remove
     strip_prefixes: set[str] = set()
     for mod in ALWAYS_STRIP:
+        if mod.split(".")[0] in project_imports:
+            continue
         if mod.endswith(".pyc"):
             strip_prefixes.add(mod)
         else:
