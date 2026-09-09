@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
 ![License](https://img.shields.io/badge/license-GPL%203.0-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
-![Version](https://img.shields.io/badge/version-0.2.4-orange)
+![Version](https://img.shields.io/badge/version-0.3.0-orange)
 
 **A Python-to-executable compiler that just works.**
 
@@ -393,16 +393,20 @@ icon = ""
 | `coil cache info` | Show cache location and size |
 | `coil cache clear` | Delete all cached runtimes |
 
+`coil --version` prints the installed version. `coil inspect` accepts `--python`,
+`--requirements`, `--exclude`, `--include`, and `--profile`, so a preview can be
+taken under the same settings the build will use. `coil doctor` accepts `--verbose`.
+
 ### Build Flags
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `--entry` | Auto-detect (`__main__.py` then `main.py`) | Entry point script relative to project dir |
+| `--entry` | Auto-detect (`__main__.py` then `main.py`) | Entry point script relative to project dir. Repeat for multiple entries |
 | `--mode` | `portable` | `portable` (single exe) or `bundled` (directory) |
 | `--os` | Current OS | `windows`, `macos`, `linux` |
 | `--python` | Auto-detect | Target Python version |
-| `--gui` | `false` | Suppress console window |
-| `--console` | `true` | Show console window (default) |
+| `--gui` | Auto-detect from imports | Suppress console window |
+| `--console` | Auto-detect from imports | Show console window. Overrides auto-detected GUI mode |
 | `--secure` | `false` | Heavy obfuscation, not reversible |
 | `--clean` | `false` | Build in clean environment with only declared deps |
 | `--profile` | None | Build profile from coil.toml |
