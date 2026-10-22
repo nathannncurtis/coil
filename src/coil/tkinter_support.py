@@ -47,14 +47,16 @@ def _matches(prefix: Path, version: tuple[int, int]) -> bool:
 def _candidates(version: tuple[int, int]) -> list[Path]:
     found = [Path(sys.base_prefix)]
     tag = f"{version[0]}.{version[1]}"
-    try:
-        out = subprocess.run(
-            ["py", f"-{tag}", "-c", "import sys;print(sys.base_prefix)"],
-            capture_output=True, text=True, timeout=30)
-        if out.returncode == 0 and out.stdout.strip():
-            found.append(Path(out.stdout.strip()))
-    except (OSError, subprocess.SubprocessError):
-        pass
+    launcher = shutil.which("py")
+    if launcher:
+        try:
+            out = subprocess.run(
+                [launcher, f"-{tag}", "-c", "import sys;print(sys.base_prefix)"],
+                capture_output=True, text=True, timeout=30)
+            if out.returncode == 0 and out.stdout.strip():
+                found.append(Path(out.stdout.strip()))
+        except (OSError, subprocess.SubprocessError):
+            pass
     if sys.platform == "win32":
         import winreg
         for hive in (winreg.HKEY_CURRENT_USER, winreg.HKEY_LOCAL_MACHINE):
