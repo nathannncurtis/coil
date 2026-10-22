@@ -932,6 +932,7 @@ fn may_raise_marks() {
         .may_raise()
     );
     assert!(Instr::Safepoint.may_raise());
+    assert!(Instr::FinallyExit { reason: v(0) }.may_raise());
     assert!(
         !Instr::IAddOvf {
             lhs: v(0),

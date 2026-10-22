@@ -673,7 +673,8 @@ pub enum Instr {
     /// `FinallyEnter() -> into`: the `finally` reason slot, set to `None`.
     FinallyEnter { into: Value },
     /// `FinallyExit(reason)`: no result; `reason` is the reason slot
-    /// (`None`, the exception, or the return value).
+    /// (`None`, the exception, or the return value). Re-raises when the slot
+    /// holds an exception, so it may raise.
     FinallyExit { reason: Value },
 }
 
@@ -686,6 +687,7 @@ impl Instr {
         matches!(
             self,
             I::Unbox { .. }
+                | I::FinallyExit { .. }
                 | I::IDivOvf { .. }
                 | I::ShlOvf { .. }
                 | I::IDiv { .. }
