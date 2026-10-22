@@ -3,9 +3,12 @@
 Invokes tools/front_oracle.py in-process and a dumper command as a subprocess
 in the same mode over the same file list, compares the JSON Lines records per
 file and reports the first differing location as a JSON pointer (RFC 6901)
-into the file's object. The dumper receives the same mode flag and the same
-expanded file list as the oracle (``<dumper> --tokens|--ast|--symtable
-FILE...``) and must write the same JSON Lines to stdout.
+into the file's object. The dumper receives the same mode flag and a batch of
+the expanded file list (``<dumper> --tokens|--ast|--symtable FILE...``) and
+must write the same JSON Lines to stdout. Files go in batches small enough for
+Windows' command-line limit, and each batch is compared and dropped before the
+next runs, so memory stays bounded by a batch rather than the whole tree
+(--ast over all of Lib/ is about 400 MB of JSON per side).
 
 Error objects are compared field by field: only ``type`` and ``lineno`` in
 --tokens mode; ``type``, ``lineno`` and ``offset`` in --ast mode; all fields
@@ -31,6 +34,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import front_oracle  # noqa: E402
 
 DEFAULT_DUMPER = "cargo run --release -q -p coil-front --bin coil-front-dump --"
+# CreateProcess caps a command line at 32,767 characters; leave room for the dumper itself.
+BATCH_CHARS = 24_000
+BATCH_FILES = 64
 ERROR_FIELDS = {"tokens": ("type", "lineno"), "ast": ("type", "lineno", "offset")}
 
 
@@ -109,6 +115,22 @@ def compared_part(record: dict, mode: str) -> dict:
     return {"path": record.get("path"), "ok": False, "error": error}
 
 
+def batches(paths: list[Path], max_chars: int = BATCH_CHARS, max_files: int = BATCH_FILES) -> list[list[Path]]:
+    out: list[list[Path]] = []
+    current: list[Path] = []
+    size = 0
+    for path in paths:
+        length = len(str(path)) + 3
+        if current and (size + length > max_chars or len(current) >= max_files):
+            out.append(current)
+            current, size = [], 0
+        current.append(path)
+        size += length
+    if current:
+        out.append(current)
+    return out
+
+
 def diff(mode: str, oracle_records: list[dict], dumper_records: list[dict]) -> dict:
     by_path = {record["path"]: record for record in dumper_records}
     seen = set()
@@ -137,6 +159,17 @@ def diff(mode: str, oracle_records: list[dict], dumper_records: list[dict]) -> d
     return {"counts": counts, "mismatches": mismatches}
 
 
+def diff_batched(mode: str, dumper: str, paths: list[Path], **limits: int) -> dict:
+    counts = {"files": 0, "match": 0, "mismatch": 0, "both_error": 0}
+    mismatches: list[tuple[str, str]] = []
+    for batch in batches(paths, **limits):
+        result = diff(mode, front_oracle.records(mode, batch), run_dumper(dumper, mode, batch))
+        for name in counts:
+            counts[name] += result["counts"][name]
+        mismatches.extend(result["mismatches"])
+    return {"counts": counts, "mismatches": mismatches}
+
+
 def main(argv: list[str] | None = None) -> int:
     front_oracle.require_python312()
     parser = argparse.ArgumentParser(description=__doc__)
@@ -148,10 +181,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dumper", default=DEFAULT_DUMPER,
                         help=f"command producing the Rust side's JSON Lines (default: {DEFAULT_DUMPER})")
     args = parser.parse_args(argv)
-    paths = front_oracle.collect_paths(args.inputs)
-    oracle_records = front_oracle.records(args.mode, paths)
-    dumper_records = run_dumper(args.dumper, args.mode, paths)
-    result = diff(args.mode, oracle_records, dumper_records)
+    result = diff_batched(args.mode, args.dumper, front_oracle.collect_paths(args.inputs))
     for path, detail in result["mismatches"]:
         print(f"mismatch {path} {detail or '(whole object)'}")
     for name in ("files", "match", "mismatch", "both_error"):
