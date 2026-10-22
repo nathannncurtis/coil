@@ -72,7 +72,7 @@ def build(
         target_os: Target OS.
         python_version: Target Python version.
         gui: GUI mode (no console window).
-        secure: Secure obfuscation.
+        secure: Omit the source recovery archive and compile at optimize=2.
         exclude: Packages to exclude.
         include: Packages to force-include.
         output_dir: Output directory path.
