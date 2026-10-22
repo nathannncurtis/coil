@@ -6,6 +6,7 @@ with CLI arguments (CLI > profile > [build] > defaults).
 
 from __future__ import annotations
 
+import re
 import sys
 from pathlib import Path
 from typing import Any, Optional
@@ -35,6 +36,7 @@ DEFAULTS = {
     "exclude": [],
     "include": [],
     "deps_auto": True,
+    "files": {},
 }
 
 
@@ -222,6 +224,11 @@ def get_build_config(
     config["exclude"] = deps.get("exclude", [])
     config["include"] = deps.get("include", [])
 
+    files = build.get("files", {})
+    if not isinstance(files, dict):
+        raise ValueError("[build.files] must be a table of destination = source")
+    config["files"] = files
+
     # From [build.output]
     config["output_dir"] = output.get("dir", DEFAULTS["output_dir"])
     config["icon"] = output.get("icon", DEFAULTS["icon"])
@@ -253,8 +260,53 @@ def get_build_config(
             config["exclude"] = prof["exclude"]
         if "include" in prof:
             config["include"] = prof["include"]
+        if "files" in prof:
+            if not isinstance(prof["files"], dict):
+                raise ValueError(f"[profile.{profile}.files] must be a table of destination = source")
+            config["files"] = prof["files"]
 
     return config
+
+
+_RESERVED_NAME = re.compile(r"(?i)(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?")
+_BAD_CHARS = re.compile(r'[<>:"|?*\x00-\x1f]')
+
+
+def resolve_files(files: dict[str, Any], project_dir: Path) -> list[tuple[str, Path]]:
+    """Validate [build.files] and return (destination, absolute source) pairs.
+
+    Destinations are normalised to forward slashes. Sources are resolved
+    against the project directory unless absolute, and must exist.
+    """
+    resolved: list[tuple[str, Path]] = []
+    seen: set[str] = set()
+    for dest, source in files.items():
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError(f"[build.files] {dest!r}: source must be a non-empty path string")
+        text = str(dest).replace("\\", "/")
+        if not text or text.startswith("/") or _BAD_CHARS.search(text):
+            raise ValueError(
+                f"[build.files] destination {dest!r} must be a relative path with no drive or special characters"
+            )
+        parts = text.split("/")
+        for part in parts:
+            if (part in ("", ".", "..") or part != part.rstrip(" .")
+                    or _RESERVED_NAME.fullmatch(part)):
+                raise ValueError(
+                    f"[build.files] destination {dest!r} has an invalid segment {part!r}"
+                )
+        if parts[0].casefold() == "_internal":
+            raise ValueError(f"[build.files] destination {dest!r} is inside the reserved _internal folder")
+        key = text.casefold()
+        if key in seen:
+            raise ValueError(f"[build.files] destination {dest!r} is listed twice")
+        seen.add(key)
+        path = Path(source)
+        path = path if path.is_absolute() else project_dir / path
+        if not path.exists():
+            raise ValueError(f"[build.files] source for {dest!r} does not exist: {path}")
+        resolved.append((text, path.resolve()))
+    return resolved
 
 
 def generate_toml(
