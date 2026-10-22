@@ -81,7 +81,7 @@ def create_parser() -> argparse.ArgumentParser:
         "--secure",
         action="store_true",
         default=False,
-        help="Heavy obfuscation. Cannot be reversed by coil decompile.",
+        help="Omit the source recovery archive and compile at optimize=2. Bytecode stays decompilable with standard tools.",
     )
     build_parser.add_argument(
         "--exclude",
