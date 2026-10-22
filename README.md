@@ -1,7 +1,7 @@
 # Coil
 
 ![Python](https://img.shields.io/badge/python-3.9%2B-blue)
-![License](https://img.shields.io/badge/license-GPL%203.0-blue)
+![License](https://img.shields.io/badge/license-Apache--2.0%20WITH%20LLVM--exception-blue)
 ![Platform](https://img.shields.io/badge/platform-Windows-lightgrey)
 ![Version](https://img.shields.io/badge/version-0.3.1-orange)
 
@@ -470,4 +470,4 @@ python -m pytest
 
 ## License
 
-GNU General Public License v3.0 (or later). See [LICENSE](LICENSE) for the full text.
+Apache License 2.0 with LLVM Exceptions (`Apache-2.0 WITH LLVM-exception`). See [LICENSE](LICENSE) for the full text.
