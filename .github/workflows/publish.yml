@@ -14,6 +14,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -41,13 +43,16 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
 
+      - name: Write release notes
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          python3 .github/scripts/release-notes.py "$GITHUB_REF_NAME" > "$RUNNER_TEMP/notes.md" || true
+          { [ -s "$RUNNER_TEMP/notes.md" ] && cat "$RUNNER_TEMP/notes.md" && echo; printf '```\npip install coil-compiler==%s\n```\n' "${{ steps.version.outputs.VERSION }}"; } > "$RUNNER_TEMP/body.md"
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           name: Coil v${{ steps.version.outputs.VERSION }}
-          body: |
-            ## Coil v${{ steps.version.outputs.VERSION }}
-
-            ```
-            pip install coil-compiler==${{ steps.version.outputs.VERSION }}
-            ```
+          body_path: ${{ runner.temp }}/body.md
