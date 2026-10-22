@@ -3,7 +3,8 @@
 Default mode: compiles to .pyc with embedded metadata that allows
 coil decompile to recover the original source.
 
-Secure mode: bytecode-only, stripped debug info, no recoverable metadata.
+Secure mode: no recovery archive; docstrings and asserts are stripped.
+The bytecode remains decompilable with standard tools.
 """
 
 from __future__ import annotations
@@ -33,6 +34,7 @@ def compile_to_pyc(
     output_file: Path,
     optimize: int = 0,
     runtime_python: Optional[Path] = None,
+    dfile: Optional[str] = None,
 ) -> None:
     """Compile a single .py file to .pyc.
 
@@ -43,7 +45,11 @@ def compile_to_pyc(
         runtime_python: Path to the target Python exe. If provided and its
             version differs from the host Python, compilation is delegated
             to the target interpreter so the .pyc magic number matches.
+        dfile: Filename recorded in the bytecode (co_filename). Defaults to
+            the source file's name so no build-machine path is embedded.
     """
+    if dfile is None:
+        dfile = source_file.name
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     if runtime_python and runtime_python.is_file():
@@ -52,7 +58,7 @@ def compile_to_pyc(
         script = (
             f"import py_compile; "
             f"py_compile.compile({str(source_file)!r}, "
-            f"cfile={str(output_file)!r}, "
+            f"cfile={str(output_file)!r}, dfile={dfile!r}, "
             f"optimize={optimize}, doraise=True)"
         )
         result = subprocess.run(
@@ -70,6 +76,7 @@ def compile_to_pyc(
         py_compile.compile(
             str(source_file),
             cfile=str(output_file),
+            dfile=dfile,
             optimize=optimize,
             doraise=True,
         )
@@ -108,7 +115,8 @@ def compile_directory(
     for i, py_file in enumerate(py_files):
         relative = py_file.relative_to(source_dir)
         pyc_file = output_dir / relative.with_suffix(".pyc")
-        compile_to_pyc(py_file, pyc_file, optimize=optimize, runtime_python=runtime_python)
+        compile_to_pyc(py_file, pyc_file, optimize=optimize, runtime_python=runtime_python,
+                       dfile=str(relative.with_suffix(".py")))
         compiled.append(pyc_file)
         if progress_callback is not None:
             progress_callback(i + 1, total, py_file)
@@ -189,10 +197,9 @@ def obfuscate_secure(
     runtime_python: Optional[Path] = None,
     skip: Optional[Callable[[Path], bool]] = None,
 ) -> Path:
-    """Secure obfuscation: bytecode-only, no recoverable source.
+    """Secure build: compiles at optimize=2 and omits the source recovery archive.
 
-    Compiles with maximum optimization, strips debug info,
-    and includes no source archive or recovery metadata.
+    Function, variable and constant names remain in the bytecode.
 
     Args:
         source_dir: Project source directory.

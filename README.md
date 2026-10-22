@@ -162,7 +162,7 @@ GUI detection is per-entry — if `gui.py` imports PyQt5 but `cli.py` doesn't, o
 
 ### Secure Build
 
-Heavy obfuscation. Cannot be reversed by `coil decompile`:
+Leaves out Coil's recovery copy of your source and strips docstrings and asserts. `coil decompile` refuses these builds, but the bytecode can still be decompiled with standard tools:
 
 ```bash
 coil build ./myproject --secure
@@ -176,7 +176,7 @@ Recover source from a default (non-secure) Coil build:
 coil decompile ./dist/MyApp.exe --output ./recovered
 ```
 
-Secure builds cannot be recovered by Coil; Python bytecode remains inspectable.
+Secure builds have no recovery copy, so Coil cannot recover them. The bytecode can still be decompiled with standard tools.
 
 ### Clean Build
 
@@ -407,7 +407,7 @@ taken under the same settings the build will use. `coil doctor` accepts `--verbo
 | `--python` | Auto-detect | Target Python version |
 | `--gui` | Auto-detect from imports | Suppress console window |
 | `--console` | Auto-detect from imports | Show console window. Overrides auto-detected GUI mode |
-| `--secure` | `false` | Heavy obfuscation, not reversible |
+| `--secure` | `false` | No source recovery copy; docstrings and asserts stripped |
 | `--clean` | `false` | Build in clean environment with only declared deps |
 | `--profile` | None | Build profile from coil.toml |
 | `--exclude` | None | Comma-separated packages to exclude |
@@ -424,7 +424,9 @@ taken under the same settings the build will use. `coil doctor` accepts `--verbo
 
 **Default mode:** Source is compiled to bytecode and packaged with metadata that `coil decompile` can use to recover the original `.py` files. This is a safety net — not cryptographic security, but your source isn't casually visible.
 
-**Secure mode (`--secure`):** Bytecode only, debug info stripped, no recovery metadata. `coil decompile` will refuse to process it. This is stronger but not impenetrable — no bytecode obfuscation is NSA-proof. It's meant to raise the bar, not guarantee secrecy.
+**Secure mode (`--secure`):** Leaves out Coil's recovery copy of your source and strips docstrings and asserts (`--optimize 2`). `coil decompile` refuses to process it. Function names, variable names, constants and line numbers remain in the bytecode, and standard decompilers can read it. Secure mode is not a secrecy boundary.
+
+No build records the build machine's paths: compiled files store paths relative to the project (or to the dependency's package root).
 
 ## FAQ
 

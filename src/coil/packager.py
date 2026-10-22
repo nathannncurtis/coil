@@ -126,7 +126,7 @@ def package_portable(
         name: Application name.
         target_os: Target OS.
         gui: GUI mode.
-        secure: Secure obfuscation.
+        secure: Omit the source recovery archive and compile at optimize=2.
         icon: Icon file path.
         deps_dir: Directory containing installed dependencies.
         verbose: Verbose output.
@@ -294,7 +294,7 @@ def package_bundled(
         name: Application name.
         target_os: Target OS.
         gui: GUI mode (no console).
-        secure: Secure obfuscation.
+        secure: Omit the source recovery archive and compile at optimize=2.
         icon: Icon file path.
         deps_dir: Directory containing installed dependencies.
         verbose: Verbose output.
@@ -965,7 +965,7 @@ def _remove_py_files(directory: Path, runtime_python: Optional[Path] = None,
         script = (
             "import compileall, sys; "
             "sys.exit(0 if compileall.compile_dir(sys.argv[1], quiet=1, "
-            "force=True, legacy=True, optimize=int(sys.argv[2])) else 1)"
+            "force=True, legacy=True, ddir='', optimize=int(sys.argv[2])) else 1)"
         )
         result = subprocess.run([str(runtime_python), "-c", script, str(directory), str(optimize)],
                                 capture_output=True, text=True)
@@ -974,7 +974,8 @@ def _remove_py_files(directory: Path, runtime_python: Optional[Path] = None,
     for py_file in directory.rglob("*.py"):
         pyc = py_file.with_suffix(".pyc")
         if runtime_python is None:
-            compile_to_pyc(py_file, pyc, optimize=optimize)
+            compile_to_pyc(py_file, pyc, optimize=optimize,
+                           dfile=str(py_file.relative_to(directory)))
         py_file.unlink()
 
 
