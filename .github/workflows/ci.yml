@@ -78,6 +78,8 @@ jobs:
         env:
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
+          FORBIDDEN_NAMES: ${{ secrets.FORBIDDEN_NAMES }}
+          FROM_FORK: ${{ github.event.pull_request.head.repo.fork }}
         run: bash .github/scripts/rules.sh "${{ steps.range.outputs.range }}"
       - name: Secrets
         run: |
