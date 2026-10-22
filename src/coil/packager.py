@@ -111,6 +111,7 @@ def package_portable(
     optimize: Optional[int] = None,
     versioninfo: Optional[dict[str, dict[str, str]]] = None,
     subsystems: Optional[dict[str, str]] = None,
+    extra_files: Optional[list[tuple[str, Path]]] = None,
 ) -> list[Path]:
     """Create a portable build: single self-contained .exe per entry point.
 
@@ -166,6 +167,7 @@ def package_portable(
                 optimize=optimize,
                 subsystem=explicit_sub,
                 portable=True,
+                extra_files=extra_files,
             )
 
             # Step 2: Zip the staged directory
@@ -280,6 +282,7 @@ def package_bundled(
     optimize: Optional[int] = None,
     versioninfo: Optional[dict[str, dict[str, str]]] = None,
     subsystems: Optional[dict[str, str]] = None,
+    extra_files: Optional[list[tuple[str, Path]]] = None,
 ) -> Path:
     """Create a bundled build: directory with exe and supporting files.
 
@@ -335,6 +338,7 @@ def package_bundled(
         optimize=optimize,
         versioninfo=primary_vi,
         subsystem=primary_sub,
+        extra_files=extra_files,
     )
 
     # For multiple entry points, create additional launchers
@@ -428,6 +432,7 @@ def _build_app_directory(
     versioninfo: Optional[dict[str, str]] = None,
     subsystem: Optional[str] = None,
     portable: bool = False,
+    extra_files: Optional[list[tuple[str, Path]]] = None,
 ) -> None:
     """Build the full application directory structure.
 
@@ -495,26 +500,6 @@ def _build_app_directory(
             return True
         except ValueError:
             return project_matcher(path)
-
-    # Strip unused modules from stdlib zip
-    from coil.scanner import scan_project
-    project_imports = scan_project(project_dir)
-    if deps_dir is not None:
-        from coil.scanner import extract_imports
-        import tokenize
-        for source in deps_dir.rglob("*.py"):
-            try:
-                with tokenize.open(source) as stream:
-                    project_imports.update(extract_imports(stream.read()))
-            except (OSError, UnicodeError, SyntaxError):
-                continue
-    # site.sethelper() uses pydoc lazily, even without an app-level import.
-    project_imports.update({"pydoc", "pydoc_data"})
-    if "pydoc" in project_imports:
-        project_imports.add("pydoc_data")
-    if "turtle" in project_imports:
-        project_imports.add("tkinter")
-    _strip_stdlib_zip(internal_dir, project_imports, ui=ui, verbose=verbose)
 
     from coil.launcher import create_launcher
     target_exe = stage_dir / f"{entry_name}.exe"
@@ -608,6 +593,43 @@ def _build_app_directory(
     # Python packages locate data beside __file__ and through importlib.resources.
     # Retain root assets for existing applications while supplying that layout.
     _copy_project_assets(project_dir, internal_dir / "app", exclude_matcher=exclude_matcher)
+
+    if extra_files:
+        _copy_extra_files(extra_files, stage_dir, internal_dir / "app", ui=ui)
+
+
+def _copy_extra_files(
+    extra_files: list[tuple[str, Path]],
+    stage_dir: Path,
+    app_dir: Path,
+    ui: Optional[BuildUI] = None,
+) -> None:
+    """Copy [build.files] entries to the bundle root and the app folder.
+
+    Mirrors project assets so the files resolve beside the exe and beside the
+    compiled code. Anything already staged at a destination is a collision.
+    """
+    for dest, source in extra_files:
+        pairs = (
+            [(dest, source)] if source.is_file()
+            else [(f"{dest}/{f.relative_to(source).as_posix()}", f)
+                  for f in sorted(source.rglob("*")) if f.is_file()]
+        )
+        for rel, src in pairs:
+            for base in (stage_dir, app_dir):
+                target = base / rel
+                try:
+                    target.resolve().relative_to(base.resolve())
+                except ValueError:
+                    raise ValueError(f"[build.files] destination {rel!r} escapes the bundle") from None
+                if target.exists() or target.is_symlink():
+                    raise ValueError(
+                        f"[build.files] destination {rel!r} would overwrite an existing bundle file"
+                    )
+                target.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(src, target)
+        if ui is not None:
+            ui.detail(f"Copied extra files: {dest}")
 
 
 def _zip_directory(
@@ -993,78 +1015,3 @@ def _strip_installed_packages(dest_dir: Path) -> None:
         for match in dest_dir.rglob(pattern):
             if match.is_dir():
                 shutil.rmtree(match, ignore_errors=True)
-
-
-def _strip_stdlib_zip(
-    internal_dir: Path,
-    project_imports: Optional[set[str]] = None,
-    ui: Optional[BuildUI] = None,
-    verbose: bool = False,
-) -> int:
-    """Strip unnecessary modules from the bundled stdlib zip.
-
-    Returns bytes saved.
-    """
-    from coil.utils.stdlib_strip import ALWAYS_STRIP, STRIP_UNLESS_USED
-
-    stdlib_zips = list(internal_dir.glob("python*.zip"))
-    if not stdlib_zips:
-        return 0
-
-    stdlib_zip = stdlib_zips[0]
-    original_size = stdlib_zip.stat().st_size
-
-    project_imports = project_imports or set()
-
-    # Build set of entries to remove
-    strip_prefixes: set[str] = set()
-    for mod in ALWAYS_STRIP:
-        if mod.split(".")[0] in project_imports:
-            continue
-        if mod.endswith(".pyc"):
-            strip_prefixes.add(mod)
-        else:
-            strip_prefixes.add(mod + "/")
-            strip_prefixes.add(mod + ".pyc")
-
-    for mod_path, import_name in STRIP_UNLESS_USED.items():
-        if import_name not in project_imports:
-            if mod_path.endswith(".pyc"):
-                strip_prefixes.add(mod_path)
-            else:
-                strip_prefixes.add(mod_path + "/")
-                strip_prefixes.add(mod_path + ".pyc")
-
-    # Rewrite the zip without stripped entries
-    import tempfile
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tf:
-        tmp_path = Path(tf.name)
-
-    try:
-        with zipfile.ZipFile(stdlib_zip, "r") as src:
-            with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_DEFLATED) as dst:
-                for item in src.infolist():
-                    should_strip = False
-                    for prefix in strip_prefixes:
-                        if item.filename == prefix or item.filename.startswith(prefix):
-                            should_strip = True
-                            break
-                    if not should_strip:
-                        dst.writestr(item, src.read(item.filename))
-
-        shutil.move(str(tmp_path), str(stdlib_zip))
-    except Exception:
-        tmp_path.unlink(missing_ok=True)
-        return 0
-
-    new_size = stdlib_zip.stat().st_size
-    saved = original_size - new_size
-
-    if saved > 0:
-        if ui is not None:
-            from coil.ui import format_size
-            ui.detail(f"Stripped stdlib: saved {format_size(saved)}")
-        elif verbose:
-            print(f"  Stripped stdlib: saved {saved / 1024:.0f} KB")
-
-    return saved

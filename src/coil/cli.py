@@ -448,6 +448,7 @@ def _apply_toml_config(args: argparse.Namespace, project_dir: Path) -> None:
     """
     from coil.config import load_config, get_build_config
 
+    args.build_files = {}
     raw = load_config(project_dir)
     if raw is None:
         return
@@ -504,6 +505,8 @@ def _apply_toml_config(args: argparse.Namespace, project_dir: Path) -> None:
     # icon
     if args.icon is None and config.get("icon"):
         args.icon = config["icon"]
+
+    args.build_files = config.get("files", {})
 
     # exclude/include
     if args.exclude is None and config.get("exclude"):
@@ -579,6 +582,12 @@ def main(argv: list[str] | None = None) -> None:
         python_version = args.python or detect_python_version()
         entry_points = resolve_entry_points(project_dir, args.entry)
         name = args.name or project_dir.name
+        from coil.config import resolve_files
+        try:
+            extra_files = resolve_files(args.build_files, project_dir)
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
         exclude = [p.strip() for p in args.exclude.split(",")] if args.exclude else []
         include = [p.strip() for p in args.include.split(",")] if args.include else []
 
@@ -641,6 +650,8 @@ def main(argv: list[str] | None = None) -> None:
                 print(f"  Include:      {', '.join(include)}")
             if args.requirements:
                 print(f"  Requirements: {args.requirements}")
+            for dest, source in extra_files:
+                print(f"  File:         {dest} <- {source}")
             sys.exit(0)
 
         # Resolve per-entry VERSIONINFO from coil.toml if present.
@@ -721,6 +732,7 @@ def main(argv: list[str] | None = None) -> None:
                 versioninfo=versioninfo,
                 subsystems=subsystems,
                 deps_auto=deps_auto,
+                extra_files=extra_files,
             )
         except Exception as e:
             if args.verbose:

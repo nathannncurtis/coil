@@ -62,6 +62,7 @@ def build(
     versioninfo: dict[str, dict[str, str]] | None = None,
     subsystems: dict[str, str] | None = None,
     deps_auto: bool = True,
+    extra_files: list[tuple[str, Path]] | None = None,
 ) -> list[Path]:
     """Execute the full build pipeline.
 
@@ -88,6 +89,8 @@ def build(
             override fall through to the existing hybrid default.
         deps_auto: When True, auto-detect imports and union with declared
             dependencies. Reflects [build.dependencies].auto in coil.toml.
+
+        extra_files: Resolved [build.files] (destination, source) pairs.
 
     Returns:
         List of paths to created output files/directories.
@@ -212,6 +215,7 @@ def build(
                 optimize=optimize,
                 versioninfo=versioninfo,
                 subsystems=subsystems,
+                extra_files=extra_files,
             )
             outputs = [result]
         else:
@@ -231,6 +235,7 @@ def build(
                 optimize=optimize,
                 versioninfo=versioninfo,
                 subsystems=subsystems,
+                extra_files=extra_files,
             )
 
     ui.build_summary(outputs)
