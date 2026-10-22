@@ -179,3 +179,29 @@ def test_front_diff_reports_mismatch_with_pointer(tmp_path: Path) -> None:
     assert "files 1" in result.stdout
     assert "match 0" in result.stdout
     assert "mismatch 1" in result.stdout
+
+
+def test_front_diff_batches_bound_the_command_line() -> None:
+    front_diff = _load_tool("front_diff")
+    paths = [Path(f"/src/{'x' * 40}{index}.py") for index in range(10)]
+    batches = front_diff.batches(paths, max_chars=150, max_files=4)
+    assert [path for batch in batches for path in batch] == paths
+    assert all(len(batch) <= 4 for batch in batches)
+    assert all(sum(len(str(path)) + 3 for path in batch) <= 150 for batch in batches)
+    assert front_diff.batches([Path("/" + "y" * 500)], max_chars=150) == [[Path("/" + "y" * 500)]]
+
+
+def test_front_diff_compares_across_batches(tmp_path: Path) -> None:
+    front_diff = _load_tool("front_diff")
+    package = tmp_path / "pkg"
+    package.mkdir()
+    for index in range(5):
+        (package / f"m{index}.py").write_text(f"x{index} = {index}\n", encoding="utf-8")
+    dumper = _write_dumper(tmp_path, "echo_dumper.py", ECHO_DUMPER.format(tools=str(TOOLS)))
+    paths = front_oracle.collect_paths([str(package)])
+    result = front_diff.diff_batched("ast", dumper, paths, max_files=2)
+    assert result["counts"] == {"files": 5, "match": 5, "mismatch": 0, "both_error": 0}
+    altered = _write_dumper(tmp_path, "alter_dumper.py", ALTER_DUMPER.format(tools=str(TOOLS)))
+    result = front_diff.diff_batched("tokens", altered, paths, max_files=2)
+    assert result["counts"]["mismatch"] == 5
+    assert [detail for _, detail in result["mismatches"]] == ["/tokens/0/1"] * 5
