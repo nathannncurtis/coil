@@ -187,6 +187,15 @@ def run_inspect(
     else:
         console.print("  force-included: none")
 
+    from coil.config import resolve_files
+    try:
+        extra_files = resolve_files(config.get("files", {}), project_dir)
+    except ValueError as exc:
+        console.print(f"[red]Error: {exc}[/red]")
+        return 1
+    for dest, source in extra_files:
+        console.print(f"  extra file: {dest} <- {source}")
+
     # Size estimates
     console.print(f"\n[bold]Estimated output size:[/bold]")
 

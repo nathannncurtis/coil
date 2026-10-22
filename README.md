@@ -104,7 +104,7 @@ without stderr still needs application-level error reporting. `sys.executable`
 relaunches the app; it is not a Python command for `-c` or `-m` subprocesses.
 
 The [full audit report](docs/audit.md) lists reproduced defects, fixes, validation,
-and remaining choices, including stdlib stripping and dynamic-import limits.
+and remaining choices, including stdlib retention and dynamic-import limits.
 
 ### GUI Application
 
@@ -240,6 +240,23 @@ docs/
 
 `.coilignore` patterns are unioned with the built-in defaults; negation patterns let you override defaults when they're wrong for your project.
 
+### When auto-detection isn't enough
+
+Coil compiles every `.py` in the project, copies the other project files (minus `.coilignore`), and installs each dependency as a whole distribution, so hidden-import and data-file settings are not needed. When something is still missing:
+
+- A package the scanner cannot see (plugins found through entry points or loaded by name): `include = ["pkg"]` under `[build.dependencies]`, or `--include pkg`.
+- An exact dependency list: `--requirements requirements.txt`.
+- A project file that a default exclude dropped: `!pattern` in `.coilignore`.
+- Files outside the project folder: a `[build.files]` table of `"path/in/bundle" = "source"`. Sources are files or folders, relative to the project or absolute; a profile's `files` table replaces the base one.
+
+```toml
+[build.files]
+"assets/shared" = "../shared-assets"
+"vendor.dll" = "C:/SDK/bin/vendor.dll"
+```
+
+Destinations must be relative, without `..`, drive letters or device names, and cannot replace files Coil already placed in the bundle. They are available at the bundle root (beside the exe, so a DLL there is found by the normal Windows search, in portable builds too) and beside the compiled modules.
+
 ### Pre-Build Diagnostics
 
 Check for problems before building:
@@ -336,6 +353,10 @@ clean = false
 auto = true
 exclude = []
 include = []
+
+# Files from outside the project folder: "path in bundle" = "source"
+[build.files]
+"assets/shared" = "../shared-assets"
 
 # Per-entry PE subsystem override. Without this block, Coil auto-detects
 # console vs GUI from imports.
@@ -437,7 +458,7 @@ No. Coil bundles an embedded Python runtime. The resulting executable is fully s
 Coil bundles `.pyd` / `.dll` files from installed packages. Most packages with C extensions work out of the box.
 
 **Q: How big are the executables?**
-A minimal project produces an exe around 15-20 MB (mostly the Python runtime). Dependencies add to that. Coil strips unnecessary files to keep size reasonable.
+A minimal project produces an exe around 15-20 MB (mostly the Python runtime). Dependencies add to that. Coil bundles the runtime's standard library as shipped and your dependencies whole, so size is the runtime plus what you use.
 
 **Q: Can I cross-compile for other platforms?**
 Not yet. Currently Coil only builds Windows executables on Windows. Cross-platform and cross-compilation are on the roadmap.

@@ -183,6 +183,15 @@ def _check_config(project_dir: Path) -> list[CheckResult]:
         else:
             results.append(CheckResult("fail", "No entry point found — set entry in coil.toml or add __main__.py"))
 
+    from coil.config import resolve_files
+    try:
+        count = len(resolve_files(config.get("files", {}), project_dir))
+    except ValueError as e:
+        results.append(CheckResult("fail", str(e)))
+    else:
+        if count:
+            results.append(CheckResult("pass", f"[build.files]: {count} entries valid"))
+
     # Check icon exists
     icon = config.get("icon", "")
     if icon:
