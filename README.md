@@ -457,6 +457,22 @@ No. Coil bundles an embedded Python runtime. The resulting executable is fully s
 **Q: What about C extensions / native modules?**
 Coil bundles `.pyd` / `.dll` files from installed packages. Most packages with C extensions work out of the box.
 
+Tested with real builds (Python 3.12, bundled and portable) on every pull request:
+
+| Package | Pinned version | Modes |
+|---|---|---|
+| numpy | 2.5.4 | bundled, portable |
+| Pillow | 13.0.0 | bundled, portable |
+| PyQt5 | 5.15.11 | bundled, portable |
+| PyQt6 | 6.11.0 | bundled, portable |
+| pdfplumber (pypdfium2) | 0.11.10 | bundled, portable |
+| pyautogui | 0.9.54 | bundled, portable |
+| cryptography | 50.0.2 | bundled, portable |
+| lxml | 6.1.3 | bundled, portable |
+| psutil | 7.2.2 | bundled, portable |
+| tkinter (copied from a matching local CPython) | Python 3.12 | bundled, portable |
+| entry-point plugins (`importlib.metadata`) | local wheels, added with `include` | bundled, portable |
+
 **Q: How big are the executables?**
 A minimal project produces an exe around 15-20 MB (mostly the Python runtime). Dependencies add to that. Coil bundles the runtime's standard library as shipped and your dependencies whole, so size is the runtime plus what you use.
 
