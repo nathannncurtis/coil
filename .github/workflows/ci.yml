@@ -22,6 +22,7 @@ jobs:
     outputs:
       python: ${{ steps.f.outputs.python }}
       native: ${{ steps.f.outputs.native }}
+      rust: ${{ steps.f.outputs.rust }}
       docs: ${{ steps.f.outputs.docs }}
       compat: ${{ steps.f.outputs.compat }}
     steps:
@@ -46,6 +47,9 @@ jobs:
               - 'src/coil/_launcher_stubs.py'
               - 'src/coil/bootloader.py'
               - '.github/scripts/native_compare.py'
+              - '.github/workflows/ci.yml'
+            rust:
+              - 'native/**'
               - '.github/workflows/ci.yml'
             compat:
               - 'tests/compat/**'
@@ -186,6 +190,36 @@ jobs:
           COIL_TEST_CROSS_RUNTIME: build/test-runtimes/python-3.13.7-embed-amd64.zip
         run: python -m pytest -q tests/test_launcher.py tests/test_launcher_integration.py tests/test_portable_integration.py tests/test_subsystem_integration.py tests/test_windows_subsystem.py --basetemp=build/pytest
 
+  rust:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Install the pinned Rust toolchain
+        working-directory: native
+        run: rustup show
+      - name: Cache cargo registry and build artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            native/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}
+          restore-keys: |
+            rust-${{ runner.os }}-
+      - run: cargo fmt --all --check
+        working-directory: native
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+        working-directory: native
+      - run: cargo test --workspace
+        working-directory: native
+
   compat:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.compat == 'true'
@@ -222,7 +256,7 @@ jobs:
           fail: true
 
   ci-ok:
-    needs: [changes, rules, windows-executables, supported-build-hosts, python-audit, native, compat, docs]
+    needs: [changes, rules, windows-executables, supported-build-hosts, python-audit, native, rust, compat, docs]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
