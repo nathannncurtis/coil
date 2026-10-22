@@ -1,0 +1,84 @@
+name: codeql
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  schedule:
+    - cron: "17 5 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: codeql-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # A pull request or a push scans only the languages whose files it changes; the weekly run scans them all.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: f
+        if: github.event_name != 'schedule'
+        with:
+          filters: |
+            actions:
+              - '.github/workflows/**'
+              - '.github/actions/**'
+            python:
+              - '**/*.py'
+            c-cpp:
+              - '**/*.c'
+              - '**/*.h'
+            all:
+              - '.github/workflows/codeql.yml'
+      - id: m
+        env:
+          EVENT: ${{ github.event_name }}
+          CHANGED: ${{ steps.f.outputs.changes || '[]' }}
+        run: |
+          all='[
+            {"language":"actions","build-mode":"none"},
+            {"language":"python","build-mode":"none"},
+            {"language":"c-cpp","build-mode":"none"}
+          ]'
+          if [ "$EVENT" = schedule ] || echo "$CHANGED" | jq -e 'index("all")' >/dev/null; then
+            pick="$all"
+          else
+            pick=$(jq -c --argjson c "$CHANGED" '[.[] | select(.language as $l | $c | index($l))]' <<<"$all")
+          fi
+          echo "matrix=$(jq -c . <<<"$pick")" >> "$GITHUB_OUTPUT"
+          echo "Scanning: $(jq -r 'map(.language) | join(", ") | if . == "" then "nothing" else . end' <<<"$pick")"
+
+  analyze:
+    needs: changes
+    if: needs.changes.outputs.matrix != '[]'
+    name: analyze (${{ matrix.language }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.changes.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: github/codeql-action/init@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: ${{ matrix.build-mode }}
+      - uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee # v4.39.0
+        with:
+          category: /language:${{ matrix.language }}
