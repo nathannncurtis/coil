@@ -1,1 +1,9 @@
-//! Coil IR: the typed SSA intermediate representation with explicit exception edges, shared by the compiler middle end and the IR interpreter.
+//! Coil IR: the typed SSA intermediate representation with explicit exception
+//! edges, shared by the compiler middle end and the IR interpreter.
+
+pub mod ir;
+pub mod print;
+pub mod serialize;
+pub mod types;
+
+include!(concat!(env!("OUT_DIR"), "/schema_hash.rs"));
