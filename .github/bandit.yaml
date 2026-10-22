@@ -1,0 +1,9 @@
+skips:
+  # Python is downloaded from a fixed https://www.python.org template (runtime.get_embed_url); the scheme is never caller-controlled.
+  - B310
+  # Best-effort cleanup and probing deliberately ignores failures.
+  - B110
+  - B112
+  # Coil exists to run pip, compilers and the built program; every call passes an argument list, never a shell string.
+  - B404
+  - B603
