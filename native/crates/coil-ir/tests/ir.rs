@@ -447,6 +447,23 @@ fn sink_instrs() -> Vec<Instr> {
             into: vv(2),
             ovf: vv(3),
         },
+        Instr::IDivOvf {
+            lhs: vv(0),
+            rhs: vv(1),
+            into: vv(2),
+            ovf: vv(3),
+        },
+        Instr::INegOvf {
+            src: vv(0),
+            into: vv(1),
+            ovf: vv(2),
+        },
+        Instr::ShlOvf {
+            lhs: vv(0),
+            rhs: vv(1),
+            into: vv(2),
+            ovf: vv(3),
+        },
         Instr::IAdd {
             lhs: vv(0),
             rhs: vv(1),
@@ -903,7 +920,7 @@ fn every_instruction_roundtrips() {
 fn may_raise_marks() {
     let instrs = sink_instrs();
     // Every variant appears once; the marks must survive a roundtrip too.
-    assert_eq!(instrs.len(), 82);
+    assert_eq!(instrs.len(), 85);
     assert!(instrs.iter().filter(|i| i.may_raise()).count() > 0);
     assert!(
         Instr::BinOp {
@@ -917,6 +934,32 @@ fn may_raise_marks() {
     assert!(Instr::Safepoint.may_raise());
     assert!(
         !Instr::IAddOvf {
+            lhs: v(0),
+            rhs: v(1),
+            into: v(2),
+            ovf: v(3)
+        }
+        .may_raise()
+    );
+    assert!(
+        !Instr::INegOvf {
+            src: v(0),
+            into: v(1),
+            ovf: v(2)
+        }
+        .may_raise()
+    );
+    assert!(
+        Instr::IDivOvf {
+            lhs: v(0),
+            rhs: v(1),
+            into: v(2),
+            ovf: v(3)
+        }
+        .may_raise()
+    );
+    assert!(
+        Instr::ShlOvf {
             lhs: v(0),
             rhs: v(1),
             into: v(2),

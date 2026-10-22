@@ -1197,6 +1197,34 @@ fn instr(w: &mut W, i: &Instr) {
             w.u16(82);
             w.u32(reason.0);
         }
+        I::IDivOvf {
+            lhs,
+            rhs,
+            into,
+            ovf,
+        }
+        | I::ShlOvf {
+            lhs,
+            rhs,
+            into,
+            ovf,
+        } => {
+            w.u16(if matches!(i, I::IDivOvf { .. }) {
+                83
+            } else {
+                85
+            });
+            w.u32(lhs.0);
+            w.u32(rhs.0);
+            w.u32(into.0);
+            w.u32(ovf.0);
+        }
+        I::INegOvf { src, into, ovf } => {
+            w.u16(84);
+            w.u32(src.0);
+            w.u32(into.0);
+            w.u32(ovf.0);
+        }
     }
 }
 
@@ -1554,6 +1582,32 @@ fn instr_r(r: &mut R) -> Result<Instr, Error> {
         },
         82 => I::FinallyExit {
             reason: Value(r.u32()?),
+        },
+        83 | 85 => {
+            let lhs = Value(r.u32()?);
+            let rhs = Value(r.u32()?);
+            let into = Value(r.u32()?);
+            let ovf = Value(r.u32()?);
+            if tag == 83 {
+                I::IDivOvf {
+                    lhs,
+                    rhs,
+                    into,
+                    ovf,
+                }
+            } else {
+                I::ShlOvf {
+                    lhs,
+                    rhs,
+                    into,
+                    ovf,
+                }
+            }
+        }
+        84 => I::INegOvf {
+            src: Value(r.u32()?),
+            into: Value(r.u32()?),
+            ovf: Value(r.u32()?),
         },
         tag => return Err(Error::BadTag { kind: "instr", tag }),
     })

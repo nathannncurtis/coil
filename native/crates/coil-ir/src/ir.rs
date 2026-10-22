@@ -322,6 +322,26 @@ pub enum Instr {
         into: Value,
         ovf: Value,
     },
+    /// `IDivOvf(lhs, rhs) -> (into: Int64, ovf: Bool)`: floor division with an
+    /// overflow result (`i64::MIN // -1`); raises `ZeroDivisionError` on
+    /// `rhs == 0`.
+    IDivOvf {
+        lhs: Value,
+        rhs: Value,
+        into: Value,
+        ovf: Value,
+    },
+    /// `INegOvf(src) -> (into: Int64, ovf: Bool)`: overflows on `-i64::MIN`;
+    /// never raises.
+    INegOvf { src: Value, into: Value, ovf: Value },
+    /// `ShlOvf(lhs, rhs) -> (into: Int64, ovf: Bool)`: overflows when bits or
+    /// the sign would be lost; raises `ValueError` on a negative count.
+    ShlOvf {
+        lhs: Value,
+        rhs: Value,
+        into: Value,
+        ovf: Value,
+    },
     /// `IAdd(lhs, rhs) -> into: Int64`: unchecked; emitted only when overflow
     /// is proven impossible.
     IAdd { lhs: Value, rhs: Value, into: Value },
@@ -329,15 +349,16 @@ pub enum Instr {
     ISub { lhs: Value, rhs: Value, into: Value },
     /// `IMul(lhs, rhs) -> into: Int64`: unchecked.
     IMul { lhs: Value, rhs: Value, into: Value },
-    /// `IDiv(lhs, rhs) -> into: Int64`: floor division; raises
+    /// `IDiv(lhs, rhs) -> into: Int64`: floor division, unchecked; raises
     /// `ZeroDivisionError` on `rhs == 0`.
     IDiv { lhs: Value, rhs: Value, into: Value },
     /// `IMod(lhs, rhs) -> into: Int64`: raises `ZeroDivisionError` on
     /// `rhs == 0`.
     IMod { lhs: Value, rhs: Value, into: Value },
-    /// `INeg(src) -> into: Int64`.
+    /// `INeg(src) -> into: Int64`: unchecked.
     INeg { src: Value, into: Value },
-    /// `Shl(lhs, rhs) -> into: Int64`: raises `ValueError` on a negative count.
+    /// `Shl(lhs, rhs) -> into: Int64`: unchecked; raises `ValueError` on a
+    /// negative count.
     Shl { lhs: Value, rhs: Value, into: Value },
     /// `Shr(lhs, rhs) -> into: Int64`: arithmetic; raises `ValueError` on a
     /// negative count.
@@ -665,6 +686,8 @@ impl Instr {
         matches!(
             self,
             I::Unbox { .. }
+                | I::IDivOvf { .. }
+                | I::ShlOvf { .. }
                 | I::IDiv { .. }
                 | I::IMod { .. }
                 | I::Shl { .. }

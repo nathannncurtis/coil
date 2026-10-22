@@ -251,7 +251,10 @@ pub fn instr_results(ins: &Instr) -> Vec<Value> {
         | I::FinallyEnter { into, .. } => vec![*into],
         I::IAddOvf { into, ovf, .. }
         | I::ISubOvf { into, ovf, .. }
-        | I::IMulOvf { into, ovf, .. } => vec![*into, *ovf],
+        | I::IMulOvf { into, ovf, .. }
+        | I::IDivOvf { into, ovf, .. }
+        | I::INegOvf { into, ovf, .. }
+        | I::ShlOvf { into, ovf, .. } => vec![*into, *ovf],
         I::TypeGuard { ok, fail, .. } | I::ShapeGuard { ok, fail, .. } => vec![*ok, *fail],
         I::CatchBegin { matched, exc, .. } => vec![*matched, *exc],
         I::Unpack { into, .. } => into.to_vec(),
@@ -302,6 +305,11 @@ fn op_text(pool: &ConstPool, ins: &Instr) -> String {
         I::IMulOvf { lhs, rhs, .. } => {
             s.push_str(&format!("imul_ovf {}, {}", val(*lhs), val(*rhs)))
         }
+        I::IDivOvf { lhs, rhs, .. } => {
+            s.push_str(&format!("idiv_ovf {}, {}", val(*lhs), val(*rhs)))
+        }
+        I::INegOvf { src, .. } => s.push_str(&format!("ineg_ovf {}", val(*src))),
+        I::ShlOvf { lhs, rhs, .. } => s.push_str(&format!("shl_ovf {}, {}", val(*lhs), val(*rhs))),
         I::IAdd { lhs, rhs, .. } => s.push_str(&format!("iadd {}, {}", val(*lhs), val(*rhs))),
         I::ISub { lhs, rhs, .. } => s.push_str(&format!("isub {}, {}", val(*lhs), val(*rhs))),
         I::IMul { lhs, rhs, .. } => s.push_str(&format!("imul {}, {}", val(*lhs), val(*rhs))),
