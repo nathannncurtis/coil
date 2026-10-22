@@ -48,6 +48,8 @@ def run_doctor(project_dir: Path, verbose: bool = False) -> int:
     # 5. Known incompatible packages
     results.extend(_check_packages(project_dir))
 
+    results.extend(_check_tkinter(project_dir))
+
     # Print results using rich for Unicode/color safety
     from rich.console import Console
     console = Console(highlight=False)
@@ -228,3 +230,17 @@ def _check_packages(project_dir: Path) -> list[CheckResult]:
                 results.append(CheckResult("warn", f"Package '{known_name}' {warning}"))
 
     return results
+
+
+def _check_tkinter(project_dir: Path) -> list[CheckResult]:
+    """Report where tkinter will come from when the project imports it."""
+    from coil.scanner import scan_project
+    from coil.tkinter_support import find_tkinter_install, needs_tkinter
+
+    if not needs_tkinter(scan_project(project_dir)):
+        return []
+    ver = detect_python_version()
+    install = find_tkinter_install(ver)
+    if install:
+        return [CheckResult("pass", f"tkinter will be copied from {install}")]
+    return [CheckResult("fail", f"tkinter is imported but no 64-bit CPython {ver} with Tcl/Tk was found")]
