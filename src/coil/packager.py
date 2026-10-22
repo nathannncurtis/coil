@@ -112,6 +112,7 @@ def package_portable(
     versioninfo: Optional[dict[str, dict[str, str]]] = None,
     subsystems: Optional[dict[str, str]] = None,
     extra_files: Optional[list[tuple[str, Path]]] = None,
+    tkinter_install: Optional[Path] = None,
 ) -> list[Path]:
     """Create a portable build: single self-contained .exe per entry point.
 
@@ -168,6 +169,7 @@ def package_portable(
                 subsystem=explicit_sub,
                 portable=True,
                 extra_files=extra_files,
+                tkinter_install=tkinter_install,
             )
 
             # Step 2: Zip the staged directory
@@ -283,6 +285,7 @@ def package_bundled(
     versioninfo: Optional[dict[str, dict[str, str]]] = None,
     subsystems: Optional[dict[str, str]] = None,
     extra_files: Optional[list[tuple[str, Path]]] = None,
+    tkinter_install: Optional[Path] = None,
 ) -> Path:
     """Create a bundled build: directory with exe and supporting files.
 
@@ -339,6 +342,7 @@ def package_bundled(
         versioninfo=primary_vi,
         subsystem=primary_sub,
         extra_files=extra_files,
+        tkinter_install=tkinter_install,
     )
 
     # For multiple entry points, create additional launchers
@@ -433,6 +437,7 @@ def _build_app_directory(
     subsystem: Optional[str] = None,
     portable: bool = False,
     extra_files: Optional[list[tuple[str, Path]]] = None,
+    tkinter_install: Optional[Path] = None,
 ) -> None:
     """Build the full application directory structure.
 
@@ -525,9 +530,17 @@ def _build_app_directory(
         print(f"  Compiled source ({'secure' if secure else 'default'} mode, optimize={opt_level})")
 
     # Copy dependencies into _internal/lib/
+    lib_dir = internal_dir / "lib"
     if deps_dir and deps_dir.is_dir():
-        lib_dir = internal_dir / "lib"
         shutil.copytree(deps_dir, lib_dir)
+    if tkinter_install is not None:
+        from coil.tkinter_support import stage_tkinter
+        stage_tkinter(tkinter_install, lib_dir)
+        if ui is not None:
+            ui.detail(f"Bundled tkinter from {tkinter_install}")
+        elif verbose:
+            print(f"  Bundled tkinter from {tkinter_install}")
+    if lib_dir.is_dir():
         _remove_py_files(lib_dir, runtime_python=runtime_python, optimize=opt_level)
         if ui is not None:
             ui.detail("Bundled dependencies")

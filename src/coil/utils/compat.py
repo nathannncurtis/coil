@@ -14,7 +14,7 @@ KNOWN_ISSUES: dict[str, str] = {
     "tensorflow": "very large; requires specific DLL versions",
     "scipy": "includes large native extensions; ensure all .pyd files are included",
     "matplotlib": "requires font files and backends; test GUI rendering",
-    "tkinter": "not included in embeddable Python; use --include if needed",
+    "tkinter": "not in embeddable Python; copied from a matching local CPython install with Tcl/Tk",
     "pygame": "requires SDL2 DLLs alongside the executable",
     "pyaudio": "requires portaudio DLLs alongside the executable",
     "cryptography": "requires OpenSSL DLLs (usually bundled automatically)",

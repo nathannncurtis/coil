@@ -134,6 +134,15 @@ def build(
     else:
         ui.detail("No third-party dependencies found.")
 
+    from coil.scanner import scan_project
+    from coil.tkinter_support import find_tkinter_install, missing_message, needs_tkinter
+    tkinter_install = None
+    if needs_tkinter(scan_project(project_dir, excluded_paths=excluded_paths)):
+        tkinter_install = find_tkinter_install(python_version)
+        if tkinter_install is None:
+            raise RuntimeError(missing_message(python_version))
+        ui.detail(f"tkinter: copying from {tkinter_install}")
+
     # Step 2: Download and prepare runtime
     ui.step("Preparing runtime...")
     with tempfile.TemporaryDirectory() as tmp:
@@ -216,6 +225,7 @@ def build(
                 versioninfo=versioninfo,
                 subsystems=subsystems,
                 extra_files=extra_files,
+                tkinter_install=tkinter_install,
             )
             outputs = [result]
         else:
@@ -236,6 +246,7 @@ def build(
                 versioninfo=versioninfo,
                 subsystems=subsystems,
                 extra_files=extra_files,
+                tkinter_install=tkinter_install,
             )
 
     ui.build_summary(outputs)

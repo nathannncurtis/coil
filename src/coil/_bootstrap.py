@@ -23,6 +23,10 @@ def initialize():
     pywin32_dlls = os.path.join(lib, "pywin32_system32")
     if os.path.isdir(pywin32_dlls) and pywin32_dlls not in sys.path:
         sys.path.append(pywin32_dlls)
+    for variable, folder in (("TCL_LIBRARY", "tcl8.6"), ("TK_LIBRARY", "tk8.6")):
+        path = os.path.join(lib, "tcl", folder)
+        if os.path.isdir(path):
+            os.environ[variable] = path
     if hasattr(os, "add_dll_directory") and os.path.isdir(lib):
         seen = set()
         for directory, _, files in os.walk(lib):

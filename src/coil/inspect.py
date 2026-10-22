@@ -136,6 +136,15 @@ def run_inspect(
     else:
         console.print("GUI mode: no (console app)")
 
+    from coil.tkinter_support import find_tkinter_install, needs_tkinter
+    if needs_tkinter(scan_project(project_dir)):
+        install = find_tkinter_install(python_version)
+        if install:
+            console.print(f"tkinter: will be copied from {install}")
+        else:
+            console.print(f"[red]tkinter: no 64-bit CPython {python_version} with Tcl/Tk found[/red]"
+                          " (the build will fail)")
+
     # Dependencies
     dep_source = _get_dep_source(project_dir, requirements)
     console.print(f"\n[bold]Dependencies[/bold] ({dep_source}):")
