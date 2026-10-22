@@ -23,6 +23,7 @@ jobs:
       python: ${{ steps.f.outputs.python }}
       native: ${{ steps.f.outputs.native }}
       docs: ${{ steps.f.outputs.docs }}
+      compat: ${{ steps.f.outputs.compat }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
@@ -45,6 +46,11 @@ jobs:
               - 'src/coil/_launcher_stubs.py'
               - 'src/coil/bootloader.py'
               - '.github/scripts/native_compare.py'
+              - '.github/workflows/ci.yml'
+            compat:
+              - 'tests/compat/**'
+              - 'tests/test_compat_matrix.py'
+              - 'src/**'
               - '.github/workflows/ci.yml'
             docs:
               - 'README.md'
@@ -180,6 +186,29 @@ jobs:
           COIL_TEST_CROSS_RUNTIME: build/test-runtimes/python-3.13.7-embed-amd64.zip
         run: python -m pytest -q tests/test_launcher.py tests/test_launcher_integration.py tests/test_portable_integration.py tests/test_subsystem_integration.py tests/test_windows_subsystem.py --basetemp=build/pytest
 
+  compat:
+    needs: changes
+    if: github.event_name == 'pull_request' && needs.changes.outputs.compat == 'true'
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      COIL_RUN_COMPAT: "1"
+      COIL_RUN_NATIVE_INTEGRATION: "1"
+      COIL_TEST_RUNTIME_ZIP: build/test-runtimes/python-3.12.10-embed-amd64.zip
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: tests/compat/*/requirements.txt
+      - run: python -m pip install -e ".[test]"
+      - name: Prepare real embedded runtime
+        run: |
+          python -c "import pathlib, urllib.request; p=pathlib.Path('build/test-runtimes'); p.mkdir(parents=True, exist_ok=True); name='python-3.12.10-embed-amd64.zip'; urllib.request.urlretrieve('https://www.python.org/ftp/python/3.12.10/'+name, p/name)"
+      - name: Build and run the package compatibility matrix
+        run: python -m pytest -q tests/test_compat_matrix.py --basetemp=build/pytest-compat
+
   docs:
     needs: changes
     if: needs.changes.outputs.docs == 'true'
@@ -193,7 +222,7 @@ jobs:
           fail: true
 
   ci-ok:
-    needs: [changes, rules, windows-executables, supported-build-hosts, python-audit, native, docs]
+    needs: [changes, rules, windows-executables, supported-build-hosts, python-audit, native, compat, docs]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5

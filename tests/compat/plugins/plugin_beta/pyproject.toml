@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "coil-compat-beta"
+version = "1.0"
+
+[project.entry-points."coil_compat.plugins"]
+beta = "coil_compat_beta.plugin"
+
+[tool.setuptools]
+packages = ["coil_compat_beta"]
