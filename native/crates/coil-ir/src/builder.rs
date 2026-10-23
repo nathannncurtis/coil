@@ -235,9 +235,9 @@ impl FunctionBuilder {
             // were unsealed when the read happened and turned out unreachable.
             return Err(Error::UndefinedVariable { var, block });
         }
-        if preds.len() == 1 {
-            return self.read_variable(var, preds[0]);
-        }
+        // The phi is also the memo that ends recursion around cycles of
+        // single-predecessor blocks; trivial-phi removal erases it again
+        // when the operand is unique.
         let phi = self.new_phi(var, block, false);
         self.add_phi_operands(var, block, phi)
     }

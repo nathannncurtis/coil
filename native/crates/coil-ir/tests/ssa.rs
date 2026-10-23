@@ -5,9 +5,11 @@
 use coil_ir::builder::Error as BuildError;
 use coil_ir::builder::FunctionBuilder;
 use coil_ir::ir::{
-    BarrierKind, BinOp, Block, FnFlags, Function, ICmpOp, Instr, Params, Phi, Terminator,
+    BarrierKind, BinOp, Block, ClassDesc, FnFlags, Function, ICmpOp, Instr, Params, Phi, Terminator,
 };
-use coil_ir::types::{BlockId, ConstIdx, InstrId, ShapeId, Sym, Type, TypeRef, Value};
+use coil_ir::types::{
+    BlockId, ClassId, ConstIdx, FnId, InstrId, ShapeId, Sym, Type, TypeRef, Value,
+};
 use coil_ir::verify::{self, Error as VerifyError};
 
 const X: Sym = Sym(1);
@@ -142,7 +144,7 @@ fn loop_phi() {
             value: f.blocks[2].phis[0].into
         }
     );
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 }
 
 #[test]
@@ -262,7 +264,7 @@ fn nested_loops_phi() {
     );
     assert!(f.blocks[6].phis.is_empty());
     assert_eq!(f.blocks[6].term, Terminator::Return { value: p_outer });
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 }
 
 #[test]
@@ -351,7 +353,7 @@ fn irreducible_cfg_phi() {
             incomings: vec![(x1, BlockId(1)), (x2, BlockId(2))].into(),
         }]
     );
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 }
 
 #[test]
@@ -388,7 +390,7 @@ fn trivial_phi_removed() {
 
     assert!(f.blocks.iter().all(|b| b.phis.is_empty()));
     assert_eq!(f.blocks[3].term, Terminator::Return { value: u0 });
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 }
 
 #[test]
@@ -446,7 +448,7 @@ fn trivial_phi_removed_recursively() {
 
     assert!(f.blocks.iter().all(|b| b.phis.is_empty()));
     assert_eq!(f.blocks[5].term, Terminator::Return { value: x0 });
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 }
 
 #[test]
@@ -488,7 +490,7 @@ fn exception_edge_is_predecessor() {
             incomings: vec![(x, BlockId(1)), (x2, BlockId(2))].into(),
         }]
     );
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 }
 
 #[test]
@@ -539,6 +541,42 @@ fn read_before_write_in_sealed_block_is_undefined() {
     match b.read_variable(U, b.entry()) {
         Err(BuildError::UndefinedVariable { var, block }) => {
             assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
+fn read_in_single_predecessor_cycle_is_undefined() {
+    // `while c: pass; return x`: the entry and the body form a cycle of
+    // single-predecessor blocks and x is never written.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let p = v(0);
+    let body = b.new_block();
+    let exit = b.new_block();
+    let c0 = cond(&mut b, p);
+    b.set_term(
+        b.entry(),
+        Terminator::Branch {
+            cond: c0,
+            then_to: body,
+            else_to: exit,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(body).unwrap();
+    b.set_term(body, Terminator::Jump { to: b.entry() })
+        .unwrap();
+
+    b.switch_to(exit).unwrap();
+    let x = b.read_variable(X, exit).unwrap();
+    b.set_term(exit, Terminator::Return { value: x }).unwrap();
+
+    match b.seal_all() {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, X);
             assert_eq!(block, BlockId(0));
         }
         other => panic!("expected undefined variable, got {other:?}"),
@@ -629,7 +667,7 @@ fn phi_types_track_incoming_joins() {
     assert_eq!(f.types[join_phi.0 as usize], Type::BigInt);
 
     // The verifier sees the merged BigInt through the phi.
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::OperandType {
             value, expected, ..
         }) => {
@@ -742,7 +780,7 @@ fn diamond(extra: Option<Instr>) -> Function {
 #[test]
 fn verifier_accepts_valid_function() {
     // No extra copy: block 3 returns v0, which dominates everything.
-    verify::verify_function(&diamond(None)).unwrap();
+    verify::verify_function(&diamond(None), &[]).unwrap();
     verify::verify_module(&coil_ir::ir::Module {
         name: Sym(0),
         file: "m.py".into(),
@@ -762,7 +800,7 @@ fn operand_does_not_dominate_use() {
         src: v(2),
         into: v(3),
     }));
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::OperandNotDominated {
             block,
             instr,
@@ -830,7 +868,7 @@ fn phi_incoming_does_not_dominate_predecessor() {
         ],
         vec![Type::Top, Type::Bool, Type::Top, Type::Top],
     );
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::PhiIncomingNotDominated {
             block,
             value,
@@ -881,7 +919,7 @@ fn phi_incomings_must_match_predecessors() {
         ],
         vec![Type::Top, Type::Bool, Type::Top],
     );
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::PhiPredecessorMismatch { block, value }) => {
             assert_eq!((block, value), (BlockId(3), v(2)));
         }
@@ -905,7 +943,7 @@ fn may_raise_needs_resolved_handler() {
         vec![Type::Top, Type::Top, Type::Top],
     );
     f.blocks[0].handler = Some(BlockId(3));
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::UnresolvedHandler {
             block,
             instr,
@@ -930,7 +968,7 @@ fn may_raise_needs_resolved_handler() {
     let mut self_handler = diamond(None);
     self_handler.blocks[0].handler = Some(BlockId(0));
     assert!(matches!(
-        verify::verify_function(&self_handler),
+        verify::verify_function(&self_handler, &[]),
         Err(VerifyError::UnresolvedHandler { .. })
     ));
 
@@ -948,7 +986,7 @@ fn may_raise_needs_resolved_handler() {
         vec![Type::Top],
     );
     dangling.blocks[0].handler = Some(BlockId(9));
-    match verify::verify_function(&dangling) {
+    match verify::verify_function(&dangling, &[]) {
         Err(VerifyError::BadTerminator { block, target }) => {
             assert_eq!((block, target), (BlockId(0), BlockId(9)));
         }
@@ -971,7 +1009,7 @@ fn boxed_unboxed_consistency() {
         )],
         vec![Type::BigInt, Type::Int64, Type::Int64],
     );
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::OperandType {
             value,
             expected,
@@ -999,7 +1037,7 @@ fn boxed_unboxed_consistency() {
         )],
         vec![Type::Int64, Type::Top, Type::Top],
     );
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::BoxedOperand { value, found, .. }) => {
             assert_eq!(value, v(0));
             assert_eq!(found, Type::Int64);
@@ -1021,7 +1059,7 @@ fn boxed_unboxed_consistency() {
         )],
         vec![Type::Int64, Type::Int64, Type::Top],
     );
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::ResultType {
             value,
             expected,
@@ -1048,7 +1086,7 @@ fn boxed_unboxed_consistency() {
         )],
         vec![Type::Top, Type::BigInt],
     );
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::ResultType { value, .. }) => assert_eq!(value, v(1)),
         other => panic!("expected result type mismatch, got {other:?}"),
     }
@@ -1068,7 +1106,7 @@ fn top_in_unboxed_operand() {
         )],
         vec![Type::Top, Type::Float64, Type::Float64],
     );
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::TopUnboxedOperand {
             block,
             instr,
@@ -1102,7 +1140,7 @@ fn top_in_unboxed_operand() {
         vec![Type::Top],
     );
     assert!(matches!(
-        verify::verify_function(&f),
+        verify::verify_function(&f, &[]),
         Err(VerifyError::TopUnboxedOperand { value, .. }) if value == v(0)
     ));
 }
@@ -1113,7 +1151,7 @@ fn terminator_targets_real_block() {
         vec![blk(vec![], vec![], Terminator::Jump { to: BlockId(4) })],
         vec![],
     );
-    match verify::verify_function(&f) {
+    match verify::verify_function(&f, &[]) {
         Err(VerifyError::BadTerminator { block, target }) => {
             assert_eq!((block, target), (BlockId(0), BlockId(4)));
         }
@@ -1121,7 +1159,7 @@ fn terminator_targets_real_block() {
     }
 
     let f = func(vec![blk(vec![], vec![], Terminator::Unreachable)], vec![]);
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 }
 
 #[test]
@@ -1147,7 +1185,7 @@ fn yield_only_in_generator() {
             flags,
         )
     };
-    match verify::verify_function(&body(FnFlags(0))) {
+    match verify::verify_function(&body(FnFlags(0)), &[]) {
         Err(VerifyError::YieldOutsideGenerator { block, instr }) => {
             assert_eq!((block, instr), (BlockId(0), InstrId(1)));
             assert!(
@@ -1158,8 +1196,8 @@ fn yield_only_in_generator() {
         }
         other => panic!("expected yield outside generator, got {other:?}"),
     }
-    verify::verify_function(&body(FnFlags::GENERATOR)).unwrap();
-    verify::verify_function(&body(FnFlags::ASYNC_GEN)).unwrap();
+    verify::verify_function(&body(FnFlags::GENERATOR), &[]).unwrap();
+    verify::verify_function(&body(FnFlags::ASYNC_GEN), &[]).unwrap();
 }
 
 #[test]
@@ -1190,16 +1228,19 @@ fn barrier_matches_operand_type() {
             vec![Type::Top, value_ty],
         )
     };
-    verify::verify_function(&store(Type::Str, BarrierKind::None)).unwrap();
-    verify::verify_function(&store(Type::Ext(TypeRef(Sym(4))), BarrierKind::Ext)).unwrap();
-    verify::verify_function(&store(Type::Top, BarrierKind::Dynamic)).unwrap();
-    verify::verify_function(&store(
-        Type::Union(vec![Type::Str, Type::Ext(TypeRef(Sym(4)))].into()),
-        BarrierKind::Dynamic,
-    ))
+    verify::verify_function(&store(Type::Str, BarrierKind::None), &[]).unwrap();
+    verify::verify_function(&store(Type::Ext(TypeRef(Sym(4))), BarrierKind::Ext), &[]).unwrap();
+    verify::verify_function(&store(Type::Top, BarrierKind::Dynamic), &[]).unwrap();
+    verify::verify_function(
+        &store(
+            Type::Union(vec![Type::Str, Type::Ext(TypeRef(Sym(4)))].into()),
+            BarrierKind::Dynamic,
+        ),
+        &[],
+    )
     .unwrap();
 
-    match verify::verify_function(&store(Type::Top, BarrierKind::None)) {
+    match verify::verify_function(&store(Type::Top, BarrierKind::None), &[]) {
         Err(VerifyError::BarrierMismatch {
             value,
             barrier,
@@ -1213,11 +1254,62 @@ fn barrier_matches_operand_type() {
         other => panic!("expected barrier mismatch, got {other:?}"),
     }
     assert!(matches!(
-        verify::verify_function(&store(Type::Str, BarrierKind::Ext)),
+        verify::verify_function(&store(Type::Str, BarrierKind::Ext), &[]),
         Err(VerifyError::BarrierMismatch { .. })
     ));
     assert!(matches!(
-        verify::verify_function(&store(Type::Ext(TypeRef(Sym(4))), BarrierKind::None)),
+        verify::verify_function(&store(Type::Ext(TypeRef(Sym(4))), BarrierKind::None), &[]),
+        Err(VerifyError::BarrierMismatch { .. })
+    ));
+}
+
+#[test]
+fn barrier_counts_instances_of_ext_base_classes() {
+    // Spec 8.3: a compiled class with an extension base has counted-regime
+    // instances, so storing one needs an Ext barrier even though the value's
+    // type is `Inst`, not `Ext`.
+    let class = |ext| ClassDesc {
+        name: Sym(5),
+        bases: Box::from([]),
+        body: FnId(0),
+        methods: Box::from([]),
+        has_ext_base: ext,
+    };
+    let classes = vec![class(true), class(false)];
+    let store = |cls: ClassId, barrier| {
+        func(
+            vec![blk(
+                vec![],
+                vec![
+                    Instr::Const {
+                        idx: ConstIdx(0),
+                        into: v(0),
+                    },
+                    Instr::Const {
+                        idx: ConstIdx(1),
+                        into: v(1),
+                    },
+                    Instr::StoreField {
+                        obj: v(0),
+                        shape: ShapeId(0),
+                        slot: 0,
+                        value: v(1),
+                        barrier,
+                    },
+                ],
+                Terminator::Return { value: v(0) },
+            )],
+            vec![Type::Top, Type::Inst { cls, exact: true }],
+        )
+    };
+    verify::verify_function(&store(ClassId(0), BarrierKind::Ext), &classes).unwrap();
+    assert!(matches!(
+        verify::verify_function(&store(ClassId(0), BarrierKind::None), &classes),
+        Err(VerifyError::BarrierMismatch { .. })
+    ));
+    verify::verify_function(&store(ClassId(1), BarrierKind::None), &classes).unwrap();
+    assert!(matches!(
+        verify::verify_function(&store(ClassId(1), BarrierKind::Ext), &classes),
         Err(VerifyError::BarrierMismatch { .. })
     ));
 }
@@ -1242,7 +1334,7 @@ fn values_must_be_defined_once_and_typed() {
         vec![Type::Top],
     );
     assert!(matches!(
-        verify::verify_function(&f),
+        verify::verify_function(&f, &[]),
         Err(VerifyError::ValueDefinedTwice { block: _, instr, value }) if instr == InstrId(1) && value == v(0)
     ));
 
@@ -1258,7 +1350,7 @@ fn values_must_be_defined_once_and_typed() {
         vec![Type::Top, Type::Top],
     );
     assert!(matches!(
-        verify::verify_function(&f),
+        verify::verify_function(&f, &[]),
         Err(VerifyError::ValueNotDefined { block: _, instr, value }) if instr == InstrId(0) && value == v(1)
     ));
 
@@ -1274,7 +1366,7 @@ fn values_must_be_defined_once_and_typed() {
         vec![Type::Top],
     );
     assert!(matches!(
-        verify::verify_function(&f),
+        verify::verify_function(&f, &[]),
         Err(VerifyError::MissingType { value, .. }) if value == v(5)
     ));
 }
@@ -1332,7 +1424,7 @@ fn unreachable_predecessor_is_not_dominance_checked() {
         ],
         vec![Type::Top, Type::Bool, Type::Top, Type::Top, Type::Top],
     );
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 
     // Without the dead edge the same incoming is a dominance violation.
     let mut live = f.clone();
@@ -1340,7 +1432,7 @@ fn unreachable_predecessor_is_not_dominance_checked() {
     // The phi still claims an incoming from block 4, whose predecessors no
     // longer include it.
     assert!(matches!(
-        verify::verify_function(&live),
+        verify::verify_function(&live, &[]),
         Err(VerifyError::PhiPredecessorMismatch { .. })
     ));
 }
@@ -1388,5 +1480,5 @@ fn removed_trivial_phi_is_replaced_in_other_variables() {
     b.set_term(exit, Terminator::Return { value: y }).unwrap();
     let f = b.finish().unwrap();
     assert!(f.blocks.iter().all(|blk| blk.phis.is_empty()));
-    verify::verify_function(&f).unwrap();
+    verify::verify_function(&f, &[]).unwrap();
 }

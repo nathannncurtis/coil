@@ -10,7 +10,7 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::ir::{BarrierKind, FnFlags, Function, Instr, Module, Scalar, Terminator};
+use crate::ir::{BarrierKind, ClassDesc, FnFlags, Function, Instr, Module, Scalar, Terminator};
 use crate::print::instr_results;
 use crate::types::{BlockId, InstrId, Type, Value};
 
@@ -276,12 +276,14 @@ impl std::error::Error for Error {}
 /// Verify every function of the module, returning the first error.
 pub fn verify_module(m: &Module) -> Result<(), Error> {
     for f in &m.functions {
-        verify_function(f)?;
+        verify_function(f, &m.classes)?;
     }
     Ok(())
 }
 
-pub fn verify_function(f: &Function) -> Result<(), Error> {
+/// Verify one function against the module's class table: instance types
+/// resolve their regime through it (spec 8.3).
+pub fn verify_function(f: &Function, classes: &[ClassDesc]) -> Result<(), Error> {
     let n = f.blocks.len() as u32;
     if n == 0 || f.entry.0 >= n {
         return Err(Error::BadEntry {
@@ -419,7 +421,7 @@ pub fn verify_function(f: &Function) -> Result<(), Error> {
         for (ii, ins) in b.instrs.iter().enumerate() {
             let id = InstrId(offset[bi] + ii as u32);
             let mut ops = Vec::new();
-            check_types(f, block, id, ins, &mut ops)?;
+            check_types(f, classes, block, id, ins, &mut ops)?;
             if reachable {
                 for v in ops {
                     match defs.get(&v.0) {
@@ -452,6 +454,7 @@ pub fn verify_function(f: &Function) -> Result<(), Error> {
             let mut ops = Vec::new();
             check_term_types(
                 f,
+                classes,
                 block,
                 InstrId(offset[bi] + b.instrs.len() as u32),
                 &b.term,
@@ -655,18 +658,25 @@ impl Dominators {
 }
 
 /// The store barrier a type requires: a tracing-regime type needs `None`, a
-/// statically extension-typed value `Ext`, and a type that could be either
-/// `Dynamic` (section 9.3).
-fn regime(ty: &Type) -> BarrierKind {
+/// statically counted value `Ext`, and a type that could be either `Dynamic`
+/// (section 9.3).
+fn regime(classes: &[ClassDesc], ty: &Type) -> BarrierKind {
     match ty {
         Type::Ext(_) => BarrierKind::Ext,
         Type::Top => BarrierKind::Dynamic,
+        // Instances of a compiled class with an extension base are counted
+        // too (spec 8.3); a class id that names no class is unknown.
+        Type::Inst { cls, .. } => match classes.get(cls.0 as usize) {
+            Some(c) if c.has_ext_base => BarrierKind::Ext,
+            Some(_) => BarrierKind::None,
+            None => BarrierKind::Dynamic,
+        },
         Type::Union(parts) => {
             let mut ext = false;
             let mut tracing = false;
             let mut dynamic = false;
             for p in parts.iter() {
-                match regime(p) {
+                match regime(classes, p) {
                     BarrierKind::Ext => ext = true,
                     BarrierKind::None => tracing = true,
                     BarrierKind::Dynamic => dynamic = true,
@@ -704,6 +714,7 @@ fn is_bottom(t: &Type) -> bool {
 /// Every operand is collected into `ops` for the dominance pass.
 struct Chk<'a> {
     f: &'a Function,
+    classes: &'a [ClassDesc],
     block: BlockId,
     id: InstrId,
     ops: &'a mut Vec<Value>,
@@ -888,7 +899,7 @@ impl Chk<'_> {
 
     fn barrier(&mut self, v: Value, barrier: BarrierKind) -> Result<(), Error> {
         let t = self.f.types[v.idx()].clone();
-        if regime(&t) != barrier {
+        if regime(self.classes, &t) != barrier {
             return Err(Error::BarrierMismatch {
                 block: self.block,
                 instr: self.id,
@@ -903,13 +914,20 @@ impl Chk<'_> {
 
 fn check_types(
     f: &Function,
+    classes: &[ClassDesc],
     block: BlockId,
     id: InstrId,
     ins: &Instr,
     ops: &mut Vec<Value>,
 ) -> Result<(), Error> {
     use Instr as I;
-    let mut c = Chk { f, block, id, ops };
+    let mut c = Chk {
+        f,
+        classes,
+        block,
+        id,
+        ops,
+    };
     let b = Type::Bool;
     match ins {
         I::Const { into, .. } => c.def_any(*into)?,
@@ -1294,12 +1312,19 @@ fn check_types(
 
 fn check_term_types(
     f: &Function,
+    classes: &[ClassDesc],
     block: BlockId,
     id: InstrId,
     t: &Terminator,
     ops: &mut Vec<Value>,
 ) -> Result<(), Error> {
-    let mut c = Chk { f, block, id, ops };
+    let mut c = Chk {
+        f,
+        classes,
+        block,
+        id,
+        ops,
+    };
     match t {
         Terminator::Jump { .. } | Terminator::Reraise | Terminator::Unreachable => {}
         Terminator::Branch { cond, .. } => c.use_unboxed(*cond, Scalar::Bool)?,
