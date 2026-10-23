@@ -731,3 +731,153 @@ def f(x):
             .all(|b| !matches!(b.term, Terminator::Unreachable))
     );
 }
+
+#[test]
+fn import_as_walks_only_the_trailing_components() {
+    // `import a.b as c` yields the top module `a` from the Import; the
+    // asname walks only the components after the first (IMPORT_FROM b).
+    let out = lower(
+        r#"
+import os as o
+import os.path as p
+"#,
+    );
+    let module = fn_by_qualname(&out, "<module>");
+    let attrs: Vec<&coil_ir::types::Sym> = instrs(module)
+        .filter_map(|i| match i {
+            Instr::GetAttr { name, .. } => Some(name),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(attrs.len(), 1, "one hop for os.path, none for os");
+    assert_eq!(*attrs[0], sym_of(&out, "path"));
+}
+
+#[test]
+fn decorator_and_default_scopes_bind_in_symtable_order() {
+    // The symtable visits the defaults' scopes before the decorators',
+    // while the code generator evaluates the decorators first; both a
+    // scoped decorator and a scoped default must still bind their own
+    // scopes.
+    let out = lower(
+        r#"
+x = 1
+y = 2
+def deco(f):
+    return f
+@deco(lambda a: x)
+def f(a=lambda: y):
+    return a
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    fn_by_qualname(&out, "f");
+    // Both lambdas lower in the module scope, one in the decorator and one
+    // in the defaults, each bound to its own scope.
+    let lambdas = out
+        .module
+        .functions
+        .iter()
+        .filter(|f| out.module.consts.sym_str(f.qualname) == "<lambda>")
+        .count();
+    assert_eq!(lambdas, 2);
+}
+
+#[test]
+fn lambda_defaults_precede_the_lambda_scope() {
+    // A default's scope precedes the lambda's own scope in symtable order.
+    let out = lower(
+        r#"
+def g():
+    y = 5
+    h = lambda a=(lambda: y): a
+    return h
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    fn_by_qualname(&out, "g.<locals>.<lambda>");
+}
+
+#[test]
+fn dropped_generic_def_keeps_the_child_cursor() {
+    // A TypeVar bound's scopes nest inside the type-parameters scope, so
+    // dropping the def advances the cursor by exactly one slot.
+    let out = lower(
+        r#"
+def f[T: (i for i in g())](x):
+    pass
+def h():
+    return 1
+"#,
+    );
+    assert!(
+        out.unsupported
+            .iter()
+            .any(|k| matches!(k, LowerKind::GeneratorExp))
+    );
+    fn_by_qualname(&out, "h");
+}
+
+#[test]
+fn zero_arg_super_needs_a_positional_parameter() {
+    // CPython rewrites super() only when the enclosing method has a
+    // positional first parameter; otherwise the zero-arg call stands and
+    // raises RuntimeError at runtime.
+    let out = lower(
+        r#"
+class C:
+    def m(*args):
+        return super().m()
+    def n(self):
+        return super().m()
+"#,
+    );
+    let m = fn_by_qualname(&out, "C.m");
+    let zero_arg = instrs(m).any(|i| match i {
+        Instr::Call { args, .. } => args.is_empty(),
+        _ => false,
+    });
+    assert!(zero_arg, "super() must stay a zero-arg call in C.m");
+    let n = fn_by_qualname(&out, "C.n");
+    let rewritten = instrs(n).any(|i| match i {
+        Instr::Call { args, .. } => args.len() == 2,
+        _ => false,
+    });
+    assert!(
+        rewritten,
+        "super() must become super(__class__, self) in C.n"
+    );
+}
+
+#[test]
+fn chained_comparison_evaluates_each_operand_once() {
+    // The middle operand of a < b < c feeds both comparisons; CPython
+    // copies it rather than re-evaluating it.
+    let out = lower("def f():\n    return 0 < g() < 2\n");
+    let f = fn_by_qualname(&out, "f");
+    let calls = instrs(f)
+        .filter(|i| matches!(i, Instr::Call { .. }))
+        .count();
+    assert_eq!(calls, 1, "g() must be called exactly once");
+}
+
+#[test]
+fn class_type_params_mangle_to_the_class_name() {
+    // The symtable records `__T` in a class as `_C__T`; the type-parameters
+    // scope must write that cell, which the class body and methods read.
+    let out = lower(
+        r#"
+class C[__T]:
+    x: __T = 1
+    def m(self):
+        return __T
+"#,
+    );
+    let tp = fn_by_qualname(&out, "<generic parameters of C>");
+    assert_eq!(local_kind(tp, &out, "_C__T"), LocalKind::Cell);
+    assert!(has_instr(tp, |i| matches!(i, Instr::StoreCell { .. })));
+    let body = fn_by_qualname(&out, "C");
+    assert_eq!(local_kind(body, &out, "_C__T"), LocalKind::Free);
+    let m = fn_by_qualname(&out, "C.m");
+    assert_eq!(local_kind(m, &out, "_C__T"), LocalKind::Free);
+}

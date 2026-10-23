@@ -5,7 +5,7 @@
 //! together with their nested scopes, so the rest of the module still lowers
 //! and every lowered function verifies.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
 
 use coil_ir::builder::{Error as BuildError, FunctionBuilder};
@@ -889,8 +889,9 @@ impl<'a> Lowerer<'a> {
             classdict_cell: None,
             methods: Vec::new(),
             join_count: 0,
-            n_positional: param_syms.len(),
+            n_argcount: params.positional.len(),
             terminated: false,
+            pending: VecDeque::new(),
         }
     }
 }
@@ -923,6 +924,9 @@ struct FnLower<'a, 'b> {
     scope: &'a SymbolTable,
     sym_map: HashMap<String, i64>,
     child: usize,
+    /// Sub-scopes taken ahead of the cursor, to be consumed by `take_child`
+    /// in an order that differs from the symtable's (see `requeue`).
+    pending: VecDeque<&'a SymbolTable>,
     kind: FnKind,
     qualname: String,
     eff_flavor: Flavor,
@@ -935,7 +939,9 @@ struct FnLower<'a, 'b> {
     classdict_cell: Option<Value>,
     methods: Vec<(Sym, FnId)>,
     join_count: usize,
-    n_positional: usize,
+    /// CPython's `u_argcount`: positional (pos-only then normal)
+    /// parameters, the pool zero-arg `super()` rewrites against.
+    n_argcount: usize,
     terminated: bool,
 }
 
@@ -1109,10 +1115,35 @@ impl<'a, 'b> FnLower<'a, 'b> {
 
     /// The next child scope in CPython's codegen order.
     fn take_child(&mut self) -> Option<&'a SymbolTable> {
+        if let Some(front) = self.pending.pop_front() {
+            return Some(front);
+        }
         let scope: &'a SymbolTable = self.scope;
         let child = scope.children.get(self.child)?;
         self.child += 1;
         Some(child)
+    }
+
+    /// The symtable visits a definition's sub-scopes in its own order
+    /// (defaults, then decorators), while the code generator evaluates the
+    /// decorator expressions first. Take the statement's first
+    /// `n_defaults + n_decors` sub-scopes in symtable order and requeue
+    /// them in evaluation order, so each sub-expression still binds the
+    /// scope the symtable gave it.
+    fn requeue(&mut self, n_defaults: usize, n_decors: usize) {
+        let group: Vec<&'a SymbolTable> = (0..n_defaults + n_decors)
+            .filter_map(|_| self.take_child())
+            .collect();
+        for i in n_defaults..n_defaults + n_decors {
+            if let Some(s) = group.get(i) {
+                self.pending.push_back(s);
+            }
+        }
+        for i in 0..n_defaults {
+            if let Some(s) = group.get(i) {
+                self.pending.push_back(s);
+            }
+        }
     }
 
     // ---- names -------------------------------------------------------
@@ -2014,23 +2045,20 @@ impl<'a, 'b> FnLower<'a, 'b> {
             match asname {
                 Some(asname) => {
                     // `import a.b.c as d`: the import yields the top module
-                    // `a`; walk the attrs from it, never reading `a` back
-                    // from a namespace.
+                    // `a`; walk the attrs after it (IMPORT_FROM b, c), never
+                    // reading `a` back from a namespace.
                     let mut parts = module_str.split('.');
-                    if let Some(rest) = parts.next() {
-                        let mut cur = mod_v;
-                        for part in std::iter::once(rest).chain(parts) {
-                            let attr_sym = self.pool(part);
-                            cur = self.value_of(pos, move |into| Instr::GetAttr {
-                                obj: cur,
-                                name: attr_sym,
-                                into,
-                            })?;
-                        }
-                        self.store_name_value(*asname, cur, pos)?;
-                    } else {
-                        self.store_name_value(*asname, mod_v, pos)?;
+                    parts.next();
+                    let mut cur = mod_v;
+                    for part in parts {
+                        let attr_sym = self.pool(part);
+                        cur = self.value_of(pos, move |into| Instr::GetAttr {
+                            obj: cur,
+                            name: attr_sym,
+                            into,
+                        })?;
                     }
+                    self.store_name_value(*asname, cur, pos)?;
                 }
                 None => {
                     let first = module_str.split('.').next().unwrap_or("");
@@ -2541,7 +2569,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
         Ok(v)
     }
 
-    /// `a < b < c` and friends: each link short-circuits to false.
+    /// `a < b < c` and friends: each link short-circuits to false. Every
+    /// operand is evaluated exactly once (CPython copies the middle on the
+    /// stack rather than re-evaluating it).
     fn lower_compare(
         &mut self,
         left: &Expr,
@@ -2549,27 +2579,31 @@ impl<'a, 'b> FnLower<'a, 'b> {
         comparators: &[Expr],
         pos: Pos,
     ) -> Result<Value, LowerError> {
-        if ops.len() == 1 {
-            let l = self.expr(left)?;
-            let r = self.expr(&comparators[0])?;
-            let cop = cmp_op(&ops[0]);
-            let b = self.unboxed_bool(pos, move |into| Instr::Compare {
-                op: cop,
-                lhs: l,
-                rhs: r,
-                into,
-            })?;
-            return self.box_bool(b, pos);
-        }
         let l = self.expr(left)?;
+        self.lower_compare_rest(l, ops, comparators, pos)
+    }
+
+    /// The chain after `lhs`: compare against `comparators[0]`, then either
+    /// short-circuit or continue with that same value as the next left
+    /// operand.
+    fn lower_compare_rest(
+        &mut self,
+        lhs: Value,
+        ops: &[Cmpop],
+        comparators: &[Expr],
+        pos: Pos,
+    ) -> Result<Value, LowerError> {
         let r0 = self.expr(&comparators[0])?;
         let cop = cmp_op(&ops[0]);
         let c0 = self.unboxed_bool(pos, move |into| Instr::Compare {
             op: cop,
-            lhs: l,
+            lhs,
             rhs: r0,
             into,
         })?;
+        if ops.len() == 1 {
+            return self.box_bool(c0, pos);
+        }
         let rhs_blk = self.b.new_block();
         let false_blk = self.b.new_block();
         let join = self.b.new_block();
@@ -2585,7 +2619,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.jump(join)?;
         self.terminated = false;
         self.b.switch_to(rhs_blk)?;
-        let rest = self.lower_compare(&comparators[0], &ops[1..], &comparators[1..], pos)?;
+        let rest = self.lower_compare_rest(r0, &ops[1..], &comparators[1..], pos)?;
         self.write_var_at_current(var, rest)?;
         self.jump(join)?;
         self.terminated = false;
@@ -2703,7 +2737,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
             Some(f) if scope_of(f) == symtable::FREE => {}
             _ => return Ok(None),
         }
-        if self.n_positional == 0 {
+        if self.n_argcount == 0 {
             return Ok(None);
         }
         let class_cell = match self.cell_of("__class__", pos) {
@@ -2745,11 +2779,13 @@ impl<'a, 'b> FnLower<'a, 'b> {
         body: &Expr,
         pos: Pos,
     ) -> Result<Value, LowerError> {
+        // The symtable and the code generator both visit the defaults
+        // before the lambda's own scope.
+        let (defaults, kwdefaults) = self.lower_default_values(args, pos)?;
         let scope = self.take_child().ok_or(LowerError::UnexpectedAst {
             what: "missing lambda scope",
             line: pos.line,
         })?;
-        let (defaults, kwdefaults) = self.lower_default_values(args, pos)?;
         let qualname = self.child_qualname("<lambda>", FnKind::Function);
         let fid = self.low.reserve_function();
         let cells = self.child_cells(scope, pos)?;
@@ -3038,6 +3074,19 @@ impl<'a, 'b> FnLower<'a, 'b> {
         type_params: &[TypeParam],
         pos: Pos,
     ) -> Result<(), LowerError> {
+        // The symtable visits the defaults' sub-scopes before the
+        // decorators', but the code generator evaluates the decorator
+        // expressions first; requeue the statement's scopes so both orders
+        // hold.
+        let n_defaults = args.defaults.iter().map(expr_scopes).sum::<usize>()
+            + args
+                .kw_defaults
+                .iter()
+                .flatten()
+                .map(expr_scopes)
+                .sum::<usize>();
+        let n_decors = decorator_list.iter().map(expr_scopes).sum::<usize>();
+        self.requeue(n_defaults, n_decors);
         let mut decos = Vec::with_capacity(decorator_list.len());
         for d in decorator_list {
             decos.push(self.expr(d)?);
@@ -3290,7 +3339,11 @@ impl<'a, 'b> FnLower<'a, 'b> {
                         None => self.call(ctor, vec![name_v], Vec::new(), pos)?,
                     };
                     vars.push(v);
-                    self.store_scoped_name(&name_str, v, pos)?;
+                    // The symtable records the class-mangled name
+                    // (`__T` as `_C__T`); the TypeVar's own string stays
+                    // raw, as CPython passes it.
+                    let key = self.mangle(&name_str);
+                    self.store_scoped_name(&key, v, pos)?;
                 }
                 TypeParam::TypeVarTuple { name, .. } => {
                     let name_str = self.text(*name);
@@ -3303,7 +3356,8 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     let name_v = self.const_str(&name_str, pos)?;
                     let v = self.call(ctor, vec![name_v], Vec::new(), pos)?;
                     vars.push(v);
-                    self.store_scoped_name(&name_str, v, pos)?;
+                    let key = self.mangle(&name_str);
+                    self.store_scoped_name(&key, v, pos)?;
                 }
                 TypeParam::ParamSpec { name, .. } => {
                     let name_str = self.text(*name);
@@ -3316,7 +3370,8 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     let name_v = self.const_str(&name_str, pos)?;
                     let v = self.call(ctor, vec![name_v], Vec::new(), pos)?;
                     vars.push(v);
-                    self.store_scoped_name(&name_str, v, pos)?;
+                    let key = self.mangle(&name_str);
+                    self.store_scoped_name(&key, v, pos)?;
                 }
             }
         }
@@ -4139,12 +4194,17 @@ fn scope_count_stmt(s: &Stmt, future_annotations: bool) -> usize {
                     .map(expr_scopes)
                     .sum::<usize>()
                 + decorator_list.iter().map(expr_scopes).sum::<usize>()
-                + type_param_scopes(type_params)
-                + 1;
-            if !future_annotations && type_params.is_empty() {
-                n += annotations_exprs(args, returns)
-                    .map(expr_scopes)
-                    .sum::<usize>();
+                + type_param_scopes(type_params);
+            if type_params.is_empty() {
+                // The function scope is a sibling; with type parameters it
+                // nests inside the type-parameters scope, along with the
+                // annotations' scopes.
+                n += 1;
+                if !future_annotations {
+                    n += annotations_exprs(args, returns)
+                        .map(expr_scopes)
+                        .sum::<usize>();
+                }
             }
             n
         }
@@ -4156,9 +4216,12 @@ fn scope_count_stmt(s: &Stmt, future_annotations: bool) -> usize {
             ..
         } => {
             let mut n = decorator_list.iter().map(expr_scopes).sum::<usize>()
-                + type_param_scopes(type_params)
-                + 1;
+                + type_param_scopes(type_params);
             if type_params.is_empty() {
+                // Without type parameters the bases' scopes and the class
+                // scope are siblings; with them everything nests inside the
+                // type-parameters scope.
+                n += 1;
                 n += bases.iter().map(expr_scopes).sum::<usize>()
                     + keywords
                         .iter()
@@ -4167,7 +4230,9 @@ fn scope_count_stmt(s: &Stmt, future_annotations: bool) -> usize {
             }
             n
         }
-        Stmt::TypeAlias { type_params, .. } => type_param_scopes(type_params) + 1,
+        // The alias thunk nests inside the type-parameters scope when the
+        // alias is generic, and is the single child otherwise.
+        Stmt::TypeAlias { .. } => 1,
         Stmt::Return { value, .. } => value.as_deref().map(expr_scopes).unwrap_or(0),
         Stmt::Delete { targets, .. } => targets.iter().map(target_scopes).sum(),
         Stmt::Assign { targets, value, .. } => {
@@ -4317,14 +4382,11 @@ fn scope_count_stmt(s: &Stmt, future_annotations: bool) -> usize {
     }
 }
 
+/// A type-parameter list occupies one slot at this level: its block. The
+/// bounds' own blocks and anything scoped inside them are that block's
+/// children, not siblings.
 fn type_param_scopes(tps: &[TypeParam]) -> usize {
-    let mut n = 0;
-    for tp in tps {
-        if let TypeParam::TypeVar { bound: Some(b), .. } = tp {
-            n += 1 + expr_scopes(b);
-        }
-    }
-    if n > 0 || !tps.is_empty() { n + 1 } else { n }
+    usize::from(!tps.is_empty())
 }
 
 fn target_scopes(e: &Expr) -> usize {
