@@ -84,8 +84,9 @@ fn tokens_record(path: &str, bytes: &[u8], out: &mut String) {
 fn run(args: &[String]) -> i32 {
     let mode = match args.first().map(String::as_str) {
         Some("--tokens") => Mode::Tokens,
-        Some("--ast") | Some("--symtable") => {
-            eprintln!("error: {} is not implemented in this build", args[0]);
+        Some("--ast") => Mode::Ast,
+        Some("--symtable") => {
+            eprintln!("error: --symtable is not implemented in this build");
             return 2;
         }
         _ => {
@@ -105,6 +106,7 @@ fn run(args: &[String]) -> i32 {
         };
         match mode {
             Mode::Tokens => tokens_record(path, &bytes, &mut out),
+            Mode::Ast => ast_record(path, &bytes, &mut out),
         }
         if stdout.write_all(out.as_bytes()).is_err() {
             return 2;
@@ -114,8 +116,41 @@ fn run(args: &[String]) -> i32 {
     0
 }
 
+fn ast_record(path: &str, bytes: &[u8], out: &mut String) {
+    out.push_str("{\"path\":");
+    json_string(out, path);
+    match coil_front::parser::parse_module(bytes, Some(std::path::Path::new(path))) {
+        Ok((module, interner)) => {
+            out.push_str(",\"ok\":true,\"ast\":");
+            out.push_str(&coil_front::dump::dump_module(&module, &interner));
+            out.push_str("}\n");
+        }
+        Err(error) => {
+            out.push_str(",\"ok\":false,\"error\":{\"type\":\"");
+            out.push_str(error.kind.name());
+            out.push_str("\",\"msg\":");
+            json_string(out, &error.message);
+            out.push_str(&format!(
+                ",\"lineno\":{},\"offset\":{},\"end_lineno\":{},\"end_offset\":{}}}}}\n",
+                opt(error.lineno),
+                opt(error.offset),
+                opt(error.end_lineno),
+                opt(error.end_offset),
+            ));
+        }
+    }
+}
+
+fn opt(value: Option<i32>) -> String {
+    match value {
+        Some(value) => value.to_string(),
+        None => "null".to_string(),
+    }
+}
+
 enum Mode {
     Tokens,
+    Ast,
 }
 
 fn main() {

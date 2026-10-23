@@ -436,7 +436,7 @@ impl std::error::Error for TokenizeError {}
 // --- encoding detection (tokenize.detect_encoding) ---------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Codec {
+pub(crate) enum Codec {
     Utf8,
     Iso8859_1,
     Koi8R,
@@ -449,7 +449,7 @@ enum Codec {
 /// lowercased and normalised as `encodings.normalize_encoding` does (runs of
 /// characters other than ASCII alphanumerics and `.` become one `_`, trimmed
 /// at both ends), then resolved through the aliases in `encodings/aliases.py`.
-fn lookup_codec(name: &str) -> Option<Codec> {
+pub(crate) fn lookup_codec(name: &str) -> Option<Codec> {
     let mut norm = String::new();
     let mut pending = false;
     for c in name.chars().map(|c| c.to_ascii_lowercase()) {
@@ -770,6 +770,9 @@ enum Done {
     Dedent,
     LineCont,
     ColumnOverflow,
+    /// `verify_identifier` hit bytes that are not UTF-8 (`E_DECODE`); only the
+    /// parser view, whose buffer is the raw translated source.
+    Decode,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -791,6 +794,12 @@ struct Mode {
     f_string_line_start: u32,
     f_string_debug: bool,
     in_format_spec: bool,
+    // `update_fstring_expr` state: the buffer captured at the last '{' is the
+    // slice starting at `last_expr_start`, and `last_expr_end` holds the byte
+    // offset of the token that closed the expression (the C code stores the
+    // tail length; in string-input mode both come from the same buffer).
+    last_expr_start: Option<usize>,
+    last_expr_end: Option<usize>,
 }
 
 impl Mode {
@@ -807,17 +816,21 @@ impl Mode {
             f_string_line_start: 0,
             f_string_debug: false,
             in_format_spec: false,
+            last_expr_start: None,
+            last_expr_end: None,
         }
     }
 }
 
 /// A token as produced by the core: kind plus byte offsets into the buffer;
 /// `None` for tokens the C tokenizer emits without a buffer extent.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct RawToken {
     kind: TokenKind,
     start: Option<usize>,
     end: Option<usize>,
+    // The captured f-string expression source, for debug ('=') specifiers.
+    metadata: Option<Box<str>>,
 }
 
 impl RawToken {
@@ -825,7 +838,17 @@ impl RawToken {
         kind: TokenKind::ErrorToken,
         start: None,
         end: None,
+        metadata: None,
     };
+
+    fn new(kind: TokenKind, start: Option<usize>, end: Option<usize>) -> Self {
+        RawToken {
+            kind,
+            start,
+            end,
+            metadata: None,
+        }
+    }
 }
 
 /// The Python-level error the C tokenizer raises through PyErr.
@@ -834,6 +857,8 @@ struct SyntaxErr {
     message: String,
     line: u32,
     column: i64,
+    /// The end position when `syntaxerror_known_range` supplied one.
+    end_column: Option<i64>,
 }
 
 pub struct Tokenizer {
@@ -862,11 +887,15 @@ pub struct Tokenizer {
     level: i32,
     parenstack: Vec<u8>,
     parenlineno: Vec<u32>,
+    parencol: Vec<i64>,
 
     tok_extra_tokens: bool,
     type_comments: bool,
     comment_newline: bool,
     implicit_newline: bool,
+    /// Whether the underflow that hit `E_EOF` would have reset the readline
+    /// buffer (`tok->start == NULL && !INSIDE_FSTRING`).
+    eof_reset: bool,
 
     modes: [Mode; MAXFSTRINGLEVEL],
     mode_index: usize,
@@ -936,8 +965,22 @@ fn in_ranges(cp: u32, ranges: &[(u32, u32)]) -> bool {
         .is_ok()
 }
 
+/// Where strict UTF-8 decoding first fails, described the way
+/// `str(UnicodeDecodeError)` does; only rendered messages use this.
+fn utf8_decode_error(bytes: &[u8]) -> (usize, &'static str) {
+    let error = std::str::from_utf8(bytes).unwrap_err();
+    let position = error.valid_up_to();
+    let lead = bytes[position];
+    let reason = match error.error_len() {
+        None => "unexpected end of data",
+        Some(_) if lead & 0xC0 == 0x80 || lead >= 0xF8 => "invalid start byte",
+        Some(_) => "invalid continuation byte",
+    };
+    (position, reason)
+}
+
 impl Tokenizer {
-    fn new(lines: Vec<Vec<u8>>, tok_extra_tokens: bool, type_comments: bool) -> Self {
+    pub(crate) fn new(lines: Vec<Vec<u8>>, tok_extra_tokens: bool, type_comments: bool) -> Self {
         Tokenizer {
             buf: Vec::new(),
             cur: 0,
@@ -959,10 +1002,12 @@ impl Tokenizer {
             level: 0,
             parenstack: Vec::new(),
             parenlineno: Vec::new(),
+            parencol: Vec::new(),
             tok_extra_tokens,
             type_comments,
             comment_newline: false,
             implicit_newline: false,
+            eof_reset: false,
             modes: [Mode::new(); MAXFSTRINGLEVEL],
             mode_index: 0,
             lines: lines.into_iter(),
@@ -989,24 +1034,34 @@ impl Tokenizer {
 
     // -- input ---------------------------------------------------------------
 
-    /// `tok_underflow_readline` + `tok_readline_string`.
+    /// `tok_underflow_readline` + `tok_readline_string`. At end of input no
+    /// state is touched: the cursor stays at the end of the last line, whose
+    /// `cur - line_start` the parser reports for synthetic tokens (`_tok_get`
+    /// at `c == EOF` with `done == E_EOF`), while `eof_reset` carries the
+    /// readline flavor's reset for the tokenize error.
     fn underflow(&mut self) -> bool {
+        let line = match self.lines.next() {
+            Some(line) => line,
+            None => {
+                // The readline flavor resets cur=inp=buf here for a fresh
+                // token; the string flavor the parser mirrors leaves the
+                // cursor at the end of the last line. Only the flag is
+                // recorded: `finish_error` speaks for the readline flavor.
+                self.eof_reset = self.start.is_none() && self.mode_index == 0;
+                self.done = Done::Eof;
+                return false;
+            }
+        };
         if self.start.is_none() && self.mode_index == 0 {
             self.cur = 0;
             self.inp = 0;
             self.buf.clear();
         }
-        let line = match self.lines.next() {
-            Some(line) => line,
-            None => {
-                self.done = Done::Eof;
-                return false;
-            }
-        };
         self.buf.extend_from_slice(&line);
         self.inp = self.buf.len();
         self.line_start = self.cur;
         if self.inp == self.cur {
+            self.eof_reset = self.start.is_none() && self.mode_index == 0;
             self.done = Done::Eof;
             return false;
         }
@@ -1078,6 +1133,7 @@ impl Tokenizer {
             message,
             line: self.lineno,
             column: prefix.chars().count() as i64,
+            end_column: None,
         });
         self.done = Done::Error;
         RawToken::ERROR
@@ -1096,13 +1152,14 @@ impl Tokenizer {
             };
         }
         if self.done == Done::Eof {
+            // E_EOF goes through PyErr_SyntaxLocationObject with inp - buf,
+            // which the readline flavor's fresh-token reset zeroes.
+            let column = if self.eof_reset { 0 } else { self.inp as i64 };
             return TokenizeError {
                 kind: TokenizeErrorKind::TokenError,
                 message: "unexpected EOF in multi-line statement".to_string(),
                 line: Some(self.lineno),
-                // E_EOF goes through PyErr_SyntaxLocationObject, which
-                // carries inp - buf as-is.
-                column: Some(self.inp as i64),
+                column: Some(column),
             };
         }
         let (kind, message) = match self.done {
@@ -1214,9 +1271,19 @@ impl Tokenizer {
         let text = match std::str::from_utf8(&self.buf[start..end]) {
             Ok(text) => text,
             Err(_) => {
-                // The buffer is re-encoded UTF-8, so this cannot happen; the
-                // C tokenizer would set E_DECODE here.
-                self.done = Done::Error;
+                // E_DECODE with a pending UnicodeDecodeError, which the parser
+                // surfaces as "(unicode error) ...".
+                let (position, reason) = utf8_decode_error(&self.buf[start..end]);
+                self.err = Some(SyntaxErr {
+                    message: format!(
+                        "'utf-8' codec can't decode byte 0x{:02x} in position {position}: {reason}",
+                        self.buf[start + position],
+                    ),
+                    line: self.lineno,
+                    column: 0,
+                    end_column: None,
+                });
+                self.done = Done::Decode;
                 return false;
             }
         };
@@ -1406,22 +1473,14 @@ impl Tokenizer {
                         p_end = Some(self.cur);
                     }
                     self.pendin += 1;
-                    return RawToken {
-                        kind: TokenKind::Dedent,
-                        start: p_start,
-                        end: p_end,
-                    };
+                    return RawToken::new(TokenKind::Dedent, p_start, p_end);
                 }
                 if self.tok_extra_tokens {
                     p_start = Some(0);
                     p_end = Some(self.cur);
                 }
                 self.pendin -= 1;
-                return RawToken {
-                    kind: TokenKind::Indent,
-                    start: p_start,
-                    end: p_end,
-                };
+                return RawToken::new(TokenKind::Indent, p_start, p_end);
             }
 
             'again: loop {
@@ -1445,18 +1504,18 @@ impl Tokenizer {
                     if self.type_comments {
                         match self.type_comment(c, blankline) {
                             TypeComment::Ignore(start, end) => {
-                                return RawToken {
-                                    kind: TokenKind::TypeIgnore,
-                                    start: Some(start),
-                                    end: Some(end),
-                                };
+                                return RawToken::new(
+                                    TokenKind::TypeIgnore,
+                                    Some(start),
+                                    Some(end),
+                                );
                             }
                             TypeComment::Comment(start, end) => {
-                                return RawToken {
-                                    kind: TokenKind::TypeComment,
-                                    start: Some(start),
-                                    end: Some(end),
-                                };
+                                return RawToken::new(
+                                    TokenKind::TypeComment,
+                                    Some(start),
+                                    Some(end),
+                                );
                             }
                             TypeComment::NotType(next_p) => p = Some(next_p),
                         }
@@ -1464,11 +1523,7 @@ impl Tokenizer {
                     if self.tok_extra_tokens {
                         self.backup(c);
                         self.comment_newline = blankline;
-                        return RawToken {
-                            kind: TokenKind::Comment,
-                            start: p,
-                            end: Some(self.cur),
-                        };
+                        return RawToken::new(TokenKind::Comment, p, Some(self.cur));
                     }
                 }
 
@@ -1476,15 +1531,15 @@ impl Tokenizer {
                     if self.level != 0 {
                         return RawToken::ERROR;
                     }
-                    return RawToken {
-                        kind: if self.done == Done::Eof {
+                    return RawToken::new(
+                        if self.done == Done::Eof {
                             TokenKind::Endmarker
                         } else {
                             TokenKind::ErrorToken
                         },
-                        start: None,
-                        end: None,
-                    };
+                        None,
+                        None,
+                    );
                 }
 
                 // Identifier or string prefix.
@@ -1536,25 +1591,13 @@ impl Tokenizer {
                     if p_end.unwrap() - p_start.unwrap() == 5 && self.buf[p_start.unwrap()] == b'a'
                     {
                         if &self.buf[p_start.unwrap()..p_end.unwrap()] == b"async" {
-                            return RawToken {
-                                kind: TokenKind::Async,
-                                start: p_start,
-                                end: p_end,
-                            };
+                            return RawToken::new(TokenKind::Async, p_start, p_end);
                         }
                         if &self.buf[p_start.unwrap()..p_end.unwrap()] == b"await" {
-                            return RawToken {
-                                kind: TokenKind::Await,
-                                start: p_start,
-                                end: p_end,
-                            };
+                            return RawToken::new(TokenKind::Await, p_start, p_end);
                         }
                     }
-                    return RawToken {
-                        kind: TokenKind::Name,
-                        start: p_start,
-                        end: p_end,
-                    };
+                    return RawToken::new(TokenKind::Name, p_start, p_end);
                 }
 
                 if c == b'\r' as i32 {
@@ -1567,45 +1610,27 @@ impl Tokenizer {
                             if self.comment_newline {
                                 self.comment_newline = false;
                             }
-                            return RawToken {
-                                kind: TokenKind::Nl,
-                                start: self.start,
-                                end: Some(self.cur),
-                            };
+                            return RawToken::new(TokenKind::Nl, self.start, Some(self.cur));
                         }
                         continue 'nextline;
                     }
                     if self.comment_newline && self.tok_extra_tokens {
                         self.comment_newline = false;
-                        return RawToken {
-                            kind: TokenKind::Nl,
-                            start: self.start,
-                            end: Some(self.cur),
-                        };
+                        return RawToken::new(TokenKind::Nl, self.start, Some(self.cur));
                     }
-                    return RawToken {
-                        kind: TokenKind::Newline,
-                        start: self.start,
-                        end: Some(self.cur - 1),
-                    };
+                    return RawToken::new(TokenKind::Newline, self.start, Some(self.cur - 1));
                 }
 
                 if c == b'.' as i32 {
                     c = self.nextc();
                     if is_digit(c) {
                         return match self.number_chain(ChainStart::Fraction, c) {
-                            Ok(None) => RawToken {
-                                kind: TokenKind::Number,
-                                start: self.start,
-                                end: Some(self.cur),
-                            },
+                            Ok(None) => {
+                                RawToken::new(TokenKind::Number, self.start, Some(self.cur))
+                            }
                             Ok(Some(term)) => {
                                 self.backup(term);
-                                RawToken {
-                                    kind: TokenKind::Number,
-                                    start: self.start,
-                                    end: Some(self.cur),
-                                }
+                                RawToken::new(TokenKind::Number, self.start, Some(self.cur))
                             }
                             Err(token) => token,
                         };
@@ -1613,29 +1638,17 @@ impl Tokenizer {
                     if c == b'.' as i32 {
                         let c2 = self.nextc();
                         if c2 == b'.' as i32 {
-                            return RawToken {
-                                kind: TokenKind::Ellipsis,
-                                start: self.start,
-                                end: Some(self.cur),
-                            };
+                            return RawToken::new(TokenKind::Ellipsis, self.start, Some(self.cur));
                         }
                         self.backup(c2);
                     }
                     self.backup(c);
-                    return RawToken {
-                        kind: TokenKind::Dot,
-                        start: self.start,
-                        end: Some(self.cur),
-                    };
+                    return RawToken::new(TokenKind::Dot, self.start, Some(self.cur));
                 }
 
                 if is_digit(c) {
                     return match self.number(c) {
-                        Ok(()) => RawToken {
-                            kind: TokenKind::Number,
-                            start: self.start,
-                            end: Some(self.cur),
-                        },
+                        Ok(()) => RawToken::new(TokenKind::Number, self.start, Some(self.cur)),
                         Err(token) => token,
                     };
                 }
@@ -1656,6 +1669,7 @@ impl Tokenizer {
                 // Punctuation special to f-string expressions.
                 let is_punctuation =
                     c == b':' as i32 || c == b'}' as i32 || c == b'!' as i32 || c == b'{' as i32;
+                let mut fstring_metadata = None;
                 if is_punctuation
                     && self.mode_index > 0
                     && self.mode().curly_bracket_expr_start_depth >= 0
@@ -1664,6 +1678,28 @@ impl Tokenizer {
                     // the '{' case below has not run yet.
                     let mode = *self.mode();
                     let cursor = mode.curly_bracket_depth - i32::from(c != b'{' as i32);
+                    let cursor_valid = cursor == 0
+                        || (cursor == 1 && (mode.f_string_debug || mode.in_format_spec));
+                    if cursor_valid {
+                        match u8::try_from(c) {
+                            Ok(b'{') => {
+                                let cur = self.cur;
+                                let m = self.mode_mut();
+                                m.last_expr_start = Some(cur);
+                                m.last_expr_end = None;
+                            }
+                            Ok(b'}') | Ok(b'!') => {
+                                self.mode_mut().last_expr_end = self.start;
+                            }
+                            Ok(b':') if self.mode().last_expr_end.is_none() => {
+                                self.mode_mut().last_expr_end = self.start;
+                            }
+                            _ => {}
+                        }
+                    }
+                    if cursor_valid && c != b'{' as i32 && mode.f_string_debug {
+                        fstring_metadata = self.fstring_expr_metadata();
+                    }
                     if c == b':' as i32 && cursor == mode.curly_bracket_expr_start_depth {
                         self.mode_mut().kind = ModeKind::FString;
                         self.mode_mut().in_format_spec = true;
@@ -1671,6 +1707,7 @@ impl Tokenizer {
                             kind: one_char(c),
                             start: self.start,
                             end: Some(self.cur),
+                            metadata: fstring_metadata,
                         };
                     }
                 }
@@ -1685,11 +1722,7 @@ impl Tokenizer {
                     } else {
                         self.backup(c3);
                     }
-                    return RawToken {
-                        kind: current,
-                        start: self.start,
-                        end: Some(self.cur),
-                    };
+                    return RawToken::new(current, self.start, Some(self.cur));
                 }
                 self.backup(c2);
 
@@ -1701,6 +1734,13 @@ impl Tokenizer {
                             }
                             self.parenstack.push(b);
                             self.parenlineno.push(self.lineno);
+                            // `tok->start - tok->line_start`: the bracket's own
+                            // column, not the column the cursor moved past it to.
+                            let col = match self.start {
+                                Some(start) => (start - self.line_start) as i64,
+                                None => self.col_offset - 1,
+                            };
+                            self.parencol.push(col);
                             self.level += 1;
                             if self.mode_index > 0 {
                                 self.mode_mut().curly_bracket_depth += 1;
@@ -1722,6 +1762,7 @@ impl Tokenizer {
                                 self.level -= 1;
                                 let opening = self.parenstack.pop().unwrap_or(b'(');
                                 let opening_line = self.parenlineno.pop().unwrap_or(self.lineno);
+                                self.parencol.pop();
                                 if !self.tok_extra_tokens
                                     && !matches!(
                                         (opening, b),
@@ -1794,9 +1835,43 @@ impl Tokenizer {
                     kind: one_char(c),
                     start: self.start,
                     end: Some(self.cur),
+                    metadata: fstring_metadata,
                 };
             }
         }
+    }
+
+    /// `set_fstring_expr`: the expression source recorded for a debug ('=')
+    /// specifier, with '#' comments stripped but their newlines kept.
+    fn fstring_expr_metadata(&mut self) -> Option<Box<str>> {
+        let start = self.mode().last_expr_start?;
+        let end = self.mode().last_expr_end?;
+        if end < start {
+            return None;
+        }
+        let text = &self.buf[start..end];
+        let decoded: Box<str> = if text.contains(&b'#') {
+            let mut out = Vec::with_capacity(text.len());
+            let mut i = 0;
+            while i < text.len() {
+                if text[i] == b'#' {
+                    while i < text.len() {
+                        if text[i] == b'\n' {
+                            out.push(b'\n');
+                            break;
+                        }
+                        i += 1;
+                    }
+                } else {
+                    out.push(text[i]);
+                }
+                i += 1;
+            }
+            String::from_utf8_lossy(&out).into_owned().into()
+        } else {
+            String::from_utf8_lossy(text).into_owned().into()
+        };
+        Some(decoded)
     }
 
     /// The comment-or-type-comment handling of `tok_get_normal_mode`.
@@ -2072,13 +2147,21 @@ impl Tokenizer {
 
     fn syntaxerror_known_range(
         &mut self,
-        _col_offset: i64,
-        _end_col_offset: i64,
+        col_offset: i64,
+        end_col_offset: i64,
         message: String,
     ) -> RawToken {
-        // The range only refines the exception's text, which this port does
-        // not carry; the location is the same as syntaxerror's default.
-        self.syntaxerror(message)
+        if self.done == Done::Error {
+            return RawToken::ERROR;
+        }
+        self.err = Some(SyntaxErr {
+            message,
+            line: self.lineno,
+            column: col_offset,
+            end_column: Some(end_col_offset),
+        });
+        self.done = Done::Error;
+        RawToken::ERROR
     }
 
     // -- strings --------------------------------------------------------------------
@@ -2127,11 +2210,7 @@ impl Tokenizer {
         mode.f_string_line_start = self.lineno;
         mode.f_string_debug = false;
         mode.in_format_spec = false;
-        RawToken {
-            kind: TokenKind::FStringStart,
-            start: p_start,
-            end: p_end,
-        }
+        RawToken::new(TokenKind::FStringStart, p_start, p_end)
     }
 
     fn letter_quote(&mut self, c: i32) -> RawToken {
@@ -2203,11 +2282,7 @@ impl Tokenizer {
             }
         }
 
-        RawToken {
-            kind: TokenKind::String,
-            start: self.start,
-            end: Some(self.cur),
-        }
+        RawToken::new(TokenKind::String, self.start, Some(self.cur))
     }
 
     // -- f-string mode -----------------------------------------------------------
@@ -2246,12 +2321,11 @@ impl Tokenizer {
             }
         }
 
+        let m = self.mode_mut();
+        m.last_expr_start = None;
+        m.last_expr_end = None;
         self.mode_index -= 1;
-        RawToken {
-            kind: TokenKind::FStringEnd,
-            start: self.start,
-            end: Some(self.cur),
-        }
+        RawToken::new(TokenKind::FStringEnd, self.start, Some(self.cur))
     }
 
     fn fstring_middle(&mut self) -> RawToken {
@@ -2274,11 +2348,7 @@ impl Tokenizer {
                     self.backup(c);
                     self.mode_mut().kind = ModeKind::Regular;
                     self.mode_mut().in_format_spec = false;
-                    return RawToken {
-                        kind: TokenKind::FStringMiddle,
-                        start: self.start,
-                        end: Some(self.cur),
-                    };
+                    return RawToken::new(TokenKind::FStringMiddle, self.start, Some(self.cur));
                 }
 
                 // Shift the location to the initial quote and report from
@@ -2314,6 +2384,10 @@ impl Tokenizer {
             end_quote_size = 0;
 
             if c == b'{' as i32 {
+                let cur = self.cur;
+                let m = self.mode_mut();
+                m.last_expr_start = Some(cur);
+                m.last_expr_end = None;
                 let peek = self.nextc();
                 if peek != b'{' as i32 || in_format_spec {
                     self.backup(peek);
@@ -2325,44 +2399,24 @@ impl Tokenizer {
                     }
                     self.mode_mut().kind = ModeKind::Regular;
                     self.mode_mut().in_format_spec = false;
-                    return RawToken {
-                        kind: TokenKind::FStringMiddle,
-                        start: self.start,
-                        end: Some(self.cur),
-                    };
+                    return RawToken::new(TokenKind::FStringMiddle, self.start, Some(self.cur));
                 }
-                return RawToken {
-                    kind: TokenKind::FStringMiddle,
-                    start: self.start,
-                    end: Some(self.cur - 1),
-                };
+                return RawToken::new(TokenKind::FStringMiddle, self.start, Some(self.cur - 1));
             } else if c == b'}' as i32 {
                 if unicode_escape {
-                    return RawToken {
-                        kind: TokenKind::FStringMiddle,
-                        start: self.start,
-                        end: Some(self.cur),
-                    };
+                    return RawToken::new(TokenKind::FStringMiddle, self.start, Some(self.cur));
                 }
                 let peek = self.nextc();
                 // Format specifiers can't legally use double brackets, so
                 // only bypass at the top level of the bracket stack.
                 let cursor = self.mode().curly_bracket_depth;
                 if peek == b'}' as i32 && !in_format_spec && cursor == 0 {
-                    return RawToken {
-                        kind: TokenKind::FStringMiddle,
-                        start: self.start,
-                        end: Some(self.cur - 1),
-                    };
+                    return RawToken::new(TokenKind::FStringMiddle, self.start, Some(self.cur - 1));
                 }
                 self.backup(peek);
                 self.backup(c);
                 self.mode_mut().kind = ModeKind::Regular;
-                return RawToken {
-                    kind: TokenKind::FStringMiddle,
-                    start: self.start,
-                    end: Some(self.cur),
-                };
+                return RawToken::new(TokenKind::FStringMiddle, self.start, Some(self.cur));
             } else if c == b'\\' as i32 {
                 let mut peek = self.nextc();
                 if peek == b'\r' as i32 {
@@ -2391,11 +2445,7 @@ impl Tokenizer {
         for _ in 0..quote_size {
             self.backup(quote as i32);
         }
-        RawToken {
-            kind: TokenKind::FStringMiddle,
-            start: self.start,
-            end: Some(self.cur),
-        }
+        RawToken::new(TokenKind::FStringMiddle, self.start, Some(self.cur))
     }
 }
 
@@ -2593,6 +2643,392 @@ pub fn tokenize_module_view(bytes: &[u8]) -> Result<Vec<Token>, TokenizeError> {
         });
     }
     Ok(out)
+}
+
+// --- the PEG parser's source pipeline (decode_str) ----------------------------
+
+/// The parser's input after `decode_str` for bytes in exec mode: what the
+/// tokenizer consumes, plus the pieces of tokenizer state that the error
+/// machinery reports from.
+pub struct ParserSource {
+    /// The translated buffer with the BOM stripped and, when a coding cookie
+    /// applies, recoded to UTF-8; every line ends with `\n`.
+    pub buffer: Vec<u8>,
+    /// `tok->str`: the translated buffer after the BOM but before any cookie
+    /// recoding; the fallback source of error lines for string input.
+    pub tok_str: Vec<u8>,
+    /// `tok->encoding`; on the string path only a BOM sets it.
+    pub encoding: Option<String>,
+}
+
+impl ParserSource {
+    /// The lines the tokenizer pulls, each through its newline.
+    pub fn lines(&self) -> Vec<Vec<u8>> {
+        self.buffer
+            .split_inclusive(|&b| b == b'\n')
+            .map(<[u8]>::to_vec)
+            .collect()
+    }
+}
+
+/// `translate_newlines` for exec input: `\r\n` and lone `\r` become `\n`, and
+/// a non-empty result gains a final newline.
+fn translate_newlines(input: &[u8]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(input.len() + 1);
+    let mut skip_next_lf = false;
+    for &c in input {
+        let mut c = c;
+        if skip_next_lf {
+            skip_next_lf = false;
+            if c == b'\n' {
+                continue;
+            }
+        }
+        if c == b'\r' {
+            skip_next_lf = true;
+            c = b'\n';
+        }
+        out.push(c);
+    }
+    if !out.is_empty() && out.last() != Some(&b'\n') {
+        out.push(b'\n');
+    }
+    out
+}
+
+/// `get_coding_spec` over one line (without its newline): the cookie, matched
+/// case-sensitively unlike the tokenize view's regex. `None` also covers the
+/// lines that carry no comment for a cookie to live in.
+pub(crate) fn get_coding_spec(line: &[u8]) -> Option<String> {
+    let size = line.len();
+    let mut i = 0;
+    while i + 6 < size {
+        if line[i] == b'#' {
+            break;
+        }
+        if !matches!(line[i], b' ' | b'\t' | 0x0C) {
+            return None;
+        }
+        i += 1;
+    }
+    while i + 6 < size {
+        if &line[i..i + 6] == b"coding" {
+            let mut t = i + 6;
+            if line[t] != b':' && line[t] != b'=' {
+                i += 1;
+                continue;
+            }
+            loop {
+                t += 1;
+                if t >= size || !matches!(line[t], b' ' | b'\t') {
+                    break;
+                }
+            }
+            let begin = t;
+            while t < size
+                && (line[t].is_ascii_alphanumeric() || matches!(line[t], b'-' | b'_' | b'.'))
+            {
+                t += 1;
+            }
+            if begin < t {
+                let name: String = line[begin..t].iter().map(|&b| b as char).collect();
+                return Some(get_normal_name(&name));
+            }
+        }
+        i += 1;
+    }
+    None
+}
+
+/// Strict decoding for `translate_into_utf8`: the whole buffer through the
+/// cookie codec, errors described as `str(UnicodeDecodeError)` would. Only
+/// UTF-8 and ASCII can fail; the byte-table codecs decode every byte.
+fn decode_strict(bytes: &[u8], codec: Codec, name: &str) -> Result<Vec<u8>, String> {
+    let message = |position: usize, reason: String| {
+        format!(
+            "'{name}' codec can't decode byte 0x{:02x} in position {position}: {reason}",
+            bytes[position],
+        )
+    };
+    match codec {
+        Codec::Utf8 => match std::str::from_utf8(bytes) {
+            Ok(text) => Ok(text.as_bytes().to_vec()),
+            Err(_) => {
+                let (position, reason) = utf8_decode_error(bytes);
+                Err(message(position, reason.to_string()))
+            }
+        },
+        Codec::Ascii => match bytes.iter().position(|&b| b >= 128) {
+            None => Ok(bytes.to_vec()),
+            Some(position) => Err(message(position, "ordinal not in range(128)".to_string())),
+        },
+        _ => {
+            let mut text = String::with_capacity(bytes.len());
+            for &b in bytes {
+                text.push(decode_byte(codec, b));
+            }
+            Ok(text.into_bytes())
+        }
+    }
+}
+
+pub(crate) fn decode_byte(codec: Codec, b: u8) -> char {
+    match codec {
+        Codec::Iso8859_1 => b as char,
+        Codec::Koi8R => {
+            if b < 128 {
+                b as char
+            } else {
+                KOI8_R[b as usize]
+            }
+        }
+        Codec::Cp1252 => match b {
+            0x80..=0x9F => CP1252_HIGH[(b - 0x80) as usize].unwrap_or('\u{FFFD}'),
+            _ => b as char,
+        },
+        Codec::Iso8859_15 => match b {
+            0xA4 => '\u{20AC}',
+            0xA6 => '\u{0160}',
+            0xA8 => '\u{0161}',
+            0xB4 => '\u{017D}',
+            0xB8 => '\u{017E}',
+            0xBC => '\u{0152}',
+            0xBD => '\u{0153}',
+            0xBE => '\u{0178}',
+            _ => b as char,
+        },
+        Codec::Utf8 | Codec::Ascii => b as char,
+    }
+}
+
+/// `decode_str` for the parser: the null-byte check of `source_as_string`,
+/// newline translation, the BOM, and the coding cookie of the first two lines.
+pub fn parser_source(bytes: &[u8]) -> Result<ParserSource, TokenizeError> {
+    let no_location = |message: String| TokenizeError {
+        kind: TokenizeErrorKind::SyntaxError,
+        message,
+        line: None,
+        column: None,
+    };
+    if bytes.contains(&0) {
+        return Err(no_location(
+            "source code string cannot contain null bytes".to_string(),
+        ));
+    }
+    let translated = translate_newlines(bytes);
+    let mut source = ParserSource {
+        buffer: translated.clone(),
+        tok_str: translated,
+        encoding: None,
+    };
+    if source.buffer.starts_with(&BOM_UTF8) {
+        source.encoding = Some("utf-8".to_string());
+        source.buffer.drain(..3);
+        source.tok_str = source.buffer.clone();
+    }
+    let Some(newl0) = source.buffer.iter().position(|&b| b == b'\n') else {
+        return Ok(source);
+    };
+    // check_coding_spec over line 1, then line 2 when line 1 was blank or a
+    // comment and no cookie was found.
+    let line1 = &source.buffer[..newl0];
+    let mut cookie = get_coding_spec(line1);
+    let junk = |line: &[u8]| {
+        line.iter()
+            .take_while(|&&b| !matches!(b, b'#' | b'\n' | b'\r'))
+            .any(|&b| !matches!(b, b' ' | b'\t' | 0x0C))
+    };
+    if cookie.is_none()
+        && !junk(line1)
+        && let Some(offset) = source.buffer[newl0 + 1..].iter().position(|&b| b == b'\n')
+    {
+        let newl1 = newl0 + 1 + offset;
+        cookie = get_coding_spec(&source.buffer[newl0 + 1..newl1]);
+    }
+    let Some(cookie) = cookie else {
+        return Ok(source);
+    };
+    if let Some(encoding) = &source.encoding {
+        if cookie != *encoding {
+            // compile() reports this decode-path SyntaxError at (0, -1).
+            return Err(TokenizeError {
+                kind: TokenizeErrorKind::SyntaxError,
+                message: format!("encoding problem: {cookie} with BOM"),
+                line: Some(0),
+                column: Some(-1),
+            });
+        }
+        return Ok(source);
+    }
+    let codec = match lookup_codec(&cookie) {
+        Some(codec) => codec,
+        None => {
+            return Err(TokenizeError {
+                kind: TokenizeErrorKind::UnsupportedEncoding,
+                message: format!("unknown encoding: {cookie}"),
+                line: Some(0),
+                column: Some(-1),
+            });
+        }
+    };
+    if cookie != "utf-8" {
+        // `check_coding_spec` wires a recoding reader only for another codec;
+        // a utf-8 cookie keeps the raw bytes, whose invalid sequences surface
+        // per token instead. A failing recode raises through
+        // `_PyPegen_raise_tokenizer_init_error` at (0, -1).
+        source.buffer =
+            decode_strict(&source.buffer, codec, &cookie).map_err(|message| TokenizeError {
+                kind: TokenizeErrorKind::SyntaxError,
+                message,
+                line: Some(0),
+                column: Some(-1),
+            })?;
+    }
+    source.encoding = Some(cookie);
+    Ok(source)
+}
+
+// --- the PEG parser's token stream --------------------------------------------
+
+/// One token for the parser, with the byte-based positions `initialize_token`
+/// records (`token_setup`): `col_offset` is a byte offset into the token's
+/// start line, `-1` for the tokens the tokenizer emits without extents.
+#[derive(Debug, Clone)]
+pub struct PegToken {
+    pub kind: TokenKind,
+    pub bytes: Box<[u8]>,
+    /// Captured expression source for debug (`=`) f-string specifiers.
+    pub metadata: Option<Box<str>>,
+    pub level: i32,
+    pub lineno: u32,
+    pub col_offset: i64,
+    pub end_lineno: u32,
+    pub end_col_offset: i64,
+}
+
+impl Tokenizer {
+    /// The next token with `token_setup`'s positions. Error tokens carry the
+    /// failure in the tokenizer state, like `ERRORTOKEN` does.
+    pub fn next_peg_token(&mut self) -> PegToken {
+        let raw = self.next_token();
+        let text: Box<[u8]> = match (raw.start, raw.end) {
+            (Some(s), Some(e)) if s <= e && e <= self.buf.len() => self.buf[s..e].to_vec().into(),
+            _ => Box::from([] as [u8; 0]),
+        };
+        let located = raw.start.is_some();
+        PegToken {
+            kind: raw.kind,
+            bytes: text,
+            metadata: raw.metadata,
+            level: self.level,
+            lineno: if raw.kind.is_string_literal() {
+                self.first_lineno
+            } else {
+                self.lineno
+            },
+            col_offset: if located {
+                self.starting_col_offset
+            } else {
+                -1
+            },
+            end_lineno: self.lineno,
+            end_col_offset: if located { self.col_offset } else { -1 },
+        }
+    }
+
+    /// `p->tok->lineno`.
+    pub fn cur_lineno(&self) -> u32 {
+        self.lineno
+    }
+
+    /// `p->tok->cur - p->tok->line_start`, in bytes.
+    pub fn cur_col_offset(&self) -> i64 {
+        (self.cur - self.line_start) as i64
+    }
+
+    /// The innermost open bracket: (lineno, byte column, bracket).
+    pub fn paren_top(&self) -> Option<(u32, i64, u8)> {
+        Some((
+            *self.parenlineno.last()?,
+            *self.parencol.last()?,
+            *self.parenstack.last()?,
+        ))
+    }
+
+    /// `INSIDE_FSTRING`: an f-string is open.
+    pub fn in_fstring(&self) -> bool {
+        self.mode_index > 0
+    }
+
+    /// Whether the tokenizer has consumed anything (`tok->inp > tok->buf`).
+    pub fn has_input(&self) -> bool {
+        !self.buf.is_empty()
+    }
+
+    /// The current line from its start through `inp`, in bytes.
+    pub fn current_line(&self) -> &[u8] {
+        let end = self.inp.min(self.buf.len());
+        &self.buf[self.line_start.min(end)..end]
+    }
+
+    /// `p->tok->cur - p->tok->buf`: the cursor within the accumulated buffer.
+    pub fn cur_offset(&self) -> i64 {
+        self.cur as i64
+    }
+
+    /// The pending `UnicodeDecodeError` text behind `E_DECODE`, if any.
+    pub fn decode_error(&self) -> Option<String> {
+        (self.done == Done::Decode).then(|| self.err.as_ref().map(|e| e.message.clone()))?
+    }
+
+    /// A tokenizer `_syntaxerror_range` with its own character positions,
+    /// and the end column when the raise carried one.
+    pub fn pending_syntax_error(&self) -> Option<(String, u32, i64, Option<i64>)> {
+        if self.done == Done::Decode {
+            return None;
+        }
+        self.err
+            .as_ref()
+            .map(|e| (e.message.clone(), e.line, e.column, e.end_column))
+    }
+
+    /// The failure kind behind an `ERRORTOKEN`, for the parser's mapping to
+    /// exceptions.
+    pub fn failure(&self) -> TokenFailure {
+        match self.done {
+            Done::Eof => TokenFailure::Eof,
+            Done::Dedent => TokenFailure::Dedent,
+            Done::TabSpace => TokenFailure::TabSpace,
+            Done::Toodeep => TokenFailure::Toodeep,
+            Done::LineCont => TokenFailure::LineCont,
+            Done::ColumnOverflow => TokenFailure::ColumnOverflow,
+            Done::Error | Done::Decode | Done::Ok => TokenFailure::Token,
+        }
+    }
+
+    /// `done` in `{E_DONE, E_OK}`: for string input, a tokenizer that has
+    /// nothing more to report.
+    pub fn is_tok_ok(&self) -> bool {
+        self.done == Done::Ok
+    }
+
+    /// `done == E_EOF`: the input ran out inside an open construct.
+    pub fn done_is_eof(&self) -> bool {
+        self.done == Done::Eof
+    }
+}
+
+/// The tokenizer failures the parser maps to exceptions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TokenFailure {
+    Eof,
+    Dedent,
+    TabSpace,
+    Toodeep,
+    LineCont,
+    ColumnOverflow,
+    /// `E_TOKEN` and anything without a more specific reason.
+    Token,
 }
 
 /// In the tokenize-module view an unsupported cookie codec reports exactly as
@@ -2979,8 +3415,10 @@ mod tests {
             (b"\x001\n", TokenizeErrorKind::TokenError, 1, 0),
             (b"x = (\n1\n", TokenizeErrorKind::TokenError, 2, 0),
             (b"s = 'abc", TokenizeErrorKind::TokenError, 1, 5),
-            // _tokenizer_error positions: inp - buf for E_EOF, the character
-            // offset of inp in the line without its newline otherwise.
+            // _tokenizer_error positions: zero for an E_EOF at a fresh token
+            // (the readline buffer reset), inp - buf for a mid-token E_EOF,
+            // the character offset of inp in the line without its newline
+            // otherwise.
             (b"x = \\ y\n", TokenizeErrorKind::TokenError, 1, 8),
             (b"x = \\y\n", TokenizeErrorKind::TokenError, 1, 7),
             (b"1_\n", TokenizeErrorKind::TokenError, 1, 2),
