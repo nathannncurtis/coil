@@ -2,6 +2,9 @@
 //! model, built-in types, native modules, the C API and the `coil_rt_*`
 //! ABI compiled code calls (spec section 10).
 
+// Names keep the exact C spelling of the C API they mirror.
+#![allow(non_upper_case_globals)]
+
 pub mod abi_generated;
 pub mod alloc;
 pub mod arch;
@@ -14,6 +17,7 @@ pub mod modules;
 pub mod object;
 pub mod tstate;
 pub mod types;
+pub mod util;
 
 /// The SHA-256 of `native/abi.toml` this runtime was built against, for
 /// `coil_rt_init` to compare against the hash embedded in an executable
