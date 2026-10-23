@@ -4,6 +4,12 @@
 # python3.dll forwarders included, with the packages that need it. Verify
 # with `python tools/capi_usage.py --check-manifest`; regenerate with
 # --write-manifest.
+#
+# Measured union of these pins: 658 distinct symbols over
+# 17 packages, 646 imported directly from python312.dll and
+# 240 through python3.dll forwarders. The spec's totals for the
+# same set (564 for embeddable + numpy + Pillow, 610 for the whole set)
+# are not reproduced by these pins; see SPEC_COUNTS in tools/capi_usage.py.
 PyArg_Parse pywin32
 PyArg_ParseTuple Pillow PyQt5 PyQt6 embeddable numpy psutil pywin32
 PyArg_ParseTupleAndKeywords PyQt5 PyQt6 embeddable numpy psutil pywin32
