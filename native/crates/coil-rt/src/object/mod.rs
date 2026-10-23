@@ -3,5 +3,6 @@
 
 pub mod exceptions;
 pub mod header;
+pub mod lock;
 pub mod singletons;
 pub mod typeobject;
