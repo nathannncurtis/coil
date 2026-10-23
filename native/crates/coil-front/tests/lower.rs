@@ -1089,9 +1089,7 @@ fn const_of<'a>(f: &'a Function, out: &'a LowerOutput, v: Value) -> Option<&'a C
 }
 
 fn defined_by_phi(f: &Function, v: Value) -> bool {
-    f.blocks
-        .iter()
-        .any(|b| b.phis.iter().any(|p| p.into == v))
+    f.blocks.iter().any(|b| b.phis.iter().any(|p| p.into == v))
 }
 
 fn defined_by_pushexcinfo(f: &Function, v: Value) -> bool {
@@ -1236,7 +1234,8 @@ def f(g):
         Ok(_) => panic!("return in an except* block must not lower"),
     };
     assert!(
-        err.to_string().contains("cannot appear in an except* block"),
+        err.to_string()
+            .contains("cannot appear in an except* block"),
         "{err}"
     );
 }
@@ -1318,7 +1317,8 @@ def f(g, h):
         })
         .expect("rest split");
     assert!(
-        instrs(f).any(|i| matches!(i, Instr::Call { args, .. } if args.len() == 1 && args[0] == rest)),
+        instrs(f)
+            .any(|i| matches!(i, Instr::Call { args, .. } if args.len() == 1 && args[0] == rest)),
         "the unmatched rest reaches the recombine"
     );
 }
@@ -1342,15 +1342,11 @@ def f(g):
     assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     let guarded = f.blocks.iter().any(|b| {
-        let Terminator::Branch {
-            cond,
-            then_to,
-            ..
-        } = &b.term
-        else {
+        let Terminator::Branch { cond, then_to, .. } = &b.term else {
             return false;
         };
-        let on_pending = instrs(f).any(|i| matches!(i, Instr::Truth { into, .. } if *into == *cond));
+        let on_pending =
+            instrs(f).any(|i| matches!(i, Instr::Truth { into, .. } if *into == *cond));
         on_pending
             && f.blocks[then_to.0 as usize]
                 .instrs
@@ -1358,4 +1354,170 @@ def f(g):
                 .any(|i| matches!(i, Instr::PopExcInfo))
     });
     assert!(guarded, "a truth-guarded PopExcInfo must restore exc_info");
+}
+
+/// True when the function raises `<exc_name>(<msg>)` where the message is a
+/// `buildstr` containing a constant whose text contains `text`.
+fn raises_with_message(f: &Function, out: &LowerOutput, exc_name: &str, text: &str) -> bool {
+    let consts = &out.module.consts;
+    let head = consts
+        .consts
+        .iter()
+        .position(|c| matches!(c, Const::Str(s) if consts.sym_str(*s).contains(text)))
+        .and_then(|i| {
+            instrs(f).find_map(|ins| match ins {
+                Instr::Const { idx, into } if idx.0 as usize == i => Some(*into),
+                _ => None,
+            })
+        });
+    let Some(head) = head else {
+        return false;
+    };
+    let msg = instrs(f).find_map(|ins| match ins {
+        Instr::BuildStr { parts, into } if parts.contains(&head) => Some(*into),
+        _ => None,
+    });
+    let Some(msg) = msg else {
+        return false;
+    };
+    let exc_of = |callee: Value| {
+        instrs(f).any(|ins| match ins {
+            Instr::LoadGlobal { name, into } => {
+                *into == callee && consts.sym_str(*name) == exc_name
+            }
+            _ => false,
+        })
+    };
+    instrs(f).any(|ins| match ins {
+        Instr::Call {
+            callee, args, into, ..
+        } if args.first() == Some(&msg) => exc_of(*callee) && raised_is(f, *into),
+        _ => false,
+    })
+}
+
+/// True when `v` is the operand of a raise terminator.
+fn raised_is(f: &Function, v: Value) -> bool {
+    f.blocks
+        .iter()
+        .any(|b| matches!(&b.term, Terminator::Raise { exc: Some(e), .. } if *e == v))
+}
+
+#[test]
+fn mapping_pattern_checks_duplicate_keys() {
+    // Two keys that evaluate equal raise ValueError, as CPython's MATCH_KEYS
+    // does; a duplicate is not a failed match.
+    let out = lower(
+        r#"
+class K:
+    a = 'x'
+def f(d):
+    match d:
+        case {'x': p, K.a: q}:
+            return p
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    assert!(
+        raises_with_message(
+            f,
+            &out,
+            "ValueError",
+            "mapping pattern checks duplicate key ("
+        ),
+        "duplicate keys must raise ValueError with CPython's message"
+    );
+}
+
+#[test]
+fn class_pattern_checks_duplicate_attributes() {
+    let out = lower(
+        r#"
+class P:
+    __match_args__ = ('x', 'x')
+class Q:
+    __match_args__ = ('v',)
+def pos_pos(o):
+    match o:
+        case P(a, b):
+            return a
+def pos_kw(o):
+    match o:
+        case Q(v, v=w):
+            return v
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    for name in ["pos_pos", "pos_kw"] {
+        let f = fn_by_qualname(&out, name);
+        assert!(
+            raises_with_message(
+                f,
+                &out,
+                "TypeError",
+                "() got multiple sub-patterns for attribute "
+            ),
+            "{name} must raise TypeError for the repeated attribute"
+        );
+    }
+}
+
+#[test]
+fn pattern_captures_bind_only_on_full_match() {
+    // CPython defers the capture stores to just before the guard, so a later
+    // sub-pattern that raises leaves earlier captures unbound. At module
+    // scope the capture store is a real instruction, and it must come after
+    // the second sub-pattern's may-raise lookup.
+    let out_m = lower(
+        r#"
+obj = None
+match [1, 2]:
+    case [x, obj.v]:
+        r = x
+"#,
+    );
+    assert_eq!(out_m.unsupported, vec![]);
+    let m = fn_by_qualname(&out_m, "<module>");
+    let flat: Vec<&Instr> = instrs(m).collect();
+    let lookup = flat
+        .iter()
+        .position(|i| matches!(i, Instr::GetAttr { name, .. } if out_m.module.consts.sym_str(*name) == "v"))
+        .expect("obj.v lookup");
+    let store_x = flat
+        .iter()
+        .position(|i| matches!(i, Instr::StoreName { name, .. } if out_m.module.consts.sym_str(*name) == "x"))
+        .expect("capture store");
+    assert!(
+        lookup < store_x,
+        "the capture store must follow every sub-pattern test"
+    );
+    let out2 = lower(
+        r#"
+def g(s):
+    match s:
+        case [x] | {"a": x}:
+            return x
+"#,
+    );
+    assert_eq!(out2.unsupported, vec![]);
+    let g = fn_by_qualname(&out2, "g");
+    let merged = g.blocks.iter().any(|b| match &b.term {
+        Terminator::Return { value } => defined_by_phi(g, *value),
+        _ => false,
+    });
+    assert!(merged, "the alternative captures must merge at the or-join");
+    let err = match lower_opt(
+        r#"
+def h(s):
+    match s:
+        case [x] | {"a": y}:
+            return x
+"#,
+        0,
+    ) {
+        Err(e) => e,
+        Ok(_) => panic!("alternatives binding different names must not lower"),
+    };
+    assert!(err.to_string().contains("bind different names"), "{err}");
 }

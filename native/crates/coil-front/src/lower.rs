@@ -2396,7 +2396,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     self.unwind_with_exit(exit, handler, pos)?;
                 }
                 Unwind::Finally {
-                    var, pending, entry, ..
+                    var,
+                    pending,
+                    entry,
+                    ..
                 } => {
                     // The value rides to the dispatch in a one-tuple so an
                     // exception in flight (also in the slot) stays
@@ -3044,6 +3047,39 @@ impl<'a, 'b> FnLower<'a, 'b> {
         Ok(v)
     }
 
+    /// CPython's match_class_attr checks each attribute name against the
+    /// ones already extracted before reading it; a repeat is a TypeError,
+    /// not a failed match. Names may be runtime values (`__match_args__`).
+    fn dup_attr_check(
+        &mut self,
+        cls_v: Value,
+        name: Value,
+        seen: &[Value],
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        for prev in seen {
+            let same = self.unboxed_bool(pos, move |into| Instr::Compare {
+                op: CmpOp::Eq,
+                lhs: name,
+                rhs: *prev,
+                into,
+            })?;
+            let dup = self.new_block()?;
+            let more = self.new_block()?;
+            self.branch(same, dup, more)?;
+            self.terminated = false;
+            self.b.switch_to(dup)?;
+            let cls_name = self.cls_tp_name(cls_v, pos)?;
+            let mid = self.const_str("() got multiple sub-patterns for attribute ", pos)?;
+            let r = self.call_global("repr", vec![name], pos)?;
+            let msg = self.build_str(vec![cls_name, mid, r], pos)?;
+            self.raise_builtin("TypeError", msg, pos)?;
+            self.terminated = false;
+            self.b.switch_to(more)?;
+        }
+        Ok(())
+    }
+
     fn attribute_error_types(&mut self, pos: Pos) -> Result<Value, LowerError> {
         let ae = self.load_plain_name("AttributeError", pos)?;
         self.build_tuple(vec![ae], pos)
@@ -3128,7 +3164,12 @@ impl<'a, 'b> FnLower<'a, 'b> {
     }
 
     fn raise_type_error(&mut self, msg: Value, pos: Pos) -> Result<(), LowerError> {
-        let exc = self.call_global("TypeError", vec![msg], pos)?;
+        self.raise_builtin("TypeError", msg, pos)
+    }
+
+    /// `raise <name>(msg)` in the current block.
+    fn raise_builtin(&mut self, name: &str, msg: Value, pos: Pos) -> Result<(), LowerError> {
+        let exc = self.call_global(name, vec![msg], pos)?;
         let at = self
             .b
             .current_block()
@@ -3213,7 +3254,15 @@ impl<'a, 'b> FnLower<'a, 'b> {
             // captures this case would have bound hold their prior values
             // (CPython never binds them either).
             let fail = self.new_block()?;
-            self.lower_pattern(subj, pattern, fail)?;
+            // Captures bind only when the whole pattern matches: CPython
+            // defers the stores to just before the guard, so a later
+            // sub-pattern that fails or raises leaves them unbound.
+            let mut pending: Vec<(FSym, Value)> = Vec::new();
+            self.lower_pattern(subj, pattern, fail, &mut pending)?;
+            let ppos = pattern_pos(pattern);
+            for (nm, v) in pending {
+                self.store_name_value(nm, v, ppos)?;
+            }
             match guard {
                 Some(g) => {
                     // Bindings from the pattern persist into a failed guard,
@@ -3243,10 +3292,16 @@ impl<'a, 'b> FnLower<'a, 'b> {
     }
 
     /// Lower one pattern against `subj`: on success the current block
-    /// continues, every failing path leaves for `fail`, and captures are
-    /// stored where they bind (CPython defers the stores to just before the
-    /// guard, with no observable difference).
-    fn lower_pattern(&mut self, subj: Value, p: &Pattern, fail: BlockId) -> Result<(), LowerError> {
+    /// continues, every failing path leaves for `fail`, and captures
+    /// accumulate in `pending`, which the caller stores once the whole
+    /// pattern matches (CPython defers the stores to just before the guard).
+    fn lower_pattern(
+        &mut self,
+        subj: Value,
+        p: &Pattern,
+        fail: BlockId,
+        pending: &mut Vec<(FSym, Value)>,
+    ) -> Result<(), LowerError> {
         let pos = pattern_pos(p);
         match p {
             Pattern::MatchValue { value, .. } => {
@@ -3276,57 +3331,95 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 self.b.switch_to(ok)?;
             }
             Pattern::MatchSequence { patterns, .. } => {
-                self.lower_sequence_pattern(subj, patterns, fail, pos)?;
+                self.lower_sequence_pattern(subj, patterns, fail, pos, pending)?;
             }
             Pattern::MatchMapping {
                 keys,
                 patterns,
                 rest,
                 ..
-            } => self.lower_mapping_pattern(subj, keys, patterns, *rest, fail, pos)?,
+            } => self.lower_mapping_pattern(subj, keys, patterns, *rest, fail, pos, pending)?,
             Pattern::MatchClass {
                 cls,
                 patterns,
                 kwd_attrs,
                 kwd_patterns,
                 ..
-            } => {
-                self.lower_class_pattern(subj, cls, patterns, kwd_attrs, kwd_patterns, fail, pos)?
-            }
+            } => self.lower_class_pattern(
+                subj,
+                cls,
+                patterns,
+                kwd_attrs,
+                kwd_patterns,
+                fail,
+                pos,
+                pending,
+            )?,
             Pattern::MatchStar { name, .. } => {
                 if let Some(nm) = name {
-                    self.store_name_value(*nm, subj, pos)?;
+                    pending.push((*nm, subj));
                 }
             }
             Pattern::MatchAs { pattern, name, .. } => {
                 if let Some(inner) = pattern {
-                    self.lower_pattern(subj, inner, fail)?;
+                    self.lower_pattern(subj, inner, fail, pending)?;
                 }
                 if let Some(nm) = name {
-                    self.store_name_value(*nm, subj, pos)?;
+                    pending.push((*nm, subj));
                 }
             }
             Pattern::MatchOr { patterns, .. } => {
-                // Alternatives in order; the first success wins and its
-                // captures are the ones that stay bound.
+                // Alternatives in order; the first success wins. Each
+                // alternative copies its captures into join vars at its own
+                // success point, and the first alternative's order governs
+                // the stores after the join (CPython requires every
+                // alternative to bind the same names).
                 let ok = self.new_block()?;
                 let last = patterns.len().saturating_sub(1);
+                let mut names: Vec<FSym> = Vec::new();
+                let mut vars: Vec<Sym> = Vec::new();
                 for (i, alt) in patterns.iter().enumerate() {
-                    if i == last {
-                        self.lower_pattern(subj, alt, fail)?;
-                        if !self.terminated {
-                            self.jump(ok)?;
+                    let alt_fail = if i == last { fail } else { self.new_block()? };
+                    let mut alt_caps: Vec<(FSym, Value)> = Vec::new();
+                    self.lower_pattern(subj, alt, alt_fail, &mut alt_caps)?;
+                    if i == 0 {
+                        for (nm, v) in &alt_caps {
+                            let var = self.fresh_join_var_named("matchcap");
+                            self.write_var_at_current(var, *v)?;
+                            vars.push(var);
+                            names.push(*nm);
                         }
                     } else {
-                        let alt_fail = self.new_block()?;
-                        self.lower_pattern(subj, alt, alt_fail)?;
+                        let mismatch = || LowerError::UnexpectedAst {
+                            what: "match or-pattern alternatives bind different names",
+                            line: pos.line,
+                        };
+                        if alt_caps.len() != names.len() {
+                            return Err(mismatch());
+                        }
+                        for (nm, var) in names.iter().zip(&vars) {
+                            let v = alt_caps
+                                .iter()
+                                .find(|(n, _)| n == nm)
+                                .map(|(_, v)| *v)
+                                .ok_or_else(mismatch)?;
+                            self.write_var_at_current(*var, v)?;
+                        }
+                    }
+                    if !self.terminated {
                         self.jump(ok)?;
+                    }
+                    if i != last {
                         self.terminated = false;
                         self.b.switch_to(alt_fail)?;
                     }
                 }
                 self.terminated = false;
                 self.b.switch_to(ok)?;
+                for (nm, var) in names.iter().zip(&vars) {
+                    let v = self.read_var_at_current(*var)?;
+                    pending.push((*nm, v));
+                }
             }
         }
         Ok(())
@@ -3338,6 +3431,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         pats: &[Pattern],
         fail: BlockId,
         pos: Pos,
+        pending: &mut Vec<(FSym, Value)>,
     ) -> Result<(), LowerError> {
         // Py_TPFLAGS_SEQUENCE is set by registration with
         // collections.abc.Sequence; str, bytes and bytearray never register,
@@ -3385,11 +3479,12 @@ impl<'a, 'b> FnLower<'a, 'b> {
             pos,
         )?;
         for (p, v) in pats.iter().zip(into) {
-            self.lower_pattern(v, p, fail)?;
+            self.lower_pattern(v, p, fail, pending)?;
         }
         Ok(())
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn lower_mapping_pattern(
         &mut self,
         subj: Value,
@@ -3398,6 +3493,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         rest: Option<FSym>,
         fail: BlockId,
         pos: Pos,
+        pending: &mut Vec<(FSym, Value)>,
     ) -> Result<(), LowerError> {
         // Py_TPFLAGS_MAPPING is set by registration with
         // collections.abc.Mapping.
@@ -3429,13 +3525,41 @@ impl<'a, 'b> FnLower<'a, 'b> {
             key_vals.push(self.expr(k)?);
         }
         let mut vals = Vec::with_capacity(keys.len());
-        for kv in &key_vals {
+        for (i, kv) in key_vals.iter().enumerate() {
+            let kv = *kv;
             let look = self.new_block()?;
             self.jump(look)?;
             self.terminated = false;
             self.b.switch_to(look)?;
-            self.b.set_handler(look, Some(miss))?;
-            let kv = *kv;
+            // CPython's MATCH_KEYS checks each key against the earlier ones
+            // just before its own lookup; a duplicate is a ValueError, not a
+            // failed match, and an earlier missing key skips the later
+            // checks.
+            for prev in &key_vals[..i] {
+                let same = self.unboxed_bool(pos, move |into| Instr::Compare {
+                    op: CmpOp::Eq,
+                    lhs: kv,
+                    rhs: *prev,
+                    into,
+                })?;
+                let dup = self.new_block()?;
+                let more = self.new_block()?;
+                self.branch(same, dup, more)?;
+                self.terminated = false;
+                self.b.switch_to(dup)?;
+                let head = self.const_str("mapping pattern checks duplicate key (", pos)?;
+                let r = self.call_global("repr", vec![kv], pos)?;
+                let tail = self.const_str(")", pos)?;
+                let msg = self.build_str(vec![head, r, tail], pos)?;
+                self.raise_builtin("ValueError", msg, pos)?;
+                self.terminated = false;
+                self.b.switch_to(more)?;
+            }
+            let get = self.new_block()?;
+            self.jump(get)?;
+            self.terminated = false;
+            self.b.switch_to(get)?;
+            self.b.set_handler(get, Some(miss))?;
             vals.push(self.value_of(pos, move |into| Instr::GetItem {
                 obj: subj,
                 key: kv,
@@ -3448,7 +3572,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         }
         self.miss_or_reraise(miss, ke_types, fail, pos)?;
         for (p, v) in pats.iter().zip(vals) {
-            self.lower_pattern(v, p, fail)?;
+            self.lower_pattern(v, p, fail, pending)?;
         }
         if let Some(r) = rest {
             let copy = self.call_global("dict", vec![subj], pos)?;
@@ -3456,7 +3580,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 let k = *kv;
                 self.emit(Instr::DelItem { obj: copy, key: k }, pos)?;
             }
-            self.store_name_value(r, copy, pos)?;
+            pending.push((r, copy));
         }
         Ok(())
     }
@@ -3472,6 +3596,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         kwd_pats: &[Pattern],
         fail: BlockId,
         pos: Pos,
+        pending: &mut Vec<(FSym, Value)>,
     ) -> Result<(), LowerError> {
         let cls_v = self.expr(cls)?;
         let inst = self.call_global("isinstance", vec![subj, cls_v], pos)?;
@@ -3482,6 +3607,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.b.switch_to(inst_blk)?;
         let nargs = pats.len();
         let mut pos_vals: Vec<Value> = Vec::new();
+        // Attribute names already extracted, in CPython's order: positional
+        // then keyword. For a single positional pattern the name arrives
+        // through a join var, filled after the paths converge.
+        let mut seen: Vec<Value> = Vec::new();
 
         let cont = if nargs > 0 {
             // __match_args__ on the class; a missing attribute selects the
@@ -3555,7 +3684,14 @@ impl<'a, 'b> FnLower<'a, 'b> {
             // match-self path converge: the extracted attribute or the
             // subject itself.
             let pos_join = if nargs == 1 {
-                Some((self.fresh_join_var_named("matchpos"), self.new_block()?))
+                Some((
+                    self.fresh_join_var_named("matchpos"),
+                    // The match-self path extracts no attribute, so it
+                    // contributes no name to the duplicate set; None never
+                    // equals a keyword name.
+                    self.fresh_join_var_named("matchname"),
+                    self.new_block()?,
+                ))
             } else {
                 None
             };
@@ -3565,10 +3701,17 @@ impl<'a, 'b> FnLower<'a, 'b> {
             let attrmiss = self.new_block()?;
             let ae_types2 = self.attribute_error_types(pos)?;
             for name in &names {
+                self.dup_attr_check(cls_v, *name, &seen, pos)?;
                 let v = self.getattr_dyn_or_miss(subj, *name, attrmiss, pos)?;
                 match &pos_join {
-                    Some((var, _)) => self.write_var_at_current(*var, v)?,
-                    None => pos_vals.push(v),
+                    Some((var, nvar, _)) => {
+                        self.write_var_at_current(*var, v)?;
+                        self.write_var_at_current(*nvar, *name)?;
+                    }
+                    None => {
+                        pos_vals.push(v);
+                        seen.push(*name);
+                    }
                 }
             }
             let last = self
@@ -3576,7 +3719,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 .current_block()
                 .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
             // The extraction path joins the match-self path at `join`.
-            if let Some((_, join)) = &pos_join {
+            if let Some((_, _, join)) = &pos_join {
                 self.jump(*join)?;
             }
 
@@ -3634,8 +3777,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
             self.terminated = false;
             self.b.switch_to(ms_blk)?;
             match &pos_join {
-                Some((var, join)) => {
+                Some((var, nvar, join)) => {
                     self.write_var_at_current(*var, subj)?;
+                    let none_name = self.none()?;
+                    self.write_var_at_current(*nvar, none_name)?;
                     self.jump(*join)?;
                     self.terminated = false;
                 }
@@ -3643,9 +3788,11 @@ impl<'a, 'b> FnLower<'a, 'b> {
             }
             self.miss_or_reraise(attrmiss, ae_types2, fail, pos)?;
             match pos_join {
-                Some((var, join)) => {
+                Some((var, nvar, join)) => {
                     self.b.switch_to(join)?;
                     pos_vals.push(self.read_var_at_current(var)?);
+                    let name = self.read_var_at_current(nvar)?;
+                    seen.push(name);
                     join
                 }
                 None => last,
@@ -3663,18 +3810,22 @@ impl<'a, 'b> FnLower<'a, 'b> {
             let kwmiss = self.new_block()?;
             let ae_types3 = self.attribute_error_types(pos)?;
             for attr in kwd_attrs {
-                let name = self.pool(&self.text(*attr));
+                let name_str = self.text(*attr);
+                let name_v = self.const_str(&name_str, pos)?;
+                self.dup_attr_check(cls_v, name_v, &seen, pos)?;
+                let name = self.pool(&name_str);
                 kw_vals.push(self.getattr_or_miss(subj, name, kwmiss, pos)?);
+                seen.push(name_v);
             }
             self.miss_or_reraise(kwmiss, ae_types3, fail, pos)?;
         }
 
         // Positional sub-patterns, then keyword sub-patterns.
         for (p, v) in pats.iter().zip(pos_vals) {
-            self.lower_pattern(v, p, fail)?;
+            self.lower_pattern(v, p, fail, pending)?;
         }
         for (p, v) in kwd_pats.iter().zip(kw_vals) {
-            self.lower_pattern(v, p, fail)?;
+            self.lower_pattern(v, p, fail, pending)?;
         }
         Ok(())
     }
