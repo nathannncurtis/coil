@@ -3,6 +3,7 @@
 //! the exact and prefix layouts (spec sections 8.2, 8.4 and 8.5).
 
 pub mod bool_;
+pub mod bytes;
 pub mod complex;
 pub mod dict;
 pub mod exc;
@@ -11,6 +12,8 @@ pub mod list;
 pub mod long;
 pub mod set;
 pub mod tuple;
+pub mod unicode;
+pub mod unicode_data;
 
 use core::ffi::c_int;
 
