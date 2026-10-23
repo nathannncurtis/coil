@@ -1,0 +1,85 @@
+//! Freeing: any thread may free any block. The owner's frees push to its
+//! local list; other threads push to the page's lock-free `thread_free`
+//! list, which only the owning cache pops (spec sections 8.6 and 9.1).
+
+use core::sync::atomic::Ordering;
+
+use super::page::{DATA_OFFSET, GRANULE, PAGE_SIZE, PageHeader};
+use super::{page_table, pool, thread_cache};
+
+/// Push `block` onto `page`'s cross-thread free list (Treiber push; the
+/// owning cache drains it with a swap).
+pub(super) fn push_thread_free(page: &PageHeader, block: *mut u8) {
+    let mut head = page.thread_free.load(Ordering::Relaxed);
+    loop {
+        // SAFETY: the block is free and exclusively held by this thread
+        // until the compare-exchange publishes it.
+        unsafe { (block as *mut *mut u8).write(head) };
+        match page.thread_free.compare_exchange_weak(
+            head,
+            block,
+            Ordering::Release,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => return,
+            Err(observed) => head = observed,
+        }
+    }
+}
+
+/// Free the block at `ptr`, whatever regime or kind it is. Returns true
+/// when `ptr` addressed a live GC-heap allocation (an object address for
+/// counted-regime blocks, the block address otherwise).
+///
+/// # Safety
+///
+/// `ptr` must be null or a pointer this allocator returned, and must not
+/// already have been freed.
+pub unsafe fn free_block(ptr: *mut u8) -> bool {
+    let addr = ptr as usize;
+    if addr == 0 {
+        return false;
+    }
+    let Some(page) = page_table::lookup(addr) else {
+        return false;
+    };
+    let base = page.base();
+    if !page.is_small() {
+        // Large objects free their whole run; only the run's data address
+        // (or a counted object 16 bytes past it) identifies one.
+        let data = base + DATA_OFFSET;
+        if addr != data && !(addr == data + GRANULE && page.has_prehdr(0)) {
+            return false;
+        }
+        return pool::free_large(base);
+    }
+    let data = base + DATA_OFFSET;
+    if addr < data || addr >= base + PAGE_SIZE {
+        return false;
+    }
+    let block_size = page.block_size();
+    let block = match (addr - data) % block_size {
+        0 => addr,
+        // A counted-regime pointer sits 16 bytes into its block, after
+        // the pre-header.
+        GRANULE if page.has_prehdr(page.granule_of(base, addr - GRANULE)) => addr - GRANULE,
+        _ => return false,
+    };
+    let g0 = page.granule_of(base, block);
+    let granules = block_size / GRANULE;
+    if !page.allocated(g0) {
+        return false;
+    }
+    page.clear_object_bits(g0, granules);
+    let owner = page.current_for.load(Ordering::Acquire);
+    if owner != 0 && owner == thread_cache::current_id() {
+        thread_cache::with(|cache| cache.push_local(page.class as usize, block as *mut u8));
+    } else {
+        push_thread_free(page, block as *mut u8);
+    }
+    // The Release decrement publishes the bit clears and the list push.
+    if page.used.fetch_sub(1, Ordering::Release) == 1 {
+        pool::recycle_page(page, base);
+    }
+    true
+}
