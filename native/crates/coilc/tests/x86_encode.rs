@@ -1917,6 +1917,108 @@ fn labels_fixups_and_relocs() {
         &finished.code[..7],
     );
 
+    // Regression: forms with a trailing immediate must record the fixup only
+    // after that immediate, or the disp32 resolves to label+1. Each label
+    // sits 4 bytes past the end of the instruction.
+    let mut e = Encoder::new();
+    let label = e.create_label();
+    e.shift_imm(
+        ShiftOp::Sar,
+        OpSize::S64,
+        Loc::Mem(Mem::rip_label(label)),
+        3,
+    )
+    .unwrap();
+    e.nop(4).unwrap();
+    e.bind_label(label).unwrap();
+    let finished = e.finish().unwrap();
+    assert_eq!(
+        finished.code,
+        [
+            0x48, 0xC1, 0x3D, 0x04, 0x00, 0x00, 0x00, 0x03, 0x0F, 0x1F, 0x40, 0x00
+        ]
+    );
+    cases += check(
+        Instruction::with2(
+            Code::Sar_rm64_imm8,
+            MemoryOperand::new(
+                Register::RIP,
+                Register::None,
+                1,
+                12,
+                8,
+                false,
+                Register::None,
+            ),
+            3u32,
+        )
+        .unwrap(),
+        &finished.code[..8],
+    );
+
+    let mut e = Encoder::new();
+    let label = e.create_label();
+    e.bt_imm(OpSize::S64, Loc::Mem(Mem::rip_label(label)), 5)
+        .unwrap();
+    e.nop(4).unwrap();
+    e.bind_label(label).unwrap();
+    let finished = e.finish().unwrap();
+    assert_eq!(
+        finished.code,
+        [
+            0x48, 0x0F, 0xBA, 0x25, 0x04, 0x00, 0x00, 0x00, 0x05, 0x0F, 0x1F, 0x40, 0x00,
+        ]
+    );
+    cases += check(
+        Instruction::with2(
+            Code::Bt_rm64_imm8,
+            MemoryOperand::new(
+                Register::RIP,
+                Register::None,
+                1,
+                13,
+                8,
+                false,
+                Register::None,
+            ),
+            5u32,
+        )
+        .unwrap(),
+        &finished.code[..9],
+    );
+
+    let mut e = Encoder::new();
+    let label = e.create_label();
+    e.roundsd(Xmm::Xmm0, XmmLoc::Mem(Mem::rip_label(label)), 4)
+        .unwrap();
+    e.nop(4).unwrap();
+    e.bind_label(label).unwrap();
+    let finished = e.finish().unwrap();
+    assert_eq!(
+        finished.code,
+        [
+            0x66, 0x0F, 0x3A, 0x0B, 0x05, 0x04, 0x00, 0x00, 0x00, 0x04, 0x0F, 0x1F, 0x40, 0x00,
+        ]
+    );
+    cases += check(
+        Instruction::with3(
+            Code::Roundsd_xmm_xmmm64_imm8,
+            Register::XMM0,
+            MemoryOperand::new(
+                Register::RIP,
+                Register::None,
+                1,
+                14,
+                8,
+                false,
+                Register::None,
+            ),
+            4u32,
+        )
+        .unwrap(),
+        &finished.code[..10],
+    );
+
     // movsd with a RIP-relative label operand: the label sits 8 bytes past
     // the end of the 8-byte movsd.
     let mut e = Encoder::new();

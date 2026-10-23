@@ -743,16 +743,15 @@ impl Encoder {
     /// `bt r/m, imm8`.
     pub fn bt_imm(&mut self, size: OpSize, dst: Loc, imm: u8) -> Result<(), EncodeError> {
         self.check_word_size("bt", size)?;
-        match dst {
+        let fix = match dst {
             Loc::Reg(g) => {
                 self.emit_reg_form(size, legacy16(size), &[0x0F, 0xBA], 4, false, RmReg::Gpr(g));
+                None
             }
-            Loc::Mem(m) => {
-                let fix = self.emit_mem_form(size, legacy16(size), &[0x0F, 0xBA], 4, false, m)?;
-                self.close_rip(fix);
-            }
-        }
+            Loc::Mem(m) => self.emit_mem_form(size, legacy16(size), &[0x0F, 0xBA], 4, false, m)?,
+        };
         self.buf.push(imm);
+        self.close_rip(fix);
         Ok(())
     }
 
@@ -1126,7 +1125,7 @@ impl Encoder {
     /// `roundsd`, SSE4.1: `mode` is the rounding/precision immediate.
     pub fn roundsd(&mut self, dst: Xmm, src: XmmLoc, mode: u8) -> Result<(), EncodeError> {
         let opcodes = [0x0F, 0x3A, 0x0B];
-        match src {
+        let fix = match src {
             XmmLoc::Xmm(x) => {
                 self.emit_reg_form(
                     OpSize::S32,
@@ -1136,14 +1135,14 @@ impl Encoder {
                     false,
                     RmReg::Xmm(x),
                 );
+                None
             }
             XmmLoc::Mem(m) => {
-                let fix =
-                    self.emit_mem_form(OpSize::S32, &[0x66], &opcodes, dst.code(), false, m)?;
-                self.close_rip(fix);
+                self.emit_mem_form(OpSize::S32, &[0x66], &opcodes, dst.code(), false, m)?
             }
-        }
+        };
         self.buf.push(mode);
+        self.close_rip(fix);
         Ok(())
     }
 
@@ -1320,7 +1319,7 @@ impl Encoder {
         dst: Loc,
         imm: Option<u8>,
     ) -> Result<(), EncodeError> {
-        match dst {
+        let fix = match dst {
             Loc::Reg(g) => {
                 self.emit_reg_form(
                     size,
@@ -1330,16 +1329,16 @@ impl Encoder {
                     byte_rex(size, g),
                     RmReg::Gpr(g),
                 );
+                None
             }
             Loc::Mem(m) => {
-                let fix =
-                    self.emit_mem_form(size, legacy16(size), &[opcode], op as u8, false, m)?;
-                self.close_rip(fix);
+                self.emit_mem_form(size, legacy16(size), &[opcode], op as u8, false, m)?
             }
-        }
+        };
         if let Some(imm) = imm {
             self.buf.push(imm);
         }
+        self.close_rip(fix);
         Ok(())
     }
 
