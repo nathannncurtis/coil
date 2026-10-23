@@ -542,6 +542,13 @@ impl Parser {
         self.expect(kind).then_some(())
     }
 
+    /// Whether the current token is a plain `NAME`: `_get_keyword_or_name_type`
+    /// gives hard keywords their own token types, so a `NAME` item never
+    /// matches one, and a lookahead resting on one does not peek past it.
+    pub(crate) fn at_plain_name(&mut self) -> bool {
+        self.peek() && self.tok().kind == TokenKind::Name && !is_hard_keyword(&self.tok().bytes)
+    }
+
     /// `_PyPegen_expect_token` on a keyword (a `NAME` with the keyword's
     /// bytes, the type `_get_keyword_or_name_type` refines at fill time).
     pub(crate) fn expect_keyword(&mut self, keyword: &str) -> bool {

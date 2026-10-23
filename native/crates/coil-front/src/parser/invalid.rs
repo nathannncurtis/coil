@@ -1992,7 +1992,7 @@ fn invalid_as_pattern_target(p: &mut Parser) -> Option<()> {
     p.attempt(|p| {
         patterns::or_pattern(p)?;
         p.expect_keyword_opt("as")?;
-        if p.lookahead(T::Name) {
+        if p.at_plain_name() {
             return None;
         }
         let a = expressions::expression(p)?;
@@ -2746,7 +2746,7 @@ fn invalid_conversion_character_missing(p: &mut Parser) -> Option<()> {
 fn invalid_conversion_character_invalid(p: &mut Parser) -> Option<()> {
     p.attempt(|p| {
         p.expect_opt(T::Exclamation)?;
-        if p.lookahead(T::Name) {
+        if p.at_plain_name() {
             return None;
         }
         p.raise_syntax_error_on_next_token("f-string: invalid conversion character".to_string());
