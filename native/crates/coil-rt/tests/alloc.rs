@@ -134,6 +134,47 @@ fn counted_objects_carry_a_preheader() {
 }
 
 #[test]
+fn counted_objects_are_marked_counted_regime() {
+    let _guard = LARGE_RUN_LOCK.lock().unwrap();
+    // Small counted object: the regime bit (1 = counted, spec 9.1) sits at
+    // the object granule — where the store barrier of 9.3 tests it — next
+    // to is_object, and not on the pre-header granule.
+    let ptr = alloc_counted(64);
+    assert!(!ptr.is_null());
+    let header = page_of(ptr as usize).unwrap();
+    let g = header.granule_of(header.base(), ptr as usize);
+    assert!(header.regime(g), "counted object must carry the regime bit");
+    assert!(
+        !header.regime(g - 1),
+        "pre-header granule is not the object"
+    );
+    // A tracing object on the same page stays regime 0.
+    let traced = alloc_object(64);
+    let traced_header = page_of(traced as usize).unwrap();
+    let tg = traced_header.granule_of(traced_header.base(), traced as usize);
+    assert!(
+        !traced_header.regime(tg),
+        "tracing object must stay regime 0"
+    );
+    assert!(free(traced));
+    // Freeing clears the bit.
+    assert!(free(ptr));
+    assert!(!header.regime(g), "free must clear the regime bit");
+
+    // A large counted run carries the same layout at its first granules.
+    let big = alloc_counted(40_000);
+    let big_header = page_of(big as usize).unwrap();
+    assert!(!big_header.is_small());
+    assert!(big_header.regime(1), "counted run object granule");
+    assert!(!big_header.regime(0), "pre-header granule of the run");
+    assert!(free(big));
+    assert!(
+        !big_header.regime(1),
+        "free must clear the run's regime bit"
+    );
+}
+
+#[test]
 fn page_table_lookups() {
     let ptr = alloc_object(64);
     assert!(contains(ptr as usize));
@@ -427,10 +468,20 @@ fn huge_sizes_return_null_instead_of_wrapping() {
     // And the plain allocator's capacity rounding and header addition.
     assert!(python312::alloc::pymem::plain_malloc(usize::MAX).is_null());
     assert!(python312::alloc::pymem::plain_malloc(usize::MAX - 15).is_null());
+    // The band between isize::MAX and usize::MAX passes the arithmetic
+    // checks but exceeds what a Layout can express; it must come back
+    // null like CPython, not panic.
+    assert!(python312::alloc::pymem::plain_malloc(1usize << 63).is_null());
+    assert!(python312::alloc::pymem::plain_malloc(isize::MAX as usize).is_null());
+    assert!(
+        python312::alloc::pymem::plain_malloc(isize::MAX as usize + 1).is_null(),
+        "the first size a Layout rejects must return null"
+    );
     // The exported symbols route through the same guards.
     // SAFETY: C entry points driven with well-formed arguments.
     unsafe {
         assert!(PyMem_RawMalloc(usize::MAX).is_null());
+        assert!(PyMem_RawMalloc(1usize << 63).is_null());
         assert!(PyMem_RawCalloc(usize::MAX, usize::MAX).is_null());
         assert!(PyMem_Malloc(usize::MAX).is_null());
         assert!(PyObject_Malloc(usize::MAX).is_null());

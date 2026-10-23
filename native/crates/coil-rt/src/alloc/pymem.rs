@@ -99,7 +99,12 @@ pub fn plain_malloc(size: usize) -> *mut u8 {
         let Some(bytes) = capacity.checked_add(HEADER) else {
             return ptr::null_mut();
         };
-        let layout = Layout::from_size_align(bytes, 16).expect("layout");
+        // Layout rejects sizes over isize::MAX; CPython returns null for
+        // anything over PY_SSIZE_T_MAX, so fail the same way instead of
+        // panicking.
+        let Ok(layout) = Layout::from_size_align(bytes, 16) else {
+            return ptr::null_mut();
+        };
         // SAFETY: nonzero size, valid alignment.
         let block = unsafe { sys_alloc(layout) };
         if block.is_null() {

@@ -282,9 +282,12 @@ pub fn free_large(base: usize) -> bool {
     let start = ((base - segment.base) / PAGE_SIZE) as u32;
     let pages = header.run_pages;
     // Drop the object markers so a freed run no longer looks live to heap
-    // walks; a later allocation of the run sets them again.
+    // walks; a later allocation of the run sets them again. Granule 1
+    // carries the counted object's `is_object`/`regime` bits.
     header.clear_is_object(0);
     header.clear_has_prehdr(0);
+    header.clear_is_object(1);
+    header.clear_regime(1);
     if start + pages == entry.cursor {
         // Returning to the unassigned tail; absorb runs that now border it.
         entry.cursor = start;

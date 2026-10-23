@@ -62,6 +62,7 @@ pub fn alloc_counted(size: usize) -> *mut u8 {
         let header = page::header_of(block);
         header.set_has_prehdr(0);
         header.set_is_object(1);
+        header.set_regime(1);
         // SAFETY: the run covers `total` bytes starting at the block.
         return unsafe { block.add(PREHEADER) };
     }
@@ -78,6 +79,9 @@ pub fn alloc_counted(size: usize) -> *mut u8 {
     header.set_allocated_block(g0, header.block_size() / GRANULE, false);
     header.set_has_prehdr(g0);
     header.set_is_object(g0 + 1);
+    // The regime bit sits at the object start, where the store barrier of
+    // section 9.3 tests it: 1 = counted (spec section 9.1).
+    header.set_regime(g0 + 1);
     // SAFETY: the pre-header sits at the block start.
     unsafe { block.add(PREHEADER) }
 }
