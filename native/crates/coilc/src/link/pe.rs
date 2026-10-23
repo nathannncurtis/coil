@@ -2,7 +2,9 @@
 //! and data directories for `IMAGE_FILE_MACHINE_AMD64` (spec sections 2
 //! and 13.3). The exception (`.pdata`/`.xdata`) and resource (`.rsrc`)
 //! data-directory entries are left empty on purpose: `link/pdata.rs` and
-//! `link/rsrc.rs` own them and are separate tasks.
+//! `link/rsrc.rs` own them and are separate tasks. `python3_forwarder`
+//! writes the `python3.dll` stable-ABI forwarder on the same header
+//! layout (spec section 10.1).
 
 use std::collections::BTreeMap;
 
@@ -16,8 +18,16 @@ use super::reloc::{self, SectionBytes};
 /// Preferred load address; ASLR moves the image and `.reloc` restores the
 /// absolute addresses.
 pub const IMAGE_BASE: u64 = 0x1_4000_0000;
+/// The preferred base for DLLs: MSVC's default, which CPython's
+/// `python3.dll` also uses.
+pub const DLL_IMAGE_BASE: u64 = 0x1_8000_0000;
 pub const SECTION_ALIGNMENT: u32 = 0x1000;
 pub const FILE_ALIGNMENT: u32 = 0x200;
+
+/// The module name the forwarder's export table records.
+const PYTHON3_DLL_NAME: &str = "python3.dll";
+/// The DLL every `python3.dll` export forwards to (spec section 10.1).
+const PYTHON312_DLL: &str = "python312";
 
 /// `DYNAMIC_BASE | HIGH_ENTROPY_VA | NX_COMPAT | TERMINAL_SERVER_AWARE`.
 const DLL_CHARACTERISTICS: u16 = 0x0020 | 0x0040 | 0x0100 | 0x8000;
@@ -28,6 +38,7 @@ const SUBSYSTEM_GUI: u16 = 2;
 const SUBSYSTEM_CONSOLE: u16 = 3;
 /// `EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE`.
 const FILE_CHARACTERISTICS: u16 = 0x0002 | 0x0020;
+const IMAGE_FILE_DLL: u16 = 0x2000;
 
 const SIZE_OF_OPTIONAL_HEADER: u32 = 240;
 const NUMBER_OF_RVA_AND_SIZES: u32 = 16;
@@ -311,6 +322,212 @@ fn write_image(
     Ok(file)
 }
 
+/// Writes the `python3.dll` stable-ABI forwarder (spec section 10.1) the
+/// way CPython links its own: a DLL with no entry point, no imports and no
+/// code, whose export table forwards every name to `python312.<name>`.
+/// Data exports forward exactly like functions — the export address entry
+/// is the forwarder string either way, and the loader resolves it to the
+/// target's address. `names` may arrive in any order: the name pointer
+/// table is written sorted because the loader binary-searches it, and
+/// ordinals follow sorted position from `OrdinalBase` 1, which is the
+/// mapping CPython's file fixes.
+pub fn python3_forwarder(names: &[String]) -> Result<Vec<u8>, LinkError> {
+    if names.is_empty() {
+        return Err(LinkError::EmptyExportList(PYTHON3_DLL_NAME.to_string()));
+    }
+    for name in names {
+        if name.is_empty() {
+            return Err(LinkError::EmptyExportName);
+        }
+        if name.contains('\0') {
+            return Err(LinkError::NameHasNul("an export name"));
+        }
+    }
+    let mut sorted: Vec<&str> = names.iter().map(String::as_str).collect();
+    sorted.sort_unstable();
+    for pair in sorted.windows(2) {
+        if pair[0] == pair[1] {
+            return Err(LinkError::DuplicateSymbol(pair[0].to_string()));
+        }
+    }
+    if sorted.len() > u16::MAX as usize {
+        return Err(LinkError::TooManyExports {
+            count: sorted.len(),
+        });
+    }
+    let blob = export_directory(&sorted)?;
+    write_forwarder_image(&blob)
+}
+
+/// The export directory for `names` (sorted, validated): the directory
+/// table, the export address table of forwarder strings, the sorted name
+/// pointer table, the ordinal table and the strings, in one blob the
+/// writer places at the image's first code-free section. The data
+/// directory's size covers the whole blob because the loader decides an
+/// entry is a forwarder when its export address lands inside that extent.
+fn export_directory(sorted: &[&str]) -> Result<Vec<u8>, LinkError> {
+    debug_assert!(sorted.len() <= u16::MAX as usize);
+    let len = |value: usize| u32::try_from(value).map_err(|_| LinkError::LayoutOverflow);
+    let count = sorted.len() as u32;
+    let addresses = 40; // the export directory table
+    let name_pointers = addresses + 4 * count;
+    let ordinals = name_pointers + 4 * count;
+    let dll_name = ordinals + 2 * count;
+    let mut offset = dll_name + len(PYTHON3_DLL_NAME.len() + 1)?;
+    let mut name_rvas = Vec::with_capacity(sorted.len());
+    let mut forwarder_rvas = Vec::with_capacity(sorted.len());
+    for name in sorted {
+        name_rvas.push(offset);
+        offset += len(name.len() + 1)?;
+        forwarder_rvas.push(offset);
+        offset += len(PYTHON312_DLL.len() + 1 + name.len() + 1)?;
+    }
+
+    let rva = |at: u32| SECTION_ALIGNMENT + at; // the blob starts at the section's RVA
+    let mut bytes = vec![0u8; offset as usize];
+    let put32 = |bytes: &mut [u8], at: u32, value: u32| {
+        bytes[at as usize..at as usize + 4].copy_from_slice(&value.to_le_bytes());
+    };
+    let put16 = |bytes: &mut [u8], at: u32, value: u16| {
+        bytes[at as usize..at as usize + 2].copy_from_slice(&value.to_le_bytes());
+    };
+    let put_str = |bytes: &mut [u8], at: u32, text: &str| {
+        let at = at as usize;
+        bytes[at..at + text.len()].copy_from_slice(text.as_bytes());
+        bytes[at + text.len()] = 0;
+    };
+
+    // Export directory table. Flags, versions and the timestamp (the file
+    // header carries the /Brepro stamp) stay zero.
+    put32(&mut bytes, 12, rva(dll_name));
+    put32(&mut bytes, 16, 1); // OrdinalBase
+    put32(&mut bytes, 20, count); // NumberOfFunctions
+    put32(&mut bytes, 24, count); // NumberOfNames
+    put32(&mut bytes, 28, rva(addresses));
+    put32(&mut bytes, 32, rva(name_pointers));
+    put32(&mut bytes, 36, rva(ordinals));
+
+    for (index, name) in sorted.iter().enumerate() {
+        let index = index as u32;
+        put32(
+            &mut bytes,
+            addresses + 4 * index,
+            rva(forwarder_rvas[index as usize]),
+        );
+        put32(
+            &mut bytes,
+            name_pointers + 4 * index,
+            rva(name_rvas[index as usize]),
+        );
+        // Sorted position is the ordinal (minus OrdinalBase): the mapping
+        // CPython's python3.dll fixes.
+        put16(&mut bytes, ordinals + 2 * index, index as u16);
+        put_str(&mut bytes, name_rvas[index as usize], name);
+        put_str(
+            &mut bytes,
+            forwarder_rvas[index as usize],
+            &format!("{PYTHON312_DLL}.{name}"),
+        );
+    }
+    put_str(&mut bytes, dll_name, PYTHON3_DLL_NAME);
+    Ok(bytes)
+}
+
+/// Writes the one-section image around the export blob: headers with
+/// `IMAGE_FILE_DLL` and no entry point, and `.rdata` carrying the export
+/// directory at data-directory index 0. No other directory has content:
+/// there are no imports, and the blob holds RVAs only, so ASLR needs no
+/// `.reloc`.
+fn write_forwarder_image(blob: &[u8]) -> Result<Vec<u8>, LinkError> {
+    let vsize = u32::try_from(blob.len()).map_err(|_| LinkError::LayoutOverflow)?;
+    let raw_size = align_up(vsize, FILE_ALIGNMENT)?;
+    let size_of_headers = align_up(0x80 + 4 + 20 + SIZE_OF_OPTIONAL_HEADER + 40, FILE_ALIGNMENT)?;
+    let size_of_image = align_up(SECTION_ALIGNMENT + vsize, SECTION_ALIGNMENT)?;
+    let file_size = size_of_headers
+        .checked_add(raw_size)
+        .ok_or(LinkError::LayoutOverflow)?;
+
+    let mut file = vec![0u8; file_size as usize];
+    file[..0x80].copy_from_slice(&DOS_PROGRAM);
+    file[PE_OFFSET..PE_OFFSET + 4].copy_from_slice(b"PE\0\0");
+
+    // FileHeader; TimeDateStamp stays zero until the image is complete.
+    let mut at = PE_OFFSET + 4;
+    at = put_u16(&mut file, at, MACHINE_AMD64);
+    at = put_u16(&mut file, at, 1); // just .rdata
+    at += 4; // TimeDateStamp
+    at = put_u32(&mut file, at, 0); // PointerToSymbolTable
+    at = put_u32(&mut file, at, 0); // NumberOfSymbols
+    at = put_u16(&mut file, at, SIZE_OF_OPTIONAL_HEADER as u16);
+    at = put_u16(&mut file, at, FILE_CHARACTERISTICS | IMAGE_FILE_DLL);
+
+    let mut oh: Vec<u8> = Vec::with_capacity(SIZE_OF_OPTIONAL_HEADER as usize);
+    push_u16(&mut oh, OPTIONAL_HEADER_MAGIC_PE32PLUS);
+    oh.push(0); // MajorLinkerVersion
+    oh.push(0); // MinorLinkerVersion
+    push_u32(&mut oh, 0); // SizeOfCode: the DLL has no .text
+    push_u32(&mut oh, raw_size); // SizeOfInitializedData
+    push_u32(&mut oh, 0); // SizeOfUninitializedData
+    push_u32(&mut oh, 0); // AddressOfEntryPoint: forwarders need none
+    push_u32(&mut oh, 0); // BaseOfCode
+    push_u64(&mut oh, DLL_IMAGE_BASE);
+    push_u32(&mut oh, SECTION_ALIGNMENT);
+    push_u32(&mut oh, FILE_ALIGNMENT);
+    push_u16(&mut oh, 6); // MajorOperatingSystemVersion
+    push_u16(&mut oh, 0);
+    push_u16(&mut oh, 0); // image version
+    push_u16(&mut oh, 0);
+    push_u16(&mut oh, 6); // MajorSubsystemVersion
+    push_u16(&mut oh, 0);
+    push_u32(&mut oh, 0); // Win32VersionValue
+    push_u32(&mut oh, size_of_image);
+    push_u32(&mut oh, size_of_headers);
+    push_u32(&mut oh, 0); // CheckSum: the spec pins zero
+    push_u16(&mut oh, SUBSYSTEM_GUI); // like CPython's python3.dll
+    push_u16(&mut oh, DLL_CHARACTERISTICS);
+    push_u64(&mut oh, 0x100000); // SizeOfStackReserve
+    push_u64(&mut oh, 0x1000); // SizeOfStackCommit
+    push_u64(&mut oh, 0x100000); // SizeOfHeapReserve
+    push_u64(&mut oh, 0x1000); // SizeOfHeapCommit
+    push_u32(&mut oh, 0); // LoaderFlags
+    push_u32(&mut oh, NUMBER_OF_RVA_AND_SIZES);
+    // The export directory; nothing else has content.
+    push_u32(&mut oh, SECTION_ALIGNMENT);
+    push_u32(&mut oh, vsize);
+    for _ in 1..NUMBER_OF_RVA_AND_SIZES {
+        push_u32(&mut oh, 0);
+        push_u32(&mut oh, 0);
+    }
+    debug_assert_eq!(oh.len(), SIZE_OF_OPTIONAL_HEADER as usize);
+    file[at..at + oh.len()].copy_from_slice(&oh);
+    at += oh.len();
+
+    file[at..at + 6].copy_from_slice(b".rdata");
+    let mut field = at + 8;
+    field = put_u32(&mut file, field, vsize);
+    field = put_u32(&mut file, field, SECTION_ALIGNMENT);
+    field = put_u32(&mut file, field, raw_size);
+    field = put_u32(&mut file, field, size_of_headers);
+    field = put_u32(&mut file, field, 0); // PointerToRelocations
+    field = put_u32(&mut file, field, 0); // PointerToLinenumbers
+    field = put_u16(&mut file, field, 0); // NumberOfRelocations
+    field = put_u16(&mut file, field, 0); // NumberOfLinenumbers
+    put_u32(
+        &mut file,
+        field,
+        IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
+    );
+
+    file[size_of_headers as usize..size_of_headers as usize + blob.len()].copy_from_slice(blob);
+
+    // MSVC /Brepro: hash the finished image with the field zeroed, then
+    // store the first four digest bytes (spec section 13.3).
+    let stamp = u32::from_be_bytes(Sha256::digest(&file)[..4].try_into().unwrap());
+    put_u32(&mut file, PE_OFFSET + 8, stamp);
+
+    Ok(file)
+}
+
 fn section_rva(layout: &Layout, name: &str) -> u32 {
     match name {
         ".text" => layout.text_rva,
@@ -438,7 +655,8 @@ fn align_up(value: u32, align: u32) -> Result<u32, LinkError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{IMAGE_BASE, link, link_image};
+    use super::{IMAGE_BASE, link, link_image, python3_forwarder};
+    use crate::link::LinkError;
     use crate::link::objfile::{
         BssSpec, ObjectFile, Place, Reloc, SectionContent, SectionId, Subsystem, Symbol, Target,
     };
@@ -695,5 +913,158 @@ mod tests {
                 );
             }
         }
+    }
+
+    fn u16_at(image: &[u8], at: usize) -> u16 {
+        u16::from_le_bytes(image[at..at + 2].try_into().unwrap())
+    }
+
+    fn u32_at(image: &[u8], at: usize) -> u32 {
+        u32::from_le_bytes(image[at..at + 4].try_into().unwrap())
+    }
+
+    /// The file offset of an RVA in the forwarder image: the one `.rdata`
+    /// section maps RVA `0x1000` onto its raw bytes.
+    fn offset_of(image: &[u8], rva: u32) -> usize {
+        (rva - 0x1000) as usize + u32_at(image, 0x19C) as usize
+    }
+
+    /// The NUL-terminated string at an RVA of the forwarder image.
+    fn string_at(image: &[u8], rva: u32) -> &[u8] {
+        let start = offset_of(image, rva);
+        let end = start + image[start..].iter().position(|byte| *byte == 0).unwrap();
+        &image[start..end]
+    }
+
+    #[test]
+    fn forwarder_forwards_every_name_the_way_cpython_does() {
+        // Deliberately unsorted, with data and function names mixed.
+        let names = [
+            "_Py_NoneStruct",
+            "PyArg_Parse",
+            "PyExc_ValueError",
+            "PyFloat_Type",
+        ]
+        .map(String::from);
+        let image = python3_forwarder(&names).unwrap();
+
+        // A DLL with no entry point and no code, like CPython's python3.dll.
+        assert_eq!(&image[super::PE_OFFSET..super::PE_OFFSET + 4], b"PE\0\0");
+        assert_eq!(u16_at(&image, 0x96), 0x2022); // EXECUTABLE_IMAGE | LARGE_ADDRESS_AWARE | DLL
+        assert_eq!(u32_at(&image, 0xA8), 0); // AddressOfEntryPoint
+        assert_eq!(u16_at(&image, 0xDC), 2); // GUI subsystem, like CPython's
+        assert_eq!(
+            u64::from_le_bytes(image[0xB0..0xB8].try_into().unwrap()),
+            super::DLL_IMAGE_BASE
+        );
+
+        // One `.rdata` section carrying the export directory at index 0;
+        // the blob holds RVAs only, so no other directory has content.
+        assert_eq!(u16_at(&image, 0x86), 1);
+        assert_eq!(&image[0x188..0x188 + 6], b".rdata");
+        let (dir_rva, dir_size) = (u32_at(&image, 0x108), u32_at(&image, 0x10C));
+        assert_eq!(dir_rva, 0x1000);
+        assert_eq!(dir_rva, u32_at(&image, 0x194)); // the section's RVA
+        assert_eq!(u32_at(&image, 0x190), dir_size); // VirtualSize covers the blob
+        for at in [0x110, 0x130] {
+            // import (index 1) and base-relocation (index 5) directories
+            assert_eq!(&image[at..at + 8], &[0; 8]);
+        }
+
+        let dir = |at: u32| u32_at(&image, offset_of(&image, dir_rva) + at as usize);
+        assert_eq!(string_at(&image, dir(12)), b"python3.dll");
+        assert_eq!(dir(16), 1); // OrdinalBase
+        assert_eq!(dir(20), 4); // NumberOfFunctions
+        assert_eq!(dir(24), 4); // NumberOfNames
+        let (eat, name_pointers, ordinals) = (dir(28), dir(32), dir(36));
+
+        // The name pointer table is sorted because the loader binary-searches
+        // it; sorted position is the ordinal; every export address entry is
+        // the `python312.<name>` forwarder string, data names included.
+        let sorted = [
+            "PyArg_Parse",
+            "PyExc_ValueError",
+            "PyFloat_Type",
+            "_Py_NoneStruct",
+        ];
+        for (index, name) in sorted.iter().enumerate() {
+            let at = index as u32;
+            let name_pointer = u32_at(&image, offset_of(&image, name_pointers) + 4 * at as usize);
+            assert_eq!(string_at(&image, name_pointer), name.as_bytes());
+            assert_eq!(
+                u16_at(&image, offset_of(&image, ordinals) + 2 * at as usize),
+                index as u16
+            );
+            let forwarder = u32_at(&image, offset_of(&image, eat) + 4 * at as usize);
+            assert_eq!(
+                string_at(&image, forwarder),
+                format!("python312.{name}").as_bytes()
+            );
+            // A forwarder is an entry pointing inside the export directory's
+            // extent; anything else, the loader treats as an address.
+            assert!(dir_rva <= forwarder && forwarder < dir_rva + dir_size);
+        }
+    }
+
+    #[test]
+    fn forwarder_is_deterministic_with_a_brepro_stamp() {
+        let names = ["PyArg_Parse", "PyFloat_Type"].map(String::from);
+        let first = python3_forwarder(&names).unwrap();
+        assert_eq!(first, python3_forwarder(&names).unwrap());
+
+        let stamp_at = super::PE_OFFSET + 4 + 4;
+        let stamp = u32::from_le_bytes(first[stamp_at..stamp_at + 4].try_into().unwrap());
+        assert_ne!(stamp, 0);
+        let mut zeroed = first.clone();
+        zeroed[stamp_at..stamp_at + 4].copy_from_slice(&0u32.to_le_bytes());
+        let digest = Sha256::digest(&zeroed);
+        assert_eq!(stamp, u32::from_be_bytes(digest[..4].try_into().unwrap()));
+    }
+
+    #[test]
+    fn forwarder_rejects_bad_name_lists() {
+        assert_eq!(
+            python3_forwarder(&[]),
+            Err(LinkError::EmptyExportList("python3.dll".into()))
+        );
+        assert_eq!(
+            python3_forwarder(&["".into()]),
+            Err(LinkError::EmptyExportName)
+        );
+        assert_eq!(
+            python3_forwarder(&["PyArg_Parse\0".into()]),
+            Err(LinkError::NameHasNul("an export name"))
+        );
+        assert_eq!(
+            python3_forwarder(&["PyArg_Parse".into(), "PyArg_Parse".into()]),
+            Err(LinkError::DuplicateSymbol("PyArg_Parse".into()))
+        );
+        let too_many: Vec<String> = (0..=u16::MAX as usize)
+            .map(|index| format!("n{index}"))
+            .collect();
+        assert_eq!(
+            python3_forwarder(&too_many),
+            Err(LinkError::TooManyExports {
+                count: u16::MAX as usize + 1
+            })
+        );
+    }
+
+    #[test]
+    fn the_checked_in_export_list_builds_the_forwarder() {
+        // The writer's real input: the checked-in `python3-exports.txt`, one
+        // `name func|data` line per export. The kind column is irrelevant
+        // here because data exports forward exactly like functions.
+        let names: Vec<String> = coil_capi_sys::PYTHON3_EXPORTS
+            .lines()
+            .map(|line| line.split(' ').next().unwrap().to_string())
+            .collect();
+        assert_eq!(names.len(), 867);
+        let image = python3_forwarder(&names).unwrap();
+
+        let dir_rva = u32_at(&image, 0x108);
+        let dir = |at: u32| u32_at(&image, offset_of(&image, dir_rva) + at as usize);
+        assert_eq!(dir(20), 867); // NumberOfFunctions
+        assert_eq!(dir(24), 867); // NumberOfNames
     }
 }

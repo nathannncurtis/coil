@@ -13,6 +13,11 @@
 #![allow(non_camel_case_types)]
 #![allow(non_upper_case_globals)]
 
+/// The `python3.dll` stable-ABI export list, one `name func|data` line per
+/// export in sorted order, as `tools/gen_capi.py` generated it from the
+/// real embeddable DLLs.
+pub const PYTHON3_EXPORTS: &str = include_str!("../python3-exports.txt");
+
 use core::ffi::{c_char, c_int, c_uchar, c_uint, c_void};
 
 /// C `long` in the Windows x64 ABI: 32 bits, unlike LP64 hosts.

@@ -44,6 +44,7 @@ version = "0.0.0"
 name = "coilc"
 version = "0.0.0"
 dependencies = [
+ "coil-capi-sys",
  "iced-x86",
  "sha2",
 ]
