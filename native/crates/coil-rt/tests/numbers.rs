@@ -1,7 +1,8 @@
 //! Oracle-driven tests for the number types (spec section 8.5). Every row
 //! in `tests/data` was computed by CPython 3.12 through
 //! `tools/gen_number_oracle.py`; the encoding of the last column is shared
-//! with that script.
+//! with that script. `pow` rows carry a one-ulp allowance, see
+//! `pow_agrees`; every other row must match bit for bit.
 
 use std::ffi::CString;
 use std::fs;
@@ -131,9 +132,59 @@ fn encode_ptr(result: *mut PyObject) -> String {
     }
 }
 
+/// Whether two non-NaN floats are bit-identical or adjacent values of one
+/// sign; the bit patterns of same-sign finite floats are ordered, so a
+/// bit distance of one is one ulp.
+fn close(got: f64, want: f64) -> bool {
+    got == want
+        || (got.is_finite()
+            && want.is_finite()
+            && got != 0.0
+            && want != 0.0
+            && got.signum() == want.signum()
+            && got.to_bits().abs_diff(want.to_bits()) <= 1)
+}
+
+/// One float field of the `f:`/`c:` encodings; a NaN is the bare word
+/// `nan` because its payload bits are unspecified.
+fn float_field(s: &str) -> Option<f64> {
+    if s == "nan" { None } else { Some(from_bits(s)) }
+}
+
+fn parts_close(got: Option<f64>, want: Option<f64>) -> bool {
+    match (got, want) {
+        (Some(got), Some(want)) => close(got, want),
+        (None, None) => true,
+        _ => false,
+    }
+}
+
+/// Whether a float or complex `pow` row agrees. CPython computes these
+/// with the platform libm (`pow`, and `hypot`, `atan2`, `exp`, `log`,
+/// `cos`, `sin` for complex exponents), which disagree by one ulp on
+/// half-way inputs between builds -- CPython's own results for them are
+/// not bit-reproducible across platforms. Such rows allow one ulp per
+/// component; errors, zeros, infinities and NaNs must still match.
+fn pow_agrees(got: &str, want: &str) -> bool {
+    if let (Some(g), Some(w)) = (got.strip_prefix("f:"), want.strip_prefix("f:")) {
+        return parts_close(float_field(g), float_field(w));
+    }
+    if let (Some(g), Some(w)) = (got.strip_prefix("c:"), want.strip_prefix("c:"))
+        && let (Some((gr, gi)), Some((wr, wi))) = (g.split_once(','), w.split_once(','))
+    {
+        return parts_close(float_field(gr), float_field(wr))
+            && parts_close(float_field(gi), float_field(wi));
+    }
+    got == want
+}
+
 fn check(mismatches: &mut Vec<String>, table: &str, lineno: usize, row: &[String], got: String) {
     let want = row.last().unwrap();
-    if got != *want {
+    let ok = got == *want
+        || (row[0] == "pow"
+            && matches!(table, "float_arithmetic" | "complex_arithmetic")
+            && pow_agrees(&got, want));
+    if !ok {
         mismatches.push(format!(
             "{table} line {lineno}: {} -> got {got:?}, want {want:?}",
             row.join("\t")

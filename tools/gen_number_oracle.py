@@ -28,6 +28,13 @@ The last column encodes the result; the Rust reader uses the same encoding:
   c:<re>,<im>          complex, both parts as u64 bit patterns
   e:<Type>:<message>   exception with its exact message
   anything else        a formatted string result
+
+Float and complex `pow` go through the platform libm (`pow`, plus
+`hypot`, `atan2`, `exp`, `log`, `cos` and `sin` for complex exponents),
+whose answers on half-way inputs can differ by one ulp between builds;
+CPython's own results for them are not bit-reproducible across
+platforms. The Rust harness compares those rows with a one-ulp
+allowance per component and every other row exactly.
 """
 
 import struct
