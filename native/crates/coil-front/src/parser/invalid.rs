@@ -1155,7 +1155,7 @@ fn invalid_lambda_parameters_parenthesized(p: &mut Parser) -> Option<()> {
         let _ = p.repeat0(expressions::lambda_param_no_default);
         let a = p.mark;
         p.expect_opt(T::Lpar)?;
-        p.repeat1(lambda_param_alt)?;
+        p.gather(lambda_param_alt, comma_sep)?;
         p.expect(T::Comma);
         let b = p.mark;
         p.expect_opt(T::Rpar)?;

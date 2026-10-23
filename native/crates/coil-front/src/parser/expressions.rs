@@ -1954,7 +1954,7 @@ pub(crate) fn args(p: &mut Parser) -> Option<Expr> {
 fn args_collect(p: &mut Parser) -> Option<Expr> {
     let m = p.mark;
     let a = p.gather(args_item, comma)?;
-    // `[',' kwargs]`: a matched comma whose kwargs fails restores the mark.
+    // `[',' kwargs]` is one optional: a failed kwargs restores the comma too.
     let b = p.attempt(|p| {
         p.expect_opt(T::Comma)?;
         kwargs(p)

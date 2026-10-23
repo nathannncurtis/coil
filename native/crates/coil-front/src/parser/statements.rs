@@ -54,6 +54,62 @@ pub(crate) fn file_rule(p: &mut Parser) -> Option<Mod> {
     res
 }
 
+pub(crate) fn interactive_rule(p: &mut Parser) -> Option<Mod> {
+    if !p.enter_rule() {
+        return None;
+    }
+    let body = statement_newline(p);
+    p.exit_rule();
+    Some(Mod::Interactive { body: body? })
+}
+
+pub(crate) fn eval_rule(p: &mut Parser) -> Option<Mod> {
+    if !p.enter_rule() {
+        return None;
+    }
+    let a = expressions::expressions(p)?;
+    while p.expect_opt(T::Newline).is_some() {}
+    let res = p
+        .expect(T::Endmarker)
+        .then(|| Mod::Expression { body: Box::new(a) });
+    p.exit_rule();
+    res
+}
+
+fn statement_newline(p: &mut Parser) -> Option<Vec<Stmt>> {
+    if !p.enter_rule() {
+        return None;
+    }
+    // The grammar's ENDMARKER alternative is `_PyPegen_interactive_exit`,
+    // which signals E_EOF to the REPL and just fails under `compile`, so a
+    // bare ENDMARKER never matches here.
+    let res = p.alternatives(&[
+        statement_newline_compound,
+        simple_stmts,
+        statement_newline_pass,
+    ]);
+    p.exit_rule();
+    res
+}
+
+fn statement_newline_compound(p: &mut Parser) -> Option<Vec<Stmt>> {
+    let a = compound_stmt(p)?;
+    p.expect_opt(T::Newline)?;
+    Some(vec![a])
+}
+
+fn statement_newline_pass(p: &mut Parser) -> Option<Vec<Stmt>> {
+    let m = p.mark;
+    p.expect_opt(T::Newline)?;
+    let pos = p.extra(p.pos_at(m))?;
+    Some(vec![Stmt::Pass {
+        lineno: pos.lineno,
+        col_offset: pos.col_offset,
+        end_lineno: pos.end_lineno,
+        end_col_offset: pos.end_col_offset,
+    }])
+}
+
 pub(crate) fn statements(p: &mut Parser) -> Option<Vec<Stmt>> {
     if !p.enter_rule() {
         return None;

@@ -17,7 +17,8 @@
 //!   positions, with columns in code points as `tokenize` reports them.
 //!
 //! Supported codecs, under every alias `codecs.lookup` accepts for them:
-//! UTF-8 (and UTF-8-sig), ISO-8859-1, ASCII, cp1252, ISO-8859-15 and KOI8-R.
+//! UTF-8 (and UTF-8-sig), ISO-8859-1, ASCII, cp1252, ISO-8859-15, KOI8-R,
+//! cp1251 and ISO-8859-7.
 //! Any other cookie is a `TokenizeErrorKind::UnsupportedEncoding` naming the
 //! codec.
 
@@ -436,20 +437,22 @@ impl std::error::Error for TokenizeError {}
 // --- encoding detection (tokenize.detect_encoding) ---------------------------
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Codec {
+pub enum Codec {
     Utf8,
     Iso8859_1,
     Koi8R,
     Ascii,
     Cp1252,
     Iso8859_15,
+    Cp1251,
+    Iso8859_7,
 }
 
 /// `codecs.lookup` for the codecs this tokenizer carries: the name is
 /// lowercased and normalised as `encodings.normalize_encoding` does (runs of
 /// characters other than ASCII alphanumerics and `.` become one `_`, trimmed
 /// at both ends), then resolved through the aliases in `encodings/aliases.py`.
-pub(crate) fn lookup_codec(name: &str) -> Option<Codec> {
+pub fn lookup_codec(name: &str) -> Option<Codec> {
     let mut norm = String::new();
     let mut pending = false;
     for c in name.chars().map(|c| c.to_ascii_lowercase()) {
@@ -476,6 +479,9 @@ pub(crate) fn lookup_codec(name: &str) -> Option<Codec> {
             "cp1252" | "1252" | "windows_1252" => Codec::Cp1252,
             "iso8859_15" | "iso_8859_15" | "l9" | "latin9" => Codec::Iso8859_15,
             "koi8_r" | "cskoi8r" => Codec::Koi8R,
+            "cp1251" | "1251" | "windows_1251" => Codec::Cp1251,
+            "iso8859_7" | "iso_8859_7" | "iso8859_7_1987" | "iso_ir_126" | "csisolatingreek"
+            | "ecma_118" | "elot_928" | "greek" | "greek8" => Codec::Iso8859_7,
             _ => return None,
         })
     };
@@ -516,6 +522,271 @@ const CP1252_HIGH: [Option<char>; 32] = [
     None,
     Some('\u{017E}'),
     Some('\u{0178}'),
+];
+
+/// cp1251's 0x80..=0xFF; `None` is undefined (decoded as U+FFFD).
+const CP1251_HIGH: [Option<char>; 128] = [
+    Some('\u{0402}'),
+    Some('\u{0403}'),
+    Some('\u{201A}'),
+    Some('\u{0453}'),
+    Some('\u{201E}'),
+    Some('\u{2026}'),
+    Some('\u{2020}'),
+    Some('\u{2021}'),
+    Some('\u{20AC}'),
+    Some('\u{2030}'),
+    Some('\u{0409}'),
+    Some('\u{2039}'),
+    Some('\u{040A}'),
+    Some('\u{040C}'),
+    Some('\u{040B}'),
+    Some('\u{040F}'),
+    Some('\u{0452}'),
+    Some('\u{2018}'),
+    Some('\u{2019}'),
+    Some('\u{201C}'),
+    Some('\u{201D}'),
+    Some('\u{2022}'),
+    Some('\u{2013}'),
+    Some('\u{2014}'),
+    None,
+    Some('\u{2122}'),
+    Some('\u{0459}'),
+    Some('\u{203A}'),
+    Some('\u{045A}'),
+    Some('\u{045C}'),
+    Some('\u{045B}'),
+    Some('\u{045F}'),
+    Some('\u{00A0}'),
+    Some('\u{040E}'),
+    Some('\u{045E}'),
+    Some('\u{0408}'),
+    Some('\u{00A4}'),
+    Some('\u{0490}'),
+    Some('\u{00A6}'),
+    Some('\u{00A7}'),
+    Some('\u{0401}'),
+    Some('\u{00A9}'),
+    Some('\u{0404}'),
+    Some('\u{00AB}'),
+    Some('\u{00AC}'),
+    Some('\u{00AD}'),
+    Some('\u{00AE}'),
+    Some('\u{0407}'),
+    Some('\u{00B0}'),
+    Some('\u{00B1}'),
+    Some('\u{0406}'),
+    Some('\u{0456}'),
+    Some('\u{0491}'),
+    Some('\u{00B5}'),
+    Some('\u{00B6}'),
+    Some('\u{00B7}'),
+    Some('\u{0451}'),
+    Some('\u{2116}'),
+    Some('\u{0454}'),
+    Some('\u{00BB}'),
+    Some('\u{0458}'),
+    Some('\u{0405}'),
+    Some('\u{0455}'),
+    Some('\u{0457}'),
+    Some('\u{0410}'),
+    Some('\u{0411}'),
+    Some('\u{0412}'),
+    Some('\u{0413}'),
+    Some('\u{0414}'),
+    Some('\u{0415}'),
+    Some('\u{0416}'),
+    Some('\u{0417}'),
+    Some('\u{0418}'),
+    Some('\u{0419}'),
+    Some('\u{041A}'),
+    Some('\u{041B}'),
+    Some('\u{041C}'),
+    Some('\u{041D}'),
+    Some('\u{041E}'),
+    Some('\u{041F}'),
+    Some('\u{0420}'),
+    Some('\u{0421}'),
+    Some('\u{0422}'),
+    Some('\u{0423}'),
+    Some('\u{0424}'),
+    Some('\u{0425}'),
+    Some('\u{0426}'),
+    Some('\u{0427}'),
+    Some('\u{0428}'),
+    Some('\u{0429}'),
+    Some('\u{042A}'),
+    Some('\u{042B}'),
+    Some('\u{042C}'),
+    Some('\u{042D}'),
+    Some('\u{042E}'),
+    Some('\u{042F}'),
+    Some('\u{0430}'),
+    Some('\u{0431}'),
+    Some('\u{0432}'),
+    Some('\u{0433}'),
+    Some('\u{0434}'),
+    Some('\u{0435}'),
+    Some('\u{0436}'),
+    Some('\u{0437}'),
+    Some('\u{0438}'),
+    Some('\u{0439}'),
+    Some('\u{043A}'),
+    Some('\u{043B}'),
+    Some('\u{043C}'),
+    Some('\u{043D}'),
+    Some('\u{043E}'),
+    Some('\u{043F}'),
+    Some('\u{0440}'),
+    Some('\u{0441}'),
+    Some('\u{0442}'),
+    Some('\u{0443}'),
+    Some('\u{0444}'),
+    Some('\u{0445}'),
+    Some('\u{0446}'),
+    Some('\u{0447}'),
+    Some('\u{0448}'),
+    Some('\u{0449}'),
+    Some('\u{044A}'),
+    Some('\u{044B}'),
+    Some('\u{044C}'),
+    Some('\u{044D}'),
+    Some('\u{044E}'),
+    Some('\u{044F}'),
+];
+
+/// ISO-8859-7's 0x80..=0xFF (0x00..=0x7F are ASCII); `None` is undefined
+/// (decoded as U+FFFD).
+const ISO8859_7_HIGH: [Option<char>; 128] = [
+    Some('\u{0080}'),
+    Some('\u{0081}'),
+    Some('\u{0082}'),
+    Some('\u{0083}'),
+    Some('\u{0084}'),
+    Some('\u{0085}'),
+    Some('\u{0086}'),
+    Some('\u{0087}'),
+    Some('\u{0088}'),
+    Some('\u{0089}'),
+    Some('\u{008A}'),
+    Some('\u{008B}'),
+    Some('\u{008C}'),
+    Some('\u{008D}'),
+    Some('\u{008E}'),
+    Some('\u{008F}'),
+    Some('\u{0090}'),
+    Some('\u{0091}'),
+    Some('\u{0092}'),
+    Some('\u{0093}'),
+    Some('\u{0094}'),
+    Some('\u{0095}'),
+    Some('\u{0096}'),
+    Some('\u{0097}'),
+    Some('\u{0098}'),
+    Some('\u{0099}'),
+    Some('\u{009A}'),
+    Some('\u{009B}'),
+    Some('\u{009C}'),
+    Some('\u{009D}'),
+    Some('\u{009E}'),
+    Some('\u{009F}'),
+    Some('\u{00A0}'),
+    Some('\u{2018}'),
+    Some('\u{2019}'),
+    Some('\u{00A3}'),
+    Some('\u{20AC}'),
+    Some('\u{20AF}'),
+    Some('\u{00A6}'),
+    Some('\u{00A7}'),
+    Some('\u{00A8}'),
+    Some('\u{00A9}'),
+    Some('\u{037A}'),
+    Some('\u{00AB}'),
+    Some('\u{00AC}'),
+    Some('\u{00AD}'),
+    None,
+    Some('\u{2015}'),
+    Some('\u{00B0}'),
+    Some('\u{00B1}'),
+    Some('\u{00B2}'),
+    Some('\u{00B3}'),
+    Some('\u{0384}'),
+    Some('\u{0385}'),
+    Some('\u{0386}'),
+    Some('\u{00B7}'),
+    Some('\u{0388}'),
+    Some('\u{0389}'),
+    Some('\u{038A}'),
+    Some('\u{00BB}'),
+    Some('\u{038C}'),
+    Some('\u{00BD}'),
+    Some('\u{038E}'),
+    Some('\u{038F}'),
+    Some('\u{0390}'),
+    Some('\u{0391}'),
+    Some('\u{0392}'),
+    Some('\u{0393}'),
+    Some('\u{0394}'),
+    Some('\u{0395}'),
+    Some('\u{0396}'),
+    Some('\u{0397}'),
+    Some('\u{0398}'),
+    Some('\u{0399}'),
+    Some('\u{039A}'),
+    Some('\u{039B}'),
+    Some('\u{039C}'),
+    Some('\u{039D}'),
+    Some('\u{039E}'),
+    Some('\u{039F}'),
+    Some('\u{03A0}'),
+    Some('\u{03A1}'),
+    None,
+    Some('\u{03A3}'),
+    Some('\u{03A4}'),
+    Some('\u{03A5}'),
+    Some('\u{03A6}'),
+    Some('\u{03A7}'),
+    Some('\u{03A8}'),
+    Some('\u{03A9}'),
+    Some('\u{03AA}'),
+    Some('\u{03AB}'),
+    Some('\u{03AC}'),
+    Some('\u{03AD}'),
+    Some('\u{03AE}'),
+    Some('\u{03AF}'),
+    Some('\u{03B0}'),
+    Some('\u{03B1}'),
+    Some('\u{03B2}'),
+    Some('\u{03B3}'),
+    Some('\u{03B4}'),
+    Some('\u{03B5}'),
+    Some('\u{03B6}'),
+    Some('\u{03B7}'),
+    Some('\u{03B8}'),
+    Some('\u{03B9}'),
+    Some('\u{03BA}'),
+    Some('\u{03BB}'),
+    Some('\u{03BC}'),
+    Some('\u{03BD}'),
+    Some('\u{03BE}'),
+    Some('\u{03BF}'),
+    Some('\u{03C0}'),
+    Some('\u{03C1}'),
+    Some('\u{03C2}'),
+    Some('\u{03C3}'),
+    Some('\u{03C4}'),
+    Some('\u{03C5}'),
+    Some('\u{03C6}'),
+    Some('\u{03C7}'),
+    Some('\u{03C8}'),
+    Some('\u{03C9}'),
+    Some('\u{03CA}'),
+    Some('\u{03CB}'),
+    Some('\u{03CC}'),
+    Some('\u{03CD}'),
+    Some('\u{03CE}'),
+    None,
 ];
 
 struct Detection {
@@ -751,6 +1022,26 @@ fn decode_lines(body: &[u8], codec: Codec) -> Vec<Vec<u8>> {
                     _ => b as char,
                 })
                 .collect(),
+            Codec::Cp1251 => line
+                .iter()
+                .map(|&b| {
+                    if b < 128 {
+                        b as char
+                    } else {
+                        CP1251_HIGH[(b - 0x80) as usize].unwrap_or('\u{FFFD}')
+                    }
+                })
+                .collect(),
+            Codec::Iso8859_7 => line
+                .iter()
+                .map(|&b| {
+                    if b < 128 {
+                        b as char
+                    } else {
+                        ISO8859_7_HIGH[(b - 0x80) as usize].unwrap_or('\u{FFFD}')
+                    }
+                })
+                .collect(),
         };
         // The C tokenizer re-encodes each decoded line to UTF-8.
         lines.push(decoded.into_bytes());
@@ -900,6 +1191,7 @@ pub struct Tokenizer {
     modes: [Mode; MAXFSTRINGLEVEL],
     mode_index: usize,
 
+    /// Source lines still unread.
     lines: std::vec::IntoIter<Vec<u8>>,
 }
 
@@ -1048,6 +1340,13 @@ impl Tokenizer {
                 // cursor at the end of the last line. Only the flag is
                 // recorded: `finish_error` speaks for the readline flavor.
                 self.eof_reset = self.start.is_none() && self.mode_index == 0;
+                // The module view also rewinds to the buffer start, so the
+                // E_EOF column (`inp - buf`) is 0 in its tokens.
+                if self.tok_extra_tokens && self.start.is_none() && self.mode_index == 0 {
+                    self.cur = 0;
+                    self.inp = 0;
+                    self.buf.clear();
+                }
                 self.done = Done::Eof;
                 return false;
             }
@@ -1066,8 +1365,11 @@ impl Tokenizer {
             return false;
         }
         self.implicit_newline = false;
-        if self.buf[self.inp - 1] != b'\n' {
-            // Last line does not end in \n; fake one.
+        // `tok_underflow_string` leaves a last line without its newline alone,
+        // so the parser's EOF token is an ENDMARKER in eval and single mode.
+        // Only the tokenize-module view needs the fabricated NEWLINE that
+        // Python's `tokenize` builds for such input.
+        if self.tok_extra_tokens && self.buf[self.inp - 1] != b'\n' {
             self.buf.push(b'\n');
             self.inp = self.buf.len();
             self.implicit_newline = true;
@@ -2673,9 +2975,10 @@ impl ParserSource {
     }
 }
 
-/// `translate_newlines` for exec input: `\r\n` and lone `\r` become `\n`, and
-/// a non-empty result gains a final newline.
-fn translate_newlines(input: &[u8]) -> Vec<u8> {
+/// `translate_newlines`: `\r\n` and lone `\r` become `\n`, and exec input that
+/// does not end in a newline gains one (eval and single input do not, which is
+/// what makes their EOF token an ENDMARKER rather than a NEWLINE).
+fn translate_newlines(input: &[u8], exec_input: bool) -> Vec<u8> {
     let mut out = Vec::with_capacity(input.len() + 1);
     let mut skip_next_lf = false;
     for &c in input {
@@ -2692,7 +2995,7 @@ fn translate_newlines(input: &[u8]) -> Vec<u8> {
         }
         out.push(c);
     }
-    if !out.is_empty() && out.last() != Some(&b'\n') {
+    if exec_input && !out.is_empty() && out.last() != Some(&b'\n') {
         out.push(b'\n');
     }
     out
@@ -2799,13 +3102,67 @@ pub(crate) fn decode_byte(codec: Codec, b: u8) -> char {
             0xBE => '\u{0178}',
             _ => b as char,
         },
+        Codec::Cp1251 => {
+            if b < 128 {
+                b as char
+            } else {
+                CP1251_HIGH[(b - 0x80) as usize].unwrap_or('\u{FFFD}')
+            }
+        }
+        Codec::Iso8859_7 => {
+            if b < 128 {
+                b as char
+            } else {
+                ISO8859_7_HIGH[(b - 0x80) as usize].unwrap_or('\u{FFFD}')
+            }
+        }
         Codec::Utf8 | Codec::Ascii => b as char,
+    }
+}
+
+/// `str.encode` for the codecs this tokenizer carries: the inverse of
+/// `decode_byte` for the single-byte tables, UTF-8 bytes otherwise. The error
+/// is the first character the codec cannot represent, so callers can build
+/// CPython's `UnicodeEncodeError`.
+pub fn encode_text(codec: Codec, text: &str) -> Result<Vec<u8>, (char, usize)> {
+    match codec {
+        Codec::Utf8 => Ok(text.as_bytes().to_vec()),
+        Codec::Iso8859_1
+        | Codec::Cp1252
+        | Codec::Koi8R
+        | Codec::Iso8859_15
+        | Codec::Cp1251
+        | Codec::Iso8859_7 => {
+            let mut out = Vec::with_capacity(text.len());
+            for (index, ch) in text.char_indices() {
+                let byte = match u32::from(ch) {
+                    cp @ 0..=0x7F => Some(cp as u8),
+                    _ => (0x80u8..=0xFF).find(|&b| decode_byte(codec, b) == ch),
+                };
+                match byte {
+                    Some(byte) => out.push(byte),
+                    None => return Err((ch, index)),
+                }
+            }
+            Ok(out)
+        }
+        Codec::Ascii => {
+            let mut out = Vec::with_capacity(text.len());
+            for (index, ch) in text.char_indices() {
+                if (ch as u32) < 0x80 {
+                    out.push(ch as u8);
+                } else {
+                    return Err((ch, index));
+                }
+            }
+            Ok(out)
+        }
     }
 }
 
 /// `decode_str` for the parser: the null-byte check of `source_as_string`,
 /// newline translation, the BOM, and the coding cookie of the first two lines.
-pub fn parser_source(bytes: &[u8]) -> Result<ParserSource, TokenizeError> {
+pub fn parser_source(bytes: &[u8], exec_input: bool) -> Result<ParserSource, TokenizeError> {
     let no_location = |message: String| TokenizeError {
         kind: TokenizeErrorKind::SyntaxError,
         message,
@@ -2817,7 +3174,7 @@ pub fn parser_source(bytes: &[u8]) -> Result<ParserSource, TokenizeError> {
             "source code string cannot contain null bytes".to_string(),
         ));
     }
-    let translated = translate_newlines(bytes);
+    let translated = translate_newlines(bytes, exec_input);
     let mut source = ParserSource {
         buffer: translated.clone(),
         tok_str: translated,
@@ -2976,6 +3333,40 @@ impl Tokenizer {
     /// `p->tok->cur - p->tok->buf`: the cursor within the accumulated buffer.
     pub fn cur_offset(&self) -> i64 {
         self.cur as i64
+    }
+
+    /// `_PyPegen_interactive_exit`'s helper state: with a block still open,
+    /// the ENDMARKER the parser just reached implies its DEDENTs.
+    pub fn imply_dedent(&mut self) {
+        if self.indent != 0 {
+            self.pendin = -(self.indent as i32);
+            self.indent = 0;
+        }
+    }
+
+    /// `bad_single_statement`: after a single-input line parses, anything
+    /// beyond whitespace and comments still in the input means the line held
+    /// more than one statement.
+    pub fn bad_single_statement(&self) -> bool {
+        let rest = self.lines.as_slice();
+        let mut input = self.buf[self.cur.min(self.buf.len())..]
+            .iter()
+            .copied()
+            .chain(rest.iter().flat_map(|line| line.iter().copied()));
+        loop {
+            match input.next() {
+                None => return false,
+                Some(b' ') | Some(b'\t') | Some(b'\n') | Some(0x0C) => continue,
+                Some(b'#') => {
+                    for byte in input.by_ref() {
+                        if byte == b'\n' {
+                            break;
+                        }
+                    }
+                }
+                Some(_) => return true,
+            }
+        }
     }
 
     /// The pending `UnicodeDecodeError` text behind `E_DECODE`, if any.

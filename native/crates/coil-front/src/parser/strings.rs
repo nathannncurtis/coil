@@ -141,6 +141,8 @@ fn parse_f64(s: &[u8]) -> Result<f64, NumberError> {
 // -- string decoding ------------------------------------------------------------------
 
 enum DecodeError {
+    /// A `unicode_escape` failure, rendered the way `UnicodeDecodeError`'s
+    /// `str` is.
     Unicode(String),
     Value(String),
 }
@@ -663,10 +665,12 @@ fn constant_from_string(p: &mut Parser, t: &crate::tokenizer::PegToken) -> Optio
         } else {
             match decode_bytes_escapes(literal.body) {
                 Ok(value) => Constant::Bytes(value),
-                Err(DecodeError::Value(message)) | Err(DecodeError::Unicode(message)) => {
+                Err(DecodeError::Value(message)) => {
                     p.raise_decode_error("value error", message);
                     return None;
                 }
+                // `decode_bytes_escapes` only ever fails with `Value`.
+                Err(DecodeError::Unicode(..)) => unreachable!(),
             }
         }
     } else {
