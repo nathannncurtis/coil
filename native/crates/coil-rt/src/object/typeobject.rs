@@ -598,8 +598,9 @@ unsafe fn ready_set_new(t: *mut PyTypeObject) {
 
 /// CPython's `inherit_special`: flags, sizes and offsets that come from the
 /// dominant base, plus the fast subclass flag of the base. The remaining
-/// fast-subclass flags (bytes, unicode, tuple, list, dict) are checked as
-/// those types land.
+/// fast-subclass flags (bytes, unicode) are checked as those types land.
+/// Sets have no fast-subclass flag; their checks subtype against the two
+/// type objects directly.
 ///
 /// # Safety
 ///
@@ -636,6 +637,12 @@ unsafe fn inherit_special(type_: *mut PyTypeObject, base: *mut PyTypeObject) {
             (*type_).tp_flags |= Py_TPFLAGS_TYPE_SUBCLASS;
         } else if PyType_IsSubtype(base, &raw mut types::long::PyLong_Type) != 0 {
             (*type_).tp_flags |= coil_capi_sys::Py_TPFLAGS_LONG_SUBCLASS;
+        } else if PyType_IsSubtype(base, &raw mut types::tuple::PyTuple_Type) != 0 {
+            (*type_).tp_flags |= coil_capi_sys::Py_TPFLAGS_TUPLE_SUBCLASS;
+        } else if PyType_IsSubtype(base, &raw mut types::list::PyList_Type) != 0 {
+            (*type_).tp_flags |= coil_capi_sys::Py_TPFLAGS_LIST_SUBCLASS;
+        } else if PyType_IsSubtype(base, &raw mut types::dict::PyDict_Type) != 0 {
+            (*type_).tp_flags |= coil_capi_sys::Py_TPFLAGS_DICT_SUBCLASS;
         }
     }
 }
@@ -1017,12 +1024,61 @@ pub fn init_static_types() -> c_int {
             exceptions::memory_error_type(),
             exceptions::system_error_type(),
             exceptions::not_implemented_error_type(),
+            exceptions::index_error_type(),
+            exceptions::key_error_type(),
+            exceptions::runtime_error_type(),
+            &raw mut types::tuple::PyTuple_Type,
+            &raw mut types::list::PyList_Type,
+            &raw mut types::dict::PyDict_Type,
+            &raw mut types::set::PySet_Type,
+            &raw mut types::set::PyFrozenSet_Type,
+            types::tuple::tuple_iter_type_ptr(),
+            types::list::list_iter_type_ptr(),
+            types::set::set_iter_type_ptr(),
         ];
         for t in objects {
             if PyType_Ready(t) < 0 {
                 return -1;
             }
         }
+        for t in types::dict::dict_static_types() {
+            if PyType_Ready(t) < 0 {
+                return -1;
+            }
+        }
+        materialize_type_tuples();
     }
     0
+}
+
+/// `type_ready`'s deferred last step: fill `tp_mro` and `tp_bases` with
+/// real tuples built from the side table (see the module docs). Runs once
+/// every static type is readied, since building the tuples needs
+/// `PyTuple_Type`. `tp_subclasses` stays null — only heap subclasses fill
+/// it, and none exist yet.
+fn materialize_type_tuples() {
+    // SAFETY: the table holds exactly the readied types, and their MROs
+    // and bases are valid type pointers.
+    unsafe {
+        let entries: Vec<(usize, Vec<usize>)> = mro_table()
+            .lock()
+            .expect("mro table poisoned")
+            .iter()
+            .map(|(ty, mro)| (*ty, mro.clone()))
+            .collect();
+        for (ty_addr, mro) in entries {
+            let ty = ty_addr as *mut PyTypeObject;
+            let mro_items: Vec<*mut PyObject> = mro.iter().map(|a| *a as *mut PyObject).collect();
+            let base = (*ty).tp_base;
+            let base_items: Vec<*mut PyObject> = if base.is_null() {
+                Vec::new()
+            } else {
+                vec![base.cast()]
+            };
+            // SAFETY: the items are valid type pointers, and the fresh
+            // tuples are built before any of the slots becomes visible.
+            (*ty).tp_mro = types::tuple::from_array(&mro_items);
+            (*ty).tp_bases = types::tuple::from_array(&base_items);
+        }
+    }
 }
