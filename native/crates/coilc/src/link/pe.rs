@@ -134,7 +134,14 @@ pub fn link_image(obj: &ObjectFile) -> Result<LinkOutput, LinkError> {
     let data_vsize = bss_offset
         .checked_add(obj.bss.size)
         .ok_or(LinkError::LayoutOverflow)?;
-    let idata_vsize = imports::size(obj)?;
+    // With no imports there is no `.idata` extent at all — not even the
+    // lone null descriptor `imports::build` would emit — so the section is
+    // truly absent and `SizeOfImage` carries no page for it.
+    let idata_vsize = if obj.imports.is_empty() {
+        0
+    } else {
+        imports::size(obj)?
+    };
     let idata_rva = align_up(data_rva + data_vsize, SECTION_ALIGNMENT)?;
     let reloc_rva = align_up(idata_rva + idata_vsize, SECTION_ALIGNMENT)?;
 
@@ -222,7 +229,7 @@ pub fn link_image(obj: &ObjectFile) -> Result<LinkOutput, LinkError> {
         });
     }
 
-    let image = write_image(obj, &layout, &table)?;
+    let image = write_image(obj, &mut layout, &table)?;
     Ok(LinkOutput {
         image,
         layout,
@@ -233,13 +240,14 @@ pub fn link_image(obj: &ObjectFile) -> Result<LinkOutput, LinkError> {
 
 fn write_image(
     obj: &ObjectFile,
-    layout: &Layout,
+    layout: &mut Layout,
     table: &[SectionOut],
 ) -> Result<Vec<u8>, LinkError> {
     let size_of_headers = align_up(
         0x80 + 4 + 20 + SIZE_OF_OPTIONAL_HEADER + 40 * table.len() as u32,
         FILE_ALIGNMENT,
     )?;
+    layout.size_of_headers = size_of_headers;
 
     let mut raw_sizes = Vec::with_capacity(table.len());
     let mut pointers = Vec::with_capacity(table.len());
@@ -616,6 +624,52 @@ mod tests {
         );
         assert_eq!(headers[1], (".data".to_string(), 16, 0x2000, 0));
         assert_no_empty_or_overlapping_sections(&headers);
+    }
+
+    #[test]
+    fn layout_reports_the_written_headers() {
+        // `Layout.size_of_headers` must carry what the image's optional
+        // header records, not the 0 it was constructed with.
+        let linked = link_image(&object()).unwrap();
+        assert_eq!(linked.layout.size_of_headers, 0x400);
+        let image = &linked.image;
+        let size_of_headers = u32::from_le_bytes(image[0xD4..0xD8].try_into().unwrap());
+        assert_eq!(linked.layout.size_of_headers, size_of_headers);
+        let first_raw = u32::from_le_bytes(image[0x19C..0x1A0].try_into().unwrap());
+        assert_eq!(size_of_headers, first_raw);
+    }
+
+    #[test]
+    fn no_imports_leave_no_idata_extent() {
+        // Without imports the layout must claim no `.idata` extent and
+        // `SizeOfImage` must not carry a page for the omitted section;
+        // the import and base-relocation directories stay empty.
+        let mut obj = object();
+        obj.imports.clear();
+        obj.relocs.clear();
+
+        let linked = link_image(&obj).unwrap();
+        assert_eq!(linked.layout.idata_vsize, 0);
+        assert_eq!(linked.layout.iat_directory, (0, 0));
+        assert_eq!(linked.layout.reloc_vsize, 0);
+        assert_eq!(linked.layout.size_of_image, 0x4000);
+
+        let headers = section_headers(&linked.image);
+        assert_eq!(
+            headers
+                .iter()
+                .map(|(name, ..)| name.as_str())
+                .collect::<Vec<_>>(),
+            [".text", ".rdata", ".data"]
+        );
+        assert_no_empty_or_overlapping_sections(&headers);
+
+        // The import (index 1) and base-relocation (index 5) data
+        // directories, at optional-header offsets 112 + 8 and 112 + 40.
+        let image = &linked.image;
+        for at in [0x110, 0x130] {
+            assert_eq!(&image[at..at + 8], &[0; 8]);
+        }
     }
 
     #[test]
