@@ -22,12 +22,12 @@ use coil_capi_sys::{
     PyNumberMethods, PyObject, PySequenceMethods, PyTypeObject,
 };
 
-use crate::object::exceptions;
 use crate::object::header;
 use crate::object::singletons;
 use crate::object::typeobject::{
     Py_EQ as CMP_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE as CMP_NE, zero_type,
 };
+use crate::types::exc as exceptions;
 use crate::types::unicode_data;
 use crate::util;
 
@@ -7843,12 +7843,12 @@ pub extern "C" fn _PyUnicode_IsLinebreak(ch: u32) -> c_int {
 
 /// The instance check behind the error accessors: CPython uses
 /// `PyErr_GivenExceptionMatches`, which walks the base chain.
-unsafe fn is_exception_instance(exc: *mut PyObject, expected: *mut PyTypeObject) -> bool {
+unsafe fn is_exception_instance(exc: *mut PyObject, expected: *mut PyObject) -> bool {
     // SAFETY: the object and type are valid; the chain is static.
     unsafe {
         let mut t = (*(exc as *const PyObject)).ob_type;
         while !t.is_null() {
-            if core::ptr::eq(t, expected) {
+            if core::ptr::eq(t, expected.cast::<PyTypeObject>()) {
                 return true;
             }
             t = (*(t as *const PyTypeObject)).tp_base;
@@ -8040,7 +8040,7 @@ unicode_error_accessors!(
     PyUnicodeDecodeError_SetEnd,
     PyUnicodeDecodeError_GetReason,
     PyUnicodeDecodeError_SetReason,
-    unicode_decode_error_type
+    unicode_decode_error
 );
 unicode_error_accessors!(
     PyUnicodeEncodeError_GetEncoding,
@@ -8051,7 +8051,7 @@ unicode_error_accessors!(
     PyUnicodeEncodeError_SetEnd,
     PyUnicodeEncodeError_GetReason,
     PyUnicodeEncodeError_SetReason,
-    unicode_encode_error_type
+    unicode_encode_error
 );
 
 /// CPython's `PyUnicodeTranslateError_GetObject`.
@@ -8063,7 +8063,7 @@ unicode_error_accessors!(
 pub unsafe extern "C" fn PyUnicodeTranslateError_GetObject(exc: *mut PyObject) -> *mut PyObject {
     // SAFETY: the object is valid or null.
     unsafe {
-        if !is_exception_instance(exc, exceptions::unicode_translate_error_type()) {
+        if !is_exception_instance(exc, exceptions::unicode_translate_error()) {
             crate::tstate::set_string(exceptions::system_error(), b"");
             return core::ptr::null_mut();
         }
@@ -8086,7 +8086,7 @@ pub unsafe extern "C" fn PyUnicodeTranslateError_GetStart(
 ) -> c_int {
     // SAFETY: the object and slot are valid or null.
     unsafe {
-        if !is_exception_instance(exc, exceptions::unicode_translate_error_type()) {
+        if !is_exception_instance(exc, exceptions::unicode_translate_error()) {
             crate::tstate::set_string(exceptions::system_error(), b"");
             return -1;
         }
@@ -8109,7 +8109,7 @@ pub unsafe extern "C" fn PyUnicodeTranslateError_SetStart(
 ) -> c_int {
     // SAFETY: the object is valid or null.
     unsafe {
-        if !is_exception_instance(exc, exceptions::unicode_translate_error_type()) {
+        if !is_exception_instance(exc, exceptions::unicode_translate_error()) {
             crate::tstate::set_string(exceptions::system_error(), b"");
             return -1;
         }
@@ -8133,7 +8133,7 @@ pub unsafe extern "C" fn PyUnicodeTranslateError_GetEnd(
 ) -> c_int {
     // SAFETY: the object and slot are valid or null.
     unsafe {
-        if !is_exception_instance(exc, exceptions::unicode_translate_error_type()) {
+        if !is_exception_instance(exc, exceptions::unicode_translate_error()) {
             crate::tstate::set_string(exceptions::system_error(), b"");
             return -1;
         }
@@ -8153,7 +8153,7 @@ pub unsafe extern "C" fn PyUnicodeTranslateError_GetEnd(
 pub unsafe extern "C" fn PyUnicodeTranslateError_SetEnd(exc: *mut PyObject, end: isize) -> c_int {
     // SAFETY: the object is valid or null.
     unsafe {
-        if !is_exception_instance(exc, exceptions::unicode_translate_error_type()) {
+        if !is_exception_instance(exc, exceptions::unicode_translate_error()) {
             crate::tstate::set_string(exceptions::system_error(), b"");
             return -1;
         }
@@ -8174,7 +8174,7 @@ pub unsafe extern "C" fn PyUnicodeTranslateError_SetEnd(exc: *mut PyObject, end:
 pub unsafe extern "C" fn PyUnicodeTranslateError_GetReason(exc: *mut PyObject) -> *mut PyObject {
     // SAFETY: the object is valid or null.
     unsafe {
-        if !is_exception_instance(exc, exceptions::unicode_translate_error_type()) {
+        if !is_exception_instance(exc, exceptions::unicode_translate_error()) {
             crate::tstate::set_string(exceptions::system_error(), b"");
             return core::ptr::null_mut();
         }
@@ -8197,7 +8197,7 @@ pub unsafe extern "C" fn PyUnicodeTranslateError_SetReason(
 ) -> c_int {
     // SAFETY: the object and C string are valid or null.
     unsafe {
-        if !is_exception_instance(exc, exceptions::unicode_translate_error_type()) {
+        if !is_exception_instance(exc, exceptions::unicode_translate_error()) {
             crate::tstate::set_string(exceptions::system_error(), b"");
             return -1;
         }

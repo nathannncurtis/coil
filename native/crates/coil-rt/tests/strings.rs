@@ -14,8 +14,9 @@ use std::sync::Once;
 use core::ffi::{c_char, c_void};
 
 use coil_capi_sys::{PyObject, PyTypeObject};
-use python312::object::{exceptions, typeobject};
+use python312::object::typeobject;
 use python312::tstate;
+use python312::types::exc as exceptions;
 use python312::types::{bytes as rt_bytes, float_, long, unicode};
 
 static INIT: Once = Once::new();
@@ -1258,18 +1259,13 @@ fn check_hash_table(
     unicode::set_hash_key_for_tests(0, 0);
 }
 
+/// The str and bytes tables run in one test because they flip the
+/// process-global SipHash key; two tests would race with each other.
 #[test]
-fn str_hash_matches_cpython() {
+fn hash_matches_cpython() {
     init();
     let mut mismatches = Vec::new();
     check_hash_table("str_hash.tsv", &mut mismatches, str_object, STR_TYPE);
-    finish("str_hash.tsv", mismatches);
-}
-
-#[test]
-fn bytes_hash_matches_cpython() {
-    init();
-    let mut mismatches = Vec::new();
     check_hash_table(
         "bytes_hash.tsv",
         &mut mismatches,
@@ -1291,7 +1287,7 @@ fn bytes_hash_matches_cpython() {
         },
         BYTES_TYPE,
     );
-    finish("bytes_hash.tsv", mismatches);
+    finish("str_hash.tsv / bytes_hash.tsv", mismatches);
 }
 
 #[test]

@@ -15,12 +15,12 @@ use coil_capi_sys::{
 };
 use coil_rt_abi::cp312::bytes as bytes_layout;
 
-use crate::object::exceptions;
 use crate::object::header;
 use crate::object::singletons;
 use crate::object::typeobject::{
     Py_EQ as CMP_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE as CMP_NE, zero_type,
 };
+use crate::types::exc as exceptions;
 use crate::types::unicode::{decref, incref};
 use crate::util;
 
