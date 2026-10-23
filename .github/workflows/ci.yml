@@ -229,6 +229,30 @@ jobs:
       - run: cargo test --workspace
         working-directory: native
 
+  front-diff:
+    needs: changes
+    if: needs.changes.outputs.rust == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12.10"
+      - name: Cache the extracted CPython standard library
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.coil/cache/stdlib-src
+          key: stdlib-src-3.12.10
+      - name: Install the pinned Rust toolchain
+        working-directory: native
+        run: rustup show
+      - name: Fetch the CPython 3.12.10 standard library
+        run: python tools/fetch_cpython_src.py
+      - name: Token-level differential over the standard library
+        working-directory: native
+        run: python ../tools/front_diff.py --tokens "$(python ../tools/fetch_cpython_src.py --print-root)/Lib"
+
   compat:
     needs: changes
     if: github.event_name == 'pull_request' && needs.changes.outputs.compat == 'true'
@@ -265,7 +289,7 @@ jobs:
           fail: true
 
   ci-ok:
-    needs: [changes, rules, windows-executables, supported-build-hosts, python-audit, native, rust, compat, docs]
+    needs: [changes, rules, windows-executables, supported-build-hosts, python-audit, native, rust, front-diff, compat, docs]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
