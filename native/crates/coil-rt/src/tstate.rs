@@ -34,7 +34,20 @@ pub struct PyErr_StackItem {
     pub exc_traceback: *mut PyObject,
 }
 
+/// The offset of `eval_breaker` in `ThreadState`: the one field compiled
+/// code touches directly. The TEB slot holds the thread state pointer and
+/// back-edge polls read this offset off it (sections 9.4 and 10.2), so the
+/// layout is `repr(C)` and pinned here; `abi.toml`'s `[offsets]` table
+/// records it once the ABI generator learns that table's schema, and the
+/// assert below keeps this constant honest until then.
+pub const EVAL_BREAKER_OFFSET: usize = 56;
+
+const _: () = {
+    assert!(core::mem::offset_of!(ThreadState, eval_breaker) == EVAL_BREAKER_OFFSET);
+};
+
 /// The per-thread state of spec section 10.2.
+#[repr(C)]
 pub struct ThreadState {
     /// Whether this thread holds the GIL: attached in PEP 703's terms.
     pub attached: bool,
