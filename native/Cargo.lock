@@ -5,6 +5,9 @@ version = 4
 [[package]]
 name = "coil-capi-sys"
 version = "0.0.0"
+dependencies = [
+ "coil-rt-abi",
+]
 
 [[package]]
 name = "coil-front"

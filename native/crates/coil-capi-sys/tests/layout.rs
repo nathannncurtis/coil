@@ -1,7 +1,8 @@
 //! Layout of the declared types against the Windows x64 ABI of the pinned
 //! 3.12.10 headers: MSVC packs them with 8-byte alignment and a 32-bit
-//! `long`. These are the numbers the cp312 constants in `coil-rt-abi` must
-//! agree with wherever both name the same struct.
+//! `long`. The offsets and sizes are asserted directly below, and again
+//! against the cp312 constants of `coil-rt-abi` for the structs both crates
+//! name.
 
 use coil_capi_sys::*;
 use core::mem::{offset_of, size_of};
@@ -232,4 +233,166 @@ fn abi_widths() {
     assert_eq!(size_of::<Py_hash_t>(), 8);
     assert_eq!(size_of::<vectorcallfunc>(), 8);
     assert_eq!(size_of::<PyCFunction>(), 8);
+}
+
+#[test]
+fn matches_coil_rt_abi_constants() {
+    // Every offset and size the cp312 module of coil-rt-abi also defines:
+    // the runtime's constants and these declarations must not drift apart.
+    use coil_rt_abi::cp312::{buffer, moduledef, object, typeobject, varobject};
+
+    assert_eq!(object::OB_REFCNT, offset_of!(PyObject, ob_refcnt));
+    assert_eq!(object::OB_TYPE, offset_of!(PyObject, ob_type));
+    assert_eq!(object::SIZEOF, size_of::<PyObject>());
+
+    assert_eq!(varobject::OB_BASE, offset_of!(PyVarObject, ob_base));
+    assert_eq!(varobject::OB_SIZE, offset_of!(PyVarObject, ob_size));
+    assert_eq!(varobject::SIZEOF, size_of::<PyVarObject>());
+
+    assert_eq!(typeobject::TP_NAME, offset_of!(PyTypeObject, tp_name));
+    assert_eq!(
+        typeobject::TP_BASICSIZE,
+        offset_of!(PyTypeObject, tp_basicsize)
+    );
+    assert_eq!(
+        typeobject::TP_ITEMSIZE,
+        offset_of!(PyTypeObject, tp_itemsize)
+    );
+    assert_eq!(typeobject::TP_DEALLOC, offset_of!(PyTypeObject, tp_dealloc));
+    assert_eq!(
+        typeobject::TP_VECTORCALL_OFFSET,
+        offset_of!(PyTypeObject, tp_vectorcall_offset)
+    );
+    assert_eq!(typeobject::TP_GETATTR, offset_of!(PyTypeObject, tp_getattr));
+    assert_eq!(typeobject::TP_SETATTR, offset_of!(PyTypeObject, tp_setattr));
+    assert_eq!(
+        typeobject::TP_AS_ASYNC,
+        offset_of!(PyTypeObject, tp_as_async)
+    );
+    assert_eq!(typeobject::TP_REPR, offset_of!(PyTypeObject, tp_repr));
+    assert_eq!(
+        typeobject::TP_AS_NUMBER,
+        offset_of!(PyTypeObject, tp_as_number)
+    );
+    assert_eq!(
+        typeobject::TP_AS_SEQUENCE,
+        offset_of!(PyTypeObject, tp_as_sequence)
+    );
+    assert_eq!(
+        typeobject::TP_AS_MAPPING,
+        offset_of!(PyTypeObject, tp_as_mapping)
+    );
+    assert_eq!(typeobject::TP_HASH, offset_of!(PyTypeObject, tp_hash));
+    assert_eq!(typeobject::TP_CALL, offset_of!(PyTypeObject, tp_call));
+    assert_eq!(typeobject::TP_STR, offset_of!(PyTypeObject, tp_str));
+    assert_eq!(
+        typeobject::TP_GETATTRO,
+        offset_of!(PyTypeObject, tp_getattro)
+    );
+    assert_eq!(
+        typeobject::TP_SETATTRO,
+        offset_of!(PyTypeObject, tp_setattro)
+    );
+    assert_eq!(
+        typeobject::TP_AS_BUFFER,
+        offset_of!(PyTypeObject, tp_as_buffer)
+    );
+    assert_eq!(typeobject::TP_FLAGS, offset_of!(PyTypeObject, tp_flags));
+    assert_eq!(typeobject::TP_DOC, offset_of!(PyTypeObject, tp_doc));
+    assert_eq!(
+        typeobject::TP_TRAVERSE,
+        offset_of!(PyTypeObject, tp_traverse)
+    );
+    assert_eq!(typeobject::TP_CLEAR, offset_of!(PyTypeObject, tp_clear));
+    assert_eq!(
+        typeobject::TP_RICHCOMPARE,
+        offset_of!(PyTypeObject, tp_richcompare)
+    );
+    assert_eq!(
+        typeobject::TP_WEAKLISTOFFSET,
+        offset_of!(PyTypeObject, tp_weaklistoffset)
+    );
+    assert_eq!(typeobject::TP_ITER, offset_of!(PyTypeObject, tp_iter));
+    assert_eq!(
+        typeobject::TP_ITERNEXT,
+        offset_of!(PyTypeObject, tp_iternext)
+    );
+    assert_eq!(typeobject::TP_METHODS, offset_of!(PyTypeObject, tp_methods));
+    assert_eq!(typeobject::TP_MEMBERS, offset_of!(PyTypeObject, tp_members));
+    assert_eq!(typeobject::TP_GETSET, offset_of!(PyTypeObject, tp_getset));
+    assert_eq!(typeobject::TP_BASE, offset_of!(PyTypeObject, tp_base));
+    assert_eq!(typeobject::TP_DICT, offset_of!(PyTypeObject, tp_dict));
+    assert_eq!(
+        typeobject::TP_DESCR_GET,
+        offset_of!(PyTypeObject, tp_descr_get)
+    );
+    assert_eq!(
+        typeobject::TP_DESCR_SET,
+        offset_of!(PyTypeObject, tp_descr_set)
+    );
+    assert_eq!(
+        typeobject::TP_DICTOFFSET,
+        offset_of!(PyTypeObject, tp_dictoffset)
+    );
+    assert_eq!(typeobject::TP_INIT, offset_of!(PyTypeObject, tp_init));
+    assert_eq!(typeobject::TP_ALLOC, offset_of!(PyTypeObject, tp_alloc));
+    assert_eq!(typeobject::TP_NEW, offset_of!(PyTypeObject, tp_new));
+    assert_eq!(typeobject::TP_FREE, offset_of!(PyTypeObject, tp_free));
+    assert_eq!(typeobject::TP_IS_GC, offset_of!(PyTypeObject, tp_is_gc));
+    assert_eq!(typeobject::TP_BASES, offset_of!(PyTypeObject, tp_bases));
+    assert_eq!(typeobject::TP_MRO, offset_of!(PyTypeObject, tp_mro));
+    assert_eq!(typeobject::TP_CACHE, offset_of!(PyTypeObject, tp_cache));
+    assert_eq!(
+        typeobject::TP_SUBCLASSES,
+        offset_of!(PyTypeObject, tp_subclasses)
+    );
+    assert_eq!(
+        typeobject::TP_WEAKLIST,
+        offset_of!(PyTypeObject, tp_weaklist)
+    );
+    assert_eq!(typeobject::TP_DEL, offset_of!(PyTypeObject, tp_del));
+    assert_eq!(
+        typeobject::TP_VERSION_TAG,
+        offset_of!(PyTypeObject, tp_version_tag)
+    );
+    assert_eq!(
+        typeobject::TP_FINALIZE,
+        offset_of!(PyTypeObject, tp_finalize)
+    );
+    assert_eq!(
+        typeobject::TP_VECTORCALL,
+        offset_of!(PyTypeObject, tp_vectorcall)
+    );
+    assert_eq!(typeobject::TP_WATCHED, offset_of!(PyTypeObject, tp_watched));
+    assert_eq!(typeobject::SIZEOF, size_of::<PyTypeObject>());
+
+    // The moduledef module states PyModuleDef's own fields; M_INIT, M_INDEX
+    // and M_COPY live in the PyModuleDef_Base at m_base, so the base at
+    // offset M_BASE makes the same numbers its field offsets.
+    assert_eq!(moduledef::M_BASE, offset_of!(PyModuleDef, m_base));
+    assert_eq!(moduledef::M_INIT, offset_of!(PyModuleDef_Base, m_init));
+    assert_eq!(moduledef::M_INDEX, offset_of!(PyModuleDef_Base, m_index));
+    assert_eq!(moduledef::M_COPY, offset_of!(PyModuleDef_Base, m_copy));
+    assert_eq!(moduledef::M_NAME, offset_of!(PyModuleDef, m_name));
+    assert_eq!(moduledef::M_DOC, offset_of!(PyModuleDef, m_doc));
+    assert_eq!(moduledef::M_SIZE, offset_of!(PyModuleDef, m_size));
+    assert_eq!(moduledef::M_METHODS, offset_of!(PyModuleDef, m_methods));
+    assert_eq!(moduledef::M_SLOTS, offset_of!(PyModuleDef, m_slots));
+    assert_eq!(moduledef::M_TRAVERSE, offset_of!(PyModuleDef, m_traverse));
+    assert_eq!(moduledef::M_CLEAR, offset_of!(PyModuleDef, m_clear));
+    assert_eq!(moduledef::M_FREE, offset_of!(PyModuleDef, m_free));
+    assert_eq!(moduledef::SIZEOF, size_of::<PyModuleDef>());
+
+    assert_eq!(buffer::BUF, offset_of!(Py_buffer, buf));
+    assert_eq!(buffer::OBJ, offset_of!(Py_buffer, obj));
+    assert_eq!(buffer::LEN, offset_of!(Py_buffer, len));
+    assert_eq!(buffer::ITEMSIZE, offset_of!(Py_buffer, itemsize));
+    assert_eq!(buffer::READONLY, offset_of!(Py_buffer, readonly));
+    assert_eq!(buffer::NDIM, offset_of!(Py_buffer, ndim));
+    assert_eq!(buffer::FORMAT, offset_of!(Py_buffer, format));
+    assert_eq!(buffer::SHAPE, offset_of!(Py_buffer, shape));
+    assert_eq!(buffer::STRIDES, offset_of!(Py_buffer, strides));
+    assert_eq!(buffer::SUBOFFSETS, offset_of!(Py_buffer, suboffsets));
+    assert_eq!(buffer::INTERNAL, offset_of!(Py_buffer, internal));
+    assert_eq!(buffer::SIZEOF, size_of::<Py_buffer>());
 }
