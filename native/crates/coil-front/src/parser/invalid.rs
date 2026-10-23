@@ -327,6 +327,8 @@ fn invalid_legacy_expression_plain(p: &mut Parser) -> Option<()> {
             return None;
         }
         let b = expressions::star_expressions(p)?;
+        // The action raises only for the legacy names; otherwise it returns
+        // NULL, which fails the alternative and restores the mark.
         if check_legacy_stmt(p, &a) {
             let text = utf32_to_string(name_text_id(p, &a));
             p.raise_known_range(
@@ -335,7 +337,7 @@ fn invalid_legacy_expression_plain(p: &mut Parser) -> Option<()> {
                 format!("Missing parentheses in call to '{text}'. Did you mean {text}(...)?"),
             );
         }
-        Some(())
+        None
     })
 }
 
@@ -388,12 +390,15 @@ fn invalid_expression_comma(p: &mut Parser) -> Option<()> {
         }
         let a = expressions::disjunction(p)?;
         let b = expressions::expression_without_invalid(p)?;
+        // The action's NULL returns make the alternative fail: the caller
+        // then restores the mark and tries the next one, so the no-raise
+        // paths must not leave the consumed input behind.
         if check_legacy_stmt(p, &a) {
-            return Some(());
+            return None;
         }
         // A parenthesized context cannot be a missing comma.
         if p.mark.checked_sub(1).is_none_or(|i| p.tok_at(i).level == 0) {
-            return Some(());
+            return None;
         }
         p.raise_known_range(
             expr_pos(&a),
