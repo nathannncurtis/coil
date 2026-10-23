@@ -19,6 +19,12 @@ else:
     except ImportError:
         import tomli as tomllib  # type: ignore[no-redef]
 
+from coil.native.config import (
+    parse_compile_table,
+    require_supported_python,
+    validate_compile_flag,
+)
+
 
 # Default config values
 DEFAULTS = {
@@ -28,6 +34,7 @@ DEFAULTS = {
     "secure": False,
     "verbose": False,
     "clean": False,
+    "compile": False,
     "output_dir": "./dist",
     "icon": "",
     "python": "",
@@ -218,6 +225,13 @@ def get_build_config(
     config["verbose"] = build.get("verbose", DEFAULTS["verbose"])
     config["clean"] = build.get("clean", DEFAULTS["clean"])
     config["python"] = build.get("python", DEFAULTS["python"])
+    if "compile" in build:
+        config["compile"] = validate_compile_flag(build["compile"])
+    else:
+        config["compile"] = DEFAULTS["compile"]
+
+    # From [compile]
+    config["compile_config"] = parse_compile_table(raw.get("compile"))
 
     # From [build.dependencies]
     config["deps_auto"] = deps.get("auto", DEFAULTS["deps_auto"])
@@ -248,6 +262,20 @@ def get_build_config(
         for key in ("mode", "os", "console", "secure", "verbose", "clean", "python"):
             if key in prof:
                 config[key] = prof[key]
+        # compile: a boolean overrides the [build] flag; a table merges
+        # over [compile] (TOML forbids both shapes under one key).
+        if "compile" in prof:
+            prof_compile = prof["compile"]
+            if isinstance(prof_compile, bool):
+                config["compile"] = validate_compile_flag(
+                    prof_compile, where=f"[profile.{profile}.compile]"
+                )
+            else:
+                config["compile_config"] = parse_compile_table(
+                    prof_compile,
+                    base=config["compile_config"],
+                    where=f"[profile.{profile}.compile]",
+                )
         if "icon" in prof:
             config["icon"] = prof["icon"]
         if "output_dir" in prof:
@@ -264,6 +292,12 @@ def get_build_config(
             if not isinstance(prof["files"], dict):
                 raise ValueError(f"[profile.{profile}.files] must be a table of destination = source")
             config["files"] = prof["files"]
+
+    # Native compilation only impersonates certain ABIs; an explicit
+    # [build] python outside that set cannot be right. An empty python
+    # (auto-detect) is checked against the resolved version in the CLI.
+    if config["compile"] and config["python"]:
+        require_supported_python(config["python"], "[build] python")
 
     return config
 
@@ -341,6 +375,14 @@ mode = "portable"
 os = "windows"
 {gui_line}
 {python_line}
+# compile = false
+
+# Native compilation (coil build --compile): keep rules and codegen settings.
+# [compile]
+# keep = ["plugins.*"]
+# report = true
+# opt = "speed"
+# stack = "16MiB"
 
 [build.dependencies]
 {deps_comment}auto = true
