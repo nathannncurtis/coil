@@ -251,10 +251,7 @@ jobs:
       - name: Install the PE linker test dependencies
         run: python -m pip install pytest pefile==2024.8.26
       - name: PE linker tests (the Windows leg also runs the linked image)
-        shell: bash
-        run: |
-          mkdir -p build/pytest-pe
-          python -m pytest -q tests/native/test_pe_linker.py --basetemp=build/pytest-pe
+        run: python -m pytest -q tests/native/test_pe_linker.py
       - name: coil-rt builds python312.dll and exports the ABI hash
         if: runner.os == 'Windows'
         working-directory: native
