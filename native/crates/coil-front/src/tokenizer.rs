@@ -16,9 +16,10 @@
 //!   operators reported as `OP`, and the trailing-`DEDENT`/`ENDMARKER`
 //!   positions, with columns in code points as `tokenize` reports them.
 //!
-//! Only the codecs CPython's own `Lib/` sources declare are supported
-//! (UTF-8, UTF-8-sig, ISO-8859-1 and KOI8-R); any other cookie is a
-//! `TokenizeErrorKind::UnsupportedEncoding` naming the codec.
+//! Supported codecs, under every alias `codecs.lookup` accepts for them:
+//! UTF-8 (and UTF-8-sig), ISO-8859-1, ASCII, cp1252, ISO-8859-15 and KOI8-R.
+//! Any other cookie is a `TokenizeErrorKind::UnsupportedEncoding` naming the
+//! codec.
 
 use crate::unicode_tables::{KOI8_R, XID_CONTINUE, XID_START};
 
@@ -439,7 +440,83 @@ enum Codec {
     Utf8,
     Iso8859_1,
     Koi8R,
+    Ascii,
+    Cp1252,
+    Iso8859_15,
 }
+
+/// `codecs.lookup` for the codecs this tokenizer carries: the name is
+/// lowercased and normalised as `encodings.normalize_encoding` does (runs of
+/// characters other than ASCII alphanumerics and `.` become one `_`, trimmed
+/// at both ends), then resolved through the aliases in `encodings/aliases.py`.
+fn lookup_codec(name: &str) -> Option<Codec> {
+    let mut norm = String::new();
+    let mut pending = false;
+    for c in name.chars().map(|c| c.to_ascii_lowercase()) {
+        if c.is_ascii_alphanumeric() || c == '.' {
+            if pending && !norm.is_empty() {
+                norm.push('_');
+            }
+            pending = false;
+            norm.push(c);
+        } else {
+            pending = true;
+        }
+    }
+    let resolve = |n: &str| -> Option<Codec> {
+        Some(match n {
+            "utf_8" | "utf8" | "u8" | "utf" | "utf8_ucs2" | "utf8_ucs4" | "cp65001"
+            | "utf_8_sig" => Codec::Utf8,
+            "latin_1" | "iso8859_1" | "iso_8859_1" | "8859" | "cp819" | "csisolatin1"
+            | "ibm819" | "iso8859" | "iso_8859_1_1987" | "iso_ir_100" | "l1" | "latin"
+            | "latin1" => Codec::Iso8859_1,
+            "ascii" | "646" | "ansi_x3.4_1968" | "ansi_x3_4_1968" | "ansi_x3.4_1986" | "cp367"
+            | "csascii" | "ibm367" | "iso646_us" | "iso_646.irv_1991" | "iso_ir_6" | "us"
+            | "us_ascii" => Codec::Ascii,
+            "cp1252" | "windows_1252" => Codec::Cp1252,
+            "iso8859_15" | "iso_8859_15" | "l9" | "latin9" => Codec::Iso8859_15,
+            "koi8_r" | "cskoi8r" => Codec::Koi8R,
+            _ => return None,
+        })
+    };
+    resolve(&norm).or_else(|| resolve(&norm.replace('.', "_")))
+}
+
+/// cp1252's 0x80..=0x9F; `None` is undefined (decoded as U+FFFD).
+const CP1252_HIGH: [Option<char>; 32] = [
+    Some('\u{20AC}'),
+    None,
+    Some('\u{201A}'),
+    Some('\u{0192}'),
+    Some('\u{201E}'),
+    Some('\u{2026}'),
+    Some('\u{2020}'),
+    Some('\u{2021}'),
+    Some('\u{02C6}'),
+    Some('\u{2030}'),
+    Some('\u{0160}'),
+    Some('\u{2039}'),
+    Some('\u{0152}'),
+    None,
+    Some('\u{017D}'),
+    None,
+    None,
+    Some('\u{2018}'),
+    Some('\u{2019}'),
+    Some('\u{201C}'),
+    Some('\u{201D}'),
+    Some('\u{2022}'),
+    Some('\u{2013}'),
+    Some('\u{2014}'),
+    Some('\u{02DC}'),
+    Some('\u{2122}'),
+    Some('\u{0161}'),
+    Some('\u{203A}'),
+    Some('\u{0153}'),
+    None,
+    Some('\u{017E}'),
+    Some('\u{0178}'),
+];
 
 struct Detection {
     /// The string carried by the tokenize view's `ENCODING` token.
@@ -530,14 +607,12 @@ fn detect_encoding(bytes: &[u8]) -> Result<Detection, TokenizeError> {
         if had_bom && encoding == "utf-8" {
             return Ok(plain());
         }
-        let codec = match encoding.as_str() {
-            "utf-8" | "utf-8-sig" => Codec::Utf8,
-            "iso-8859-1" | "latin1" => Codec::Iso8859_1,
-            "koi8-r" => Codec::Koi8R,
-            other => {
-                // CPython raises this for any codec codecs.lookup rejects;
-                // this tokenizer additionally only carries the codecs Lib/
-                // sources use, so a known-to-CPython codec it cannot decode
+        let codec = match lookup_codec(&encoding) {
+            Some(codec) => codec,
+            None => {
+                let other = encoding.as_str();
+                // CPython raises this for any codec codecs.lookup rejects; a
+                // codec CPython knows but this tokenizer does not carry
                 // reports the same typed error naming the codec.
                 return Err(TokenizeError {
                     kind: TokenizeErrorKind::UnsupportedEncoding,
@@ -648,6 +723,32 @@ fn decode_lines(body: &[u8], codec: Codec) -> Vec<Vec<u8>> {
                     } else {
                         KOI8_R[b as usize]
                     }
+                })
+                .collect(),
+            // tokenize decodes with errors="replace": undecodable bytes become U+FFFD.
+            Codec::Ascii => line
+                .iter()
+                .map(|&b| if b < 128 { b as char } else { '\u{FFFD}' })
+                .collect(),
+            Codec::Cp1252 => line
+                .iter()
+                .map(|&b| match b {
+                    0x80..=0x9F => CP1252_HIGH[(b - 0x80) as usize].unwrap_or('\u{FFFD}'),
+                    _ => b as char,
+                })
+                .collect(),
+            Codec::Iso8859_15 => line
+                .iter()
+                .map(|&b| match b {
+                    0xA4 => '\u{20AC}',
+                    0xA6 => '\u{0160}',
+                    0xA8 => '\u{0161}',
+                    0xB4 => '\u{017D}',
+                    0xB8 => '\u{017E}',
+                    0xBC => '\u{0152}',
+                    0xBD => '\u{0153}',
+                    0xBE => '\u{0178}',
+                    _ => b as char,
                 })
                 .collect(),
         };
@@ -2937,6 +3038,42 @@ mod tests {
         let tokens = module(b"x = 1\n# coding: koi8-r\ny = '\xef'\n").unwrap();
         assert_eq!(tokens[0].1, "utf-8");
         assert_eq!(tokens[9].1, "'\u{FFFD}'");
+    }
+
+    // Expected strings from CPython 3.12's tokenize.tokenize on the same bytes.
+    #[test]
+    fn codec_aliases() {
+        let string = |src: &[u8]| module(src).unwrap()[5].1.clone();
+        assert_eq!(string(b"# coding: utf8\nx = '\xc3\xa9'\n"), "'\u{e9}'");
+        assert_eq!(module(b"# -*- coding: u8 -*-\nx = 1\n").unwrap()[0].1, "u8");
+        assert_eq!(
+            module(b"# coding: us-ascii\nx = 1\n").unwrap()[0].1,
+            "us-ascii"
+        );
+        assert_eq!(string(b"# coding: l1\nx = '\xe9'\n"), "'\u{e9}'");
+        assert_eq!(
+            string(b"# vim: set fileencoding=latin :\nx = '\xe9'\n"),
+            "'\u{e9}'"
+        );
+        assert_eq!(
+            string(b"# coding: cp1252\nx = '\x80\x93\xe9'\n"),
+            "'\u{20AC}\u{201C}\u{e9}'"
+        );
+        assert_eq!(
+            string(b"# coding: windows-1252\nx = '\x80'\n"),
+            "'\u{20AC}'"
+        );
+        assert_eq!(
+            string(b"# coding: iso-8859-15\nx = '\xa4\xbe'\n"),
+            "'\u{20AC}\u{178}'"
+        );
+        assert_eq!(string(b"# coding: latin9\nx = '\xa4'\n"), "'\u{20AC}'");
+        // tokenize decodes with errors="replace".
+        let tokens = module(b"# coding: ascii\nx = 1\ny = '\xe9'\n").unwrap();
+        assert_eq!(tokens[9].1, "'\u{FFFD}'");
+        let tokens = module(b"# coding: cp1252\nx = 1\ny = '\x81'\n").unwrap();
+        assert_eq!(tokens[9].1, "'\u{FFFD}'");
+        assert!(module(b"# coding: nosuchcodec\nx = 1\n").is_err());
     }
 
     #[test]
