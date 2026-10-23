@@ -182,6 +182,9 @@ def test_imports(tmp_path: Path, image_linker: Path) -> None:
         assert [i.name for i in entry.imports] == functions
         for imp in entry.imports:
             assert imp.hint == 0
+            # PE/COFF requires word-aligned hint/name entries; the DLL name
+            # strings leave odd parity behind them, so this is a real check.
+            assert imp.hint_name_table_rva % 2 == 0
             # ILT and IAT agree before the loader rewrites the IAT.
             count = len(entry.imports) + 1
             ilt = pe.get_data(entry.struct.OriginalFirstThunk, 8 * count)

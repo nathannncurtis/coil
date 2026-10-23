@@ -136,9 +136,12 @@ fn plan(obj: &ObjectFile) -> Result<Plan, LinkError> {
         dll.funcs = sorted
             .into_iter()
             .map(|name| {
+                // Hint/name entries are word-aligned; the pad lands before
+                // the entry (the DLL name above may leave odd parity), not
+                // after it.
+                offset += offset & 1;
                 let hint_offset = offset;
                 offset += 2 + name.len() as u64 + 1;
-                offset += offset & 1; // hint/name entries are word-aligned
                 PlanFunc {
                     name: (*name).clone(),
                     hint_offset: hint_offset as u32,
@@ -236,6 +239,55 @@ mod tests {
             table.slots[&("kernel32.dll".to_string(), "ExitProcess".to_string())],
             iat_rva // the first kernel32 slot
         );
+    }
+
+    #[test]
+    fn hint_name_entries_are_word_aligned() {
+        // Both DLL names ("kernel32.dll\0" is 13 bytes, "user32.dll\0"
+        // is 11) leave odd parity behind them, so an alignment done after
+        // an entry instead of before it would place the first hint/name
+        // entry of each DLL at an odd RVA.
+        let obj = object(&[
+            ("user32.dll", &["GetDesktopWindow"]),
+            ("kernel32.dll", &["ExitProcess", "GetCurrentProcessId"]),
+        ]);
+        let idata_rva = 0x4000;
+        let table = build(&obj, idata_rva).unwrap();
+        assert_eq!(idata_rva % 2, 0); // parity is relative to the table
+
+        let mut descriptor = 0;
+        loop {
+            let oft =
+                u32::from_le_bytes(table.bytes[descriptor..descriptor + 4].try_into().unwrap());
+            if oft == 0 {
+                break; // the null terminator descriptor
+            }
+            let name = u32::from_le_bytes(
+                table.bytes[descriptor + 12..descriptor + 16]
+                    .try_into()
+                    .unwrap(),
+            ) - idata_rva;
+            let end = table.bytes[name as usize..]
+                .iter()
+                .position(|byte| *byte == 0)
+                .unwrap() as u32
+                + name
+                + 1;
+            let mut thunk = (oft - idata_rva) as usize;
+            loop {
+                let entry = u64::from_le_bytes(table.bytes[thunk..thunk + 8].try_into().unwrap());
+                if entry == 0 {
+                    break;
+                }
+                assert_eq!(entry >> 63, 0); // by name
+                let hint = u32::try_from(entry).unwrap() - idata_rva;
+                assert_eq!(hint % 2, 0, "hint/name entry at odd RVA");
+                assert!(hint as usize > end as usize, "entry inside the DLL name");
+                assert_eq!(&table.bytes[hint as usize..hint as usize + 2], &[0, 0]);
+                thunk += 8;
+            }
+            descriptor += 20;
+        }
     }
 
     #[test]
