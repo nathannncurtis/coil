@@ -2856,7 +2856,20 @@ pub fn parser_source(bytes: &[u8]) -> Result<ParserSource, TokenizeError> {
             });
         }
     };
-    source.buffer = decode_strict(&source.buffer, codec, &cookie).map_err(no_location)?;
+    if cookie != "utf-8" {
+        // `check_coding_spec` wires a recoding reader only for another codec;
+        // a utf-8 cookie keeps the raw bytes, whose invalid sequences surface
+        // per token instead. A failing recode raises through
+        // `_PyPegen_raise_tokenizer_init_error` at (0, -1).
+        source.buffer =
+            decode_strict(&source.buffer, codec, &cookie).map_err(|message| TokenizeError {
+                kind: TokenizeErrorKind::SyntaxError,
+                message,
+                line: Some(0),
+                column: Some(-1),
+            })?;
+    }
+    source.encoding = Some(cookie);
     Ok(source)
 }
 

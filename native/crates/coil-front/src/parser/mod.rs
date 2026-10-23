@@ -1185,7 +1185,12 @@ impl Parser {
             return line;
         }
         if self.tokenizer.cur_lineno() as i64 <= lineno && self.tokenizer.has_input() {
-            return self.tokenizer.current_line().to_vec();
+            // `PyUnicode_DecodeUTF8(line_start, inp - line_start, "replace")`:
+            // the fallback lines are decoded text before the byte-to-character
+            // conversion runs on them.
+            return String::from_utf8_lossy(self.tokenizer.current_line())
+                .into_owned()
+                .into_bytes();
         }
         self.tokenizer_buffer_line(lineno)
     }
@@ -1204,7 +1209,9 @@ impl Parser {
             .iter()
             .position(|&b| b == b'\n')
             .map_or(buffer.len(), |offset| cur_line + offset);
-        buffer[cur_line..end].to_vec()
+        String::from_utf8_lossy(&buffer[cur_line..end])
+            .into_owned()
+            .into_bytes()
     }
 
     /// `_PyErr_ProgramDecodedTextObject` + `err_programtext`: the line as the
@@ -1213,10 +1220,13 @@ impl Parser {
     fn file_error_line(&self, lineno: i64) -> Option<Vec<u8>> {
         let filename = self.filename.as_ref()?;
         let bytes = std::fs::read(filename).ok()?;
+        // `_PyErr_ProgramDecodedTextObject`: no tokenizer encoding falls
+        // back to the cookie, then to utf-8.
         let encoding = self
             .encoding
             .clone()
-            .or_else(|| find_encoding_filename(&bytes))?;
+            .or_else(|| find_encoding_filename(&bytes))
+            .unwrap_or_else(|| "utf-8".to_string());
         err_programtext(&bytes, lineno, &encoding)
     }
 }
@@ -1305,17 +1315,23 @@ fn decode_replace(line: &[u8], encoding: &str) -> Vec<u8> {
         None => return Vec::new(),
     };
     let mut out = String::new();
-    for &b in line {
-        match codec {
-            tok::Codec::Utf8 => out.push_str(&String::from_utf8_lossy(&[b])),
-            tok::Codec::Ascii => {
-                if b < 128 {
-                    out.push(b as char)
-                } else {
-                    out.push('\u{FFFD}')
+    match codec {
+        // `PyUnicode_Decode` consumes the whole buffer: a valid multibyte
+        // sequence is one character, not one replacement per byte.
+        tok::Codec::Utf8 => out.push_str(&String::from_utf8_lossy(line)),
+        _ => {
+            for &b in line {
+                match codec {
+                    tok::Codec::Ascii => {
+                        if b < 128 {
+                            out.push(b as char)
+                        } else {
+                            out.push('\u{FFFD}')
+                        }
+                    }
+                    _ => out.push(tok::decode_byte(codec, b)),
                 }
             }
-            _ => out.push(tok::decode_byte(codec, b)),
         }
     }
     out.into_bytes()
