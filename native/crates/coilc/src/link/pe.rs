@@ -171,28 +171,36 @@ pub fn link_image(obj: &ObjectFile) -> Result<LinkOutput, LinkError> {
     layout.reloc_vsize = reloc_bytes.len() as u32;
     layout.size_of_image = align_up(reloc_rva + layout.reloc_vsize, SECTION_ALIGNMENT)?;
 
-    let mut table = vec![
-        SectionOut {
-            name: ".text",
-            characteristics: IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ,
-            vsize: sections.text.len() as u32,
-            raw: sections.text,
-        },
-        SectionOut {
+    // Empty sections are omitted rather than emitted with zero size and an
+    // RVA that would collide with the next section's; `.text` always has
+    // content because `validate` requires the entry symbol inside it, and
+    // `.data` stays when `.bss` rides in its virtual extent. No symbol or
+    // relocation can name an omitted section, so the RVAs assigned above
+    // are never observable for them.
+    let mut table = vec![SectionOut {
+        name: ".text",
+        characteristics: IMAGE_SCN_CNT_CODE | IMAGE_SCN_MEM_EXECUTE | IMAGE_SCN_MEM_READ,
+        vsize: sections.text.len() as u32,
+        raw: sections.text,
+    }];
+    if !sections.rdata.is_empty() {
+        table.push(SectionOut {
             name: ".rdata",
             characteristics: IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
             vsize: sections.rdata.len() as u32,
             raw: sections.rdata,
-        },
-        SectionOut {
+        });
+    }
+    if !sections.data.is_empty() || obj.bss.size > 0 {
+        table.push(SectionOut {
             name: ".data",
             characteristics: IMAGE_SCN_CNT_INITIALIZED_DATA
                 | IMAGE_SCN_MEM_READ
                 | IMAGE_SCN_MEM_WRITE,
             vsize: data_vsize,
             raw: sections.data,
-        },
-    ];
+        });
+    }
     if !obj.imports.is_empty() {
         table.push(SectionOut {
             name: ".idata",
@@ -513,5 +521,100 @@ mod tests {
         let slot = &first[0x800..0x808];
         let expected = IMAGE_BASE + u64::from(linked.layout.rdata_rva);
         assert_eq!(u64::from_le_bytes(slot.try_into().unwrap()), expected);
+    }
+
+    /// Returns `(name, VirtualSize, VirtualAddress, SizeOfRawData)` for each
+    /// section header of the image, in table order.
+    fn section_headers(image: &[u8]) -> Vec<(String, u32, u32, u32)> {
+        let n = u16::from_le_bytes(image[0x86..0x88].try_into().unwrap()) as usize;
+        let mut headers = Vec::with_capacity(n);
+        for index in 0..n {
+            let at = 0x188 + index * 40;
+            let name = String::from_utf8_lossy(&image[at..at + 8])
+                .trim_end_matches('\0')
+                .to_string();
+            headers.push((
+                name,
+                u32::from_le_bytes(image[at + 8..at + 12].try_into().unwrap()),
+                u32::from_le_bytes(image[at + 12..at + 16].try_into().unwrap()),
+                u32::from_le_bytes(image[at + 16..at + 20].try_into().unwrap()),
+            ));
+        }
+        headers
+    }
+
+    fn assert_no_empty_or_overlapping_sections(headers: &[(String, u32, u32, u32)]) {
+        for (name, vsize, rva, _raw_size) in headers {
+            assert!(vsize > &0, "{name} has VirtualSize 0");
+            assert!(rva > &0, "{name} has RVA 0");
+        }
+        for pair in headers.windows(2) {
+            let (_, prev_size, prev_rva, _) = pair[0];
+            let (next_name, _, next_rva, _) = &pair[1];
+            assert!(
+                *next_rva >= prev_rva + prev_size,
+                "{next_name} at 0x{next_rva:x} overlaps the previous section"
+            );
+        }
+    }
+
+    #[test]
+    fn empty_sections_are_omitted() {
+        // No `.rdata` content and no `.data` bytes or `.bss`: only `.text`
+        // and `.idata` may appear, with no zero-size or overlapping entries.
+        let mut obj = object();
+        obj.rdata = SectionContent {
+            bytes: vec![],
+            align: 8,
+        };
+        obj.data = SectionContent {
+            bytes: vec![],
+            align: 8,
+        };
+        obj.bss = BssSpec { size: 0, align: 8 };
+        obj.symbols
+            .retain(|symbol| symbol.name != "msg" && symbol.name != "slot");
+        obj.relocs.clear();
+
+        let linked = link_image(&obj).unwrap();
+        let headers = section_headers(&linked.image);
+        assert_eq!(
+            headers
+                .iter()
+                .map(|(name, ..)| name.as_str())
+                .collect::<Vec<_>>(),
+            [".text", ".idata"]
+        );
+        assert_no_empty_or_overlapping_sections(&headers);
+    }
+
+    #[test]
+    fn bss_only_data_keeps_one_data_section() {
+        // No `.data` bytes but a `.bss` riding in `.data`'s virtual extent:
+        // the section stays with VirtualSize covering `.bss` and no raw size.
+        let mut obj = object();
+        obj.rdata = SectionContent {
+            bytes: vec![],
+            align: 8,
+        };
+        obj.data = SectionContent {
+            bytes: vec![],
+            align: 8,
+        };
+        obj.symbols
+            .retain(|symbol| symbol.name != "msg" && symbol.name != "slot");
+        obj.relocs.clear();
+
+        let linked = link_image(&obj).unwrap();
+        let headers = section_headers(&linked.image);
+        assert_eq!(
+            headers
+                .iter()
+                .map(|(name, ..)| name.as_str())
+                .collect::<Vec<_>>(),
+            [".text", ".data", ".idata"]
+        );
+        assert_eq!(headers[1], (".data".to_string(), 16, 0x2000, 0));
+        assert_no_empty_or_overlapping_sections(&headers);
     }
 }
