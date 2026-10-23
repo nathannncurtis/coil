@@ -51,6 +51,11 @@ pub enum LinkError {
         target: u32,
     },
     EmptyImportList(String),
+    EmptyExportList(String),
+    EmptyExportName,
+    TooManyExports {
+        count: usize,
+    },
     NameHasNul(&'static str),
     LayoutOverflow,
 }
@@ -103,6 +108,11 @@ impl fmt::Display for LinkError {
                 "rel32 from {place:#x} to {target:#x} does not fit in 32 bits"
             ),
             LinkError::EmptyImportList(dll) => write!(f, "'{dll}' imports nothing"),
+            LinkError::EmptyExportList(dll) => write!(f, "'{dll}' exports nothing"),
+            LinkError::EmptyExportName => write!(f, "an export name is empty"),
+            LinkError::TooManyExports { count } => {
+                write!(f, "{count} exports do not fit the 16-bit ordinal table")
+            }
             LinkError::NameHasNul(what) => write!(f, "{what} contains a NUL byte"),
             LinkError::LayoutOverflow => write!(f, "image layout arithmetic overflowed"),
         }
