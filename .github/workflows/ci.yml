@@ -285,6 +285,9 @@ jobs:
       - name: Token-level differential over the standard library
         working-directory: native
         run: python ../tools/front_diff.py --tokens "$(python ../tools/fetch_cpython_src.py --print-root)/Lib"
+      - name: AST-level differential over the standard library
+        working-directory: native
+        run: python ../tools/front_diff.py --ast "$(python ../tools/fetch_cpython_src.py --print-root)/Lib"
 
   compat:
     needs: changes
