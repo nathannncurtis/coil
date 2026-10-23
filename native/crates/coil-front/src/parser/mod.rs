@@ -942,7 +942,7 @@ impl Parser {
         }
         let error_line = self.error_line(lineno);
         let offset = byte_to_char(&error_line, col);
-        let end_offset = if end_col > 0 {
+        let end_offset = if end_col >= 0 {
             Some(byte_to_char(&error_line, end_col))
         } else {
             None
@@ -1111,7 +1111,7 @@ impl Parser {
                         paren_col,
                         paren_lineno as i64,
                         -1,
-                        format!("'{bracket}' was never closed"),
+                        format!("'{}' was never closed", bracket as char),
                     );
                 }
                 self.raise_error(
@@ -1446,7 +1446,7 @@ impl Parser {
                     paren_col,
                     paren_lineno as i64,
                     -1,
-                    format!("'{bracket}' was never closed"),
+                    format!("'{}' was never closed", bracket as char),
                 );
             } else {
                 self.raise_error(
@@ -1468,17 +1468,11 @@ impl Parser {
         }
         // The generic error sits at the first pass's last token so the second
         // pass's further reach cannot move it; the full-source check may then
-        // override it with an earlier tokenizer error.
-        let col = if last.col_offset == -1 {
-            self.tokenizer.cur_col_offset()
-        } else {
-            last.col_offset + 1
-        };
-        let end_col = if last.end_col_offset != -1 {
-            last.end_col_offset + 1
-        } else {
-            -1
-        };
+        // override it with an earlier tokenizer error. `RAISE_ERROR_KNOWN_LOCATION`
+        // adds one even to a synthetic token's `-1` column, unlike the cursor
+        // fallback `_PyPegen_raise_error` uses.
+        let col = last.col_offset + 1;
+        let end_col = last.end_col_offset + 1;
         self.raise_error_known_location(
             ExcKind::Syntax,
             last.lineno as i64,
@@ -1541,7 +1535,7 @@ impl Parser {
     }
 
     /// The SyntaxError `raise_unclosed_parentheses_error` builds, with the
-    /// macro's 1-based columns.
+    /// macro's 1-based columns and its `-1` end column carried as zero.
     fn paren_error_at(&self, paren_lineno: i64, paren_col: i64, bracket: u8) -> ParseError {
         let error_line = self.error_line(paren_lineno);
         ParseError {
@@ -1550,7 +1544,7 @@ impl Parser {
             lineno: Some(paren_lineno as i32),
             offset: Some(byte_to_char(&error_line, paren_col + 1) as i32),
             end_lineno: Some(paren_lineno as i32),
-            end_offset: None,
+            end_offset: Some(0),
         }
     }
 }

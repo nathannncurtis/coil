@@ -1719,7 +1719,13 @@ impl Tokenizer {
                             }
                             self.parenstack.push(b);
                             self.parenlineno.push(self.lineno);
-                            self.parencol.push(self.col_offset);
+                            // `tok->start - tok->line_start`: the bracket's own
+                            // column, not the column the cursor moved past it to.
+                            let col = match self.start {
+                                Some(start) => (start - self.line_start) as i64,
+                                None => self.col_offset - 1,
+                            };
+                            self.parencol.push(col);
                             self.level += 1;
                             if self.mode_index > 0 {
                                 self.mode_mut().curly_bracket_depth += 1;
