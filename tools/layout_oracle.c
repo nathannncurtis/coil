@@ -173,6 +173,13 @@ int main(void) {
     FIELD(PyBaseExceptionObject, suppress_context, "base_exception.suppress_context");
     SIZEOF(PyBaseExceptionObject, "base_exception");
 
+    FIELD(PyUnicodeErrorObject, encoding, "unicode_error.encoding");
+    FIELD(PyUnicodeErrorObject, object, "unicode_error.object");
+    FIELD(PyUnicodeErrorObject, start, "unicode_error.start");
+    FIELD(PyUnicodeErrorObject, end, "unicode_error.end");
+    FIELD(PyUnicodeErrorObject, reason, "unicode_error.reason");
+    SIZEOF(PyUnicodeErrorObject, "unicode_error");
+
     FIELD(PyTracebackObject, tb_next, "traceback.tb_next");
     FIELD(PyTracebackObject, tb_frame, "traceback.tb_frame");
     FIELD(PyTracebackObject, tb_lasti, "traceback.tb_lasti");
