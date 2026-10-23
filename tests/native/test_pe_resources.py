@@ -29,6 +29,14 @@ ROOT = Path(__file__).resolve().parents[2]
 NATIVE = ROOT / "native"
 MANIFEST = ROOT / "src" / "coil" / "templates" / "launcher.manifest"
 
+# The reference writer comes from the checked-out sources: the Rust-side
+# environment installs only pytest and pefile, and a differential test
+# should read the reference from this tree even when a copy of coil is
+# installed elsewhere.
+sys.path.insert(0, str(ROOT / "src"))
+
+from coil.platforms.windows import set_version_info  # noqa: E402
+
 RT_ICON = 3
 RT_GROUP_ICON = 14
 RT_VERSION = 16
@@ -128,8 +136,6 @@ def build_reference_bytes(
     """The bytes set_version_info would write as its RT_VERSION resource."""
     kernel32, updates = _fake_kernel32()
     monkeypatch.setattr(ctypes, "windll", SimpleNamespace(kernel32=kernel32), raising=False)
-    from coil.platforms.windows import set_version_info
-
     set_version_info(tmp_path / "app.exe", **kwargs)  # type: ignore[arg-type]
     assert len(updates) == 1
     type_, name, lang, data = updates[0]
