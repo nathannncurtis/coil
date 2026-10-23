@@ -36,6 +36,7 @@ pub enum RsrcError {
     TruncatedIconDirectory { index: usize },
     IconImageOutOfBounds { index: usize },
     VersionFieldTooLong { what: &'static str },
+    VersionPartOutOfRange { what: &'static str, value: i128 },
     SectionTooLarge,
 }
 
@@ -57,6 +58,12 @@ impl fmt::Display for RsrcError {
             }
             RsrcError::VersionFieldTooLong { what } => {
                 write!(f, "{what} does not fit the 16-bit version-info lengths")
+            }
+            RsrcError::VersionPartOutOfRange { what, value } => {
+                write!(
+                    f,
+                    "{what} packs to a version value of {value}, which the 32-bit fixed version fields cannot hold"
+                )
             }
             RsrcError::SectionTooLarge => write!(f, "the resource section grew past 4 GiB"),
         }
@@ -319,15 +326,18 @@ pub fn vs_version_info(info: &VersionInfo) -> Result<Vec<u8>, RsrcError> {
     var_file_info.extend_from_slice(&var);
     let var_file_info = sized(var_file_info, "the VarFileInfo block")?;
 
-    let fv = parse_version(info.file_version.as_str());
-    let pv = parse_version(info.product_version.as_str());
+    let fv = version_dwords(&parse_version(info.file_version.as_str()), "file_version")?;
+    let pv = version_dwords(
+        &parse_version(info.product_version.as_str()),
+        "product_version",
+    )?;
     let fixed: Vec<u8> = [
         0xFEEF_04BD, // dwSignature
         0x0001_0000, // dwStrucVersion
-        ((fv[0] as u64) << 16 | fv[1] as u64) as u32,
-        ((fv[2] as u64) << 16 | fv[3] as u64) as u32,
-        ((pv[0] as u64) << 16 | pv[1] as u64) as u32,
-        ((pv[2] as u64) << 16 | pv[3] as u64) as u32,
+        fv[0],       // dwFileVersionMS
+        fv[1],       // dwFileVersionLS
+        pv[0],       // dwProductVersionMS
+        pv[1],       // dwProductVersionLS
         0x3F,        // dwFileFlagsMask
         0,           // dwFileFlags
         0x0004_0004, // dwFileOS = VOS_NT_WINDOWS32
@@ -351,14 +361,90 @@ pub fn vs_version_info(info: &VersionInfo) -> Result<Vec<u8>, RsrcError> {
     sized(root, "the VS_VERSION_INFO block")
 }
 
+/// The decimal-digit blocks of Unicode 15.0, the table the Python 3.12
+/// `int()` reads: every script's numerals are ten consecutive digits 0-9,
+/// so each start alone identifies its block. Mathematical digits repeat
+/// the trick five times in a row.
+const DIGIT_BLOCKS: [u32; 68] = [
+    0x0030, 0x0660, 0x06F0, 0x07C0, 0x0966, 0x09E6, 0x0A66, 0x0AE6, 0x0B66, 0x0BE6, 0x0C66, 0x0CE6,
+    0x0D66, 0x0DE6, 0x0E50, 0x0ED0, 0x0F20, 0x1040, 0x1090, 0x17E0, 0x1810, 0x1946, 0x19D0, 0x1A80,
+    0x1A90, 0x1B50, 0x1BB0, 0x1C40, 0x1C50, 0xA620, 0xA8D0, 0xA900, 0xA9D0, 0xA9F0, 0xAA50, 0xABF0,
+    0xFF10, 0x104A0, 0x10D30, 0x11066, 0x110F0, 0x11136, 0x111D0, 0x112F0, 0x11450, 0x114D0,
+    0x11650, 0x116C0, 0x11730, 0x118E0, 0x11950, 0x11C50, 0x11D50, 0x11DA0, 0x11F50, 0x16A60,
+    0x16AC0, 0x16B50, 0x1D7CE, 0x1D7D8, 0x1D7E2, 0x1D7EC, 0x1D7F6, 0x1E140, 0x1E2F0, 0x1E4F0,
+    0x1E950, 0x1FBF0,
+];
+
+/// The value of a Unicode decimal digit, `None` for anything else (so
+/// superscripts and fractions, which `int()` also rejects, miss).
+fn decimal_digit(c: char) -> Option<u32> {
+    let code = c as u32;
+    let block = DIGIT_BLOCKS
+        .partition_point(|&start| start <= code)
+        .checked_sub(1)?;
+    let offset = code - DIGIT_BLOCKS[block];
+    (offset < 10).then_some(offset)
+}
+
+/// Python's `int()` on one dot-separated part: surrounding Unicode
+/// whitespace and a sign are allowed, digits may come from any decimal
+/// block, and underscores may separate digits. `None` is the `ValueError`
+/// that `set_version_info` turns into a zero part. The value saturates
+/// where Python would grow past `i64`; such parts cannot be packed anyway.
+fn python_int(part: &str) -> Option<i64> {
+    let text = part.trim();
+    let (negative, rest) = match text.as_bytes().first() {
+        Some(b'+') => (false, &text[1..]),
+        Some(b'-') => (true, &text[1..]),
+        _ => (false, text),
+    };
+    let mut value: i64 = 0;
+    let mut digits = 0;
+    let mut underscore_pending = false;
+    for c in rest.chars() {
+        if c == '_' {
+            // Underscores separate digits: never leading, doubled or final.
+            if digits == 0 || underscore_pending {
+                return None;
+            }
+            underscore_pending = true;
+            continue;
+        }
+        let digit = decimal_digit(c)?;
+        value = value.saturating_mul(10).saturating_add(i64::from(digit));
+        digits += 1;
+        underscore_pending = false;
+    }
+    if digits == 0 || underscore_pending {
+        return None;
+    }
+    Some(if negative { -value } else { value })
+}
+
 /// `set_version_info`'s version parsing: `-` reads as `.`, at most four
-/// parts are kept, and a part that is not a plain integer is zero.
-fn parse_version(value: &str) -> [u32; 4] {
-    let mut parts = [0u32; 4];
+/// parts are kept, and a part `int()` rejects is zero.
+fn parse_version(value: &str) -> [i64; 4] {
+    let mut parts = [0i64; 4];
     for (index, part) in value.replace('-', ".").split('.').take(4).enumerate() {
-        parts[index] = part.trim().parse::<i64>().unwrap_or(0) as u32;
+        parts[index] = python_int(part).unwrap_or(0);
     }
     parts
+}
+
+/// The two DWORDs the four parts of one version string pack into. The
+/// reference combines each pair with `(hi << 16) | lo` — Python's bitwise
+/// OR, not a hiword/loword placement — and `struct.pack('<I', ...)` lets
+/// its error escape when the result is negative or over 0xFFFFFFFF, so
+/// those inputs are refused here too.
+fn version_dwords(parts: &[i64; 4], what: &'static str) -> Result<[u32; 2], RsrcError> {
+    let combine = |hi: i64, lo: i64| -> Result<u32, RsrcError> {
+        let combined: i128 = (i128::from(hi) << 16) | i128::from(lo);
+        u32::try_from(combined).map_err(|_| RsrcError::VersionPartOutOfRange {
+            what,
+            value: combined,
+        })
+    };
+    Ok([combine(parts[0], parts[1])?, combine(parts[2], parts[3])?])
 }
 
 /// The `wLength`/`wValueLength`/`wType` header every version structure
@@ -430,7 +516,8 @@ fn put_u32(bytes: &mut [u8], at: usize, value: u32) {
 mod tests {
     use super::{
         LANG_EN_US, LANG_NEUTRAL, RT_GROUP_ICON, RT_ICON, RT_MANIFEST, RT_VERSION, Resources,
-        RsrcError, VersionInfo, build, parse_icon, parse_version, vs_version_info,
+        RsrcError, VersionInfo, build, parse_icon, parse_version, python_int, version_dwords,
+        vs_version_info,
     };
 
     fn u16_at(bytes: &[u8], at: usize) -> u16 {
@@ -484,6 +571,89 @@ mod tests {
         assert_eq!(parse_version("1.0b2.3.4.5"), [1, 0, 3, 4]);
         assert_eq!(parse_version(""), [0, 0, 0, 0]);
         assert_eq!(parse_version("7"), [7, 0, 0, 0]);
+    }
+
+    /// The parts go through `int()`, so its whole grammar counts: digits
+    /// in any script and underscores between digits parse, everything
+    /// else is the `ValueError` the reference reads as a zero part.
+    #[test]
+    fn version_parts_read_int_like_digits_and_underscores() {
+        assert_eq!(parse_version("1_2.3"), [12, 3, 0, 0]);
+        assert_eq!(parse_version("1_0_2"), [102, 0, 0, 0]);
+        assert_eq!(parse_version(" 1_0 "), [10, 0, 0, 0]);
+        assert_eq!(parse_version("+7"), [7, 0, 0, 0]);
+        assert_eq!(parse_version("１２.３"), [12, 3, 0, 0]); // fullwidth
+        assert_eq!(parse_version("١٢"), [12, 0, 0, 0]); // Arabic-Indic
+        assert_eq!(parse_version("𝟏𝟐"), [12, 0, 0, 0]); // mathematical
+        assert_eq!(parse_version("1١2"), [112, 0, 0, 0]); // mixed scripts
+
+        assert_eq!(parse_version("1__2"), [0, 0, 0, 0]);
+        assert_eq!(parse_version("1_"), [0, 0, 0, 0]);
+        assert_eq!(parse_version("_1"), [0, 0, 0, 0]);
+        assert_eq!(parse_version("1 2"), [0, 0, 0, 0]);
+        assert_eq!(parse_version("2³"), [0, 0, 0, 0]); // superscript
+        assert_eq!(parse_version("\u{1c}1"), [0, 0, 0, 0]); // not int() space
+    }
+
+    /// `parse_version` never sees a `-` (`set_version_info` turns it into
+    /// a separator first), but the `int()` mirror still takes signs.
+    #[test]
+    fn int_parsing_takes_a_sign_like_python() {
+        assert_eq!(python_int("-1_2"), Some(-12));
+        assert_eq!(python_int("+1_2"), Some(12));
+        assert_eq!(python_int("- 1"), None);
+        assert_eq!(python_int(""), None);
+        assert_eq!(python_int("+"), None);
+        assert_eq!(python_int("-"), None);
+    }
+
+    /// The reference packs `(hi << 16) | lo` with Python's bitwise OR, so
+    /// only the combined DWORD has to fit; `struct.pack` fails otherwise
+    /// and the builder refuses the same inputs.
+    #[test]
+    fn version_dwords_pack_the_way_struct_pack_does() {
+        let what = "file_version";
+        assert_eq!(
+            version_dwords(&[1, 2, 3, 4], what),
+            Ok([(1 << 16) | 2, (3 << 16) | 4])
+        );
+        // A large low part is fine while the OR still fits 32 bits.
+        assert_eq!(version_dwords(&[0, 429821, 0, 0], what), Ok([429821, 0]));
+        assert_eq!(
+            version_dwords(&[1, 65536, 65535, 65536], what),
+            Ok([65536, (65535 << 16) | 65536])
+        );
+        // One bit past 0xFFFFFFFF, and struct.pack would already fail.
+        assert_eq!(
+            version_dwords(&[65536, 0, 0, 0], what),
+            Err(RsrcError::VersionPartOutOfRange {
+                what,
+                value: 1 << 32
+            })
+        );
+        assert_eq!(
+            version_dwords(&[0, 4294967296, 0, 0], what),
+            Err(RsrcError::VersionPartOutOfRange {
+                what,
+                value: 4294967296
+            })
+        );
+        // Negative parts can only arrive via python_int, never through
+        // the '-' in a version string.
+        assert_eq!(
+            version_dwords(&[-1, 0, 0, 0], what),
+            Err(RsrcError::VersionPartOutOfRange {
+                what,
+                value: -65536
+            })
+        );
+        assert!(matches!(
+            version_dwords(&[i64::MAX, 0, 0, 0], "product_version"),
+            Err(RsrcError::VersionPartOutOfRange {
+                what: "product_version",
+                ..
+            })
+        ));
     }
 
     #[test]

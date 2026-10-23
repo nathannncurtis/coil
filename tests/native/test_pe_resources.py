@@ -191,6 +191,20 @@ CASES = [
         product_version="1.0b2.3",
         original_filename="quirks.exe",
     ),
+    # int()'s version grammar: underscores between digits and decimal
+    # digits from other scripts parse on both sides.
+    dict(
+        product_name="IntGrammar",
+        file_version="1_2.3",
+        product_version="１.１_0",
+        original_filename="int-grammar.exe",
+    ),
+    dict(
+        product_name="WideDigits",
+        file_version="١٢.３",
+        product_version="𝟏𝟐.０_5",
+        original_filename="wide-digits.exe",
+    ),
 ]
 
 
@@ -213,6 +227,34 @@ def test_versioninfo_defaults_match_set_version_info(
     expected = build_reference_bytes(monkeypatch, tmp_path, product_name="OnlyName")
     dump = tmp_path / "app.exe"
     assert dump_versioninfo(rsrc_tool, dump, "product-name=OnlyName") == expected
+
+
+def test_version_parts_that_cannot_pack_refuse_on_both_sides(
+    tmp_path: Path, rsrc_tool: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # The reference combines each part pair with Python's bitwise OR and
+    # packs it as one unsigned DWORD; when that overflows, struct.pack
+    # fails before anything is written. The Rust side refuses the same
+    # input instead of emitting bytes the reference never produces.
+    with pytest.raises(struct.error):
+        build_reference_bytes(
+            monkeypatch, tmp_path, product_name="Range", file_version="65536.0"
+        )
+    out = tmp_path / "range.bin"
+    proc = subprocess.run(
+        [
+            str(rsrc_tool),
+            "dump-versioninfo",
+            str(out),
+            "product-name=Range",
+            "file-version=65536.0",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    assert proc.returncode != 0
+    assert "file_version" in proc.stderr
+    assert not out.exists()
 
 
 def make_ico() -> tuple[bytes, list[dict], list[bytes]]:
@@ -326,6 +368,23 @@ def test_version_strings_and_fixed_info(tmp_path: Path, rsrc_tool: Path) -> None
         (4 << 16) | 5,
         (6 << 16) | 7,
     )
+
+
+def test_fixed_info_reads_int_grammar_versions(tmp_path: Path, rsrc_tool: Path) -> None:
+    # Underscores and wide digits parse on the linked path too, and the
+    # packed DWORDs are Python's bitwise OR, which keeps a low part past
+    # 0xFFFF as long as the combination fits 32 bits.
+    data, _ = link_resources(
+        rsrc_tool,
+        tmp_path / "app.exe",
+        "product-name=Grammar",
+        "file-version=1_2.3",
+        "product-version=0.429821",
+    )
+    pe = pefile.PE(data=data)
+    fixed = pe.VS_FIXEDFILEINFO[0]
+    assert (fixed.FileVersionMS, fixed.FileVersionLS) == ((12 << 16) | 3, 0)
+    assert fixed.ProductVersionMS == 429821  # (0 << 16) | 429821, no truncation
 
 
 def test_manifest_from_the_launcher_template(
