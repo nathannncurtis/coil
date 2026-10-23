@@ -29,7 +29,11 @@ TABLES = ("functions", "offsets", "formats")
 
 
 def load_contract() -> tuple[dict, bytes]:
-    data = ABI_TOML.read_bytes()
+    # Hash the contract's content, not the checkout: a Windows clone may
+    # hold the file with CRLF, and the runtime and a cross-compiled
+    # executable must agree on the hash regardless of line endings
+    # (spec sections 16 and 17).
+    data = ABI_TOML.read_bytes().replace(b"\r\n", b"\n")
     contract = tomllib.loads(data.decode("utf-8"))
     version = contract.get("meta", {}).get("version")
     if not isinstance(version, int) or isinstance(version, bool) or version < 1:
@@ -51,8 +55,9 @@ def rust_source(contract: dict, digest: bytes) -> str:
         "/// Format version of the runtime/compiled-code contract (abi.toml [meta]).",
         f"pub const ABI_FORMAT_VERSION: u32 = {contract['meta']['version']};",
         "",
-        "/// SHA-256 of native/abi.toml as this file was generated. Compiled code",
-        "/// embeds the same value; `coil_rt_init` refuses a mismatch (section 2).",
+        "/// SHA-256 of native/abi.toml's content (LF line endings) when this",
+        "/// file was generated. Compiled code embeds the same value;",
+        "/// `coil_rt_init` refuses a mismatch (section 2).",
         "#[rustfmt::skip]",
         "pub static ABI_SHA256: [u8; 32] = [",
     ]
@@ -73,9 +78,9 @@ def python_source(contract: dict, digest: bytes) -> str:
         "",
         f"ABI_FORMAT_VERSION: int = {contract['meta']['version']}",
         "",
-        "# SHA-256 of native/abi.toml as this file was generated; the driver",
-        "# embeds it in compiled executables and the runtime refuses a",
-        "# mismatch (section 2).",
+        "# SHA-256 of native/abi.toml's content (LF line endings) when this",
+        "# file was generated; the driver embeds it in compiled executables",
+        "# and the runtime refuses a mismatch (section 2).",
         f'ABI_SHA256: bytes = bytes.fromhex("{digest.hex()}")',
     ]
     return "\n".join(lines) + "\n"

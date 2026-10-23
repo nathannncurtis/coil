@@ -9,7 +9,8 @@
 # src/coil/native/abi_constants.py; both outputs are checked in and
 # `python tools/gen_abi.py --check` fails when either is stale. Later,
 # coil_rt_init compares the SHA-256 embedded in an executable with the
-# runtime's own and refuses a mismatch.
+# runtime's own and refuses a mismatch; the hash covers this file's
+# content with LF line endings, so it does not move with the checkout.
 
 [meta]
 

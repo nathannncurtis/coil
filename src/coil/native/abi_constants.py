@@ -6,7 +6,7 @@ rerun the generator instead.
 
 ABI_FORMAT_VERSION: int = 1
 
-# SHA-256 of native/abi.toml as this file was generated; the driver
-# embeds it in compiled executables and the runtime refuses a
-# mismatch (section 2).
-ABI_SHA256: bytes = bytes.fromhex("aa3fc81dcbbad302344e645ab249f8b05be256352b92142d2b6951aeef8f0122")
+# SHA-256 of native/abi.toml's content (LF line endings) when this
+# file was generated; the driver embeds it in compiled executables
+# and the runtime refuses a mismatch (section 2).
+ABI_SHA256: bytes = bytes.fromhex("829143325d69e5461c5f33bd7821b2081cc745c0651ee8274a330003d5bfa415")
