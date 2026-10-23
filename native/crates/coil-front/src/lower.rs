@@ -1260,9 +1260,9 @@ enum Unwind {
     HandlerCleanup {
         name: Option<FSym>,
     },
-    /// A `with` body: call `exit(mgr, None, None, None)` on the way out.
+    /// A `with` body: call the bound `__exit__(None, None, None)` on the
+    /// way out.
     With {
-        mgr: Value,
         exit: Value,
     },
     /// A `try` body guarded by `finally`: store the reason in `var` and jump
@@ -2543,7 +2543,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         Ok(())
     }
 
-    /// The `exit(mgr, None, None, None)` call a `with` item needs when
+    /// The bound `__exit__(None, None, None)` call a `with` item needs when
     /// control leaves it by `break`, `continue` or `return`, in a block
     /// outside the item's own handler (CPython pops the block first).
     /// The handler in effect once every frame in `self.unwinds[depth..]` has
@@ -2571,7 +2571,6 @@ impl<'a, 'b> FnLower<'a, 'b> {
 
     fn unwind_with_exit(
         &mut self,
-        mgr: Value,
         exit_m: Value,
         handler: Option<BlockId>,
         pos: Pos,
@@ -2584,7 +2583,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.terminated = false;
         self.b.switch_to(exit_blk)?;
         let none_v = self.none()?;
-        self.call(exit_m, vec![mgr, none_v, none_v, none_v], Vec::new(), pos)?;
+        self.call(exit_m, vec![none_v, none_v, none_v], Vec::new(), pos)?;
         Ok(())
     }
 
@@ -2644,9 +2643,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 Unwind::HandlerCleanup { name } => {
                     self.unwind_handler_cleanup(name, pos)?;
                 }
-                Unwind::With { mgr, exit } => {
+                Unwind::With { exit } => {
                     let handler = self.handler_outside(depth);
-                    self.unwind_with_exit(mgr, exit, handler, pos)?;
+                    self.unwind_with_exit(exit, handler, pos)?;
                 }
                 Unwind::Finally {
                     var, entry, seq, ..
@@ -2682,9 +2681,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 Unwind::HandlerCleanup { name } => {
                     self.unwind_handler_cleanup(name, pos)?;
                 }
-                Unwind::With { mgr, exit } => {
+                Unwind::With { exit } => {
                     let handler = self.handler_outside(depth);
-                    self.unwind_with_exit(mgr, exit, handler, pos)?;
+                    self.unwind_with_exit(exit, handler, pos)?;
                 }
                 Unwind::Finally { var, entry, .. } => {
                     // The value rides to the dispatch in a one-tuple so an
@@ -3187,18 +3186,20 @@ impl<'a, 'b> FnLower<'a, 'b> {
             optional_vars,
         } = item;
         // __exit__ resolves before __enter__ runs, and neither is covered by
-        // this item's handler.
+        // this item's handler. Both are the bound methods, so the manager
+        // itself is not an argument (CPython calls the bound __enter__ with
+        // no arguments and __exit__ with three).
         let mgr = self.expr(context_expr)?;
         let exit_m = self.method(&mgr, "__exit__", pos)?;
         let enter_m = self.method(&mgr, "__enter__", pos)?;
-        let value = self.call(enter_m, vec![mgr], Vec::new(), pos)?;
+        let value = self.call(enter_m, Vec::new(), Vec::new(), pos)?;
         if let Some(vars) = optional_vars {
             self.assign_target(vars, value, pos)?;
         }
         let snaps = self.region_locals()?;
         let landing = self.new_block()?;
         self.handlers.push(landing);
-        self.unwinds.push(Unwind::With { mgr, exit: exit_m });
+        self.unwinds.push(Unwind::With { exit: exit_m });
         self.lower_with(&items[1..], body, pos)?;
         self.unwinds.pop();
         self.handlers.pop();
@@ -3210,7 +3211,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
             self.terminated = false;
             self.b.switch_to(exit_blk)?;
             let none_v = self.none()?;
-            self.call(exit_m, vec![mgr, none_v, none_v, none_v], Vec::new(), pos)?;
+            self.call(exit_m, vec![none_v, none_v, none_v], Vec::new(), pos)?;
             self.jump(end)?;
         }
         self.terminated = false;
@@ -3223,7 +3224,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
             name: tb_sym,
             into,
         })?;
-        let r = self.call(exit_m, vec![mgr, ty, exc, tb], Vec::new(), pos)?;
+        let r = self.call(exit_m, vec![ty, exc, tb], Vec::new(), pos)?;
         let suppressed = self.unboxed_bool(pos, move |into| Instr::Truth { value: r, into })?;
         let supp_blk = self.new_block()?;
         let reraise_blk = self.new_block()?;

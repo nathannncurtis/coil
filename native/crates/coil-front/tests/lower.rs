@@ -1051,3 +1051,29 @@ def g(m):
 "#,
     );
 }
+
+#[test]
+fn with_calls_the_bound_protocol_methods() {
+    // `method` is a bound-method lookup: the manager must not be passed to
+    // `__enter__`/`__exit__` as an extra leading argument.
+    let out = lower(
+        r#"
+def f(m):
+    with m:
+        g(1, 2)
+    return 0
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    // The enter call has no arguments, the body call its own two, the
+    // `type(exc)` lookup one, and every exit call exactly the protocol's
+    // three.
+    let arg_counts: Vec<usize> = instrs(f)
+        .filter_map(|i| match i {
+            Instr::Call { args, .. } => Some(args.len()),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(arg_counts, vec![0, 2, 1, 3, 3]);
+}
