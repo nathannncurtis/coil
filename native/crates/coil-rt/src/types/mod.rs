@@ -4,6 +4,7 @@
 
 pub mod bool_;
 pub mod complex;
+pub mod dict;
 pub mod float_;
 pub mod list;
 pub mod long;
