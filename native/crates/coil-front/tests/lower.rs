@@ -8,7 +8,8 @@ use std::path::{Path, PathBuf};
 use coil_front::lower::{LowerKind, LowerOptions, LowerOutput, lower_module};
 use coil_front::parser::parse_module;
 use coil_front::symtable;
-use coil_ir::ir::{Function, Instr, LocalKind, Params, Terminator};
+use coil_ir::ir::{Const, Function, Instr, LocalKind, Params, Terminator};
+use coil_ir::types::Value;
 
 fn lower_opt(src: &str, optimize: u8) -> Result<LowerOutput, String> {
     let (module, mut interner) =
@@ -1068,12 +1069,293 @@ def f(m):
     let f = fn_by_qualname(&out, "f");
     // The enter call has no arguments, the body call its own two, the
     // `type(exc)` lookup one, and every exit call exactly the protocol's
-    // three.
-    let arg_counts: Vec<usize> = instrs(f)
+    // three. Block order is irrelevant, so compare as a multiset.
+    let mut arg_counts: Vec<usize> = instrs(f)
         .filter_map(|i| match i {
             Instr::Call { args, .. } => Some(args.len()),
             _ => None,
         })
         .collect();
-    assert_eq!(arg_counts, vec![0, 2, 1, 3, 3]);
+    arg_counts.sort_unstable();
+    assert_eq!(arg_counts, vec![0, 1, 2, 3, 3]);
+}
+
+/// The constant a value is defined by, if any.
+fn const_of<'a>(f: &'a Function, out: &'a LowerOutput, v: Value) -> Option<&'a Const> {
+    instrs(f).find_map(|i| match i {
+        Instr::Const { idx, into } if *into == v => Some(&out.module.consts.consts[idx.0 as usize]),
+        _ => None,
+    })
+}
+
+fn defined_by_phi(f: &Function, v: Value) -> bool {
+    f.blocks
+        .iter()
+        .any(|b| b.phis.iter().any(|p| p.into == v))
+}
+
+fn defined_by_pushexcinfo(f: &Function, v: Value) -> bool {
+    instrs(f).any(|i| matches!(i, Instr::PushExcInfo { into } if *into == v))
+}
+
+/// The values returned from inside a handler body, i.e. the terminators of
+/// blocks that end with `popexcinfo`.
+fn handler_returns(f: &Function) -> Vec<Value> {
+    f.blocks
+        .iter()
+        .filter(|b| b.instrs.iter().any(|i| matches!(i, Instr::PopExcInfo)))
+        .filter_map(|b| match &b.term {
+            Terminator::Return { value } => Some(*value),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn handlers_read_raise_point_locals_and_own_writes() {
+    let out = lower(
+        r#"
+def reads(g):
+    x = 1
+    try:
+        g()
+        x = 2
+        g()
+    except ValueError:
+        return x
+
+def bound(g):
+    try:
+        g()
+    except ValueError as e:
+        return e
+
+def writes(g):
+    try:
+        g()
+    except ValueError:
+        msg = "failed"
+        return msg
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    // The handler sees a merge of both raise points: x is 1 at the first
+    // call and 2 at the second, neither the region-entry constant nor one
+    // end-of-body value.
+    let f = fn_by_qualname(&out, "reads");
+    let rets = handler_returns(f);
+    assert_eq!(rets.len(), 1);
+    let ret = rets[0];
+    let mut incomings: Vec<i64> = f
+        .blocks
+        .iter()
+        .flat_map(|b| b.phis.iter().filter(|p| p.into == ret))
+        .flat_map(|p| {
+            p.incomings
+                .iter()
+                .filter_map(|(v, _)| match const_of(f, &out, *v) {
+                    Some(Const::Int(n)) => Some(*n),
+                    _ => None,
+                })
+        })
+        .collect();
+    incomings.sort_unstable();
+    assert_eq!(incomings, vec![1, 2]);
+    assert!(defined_by_phi(f, ret));
+    // The bound name reads the caught exception, and a write inside the
+    // handler body survives to its own reads.
+    for name in ["bound", "writes"] {
+        let f = fn_by_qualname(&out, name);
+        assert_eq!(handler_returns(f).len(), 1);
+    }
+    let bound = fn_by_qualname(&out, "bound");
+    let ret = handler_returns(bound)[0];
+    assert!(defined_by_pushexcinfo(bound, ret));
+    let writes = fn_by_qualname(&out, "writes");
+    let ret = handler_returns(writes)[0];
+    assert!(
+        matches!(const_of(writes, &out, ret), Some(Const::Str(s)) if out.module.consts.sym_str(*s) == "failed"),
+        "handler-local write must survive to its own read, got {ret:?}"
+    );
+}
+
+#[test]
+fn suppressed_with_keeps_raise_point_locals() {
+    let out = lower(
+        r#"
+def f(m):
+    x = 1
+    with m:
+        x = 2
+        raise ValueError
+    return x
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    let ret = f
+        .blocks
+        .iter()
+        .find_map(|b| match &b.term {
+            Terminator::Return { value } => Some(*value),
+            _ => None,
+        })
+        .unwrap();
+    assert!(matches!(const_of(f, &out, ret), Some(Const::Int(2))));
+}
+
+#[test]
+fn finally_inside_except_star_handler_compiles() {
+    // CPython compiles a try/finally inside an except* handler; only control
+    // flow leaving the handler itself is the error.
+    let out = lower(
+        r#"
+def f(g, c):
+    try:
+        g()
+    except* ValueError:
+        try:
+            g()
+        finally:
+            c()
+    return 0
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let err = match lower_opt(
+        r#"
+def f(g):
+    try:
+        g()
+    except* ValueError:
+        return 1
+"#,
+        0,
+    ) {
+        Err(e) => e,
+        Ok(_) => panic!("return in an except* block must not lower"),
+    };
+    assert!(
+        err.to_string().contains("cannot appear in an except* block"),
+        "{err}"
+    );
+}
+
+#[test]
+fn except_star_reraise_keeps_context() {
+    // CPython's tail is a bare RERAISE: no `from None`, so the prepared
+    // group keeps its context and chains implicitly.
+    let out = lower(
+        r#"
+def f(g, h):
+    try:
+        g()
+    except* ValueError:
+        h()
+    return 0
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    let to_raise = instrs(f)
+        .find_map(|i| match i {
+            Instr::PrepReraiseStar { into, .. } => Some(*into),
+            _ => None,
+        })
+        .expect("prepared reraise");
+    let raised = f.blocks.iter().any(|b| matches!(&b.term, Terminator::Raise { exc: Some(v), cause } if *v == to_raise && cause.is_none()));
+    assert!(raised, "the reraise must not set a cause");
+}
+
+#[test]
+fn except_star_body_exception_keeps_the_rest() {
+    // An exception in the handler body joins the outcome list, and the
+    // unmatched rest still reaches the recombine: the handler body's block
+    // must resolve to that landing.
+    let out = lower(
+        r#"
+def f(g, h):
+    try:
+        g()
+    except* ValueError:
+        h()
+    return 0
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    let h = Value(1);
+    let body = f
+        .blocks
+        .iter()
+        .find(|b| {
+            b.instrs
+                .iter()
+                .any(|i| matches!(i, Instr::Call { callee, .. } if *callee == h))
+        })
+        .expect("handler body call");
+    let hcatch = body.handler.expect("handler body is covered");
+    let landing = &f.blocks[hcatch.0 as usize];
+    assert!(
+        landing
+            .instrs
+            .iter()
+            .any(|i| matches!(i, Instr::CatchBegin { .. })),
+        "the landing catches the body exception"
+    );
+    assert!(
+        landing
+            .instrs
+            .iter()
+            .any(|i| matches!(i, Instr::Call { args, .. } if args.len() == 1)),
+        "the landing appends the body exception to the outcome list"
+    );
+    // The rest from the split is what the final recombine appends.
+    let rest = instrs(f)
+        .find_map(|i| match i {
+            Instr::CatchStarBegin { rest, .. } => Some(*rest),
+            _ => None,
+        })
+        .expect("rest split");
+    assert!(
+        instrs(f).any(|i| matches!(i, Instr::Call { args, .. } if args.len() == 1 && args[0] == rest)),
+        "the unmatched rest reaches the recombine"
+    );
+}
+
+#[test]
+fn finalbody_abandon_restores_exc_info() {
+    // `break` out of a finalbody abandons an in-flight exception; CPython's
+    // FINALLY_END restores exc_info, so only the path with a pending push
+    // pops it.
+    let out = lower(
+        r#"
+def f(g):
+    for i in (1, 2, 3):
+        try:
+            g()
+        finally:
+            break
+    return 0
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    let guarded = f.blocks.iter().any(|b| {
+        let Terminator::Branch {
+            cond,
+            then_to,
+            ..
+        } = &b.term
+        else {
+            return false;
+        };
+        let on_pending = instrs(f).any(|i| matches!(i, Instr::Truth { into, .. } if *into == *cond));
+        on_pending
+            && f.blocks[then_to.0 as usize]
+                .instrs
+                .iter()
+                .any(|i| matches!(i, Instr::PopExcInfo))
+    });
+    assert!(guarded, "a truth-guarded PopExcInfo must restore exc_info");
 }

@@ -398,309 +398,6 @@ fn pattern_pos(p: &Pattern) -> Pos {
     }
 }
 
-/// The names a statement list writes, as the variable map keys them:
-/// region-exit restores skip these for code that certainly ran to its end.
-/// The walk only feeds that approximation, so an over-approximation is
-/// harmless (one restore fewer) while a missed binding is not.
-fn collect_name_writes(f: &FnLower, body: &[Stmt], out: &mut Vec<String>) {
-    for st in body {
-        collect_stmt_writes(f, st, out);
-    }
-}
-
-fn collect_expr_writes(f: &FnLower, e: &Expr, out: &mut Vec<String>) {
-    match e {
-        Expr::NamedExpr { target, value, .. } => {
-            if let Expr::Name { id, .. } = &**target {
-                push_name(out, &f.text(*id));
-            }
-            collect_expr_writes(f, value, out);
-        }
-        Expr::BoolOp { values, .. } => values.iter().for_each(|v| collect_expr_writes(f, v, out)),
-        Expr::BinOp { left, right, .. } => {
-            collect_expr_writes(f, left, out);
-            collect_expr_writes(f, right, out);
-        }
-        Expr::UnaryOp { operand, .. } => collect_expr_writes(f, operand, out),
-        Expr::Lambda { args, .. } => {
-            args.defaults
-                .iter()
-                .for_each(|d| collect_expr_writes(f, d, out));
-            args.kw_defaults
-                .iter()
-                .flatten()
-                .for_each(|d| collect_expr_writes(f, d, out));
-        }
-        Expr::IfExp {
-            test, body, orelse, ..
-        } => {
-            collect_expr_writes(f, test, out);
-            collect_expr_writes(f, body, out);
-            collect_expr_writes(f, orelse, out);
-        }
-        Expr::Dict { keys, values, .. } => {
-            keys.iter()
-                .flatten()
-                .for_each(|k| collect_expr_writes(f, k, out));
-            values.iter().for_each(|v| collect_expr_writes(f, v, out));
-        }
-        Expr::Set { elts, .. } | Expr::Tuple { elts, .. } | Expr::List { elts, .. } => {
-            elts.iter().for_each(|v| collect_expr_writes(f, v, out))
-        }
-        Expr::ListComp { .. }
-        | Expr::SetComp { .. }
-        | Expr::DictComp { .. }
-        | Expr::GeneratorExp { .. } => {}
-        Expr::Await { value, .. } => collect_expr_writes(f, value, out),
-        Expr::Yield { value, .. } => {
-            if let Some(v) = value {
-                collect_expr_writes(f, v, out);
-            }
-        }
-        Expr::YieldFrom { value, .. } => collect_expr_writes(f, value, out),
-        Expr::Compare {
-            left, comparators, ..
-        } => {
-            collect_expr_writes(f, left, out);
-            comparators
-                .iter()
-                .for_each(|c| collect_expr_writes(f, c, out));
-        }
-        Expr::Call {
-            func,
-            args,
-            keywords,
-            ..
-        } => {
-            collect_expr_writes(f, func, out);
-            args.iter().for_each(|a| collect_expr_writes(f, a, out));
-            keywords
-                .iter()
-                .for_each(|k| collect_expr_writes(f, &k.value, out));
-        }
-        Expr::FormattedValue { value, .. } => collect_expr_writes(f, value, out),
-        Expr::JoinedStr { values, .. } => {
-            values.iter().for_each(|v| collect_expr_writes(f, v, out))
-        }
-        Expr::Constant { .. } | Expr::Name { .. } => {}
-        Expr::Attribute { value, .. } => collect_expr_writes(f, value, out),
-        Expr::Subscript { value, slice, .. } => {
-            collect_expr_writes(f, value, out);
-            collect_expr_writes(f, slice, out);
-        }
-        Expr::Starred { value, .. } => collect_expr_writes(f, value, out),
-        Expr::Slice {
-            lower, upper, step, ..
-        } => {
-            if let Some(l) = lower {
-                collect_expr_writes(f, l, out);
-            }
-            if let Some(u) = upper {
-                collect_expr_writes(f, u, out);
-            }
-            if let Some(s) = step {
-                collect_expr_writes(f, s, out);
-            }
-        }
-    }
-}
-
-fn collect_stmt_writes(f: &FnLower, s: &Stmt, out: &mut Vec<String>) {
-    match s {
-        Stmt::Assign { targets, value, .. } => {
-            collect_expr_writes(f, value, out);
-            for t in targets {
-                collect_target_writes(f, t, out);
-            }
-        }
-        Stmt::AugAssign { target, value, .. } => {
-            collect_expr_writes(f, value, out);
-            collect_target_writes(f, target, out);
-        }
-        Stmt::AnnAssign {
-            target,
-            value,
-            annotation,
-            ..
-        } => {
-            collect_expr_writes(f, annotation, out);
-            if let Some(v) = value {
-                collect_expr_writes(f, v, out);
-            }
-            collect_target_writes(f, target, out);
-        }
-        Stmt::Delete { targets, .. } => {
-            for t in targets {
-                collect_target_writes(f, t, out);
-            }
-        }
-        Stmt::For {
-            target, iter, body, ..
-        } => {
-            collect_expr_writes(f, iter, out);
-            collect_target_writes(f, target, out);
-            collect_name_writes(f, body, out);
-        }
-        Stmt::With { items, body, .. } => {
-            for it in items {
-                collect_expr_writes(f, &it.context_expr, out);
-                if let Some(v) = &it.optional_vars {
-                    collect_target_writes(f, v, out);
-                }
-            }
-            collect_name_writes(f, body, out);
-        }
-        Stmt::Import { names, .. } => {
-            for a in names {
-                match &a.asname {
-                    Some(n) => push_name(out, &f.text(*n)),
-                    None => push_name(out, f.text(a.name).split('.').next().unwrap_or("")),
-                }
-            }
-        }
-        Stmt::ImportFrom { names, .. } => {
-            for a in names {
-                match &a.asname {
-                    Some(n) => push_name(out, &f.text(*n)),
-                    None => push_name(out, &f.text(a.name)),
-                }
-            }
-        }
-        Stmt::Try {
-            body,
-            handlers,
-            orelse,
-            finalbody,
-            ..
-        }
-        | Stmt::TryStar {
-            body,
-            handlers,
-            orelse,
-            finalbody,
-            ..
-        } => {
-            collect_name_writes(f, body, out);
-            for h in handlers {
-                let Excepthandler::ExceptHandler {
-                    r#type,
-                    name,
-                    body: hbody,
-                    ..
-                } = h;
-                if let Some(t) = r#type {
-                    collect_expr_writes(f, t, out);
-                }
-                if let Some(n) = name {
-                    push_name(out, &f.text(*n));
-                }
-                collect_name_writes(f, hbody, out);
-            }
-            collect_name_writes(f, orelse, out);
-            collect_name_writes(f, finalbody, out);
-        }
-        Stmt::Match { subject, cases, .. } => {
-            collect_expr_writes(f, subject, out);
-            for c in cases {
-                if let Some(g) = &c.guard {
-                    collect_expr_writes(f, g, out);
-                }
-                collect_pattern_writes(f, &c.pattern, out);
-                collect_name_writes(f, &c.body, out);
-            }
-        }
-        Stmt::If {
-            test, body, orelse, ..
-        }
-        | Stmt::While {
-            test, body, orelse, ..
-        } => {
-            collect_expr_writes(f, test, out);
-            collect_name_writes(f, body, out);
-            collect_name_writes(f, orelse, out);
-        }
-        Stmt::Return { value: Some(v), .. } => collect_expr_writes(f, v, out),
-        Stmt::Raise { exc, cause, .. } => {
-            if let Some(v) = exc {
-                collect_expr_writes(f, v, out);
-            }
-            if let Some(v) = cause {
-                collect_expr_writes(f, v, out);
-            }
-        }
-        Stmt::Assert { test, msg, .. } => {
-            collect_expr_writes(f, test, out);
-            if let Some(m) = msg {
-                collect_expr_writes(f, m, out);
-            }
-        }
-        Stmt::Expr { value, .. } => collect_expr_writes(f, value, out),
-        _ => {}
-    }
-}
-
-fn collect_target_writes(f: &FnLower, t: &Expr, out: &mut Vec<String>) {
-    match t {
-        Expr::Name { id, .. } => push_name(out, &f.text(*id)),
-        Expr::Tuple { elts, .. } | Expr::List { elts, .. } => {
-            for e in elts {
-                collect_target_writes(f, e, out);
-            }
-        }
-        Expr::Starred { value, .. } => collect_target_writes(f, value, out),
-        _ => {}
-    }
-}
-
-fn collect_pattern_writes(f: &FnLower, p: &Pattern, out: &mut Vec<String>) {
-    match p {
-        Pattern::MatchStar { name: Some(n), .. } => push_name(out, &f.text(*n)),
-        Pattern::MatchAs {
-            pattern: Some(inner),
-            name: Some(n),
-            ..
-        } => {
-            push_name(out, &f.text(*n));
-            collect_pattern_writes(f, inner, out);
-        }
-        Pattern::MatchAs { name: Some(n), .. } => push_name(out, &f.text(*n)),
-        Pattern::MatchMapping {
-            patterns,
-            rest: Some(r),
-            ..
-        } => {
-            push_name(out, &f.text(*r));
-            for p in patterns {
-                collect_pattern_writes(f, p, out);
-            }
-        }
-        Pattern::MatchSequence { patterns, .. } | Pattern::MatchOr { patterns, .. } => {
-            for p in patterns {
-                collect_pattern_writes(f, p, out);
-            }
-        }
-        Pattern::MatchClass {
-            patterns,
-            kwd_patterns,
-            ..
-        } => {
-            for p in patterns {
-                collect_pattern_writes(f, p, out);
-            }
-            for p in kwd_patterns {
-                collect_pattern_writes(f, p, out);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn push_name(out: &mut Vec<String>, n: &str) {
-    if !out.iter().any(|x| x == n) {
-        out.push(n.to_string());
-    }
-}
-
 fn stmt_pos(s: &Stmt) -> Pos {
     let (line, col) = match s {
         Stmt::FunctionDef {
@@ -1210,7 +907,7 @@ impl<'a> Lowerer<'a> {
             cells,
             handlers: Vec::new(),
             unwinds: Vec::new(),
-            subst: Vec::new(),
+            raised_in: None,
             class_cell: None,
             classdict_cell: None,
             methods: Vec::new(),
@@ -1269,10 +966,18 @@ enum Unwind {
     /// `entry`, abandoning the unwinding to the finally's dispatch.
     Finally {
         var: Sym,
+        pending: Sym,
         entry: BlockId,
         seq: usize,
         break_sent: bool,
         continue_sent: bool,
+        return_sent: bool,
+    },
+    /// A `finally` body: an exit through it that abandons an in-flight
+    /// exception restores the exc_info stack when `pending` says the landing
+    /// pushed one (CPython's FINALLY_END unwind pops it too).
+    Finalbody {
+        pending: Sym,
     },
     /// An `except*` handler body: `break`/`continue`/`return` cannot leave it.
     StarHandler,
@@ -1308,12 +1013,9 @@ struct FnLower<'a, 'b> {
     /// anywhere in a `try` body must reach the body's landing).
     handlers: Vec<BlockId>,
     unwinds: Vec<Unwind>,
-    /// Values standing in for fast-local names while an `except` type
-    /// expression is lowered inside its landing: the landing is reachable
-    /// only over exception edges, so it must read the value the variable
-    /// held before the protected body, not a definition the body may or may
-    /// not have reached (the builder merges end-of-block definitions there).
-    subst: Vec<(String, Value)>,
+    /// The block the last may-raise instruction was emitted in, so a local
+    /// store can leave that block first (see `write_var_at_current`).
+    raised_in: Option<BlockId>,
     class_cell: Option<Value>,
     classdict_cell: Option<Value>,
     methods: Vec<(Sym, FnId)>,
@@ -1327,7 +1029,11 @@ struct FnLower<'a, 'b> {
 
 impl<'a, 'b> FnLower<'a, 'b> {
     fn emit(&mut self, instr: Instr, pos: Pos) -> Result<InstrId, LowerError> {
+        let raised = instr.may_raise();
         let id = self.b.push(instr)?;
+        if raised && let Some(cur) = self.b.current_block() {
+            self.raised_in = Some(cur);
+        }
         self.b.record_line(id, pos.line, pos.col)?;
         Ok(id)
     }
@@ -1339,6 +1045,22 @@ impl<'a, 'b> FnLower<'a, 'b> {
             self.b.set_handler(block, Some(h))?;
         }
         Ok(block)
+    }
+
+    /// Move the emission point into a block covered by `landing`, which a
+    /// region's body needs: the block the region starts in predates the
+    /// handler push, so its earlier instructions belong to the enclosing
+    /// region (CPython's SETUP_FINALLY covers only what follows it).
+    fn enter_region(&mut self, landing: BlockId) -> Result<(), LowerError> {
+        if self.terminated {
+            return Ok(());
+        }
+        let body = self.b.new_block();
+        self.b.set_handler(body, Some(landing))?;
+        self.jump(body)?;
+        self.terminated = false;
+        self.b.switch_to(body)?;
+        Ok(())
     }
 
     fn fresh_top(&mut self) -> Value {
@@ -1591,14 +1313,6 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 self.value_of(pos, |into| Instr::LoadName { name, into })
             }
             _ => {
-                if let Some(&v) = self
-                    .subst
-                    .iter()
-                    .find(|(n, _)| n == mangled)
-                    .map(|(_, v)| v)
-                {
-                    return Ok(v);
-                }
                 let sym = self.pool(mangled);
                 let at = self
                     .b
@@ -1645,11 +1359,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
             }
             _ => {
                 let sym = self.pool(mangled);
-                let at = self
-                    .b
-                    .current_block()
-                    .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
-                self.b.write_variable(sym, at, value)?;
+                self.write_var_at_current(sym, value)?;
                 Ok(())
             }
         }
@@ -2473,64 +2183,6 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.build_tuple(vec![be], pos)
     }
 
-    /// Snapshot the fast locals the `except` type expressions read, before
-    /// the protected body. The landing is reachable only over exception
-    /// edges, where the builder merges end-of-block definitions: a name the
-    /// body assigns would read a definition the raising instruction may not
-    /// have produced, which the verifier rejects. The snapshot is the value
-    /// the IR model offers there (the spill before the may-raise site).
-    /// The fast locals as of the region entry: the values the region's
-    /// landing code must read instead of walking back over exception edges,
-    /// where the builder merges end-of-block definitions the verifier's
-    /// spill model does not carry (a write after a block's first may-raise
-    /// never crosses its exception edge).
-    fn region_locals(&mut self) -> Result<Vec<(String, Value)>, LowerError> {
-        let mut out = Vec::new();
-        if self.kind.uses_name_ops() {
-            return Ok(out);
-        }
-        let mut names: Vec<(String, i64)> = self
-            .sym_map
-            .iter()
-            .filter(|&(_, &flags)| scope_of(flags) == symtable::LOCAL)
-            .map(|(n, &f)| (n.clone(), f))
-            .collect();
-        names.sort_unstable_by(|a, b| a.0.cmp(&b.0));
-        for (name, _) in names {
-            let v = match self.subst.iter().find(|(n, _)| *n == name) {
-                Some((_, v)) => *v,
-                None => {
-                    let sym = self.pool(&name);
-                    let at = self
-                        .b
-                        .current_block()
-                        .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
-                    self.b.read_variable(sym, at).map_err(LowerError::Build)?
-                }
-            };
-            out.push((name, v));
-        }
-        Ok(out)
-    }
-
-    /// Write the entry-time values back, so a later read joins against them
-    /// instead of walking into the region's landing. `keep` names variables
-    /// the just-lowered code certainly wrote, whose values survive.
-    fn restore_locals(
-        &mut self,
-        snaps: &[(String, Value)],
-        keep: &dyn Fn(&str) -> bool,
-    ) -> Result<(), LowerError> {
-        for (name, v) in snaps {
-            if keep(name) {
-                continue;
-            }
-            let sym = self.pool(name);
-            self.write_var_at_current(sym, *v)?;
-        }
-        Ok(())
-    }
-
     /// Restore the `exc_info` stack and delete the bound name when control
     /// leaves an `except` handler body (CPython's HANDLER_CLEANUP unwind).
     fn unwind_handler_cleanup(&mut self, name: Option<FSym>, pos: Pos) -> Result<(), LowerError> {
@@ -2555,7 +2207,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         let mut live = self.handlers.len();
         for frame in &self.unwinds[depth..] {
             match frame {
-                Unwind::Loop { .. } | Unwind::HandlerCleanup { .. } => {}
+                Unwind::Loop { .. } | Unwind::HandlerCleanup { .. } | Unwind::Finalbody { .. } => {}
                 Unwind::Handler
                 | Unwind::With { .. }
                 | Unwind::Finally { .. }
@@ -2611,7 +2263,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 Unwind::Loop { .. } => break,
                 Unwind::StarHandler => {
                     return Err(LowerError::UnexpectedAst {
-                        what: "'break'/'continue' cannot appear in an except* block",
+                        what: "'break', 'continue' and 'return' cannot appear in an except* block",
                         line: pos.line,
                     });
                 }
@@ -2626,7 +2278,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
                         *break_sent = true;
                     }
                 }
-                Unwind::Handler | Unwind::HandlerCleanup { .. } | Unwind::With { .. } => {}
+                Unwind::Finalbody { .. }
+                | Unwind::Handler
+                | Unwind::HandlerCleanup { .. }
+                | Unwind::With { .. } => {}
             }
         }
         // Second pass: emit the unwinding.
@@ -2640,6 +2295,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     return Ok(());
                 }
                 Unwind::Handler => {}
+                Unwind::Finalbody { pending } => {
+                    self.pop_if_pending(pending, pos)?;
+                }
                 Unwind::HandlerCleanup { name } => {
                     self.unwind_handler_cleanup(name, pos)?;
                 }
@@ -2648,17 +2306,23 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     self.unwind_with_exit(exit, handler, pos)?;
                 }
                 Unwind::Finally {
-                    var, entry, seq, ..
+                    var,
+                    pending,
+                    entry,
+                    seq,
+                    ..
                 } => {
                     // The sentinel const is re-emitted per site: one shared
                     // definition could not dominate every break. The pool
                     // dedups the string, so identity still holds.
                     let reason = self.finally_sentinel(seq, keep_going)?;
+                    let false_v = self.const_val(Const::Bool(false), pos)?;
                     let write_blk = self.new_block()?;
                     self.jump(write_blk)?;
                     self.terminated = false;
                     self.b.switch_to(write_blk)?;
                     self.write_var_at_current(var, reason)?;
+                    self.write_var_at_current(pending, false_v)?;
                     self.jump(entry)?;
                     return Ok(());
                 }
@@ -2671,13 +2335,59 @@ impl<'a, 'b> FnLower<'a, 'b> {
         })
     }
 
+    /// `PopExcInfo` only when the finally's landing pushed an in-flight
+    /// exception (the reason slot says which exits carry one).
+    fn pop_if_pending(&mut self, pending: Sym, pos: Pos) -> Result<(), LowerError> {
+        let pend = self.read_var_at_current(pending)?;
+        let on = self.unboxed_bool(pos, move |into| Instr::Truth { value: pend, into })?;
+        let pop_blk = self.new_block()?;
+        let keep_blk = self.new_block()?;
+        let after = self.new_block()?;
+        self.branch(on, pop_blk, keep_blk)?;
+        self.terminated = false;
+        self.b.switch_to(pop_blk)?;
+        self.emit(Instr::PopExcInfo, pos)?;
+        self.jump(after)?;
+        self.terminated = false;
+        self.b.switch_to(keep_blk)?;
+        self.jump(after)?;
+        self.terminated = false;
+        self.b.switch_to(after)?;
+        Ok(())
+    }
+
     /// Unwind every region the way `return` does, then return `value`.
     fn unwind_and_return(&mut self, value: Value, pos: Pos) -> Result<(), LowerError> {
+        // First pass: mark every crossed finally that its dispatch will see
+        // a wrapped return value, before anything is emitted (the dispatch
+        // only lowers that arm when some return actually crossed).
+        let mut depth = self.unwinds.len();
+        while depth > 0 {
+            depth -= 1;
+            match &mut self.unwinds[depth] {
+                Unwind::Finally { return_sent, .. } => *return_sent = true,
+                Unwind::StarHandler => {
+                    return Err(LowerError::UnexpectedAst {
+                        what: "'break', 'continue' and 'return' cannot appear in an except* block",
+                        line: pos.line,
+                    });
+                }
+                Unwind::Loop { .. }
+                | Unwind::Finalbody { .. }
+                | Unwind::Handler
+                | Unwind::HandlerCleanup { .. }
+                | Unwind::With { .. } => {}
+            }
+        }
+        // Second pass: emit the unwinding.
         let mut depth = self.unwinds.len();
         while depth > 0 {
             depth -= 1;
             match self.unwinds[depth] {
                 Unwind::Loop { .. } | Unwind::Handler => {}
+                Unwind::Finalbody { pending } => {
+                    self.pop_if_pending(pending, pos)?;
+                }
                 Unwind::HandlerCleanup { name } => {
                     self.unwind_handler_cleanup(name, pos)?;
                 }
@@ -2685,28 +2395,27 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     let handler = self.handler_outside(depth);
                     self.unwind_with_exit(exit, handler, pos)?;
                 }
-                Unwind::Finally { var, entry, .. } => {
+                Unwind::Finally {
+                    var, pending, entry, ..
+                } => {
                     // The value rides to the dispatch in a one-tuple so an
                     // exception in flight (also in the slot) stays
                     // distinguishable from it. The write goes in a fresh
                     // block without may-raise instructions: written next to
                     // the value's computation it would ride the exception
                     // edge into the landing's phis.
+                    let reason = self.build_tuple(vec![value], pos)?;
+                    let false_v = self.const_val(Const::Bool(false), pos)?;
                     let write_blk = self.new_block()?;
                     self.jump(write_blk)?;
                     self.terminated = false;
                     self.b.switch_to(write_blk)?;
-                    let reason = self.build_tuple(vec![value], pos)?;
                     self.write_var_at_current(var, reason)?;
+                    self.write_var_at_current(pending, false_v)?;
                     self.jump(entry)?;
                     return Ok(());
                 }
-                Unwind::StarHandler => {
-                    return Err(LowerError::UnexpectedAst {
-                        what: "'return' cannot appear in an except* block",
-                        line: pos.line,
-                    });
-                }
+                Unwind::StarHandler => unreachable!("the first pass rejected it"),
             }
         }
         self.ret(value)
@@ -2730,12 +2439,17 @@ impl<'a, 'b> FnLower<'a, 'b> {
         }
         // try/finally: one reason slot; the finally body is lowered once and
         // a dispatch on the reason continues the control flow that crossed
-        // it (CPython instead inlines the body at every exit).
-        let snaps = self.region_locals()?;
+        // it (CPython instead inlines the body at every exit). `pending_var`
+        // records whether the landing pushed the in-flight exception, so an
+        // exit that abandons it (break, continue, return in the finalbody)
+        // can restore the exc_info stack, as CPython's finally does.
         let reason_var = self.fresh_join_var_named("finally");
+        let pending_var = self.fresh_join_var_named("finpending");
         let slot = self.b.fresh(Type::None);
         self.emit(Instr::FinallyEnter { into: slot }, pos)?;
         self.write_var_at_current(reason_var, slot)?;
+        let false_v = self.const_val(Const::Bool(false), pos)?;
+        self.write_var_at_current(pending_var, false_v)?;
         let seq = self.finally_count;
         self.finally_count += 1;
         let landing = self.new_block()?;
@@ -2743,11 +2457,14 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.handlers.push(landing);
         self.unwinds.push(Unwind::Finally {
             var: reason_var,
+            pending: pending_var,
             entry,
             seq,
             break_sent: false,
             continue_sent: false,
+            return_sent: false,
         });
+        self.enter_region(landing)?;
         if handlers.is_empty() {
             self.lower_body(body)?;
         } else if star {
@@ -2755,12 +2472,13 @@ impl<'a, 'b> FnLower<'a, 'b> {
         } else {
             self.lower_try_except(body, handlers, orelse, pos)?;
         }
-        let (break_sent, continue_sent) = match self.unwinds.pop() {
+        let (break_sent, continue_sent, return_sent) = match self.unwinds.pop() {
             Some(Unwind::Finally {
                 break_sent,
                 continue_sent,
+                return_sent,
                 ..
-            }) => (break_sent, continue_sent),
+            }) => (break_sent, continue_sent, return_sent),
             _ => unreachable!("pushed above"),
         };
         self.handlers.pop();
@@ -2770,23 +2488,19 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.terminated = false;
         self.b.switch_to(entry)?;
         // The finally frame is gone: a break, continue or return inside the
-        // finalbody unwinds outwards directly, abandoning the reason. The
-        // finalbody reads the entry-time locals: a read walking back over
-        // the body's exception edges would merge definitions the spill model
-        // does not carry (the approximation matches the except handlers').
-        let saved_subst = std::mem::take(&mut self.subst);
-        self.subst = snaps.clone();
+        // finalbody unwinds outwards directly, abandoning the reason (the
+        // finalbody's own frame below restores the exc_info stack when it
+        // abandons an in-flight exception).
+        self.unwinds.push(Unwind::Finalbody {
+            pending: pending_var,
+        });
         self.lower_body(finalbody)?;
-        self.subst = saved_subst;
+        self.unwinds.pop();
         // The landing: the in-flight exception rides the same slot, and the
-        // finalbody runs with it current, as CPython's pushed exc_info. The
-        // locals drop to their entry-time values: FinallyExit re-raises on
-        // this path, so nothing downstream consumes them, and the reset stops
-        // reads after the statement from merging the body's post-raise
-        // definitions over the exception edges. Fill it before the dispatch:
-        // a finalbody that itself raises, returns or breaks abandons the
-        // reason, but the landing stays the target of the body's exception
-        // edges and must terminate.
+        // finalbody runs with it current, as CPython's pushed exc_info. Fill
+        // it before the dispatch: a finalbody that itself raises, returns or
+        // breaks abandons the reason, but the landing stays the target of the
+        // body's exception edges and must terminate.
         let after_final = self
             .b
             .current_block()
@@ -2796,7 +2510,8 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.b.switch_to(landing)?;
         let exc = self.value_of(pos, |into| Instr::PushExcInfo { into })?;
         self.write_var_at_current(reason_var, exc)?;
-        self.restore_locals(&snaps, &|_| false)?;
+        let true_v = self.const_val(Const::Bool(true), pos)?;
+        self.write_var_at_current(pending_var, true_v)?;
         self.jump(entry)?;
         self.terminated = false;
         self.b.switch_to(after_final)?;
@@ -2868,17 +2583,30 @@ impl<'a, 'b> FnLower<'a, 'b> {
             self.terminated = false;
             self.b.switch_to(next)?;
         }
-        let value = self.b.fresh(Type::Top);
-        self.emit(
-            Instr::Unpack {
-                src: reason,
-                n: 1,
-                star: None,
-                into: Box::from([value]),
-            },
-            pos,
-        )?;
-        self.unwind_and_return(value, pos)?;
+        if return_sent {
+            let value = self.b.fresh(Type::Top);
+            self.emit(
+                Instr::Unpack {
+                    src: reason,
+                    n: 1,
+                    star: None,
+                    into: Box::from([value]),
+                },
+                pos,
+            )?;
+            self.unwind_and_return(value, pos)?;
+        } else {
+            // No return crossed this finally, so nothing wraps a value in
+            // the slot: the only reasons past the sentinel tests are
+            // exceptions, which FinallyExit above never lets through. The
+            // fallthrough is unreachable but must still terminate.
+            let at = self
+                .b
+                .current_block()
+                .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+            self.b.set_term(at, Terminator::Reraise)?;
+            self.terminated = true;
+        }
         if let Some(arm) = brk_arm {
             self.terminated = false;
             self.b.switch_to(arm)?;
@@ -2902,9 +2630,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
         pos: Pos,
     ) -> Result<(), LowerError> {
         let landing = self.new_block()?;
-        let snaps = self.region_locals()?;
         self.handlers.push(landing);
         self.unwinds.push(Unwind::Handler);
+        self.enter_region(landing)?;
         self.lower_body(body)?;
         self.unwinds.pop();
         self.handlers.pop();
@@ -2919,16 +2647,14 @@ impl<'a, 'b> FnLower<'a, 'b> {
         if !self.terminated {
             self.jump(end)?;
         }
+        // The landing reads the raise-point locals: the builder merges every
+        // predecessor's end-of-block values over the exception edges, and the
+        // spill model keeps each definition before its block's first
+        // may-raise (see `write_var_at_current`), so those values are exactly
+        // the ones the raising instruction saw.
         self.terminated = false;
         self.b.switch_to(landing)?;
         let exc0 = self.value_of(pos, |into| Instr::PushExcInfo { into })?;
-        // Reads at the landing already use the entry-time values (the subst
-        // window below); writing them here keeps later reads that walk back
-        // over the region's exception edges from merging the body's
-        // post-raise definitions.
-        self.restore_locals(&snaps, &|_| false)?;
-        let saved_subst = std::mem::take(&mut self.subst);
-        self.subst = snaps.clone();
         for h in handlers {
             let Excepthandler::ExceptHandler {
                 r#type,
@@ -2936,8 +2662,6 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 body: hbody,
                 ..
             } = h;
-            let mut hwrites = Vec::new();
-            collect_name_writes(self, hbody, &mut hwrites);
             // A bare `except:` is a match against BaseException, exactly as
             // CPython's unconditional CHECK_EXC_MATCH behaves.
             let types = match r#type {
@@ -2975,16 +2699,11 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     self.del_name(*nm, pos)?;
                 }
                 self.emit(Instr::PopExcInfo, pos)?;
-                // The handler ran to its end: what it wrote survives, the
-                // rest falls back to the entry-time values so later reads
-                // need not walk back over the region's exception edges.
-                self.restore_locals(&snaps, &|n| hwrites.iter().any(|w| w == n))?;
                 self.jump(end)?;
             }
             self.terminated = false;
             self.b.switch_to(next_blk)?;
         }
-        self.subst = saved_subst;
         // No handler matched: restore the exc_info stack and re-raise.
         self.emit(Instr::PopExcInfo, pos)?;
         let at = self
@@ -3006,9 +2725,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
         pos: Pos,
     ) -> Result<(), LowerError> {
         let landing = self.new_block()?;
-        let snaps = self.region_locals()?;
         self.handlers.push(landing);
         self.unwinds.push(Unwind::Handler);
+        self.enter_region(landing)?;
         self.lower_body(body)?;
         self.unwinds.pop();
         self.handlers.pop();
@@ -3031,9 +2750,6 @@ impl<'a, 'b> FnLower<'a, 'b> {
         let res = self.build_list(Vec::new(), pos)?;
         let rest_var = self.fresh_join_var_named("egrest");
         self.write_var_at_current(rest_var, orig)?;
-        self.restore_locals(&snaps, &|_| false)?;
-        let saved_subst = std::mem::take(&mut self.subst);
-        self.subst = snaps.clone();
         for h in handlers {
             let Excepthandler::ExceptHandler {
                 r#type,
@@ -3047,8 +2763,6 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     line: pos.line,
                 });
             };
-            let mut hwrites = Vec::new();
-            collect_name_writes(self, hbody, &mut hwrites);
             let cur_rest = self.read_var_at_current(rest_var)?;
             let types = self.except_types(ty, pos)?;
             let matched = self.b.fresh(Type::Bool);
@@ -3067,17 +2781,18 @@ impl<'a, 'b> FnLower<'a, 'b> {
             // Whichever way the handler ends, the next one splits the rest.
             self.write_var_at_current(rest_var, rest)?;
             let hcatch = self.new_block()?;
-            let hbody_blk = self.new_block()?;
             let next_blk = self.new_block()?;
+            // break, continue and return cannot leave an except* block, and
+            // the body's own exceptions land in the catch below.
+            self.handlers.push(hcatch);
+            self.unwinds.push(Unwind::StarHandler);
+            let hbody_blk = self.new_block()?;
             self.branch(matched, hbody_blk, next_blk)?;
             self.terminated = false;
             self.b.switch_to(hbody_blk)?;
             if let Some(nm) = name {
                 self.store_name_value(*nm, m, pos)?;
             }
-            // break, continue and return cannot leave an except* block.
-            self.handlers.push(hcatch);
-            self.unwinds.push(Unwind::StarHandler);
             self.lower_body(hbody)?;
             self.unwinds.pop();
             self.handlers.pop();
@@ -3088,13 +2803,14 @@ impl<'a, 'b> FnLower<'a, 'b> {
                     self.store_name_value(*nm, v, pos)?;
                     self.del_name(*nm, pos)?;
                 }
-                self.restore_locals(&snaps, &|n| hwrites.iter().any(|w| w == n))?;
                 self.jump(next_blk)?;
             }
             self.terminated = false;
             self.b.switch_to(hcatch)?;
             // An exception raised in the handler body joins the outcome
-            // list; the remaining handlers still run against the rest.
+            // list; the remaining handlers still run against the rest, which
+            // reaches this block over the body's exception edges with its
+            // raise-point value.
             let e2 = self.b.fresh(Type::Top);
             {
                 let types = self.base_exception_tuple(pos)?;
@@ -3116,14 +2832,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
             let append = self.method(&res, "append", pos)?;
             self.call(append, vec![e2], Vec::new(), pos)?;
             self.emit(Instr::CatchEnd, pos)?;
-            // The handler body raised somewhere in its run; nothing it wrote
-            // is certain, so everything falls back to the entry-time values.
-            self.restore_locals(&snaps, &|_| false)?;
             self.jump(next_blk)?;
             self.terminated = false;
             self.b.switch_to(next_blk)?;
         }
-        self.subst = saved_subst;
         // The unmatched remainder (None when everything was consumed) joins
         // the list; the combined outcome decides whether anything propagates.
         let final_rest = self.read_var_at_current(rest_var)?;
@@ -3147,7 +2859,6 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.terminated = false;
         self.b.switch_to(pop_blk)?;
         self.emit(Instr::PopExcInfo, pos)?;
-        self.restore_locals(&snaps, &|_| false)?;
         self.jump(end)?;
         self.terminated = false;
         self.b.switch_to(reraise_blk)?;
@@ -3160,8 +2871,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
             at,
             Terminator::Raise {
                 exc: Some(to_raise),
-                // A re-raise keeps the prepared group's chaining untouched.
-                cause: Some(none_v),
+                // CPython's tail is a bare RERAISE: the prepared group
+                // keeps its own context and chains implicitly.
+                cause: None,
             },
         )?;
         self.terminated = true;
@@ -3196,10 +2908,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
         if let Some(vars) = optional_vars {
             self.assign_target(vars, value, pos)?;
         }
-        let snaps = self.region_locals()?;
         let landing = self.new_block()?;
         self.handlers.push(landing);
         self.unwinds.push(Unwind::With { exit: exit_m });
+        self.enter_region(landing)?;
         self.lower_with(&items[1..], body, pos)?;
         self.unwinds.pop();
         self.handlers.pop();
@@ -3232,9 +2944,8 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.terminated = false;
         self.b.switch_to(supp_blk)?;
         self.emit(Instr::PopExcInfo, pos)?;
-        // The exception left the body at an unknown point, so nothing the
-        // body wrote is certain; fall back to the entry-time values.
-        self.restore_locals(&snaps, &|_| false)?;
+        // The suppressed exception never propagates, so the raise-point
+        // locals stay as the body left them (CPython keeps them too).
         self.jump(end)?;
         self.terminated = false;
         self.b.switch_to(reraise_blk)?;
@@ -4700,7 +4411,30 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.pool(&format!(".{kind}{}", self.join_count))
     }
 
+    /// Write `var` in the current block, leaving it first when the block has
+    /// already emitted a may-raise instruction. The verifier's spill model
+    /// lets a handler read only values that certainly exist at the raise
+    /// point: a definition at or after its block's first may-raise never
+    /// crosses the exception edge. Starting a fresh block keeps every local
+    /// definition before its block's first may-raise, so the raising block's
+    /// edge carries the previous value — exactly CPython's raise-point
+    /// semantics — and handlers read the merged raise-point values instead
+    /// of a region-entry snapshot.
     fn write_var_at_current(&mut self, var: Sym, value: Value) -> Result<(), LowerError> {
+        let at = self
+            .b
+            .current_block()
+            .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+        if !self.terminated && self.raised_in == Some(at) {
+            let handler = self.b.handler_of(at);
+            let next = self.b.new_block();
+            if let Some(h) = handler {
+                self.b.set_handler(next, Some(h))?;
+            }
+            self.b.set_term(at, Terminator::Jump { to: next })?;
+            self.terminated = false;
+            self.b.switch_to(next)?;
+        }
         let at = self
             .b
             .current_block()
