@@ -6,8 +6,9 @@
 //! variable with `locked`, `switch_number` and `last_holder` state, a switch
 //! interval of 5 ms by default (`sys.setswitchinterval`, once `sys` exists),
 //! and the fairness rule — a waiter that timed out without a GIL switch sets
-//! the drop-request bit in the holder's eval-breaker word (section 9.4) and
-//! clears it once it holds the GIL itself.
+//! the drop-request bit in the holder's eval-breaker word (section 9.4).
+//! `take_gil` resets the request on every acquire, as `ceval_gil.c` does,
+//! so no drop request survives a GIL switch.
 
 use core::ffi::{c_double, c_int, c_ulong};
 use core::ptr;
@@ -50,11 +51,17 @@ static GIL: GilRuntime = GilRuntime {
 
 /// CPython 3.12's `take_gil`: wait for the GIL; after a full switch interval
 /// without a switch, set the drop-request bit in the holder's eval-breaker
-/// word (the fairness mechanism that forces the switch) and clear it again
-/// once this thread holds the GIL.
-pub fn take_gil(tstate: *mut ThreadState) {
+/// word (the fairness mechanism that forces the switch). Every acquire
+/// resets the request — `ceval_gil.c` clears `gil_drop_request` whenever it
+/// is set on entry to the holder's section — so no request survives a
+/// switch.
+///
+/// # Safety
+///
+/// `tstate` must be the current thread's own state, and any state the GIL
+/// hands over must stay live (thread states are never freed).
+pub unsafe fn take_gil(tstate: *mut ThreadState) {
     let mut guard = GIL.inner.lock().expect("GIL mutex poisoned");
-    let mut bit_set_on: *mut ThreadState = ptr::null_mut();
     while guard.locked {
         let saved_switch_number = guard.switch_number;
         // Re-read the interval every wait so `sys.setswitchinterval`
@@ -78,21 +85,32 @@ pub fn take_gil(tstate: *mut ThreadState) {
             }
             // SAFETY: the holder pointer is a live thread state.
             unsafe { eval_breaker::set_drop_request(holder) };
-            bit_set_on = holder;
         }
     }
     guard.locked = true;
-    GIL.last_holder.store(tstate, Ordering::Relaxed);
-    guard.switch_number += 1;
-    if !bit_set_on.is_null() && !ptr::eq(bit_set_on, tstate) {
-        // SAFETY: a state this run set the bit on; it is still live.
-        unsafe { eval_breaker::clear_drop_request(bit_set_on) };
+    let previous = GIL.last_holder.swap(tstate, Ordering::Relaxed);
+    if !ptr::eq(previous, tstate) {
+        guard.switch_number += 1;
+    }
+    // The request lives in the holder's breaker word here, not in one global
+    // word as in CPython, so the reset covers both places a pending bit can
+    // sit: this state's own word (a waiter set it before this thread last
+    // detached) and the word of the state the GIL is taken over from.
+    // SAFETY: live thread states; states are never freed, so the previous
+    // holder's pointer stays valid after its thread detaches.
+    unsafe { eval_breaker::clear_drop_request(tstate) };
+    if !previous.is_null() && !ptr::eq(previous, tstate) {
+        unsafe { eval_breaker::clear_drop_request(previous) };
     }
 }
 
 /// CPython 3.12's `drop_gil`: release the GIL, if this thread holds it, and
 /// wake one waiter.
-pub fn drop_gil(tstate: *mut ThreadState) {
+///
+/// # Safety
+///
+/// `tstate` must be the current thread's own state.
+pub unsafe fn drop_gil(tstate: *mut ThreadState) {
     let mut guard = GIL.inner.lock().expect("GIL mutex poisoned");
     debug_assert!(guard.locked, "dropping a GIL this thread does not hold");
     if ptr::eq(GIL.last_holder.load(Ordering::Relaxed), tstate) {
@@ -109,7 +127,8 @@ pub fn drop_gil(tstate: *mut ThreadState) {
 ///
 /// `tstate` must be the current thread's own state.
 pub unsafe fn attach(tstate: *mut ThreadState) {
-    take_gil(tstate);
+    // SAFETY: the caller's contract.
+    unsafe { take_gil(tstate) };
     // SAFETY: the caller's contract.
     unsafe { (*tstate).attached = true };
 }
@@ -122,7 +141,8 @@ pub unsafe fn attach(tstate: *mut ThreadState) {
 pub unsafe fn detach(tstate: *mut ThreadState) {
     // SAFETY: the caller's contract.
     unsafe { (*tstate).attached = false };
-    drop_gil(tstate);
+    // SAFETY: the caller's contract.
+    unsafe { drop_gil(tstate) };
 }
 
 /// See the CPython 3.12 contract for this entry point. What
@@ -180,8 +200,11 @@ pub extern "C" fn PyGILState_Ensure() -> c_int {
 }
 
 /// See the CPython 3.12 contract for this entry point: drop one `Ensure`
-/// reference; when the last one goes, detach the thread (3.12 keeps the
-/// thread state bound to the thread for the next `Ensure`).
+/// reference. Every `UNLOCKED` release detaches the thread, as
+/// `pystate.c`'s `PyGILState_Release` does — its `Ensure` counterpart
+/// attached, so the GIL goes back (3.12 deletes the state outright when
+/// the counter reaches zero; ours keeps it bound to the thread for the
+/// next `Ensure`, so the detach covers that case too).
 #[unsafe(no_mangle)]
 pub extern "C" fn PyGILState_Release(oldstate: c_int) {
     let tstate = tstate::try_current();
@@ -193,7 +216,7 @@ pub extern "C" fn PyGILState_Release(oldstate: c_int) {
         if (*tstate).gilstate_counter > 0 {
             (*tstate).gilstate_counter -= 1;
         }
-        if (*tstate).gilstate_counter == 0 && oldstate == PyGILState_UNLOCKED {
+        if oldstate == PyGILState_UNLOCKED && (*tstate).attached {
             detach(tstate);
         }
     }

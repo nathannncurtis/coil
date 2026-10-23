@@ -148,3 +148,82 @@ fn gilstate_ensure_attaches_foreign_threads() {
     // Recurring reads return the same state.
     assert!(ptr::eq(tstate::current(), state));
 }
+
+#[test]
+fn an_unlocked_release_detaches_between_save_and_restore() {
+    init();
+    let _serial = SERIAL.lock().unwrap();
+
+    // pystate.c's PyGILState_Release detaches on every UNLOCKED release,
+    // not only when the counter runs out: a thread that Ensured, released
+    // the GIL with Py_BEGIN_ALLOW_THREADS and Ensured again leaves the GIL
+    // held for exactly the window before PyEval_RestoreThread.
+    let first = PyGILState_Ensure();
+    assert_eq!(first, gil::PyGILState_UNLOCKED);
+    assert_eq!(PyGILState_Check(), 1);
+    let saved = gil::PyEval_SaveThread();
+    assert_eq!(PyGILState_Check(), 0);
+    let second = PyGILState_Ensure();
+    assert_eq!(second, gil::PyGILState_UNLOCKED);
+    PyGILState_Release(second);
+    assert_eq!(PyGILState_Check(), 0, "an UNLOCKED release must detach");
+    // SAFETY: the state PyEval_SaveThread returned for this thread.
+    unsafe { gil::PyEval_RestoreThread(saved) };
+    assert_eq!(PyGILState_Check(), 1);
+    PyGILState_Release(first);
+    assert_eq!(PyGILState_Check(), 0);
+}
+
+#[test]
+fn a_drop_request_does_not_survive_a_gil_switch() {
+    init();
+    let _serial = SERIAL.lock().unwrap();
+
+    let a = tstate::current();
+    // SAFETY: `a` is the current thread's own state.
+    unsafe {
+        gil::attach(a);
+        // A waiter's timeout writes this bit in the holder's word; stage
+        // one directly, exactly as take_gil's timeout path does.
+        eval_breaker::set_drop_request(a);
+        assert!(eval_breaker::pending(a));
+    }
+
+    let (took_tx, took_rx) = mpsc::channel();
+    let (done_tx, done_rx) = mpsc::channel();
+    let other = thread::spawn(move || {
+        let c = tstate::current();
+        // SAFETY: `c` is this thread's own state.
+        unsafe {
+            gil::attach(c);
+            // The acquire reset the request: neither the new holder's
+            // word nor the one it took over from holds it.
+            assert!(!eval_breaker::pending(c));
+        }
+        took_tx.send(()).expect("main is listening");
+        done_rx.recv().expect("main answers");
+        // SAFETY: `c` is this thread's own state.
+        unsafe { gil::detach(c) };
+    });
+    // Hand the GIL over so the other thread can take it.
+    // SAFETY: `a` is the current thread's own state.
+    unsafe { gil::detach(a) };
+    took_rx.recv().expect("other thread attached");
+    // SAFETY: `a` is the current thread's own state.
+    assert!(!unsafe { eval_breaker::pending(a) });
+    done_tx.send(()).expect("other thread is listening");
+    other.join().expect("other thread");
+
+    // A switch back: re-attaching clears this state's own word too, so a
+    // request raised against an earlier hold cannot stick and force a
+    // spurious drop at every back-edge poll.
+    // SAFETY: `a` is the current thread's own state.
+    unsafe {
+        gil::attach(a);
+        assert!(
+            !eval_breaker::pending(a),
+            "drop-request bit went stale across a GIL switch"
+        );
+        gil::detach(a);
+    }
+}
