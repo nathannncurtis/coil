@@ -93,8 +93,13 @@ fn carve(pool: &mut PlainPool, class: usize) -> *mut u8 {
 pub fn plain_malloc(size: usize) -> *mut u8 {
     let size = size.max(1);
     if size > MAX_SMALL {
-        let capacity = size.next_multiple_of(HEADER);
-        let layout = Layout::from_size_align(capacity + HEADER, 16).expect("layout");
+        let Some(capacity) = size.checked_next_multiple_of(HEADER) else {
+            return ptr::null_mut();
+        };
+        let Some(bytes) = capacity.checked_add(HEADER) else {
+            return ptr::null_mut();
+        };
+        let layout = Layout::from_size_align(bytes, 16).expect("layout");
         // SAFETY: nonzero size, valid alignment.
         let block = unsafe { sys_alloc(layout) };
         if block.is_null() {
@@ -138,6 +143,10 @@ pub fn plain_calloc(nelem: usize, elsize: usize) -> *mut u8 {
 }
 
 /// Resize a plain block; contents up to the old capacity are preserved.
+/// A zero `new_size` follows the CPython 3.12 contract: the block is
+/// resized but not freed, so `data` stays a valid, owned block, and a
+/// fresh minimal allocation is returned (null only when the system is
+/// out of memory, in which case `data` remains valid too).
 ///
 /// # Safety
 ///
@@ -149,9 +158,7 @@ pub unsafe fn plain_realloc(data: *mut u8, new_size: usize) -> *mut u8 {
     // SAFETY: caller passed a plain-allocator block.
     let old_capacity = unsafe { capacity(data) };
     if new_size == 0 {
-        // SAFETY: `data` is a plain block.
-        unsafe { plain_free(data) };
-        return ptr::null_mut();
+        return plain_malloc(1);
     }
     if old_capacity >= new_size {
         return data;

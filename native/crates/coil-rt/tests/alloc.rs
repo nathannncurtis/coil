@@ -351,6 +351,101 @@ fn realloc_moves_and_preserves() {
     assert!(free(same));
 }
 
+#[test]
+fn realloc_zero_resizes_without_freeing() {
+    let _guard = PYMEM_OVERRIDE_LOCK.lock().unwrap();
+    unsafe extern "C" {
+        fn PyMem_RawMalloc(size: usize) -> *mut core::ffi::c_void;
+        fn PyMem_RawRealloc(ptr: *mut core::ffi::c_void, new_size: usize)
+        -> *mut core::ffi::c_void;
+        fn PyMem_RawFree(ptr: *mut core::ffi::c_void);
+        fn PyMem_Malloc(size: usize) -> *mut core::ffi::c_void;
+        fn PyMem_Realloc(ptr: *mut core::ffi::c_void, new_size: usize) -> *mut core::ffi::c_void;
+        fn PyMem_Free(ptr: *mut core::ffi::c_void);
+        fn PyObject_Malloc(size: usize) -> *mut core::ffi::c_void;
+        fn PyObject_Realloc(ptr: *mut core::ffi::c_void, new_size: usize)
+        -> *mut core::ffi::c_void;
+        fn PyObject_Free(ptr: *mut core::ffi::c_void);
+    }
+    // CPython 3.12 contract for the exported realloc symbols: a zero size
+    // resizes but does not free — the returned pointer is non-NULL and the
+    // original stays a valid, owned pointer.
+    // SAFETY: C entry points driven with well-formed arguments.
+    unsafe {
+        let raw = PyMem_RawMalloc(64);
+        assert!(!raw.is_null());
+        *(raw as *mut u8) = 0x5a;
+        let shrunk = PyMem_RawRealloc(raw, 0);
+        assert!(!shrunk.is_null(), "PyMem_RawRealloc(p, 0) must be non-NULL");
+        assert_eq!(*(raw as *const u8), 0x5a, "original must stay writable");
+        PyMem_RawFree(raw);
+        PyMem_RawFree(shrunk);
+
+        let mem = PyMem_Malloc(64);
+        assert!(!mem.is_null());
+        *(mem as *mut u8) = 0x5a;
+        let shrunk = PyMem_Realloc(mem, 0);
+        assert!(!shrunk.is_null(), "PyMem_Realloc(p, 0) must be non-NULL");
+        assert_eq!(*(mem as *const u8), 0x5a, "original must stay writable");
+        PyMem_Free(mem);
+        PyMem_Free(shrunk);
+
+        let obj = PyObject_Malloc(64);
+        assert!(!obj.is_null());
+        *(obj as *mut u8) = 0xa5;
+        let shrunk = PyObject_Realloc(obj, 0);
+        assert!(!shrunk.is_null(), "PyObject_Realloc(p, 0) must be non-NULL");
+        assert_eq!(*(obj as *const u8), 0xa5, "original must stay writable");
+        // The GC-heap block was not freed behind the caller's back.
+        assert!(free(obj as *mut u8), "original must still be allocated");
+        PyObject_Free(shrunk);
+    }
+}
+
+#[test]
+fn huge_sizes_return_null_instead_of_wrapping() {
+    unsafe extern "C" {
+        fn PyMem_RawMalloc(size: usize) -> *mut core::ffi::c_void;
+        fn PyMem_RawCalloc(nelem: usize, elsize: usize) -> *mut core::ffi::c_void;
+        fn PyMem_Malloc(size: usize) -> *mut core::ffi::c_void;
+        fn PyObject_Malloc(size: usize) -> *mut core::ffi::c_void;
+        fn PyObject_Calloc(nelem: usize, elsize: usize) -> *mut core::ffi::c_void;
+        fn PyMem_RawRealloc(ptr: *mut core::ffi::c_void, new_size: usize)
+        -> *mut core::ffi::c_void;
+    }
+    // CPython returns null for sizes its allocator cannot express; none of
+    // the entry points may wrap the arithmetic into a short allocation.
+    assert!(alloc_object(usize::MAX).is_null());
+    assert!(alloc_block(usize::MAX).is_null());
+    assert!(alloc_counted(usize::MAX).is_null());
+    // `size + header/preheader` wraps at these exact thresholds.
+    assert!(alloc_object(usize::MAX - 8191).is_null());
+    assert!(alloc_counted(usize::MAX - 15).is_null());
+    // Just below the wrap the page count itself overflows its u32.
+    assert!(alloc_object(usize::MAX - 8192).is_null());
+    assert!(alloc_block(usize::MAX - 8192).is_null());
+    // And the plain allocator's capacity rounding and header addition.
+    assert!(python312::alloc::pymem::plain_malloc(usize::MAX).is_null());
+    assert!(python312::alloc::pymem::plain_malloc(usize::MAX - 15).is_null());
+    // The exported symbols route through the same guards.
+    // SAFETY: C entry points driven with well-formed arguments.
+    unsafe {
+        assert!(PyMem_RawMalloc(usize::MAX).is_null());
+        assert!(PyMem_RawCalloc(usize::MAX, usize::MAX).is_null());
+        assert!(PyMem_Malloc(usize::MAX).is_null());
+        assert!(PyObject_Malloc(usize::MAX).is_null());
+        assert!(PyObject_Calloc(usize::MAX, 8).is_null());
+        // A reallocation to an impossible size fails and leaves the
+        // original valid.
+        let p = PyMem_RawMalloc(32);
+        assert!(!p.is_null());
+        let grown = PyMem_RawRealloc(p, usize::MAX);
+        assert!(grown.is_null());
+        assert_eq!(*(p as *const u8), 0, "original must stay intact");
+        python312::alloc::pymem::plain_free(p.cast());
+    }
+}
+
 /// The allocator-override tests install process-wide state for the PyMem
 /// domains, so they must not overlap each other.
 static PYMEM_OVERRIDE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());

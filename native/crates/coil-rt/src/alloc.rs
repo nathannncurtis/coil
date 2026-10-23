@@ -51,7 +51,9 @@ pub fn alloc_block(size: usize) -> *mut u8 {
 /// pre-header is zeroed. Null means out of memory.
 pub fn alloc_counted(size: usize) -> *mut u8 {
     let size = size.max(1);
-    let total = size + PREHEADER;
+    let Some(total) = size.checked_add(PREHEADER) else {
+        return ptr::null_mut();
+    };
     if total > MAX_SMALL {
         let block = pool::alloc_large(total, false);
         if block.is_null() {
@@ -98,7 +100,11 @@ fn alloc_small(size: usize, is_object: bool) -> *mut u8 {
 }
 
 /// `PyObject_Realloc` on GC-heap memory: the page header supplies the old
-/// capacity. A null `ptr` allocates; a zero `new_size` frees.
+/// capacity. A null `ptr` allocates. A zero `new_size` follows the
+/// CPython 3.12 contract: the block is resized but not freed, so `ptr`
+/// stays a valid, owned pointer, and a fresh minimal allocation is
+/// returned — null only when the system is out of memory, in which case
+/// `ptr` remains valid too.
 ///
 /// # Safety
 ///
@@ -109,9 +115,7 @@ pub unsafe fn realloc_block(ptr: *mut u8, new_size: usize) -> *mut u8 {
         return alloc_block(new_size);
     }
     if new_size == 0 {
-        // SAFETY: `ptr` was returned by this allocator.
-        unsafe { free_block(ptr) };
-        return ptr::null_mut();
+        return alloc_block(1);
     }
     // SAFETY: `ptr` was returned by this allocator.
     let Some(old_capacity) = (unsafe { block_capacity(ptr) }) else {

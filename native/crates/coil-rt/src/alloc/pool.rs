@@ -62,9 +62,11 @@ fn new_segment(pool: &mut Pool, page_count: u32) -> Option<&'static Segment> {
     Some(segment)
 }
 
-/// Pages needed for a large object of `size` bytes.
-fn large_pages(size: usize) -> u32 {
-    (size + DATA_OFFSET).div_ceil(PAGE_SIZE) as u32
+/// Pages needed for a large object of `size` bytes; `None` when the size
+/// overflows the page count instead of wrapping into an undersized run.
+fn large_pages(size: usize) -> Option<u32> {
+    let pages = size.checked_add(DATA_OFFSET)?.div_ceil(PAGE_SIZE);
+    (pages <= u32::MAX as usize).then_some(pages as u32)
 }
 
 /// Take a page serving `class` for thread cache `owner`. On success the
@@ -191,7 +193,11 @@ pub fn adopt_page(class: usize, owner: u32) -> Option<&'static PageHeader> {
 /// segment), else a fresh segment. The run is committed and zeroed;
 /// `is_object` marks the first granule when requested.
 pub fn alloc_large(size: usize, is_object: bool) -> *mut u8 {
-    let pages = large_pages(size);
+    let Some(pages) = large_pages(size) else {
+        // CPython returns null for sizes its allocator cannot express;
+        // wrapping here would commit a short run and fault zeroing it.
+        return core::ptr::null_mut();
+    };
     let mut pool = pool();
     // (entry index, start page, taken from a free run or the tail)
     let mut chosen: Option<(usize, u32, bool)> = None;
