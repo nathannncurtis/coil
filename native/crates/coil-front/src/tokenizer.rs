@@ -473,7 +473,7 @@ fn lookup_codec(name: &str) -> Option<Codec> {
             "ascii" | "646" | "ansi_x3.4_1968" | "ansi_x3_4_1968" | "ansi_x3.4_1986" | "cp367"
             | "csascii" | "ibm367" | "iso646_us" | "iso_646.irv_1991" | "iso_ir_6" | "us"
             | "us_ascii" => Codec::Ascii,
-            "cp1252" | "windows_1252" => Codec::Cp1252,
+            "cp1252" | "1252" | "windows_1252" => Codec::Cp1252,
             "iso8859_15" | "iso_8859_15" | "l9" | "latin9" => Codec::Iso8859_15,
             "koi8_r" | "cskoi8r" => Codec::Koi8R,
             _ => return None,
@@ -3017,6 +3017,11 @@ mod tests {
         // KOI8-R cookie.
         let tokens = module(b"# -*- coding: koi8-r -*-\nx = '\xef'\n").unwrap();
         assert_eq!(tokens[5].1, "'\u{41E}'");
+
+        // cp1252 under its bare-number alias.
+        let tokens = module(b"# coding: 1252\nx = '\x93'\n").unwrap();
+        assert_eq!(tokens[0].1, "1252");
+        assert_eq!(tokens[5].1, "'\u{201C}'");
 
         // The ENCODING token keeps the declared name.
         let tokens = module(b"# coding: latin1\nx = 1\n").unwrap();
