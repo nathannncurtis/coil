@@ -551,21 +551,6 @@ def f(name, v):
 #[test]
 fn unsupported_statements_report_kinds_and_keep_the_rest() {
     let src = r#"
-def f():
-    try:
-        g()
-    except ValueError:
-        pass
-
-def h(fh):
-    with open("x") as fh2:
-        pass
-
-def p(v):
-    match v:
-        case 1:
-            pass
-
 def a():
     async def inner():
         pass
@@ -583,14 +568,7 @@ def kept():
     let kinds: HashSet<&str> = out.unsupported.iter().map(|k| k.name()).collect();
     assert_eq!(
         kinds,
-        HashSet::from([
-            "try",
-            "with",
-            "match",
-            "async function",
-            "yield",
-            "comprehension",
-        ])
+        HashSet::from(["async function", "yield", "comprehension"])
     );
     // The rest of the module still lowered and verified.
     fn_by_qualname(&out, "kept");
@@ -617,10 +595,6 @@ fn unsupported_expressions_report_their_kind() {
         (
             "def f(s):\n    return x if s else (yield)\n",
             LowerKind::Yield,
-        ),
-        (
-            "def f():\n    try:\n        g()\n    except* ValueError:\n        pass\n",
-            LowerKind::TryStar,
         ),
     ];
     for &(src, kind) in cases {
@@ -880,4 +854,200 @@ class C[__T]:
     assert_eq!(local_kind(body, &out, "_C__T"), LocalKind::Free);
     let m = fn_by_qualname(&out, "C.m");
     assert_eq!(local_kind(m, &out, "_C__T"), LocalKind::Free);
+}
+
+#[test]
+fn try_except_binds_and_cleans_the_name() {
+    let out = lower(
+        r#"
+def f(s):
+    try:
+        g(s)
+    except (ValueError, KeyError) as e:
+        h(e)
+    except:
+        g(2)
+    else:
+        g(3)
+    return s
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    assert_eq!(
+        instrs(f)
+            .filter(|i| matches!(i, Instr::CatchBegin { .. }))
+            .count(),
+        2
+    );
+    assert!(has_instr(f, |i| matches!(i, Instr::CatchEnd)));
+    assert!(has_instr(f, |i| matches!(i, Instr::PopExcInfo)));
+    // The no-match tail re-raises the in-flight exception.
+    assert!(
+        f.blocks
+            .iter()
+            .any(|b| matches!(b.term, Terminator::Reraise))
+    );
+}
+
+#[test]
+fn try_star_splits_and_recombines() {
+    let out = lower(
+        r#"
+def f(s):
+    try:
+        g(s)
+    except* ValueError as e:
+        h(e)
+    except* (KeyError, IndexError):
+        pass
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    assert_eq!(
+        instrs(f)
+            .filter(|i| matches!(i, Instr::CatchStarBegin { .. }))
+            .count(),
+        2
+    );
+    assert!(has_instr(f, |i| matches!(i, Instr::PrepReraiseStar { .. })));
+    // Every handler body's own exceptions land in a BaseException catch
+    // that appends to the outcome list.
+    assert_eq!(
+        instrs(f)
+            .filter(|i| matches!(i, Instr::CatchBegin { .. }))
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn finally_dispatches_every_reason() {
+    let out = lower(
+        r#"
+def f(s):
+    try:
+        try:
+            if s:
+                return 1
+            g(s)
+        finally:
+            cleanup()
+    except ValueError:
+        return 2
+    return 3
+
+def loop(s):
+    while s:
+        try:
+            if s:
+                break
+            continue
+        finally:
+            cleanup()
+    return 4
+
+def raising(s):
+    try:
+        g(s)
+    finally:
+        raise KeyError(s)
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    assert!(has_instr(f, |i| matches!(i, Instr::FinallyEnter { .. })));
+    assert!(has_instr(f, |i| matches!(i, Instr::FinallyExit { .. })));
+    // The return value rides to the dispatch in a one-tuple.
+    assert!(has_instr(f, |i| matches!(i, Instr::Unpack { n: 1, .. })));
+    fn_by_qualname(&out, "loop");
+    fn_by_qualname(&out, "raising");
+}
+
+#[test]
+fn with_items_call_enter_and_exit() {
+    let out = lower(
+        r#"
+def f(m, n):
+    with m as a, n as b:
+        g(a, b)
+    return a
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    let attrs: Vec<&str> = instrs(f)
+        .filter_map(|i| match i {
+            Instr::GetAttr { name, .. } => Some(out.module.consts.sym_str(*name)),
+            _ => None,
+        })
+        .collect();
+    assert!(attrs.contains(&"__enter__"));
+    assert!(attrs.contains(&"__exit__"));
+    // Suppression tests the exit result; failure re-raises.
+    assert!(
+        f.blocks
+            .iter()
+            .any(|b| matches!(b.term, Terminator::Reraise))
+    );
+}
+
+#[test]
+fn match_pattern_kinds_verify() {
+    let out = lower(
+        r#"
+def f(x, pairs):
+    match x:
+        case 1 | 2 if x:
+            y = 0
+        case [1, *rest]:
+            y = 1
+        case {"k": v, **others}:
+            y = 2
+        case C(a, k=b) as w:
+            y = 3
+        case str() | bytes():
+            y = 4
+        case _:
+            y = 5
+    return y, rest, others, w
+"#,
+    );
+    assert_eq!(out.unsupported, vec![]);
+    let f = fn_by_qualname(&out, "f");
+    // Sequence and mapping tests look up members of collections.abc.
+    let names: Vec<&str> = instrs(f)
+        .filter_map(|i| match i {
+            Instr::GetAttr { name, .. } => Some(out.module.consts.sym_str(*name)),
+            _ => None,
+        })
+        .collect();
+    assert!(names.contains(&"Sequence"));
+    assert!(names.contains(&"Mapping"));
+    // A class pattern's missing attribute fails the case instead of raising.
+    assert!(has_instr(f, |i| matches!(i, Instr::CatchBegin { .. })));
+}
+
+#[test]
+fn control_flow_through_finally_and_with() {
+    // return/break/continue crossing both a with and a finally verify.
+    lower(
+        r#"
+def f(m, s):
+    while s:
+        with m:
+            try:
+                if s:
+                    return 1
+                break
+            finally:
+                cleanup()
+    return 0
+
+def g(m):
+    with m:
+        raise ValueError(1)
+"#,
+    );
 }
