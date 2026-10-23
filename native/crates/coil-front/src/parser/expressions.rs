@@ -1639,9 +1639,10 @@ fn dict_pairs(p: &mut Parser) -> Option<Expr> {
 
 fn dict_brace_invalid(p: &mut Parser) -> Option<Expr> {
     p.expect_opt(T::Lbrace)?;
-    if p.call_invalid_rules {
-        invalid::double_starred_kvpairs(p);
-    }
+    // The alternative carries tokens of its own, so the generated code runs
+    // it ungated: it fires in the first pass too, unlike the alternatives
+    // that are a single invalid-rule item.
+    invalid::double_starred_kvpairs(p);
     p.expect_opt(T::Rbrace)?;
     None
 }
