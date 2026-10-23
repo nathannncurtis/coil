@@ -1129,11 +1129,13 @@ impl Tokenizer {
         }
         let upto = self.cur.saturating_sub(self.line_start);
         let prefix = String::from_utf8_lossy(&self.buf[self.line_start..self.line_start + upto]);
+        let column = prefix.chars().count() as i64;
         self.err = Some(SyntaxErr {
             message,
             line: self.lineno,
-            column: prefix.chars().count() as i64,
-            end_column: None,
+            column,
+            // `_syntaxerror_range` with -1: the end column mirrors the start.
+            end_column: Some(column),
         });
         self.done = Done::Error;
         RawToken::ERROR
@@ -1317,7 +1319,7 @@ impl Tokenizer {
                 self.cur = start + consumed;
             }
             let message = if is_printable_char(bad_char) {
-                format!("invalid character {bad_char} (U+{:04X})", bad_char as u32)
+                format!("invalid character '{bad_char}' (U+{:04X})", bad_char as u32)
             } else {
                 format!("invalid non-printable character U+{:04X}", bad_char as u32)
             };
