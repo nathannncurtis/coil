@@ -34,11 +34,19 @@ pub const Py_NE: c_int = 3;
 pub const Py_GT: c_int = 4;
 pub const Py_GE: c_int = 5;
 
+/// `_Py_TPFLAGS_MATCH_SELF` (object.h's private bit 22): pattern matching
+/// may compare by value; CPython 3.12 gives it to `int` and `float` alone
+/// among this runtime's types.
+pub const _Py_TPFLAGS_MATCH_SELF: u32 = 1 << 22;
+
 /// A zeroed `PyTypeObject` to build static initialisers from: every slot
-/// unset, `PyType_Ready` fills the rest.
+/// unset, `PyType_Ready` fills the rest. Static types are born immortal —
+/// CPython asserts they already are before readying them
+/// (`_PyStaticType_InitBuiltin`), and spec section 8.1 says every type
+/// object is immortal.
 pub const fn zero_type() -> PyTypeObject {
     PyTypeObject {
-        ob_refcnt: 0,
+        ob_refcnt: header::IMMORTAL_REFCNT,
         ob_type: core::ptr::null_mut(),
         ob_size: 0,
         tp_name: core::ptr::null(),
@@ -261,15 +269,38 @@ pub(crate) unsafe extern "C" fn object_identity_richcompare(
     b: *mut PyObject,
     op: c_int,
 ) -> *mut PyObject {
-    // `object.__eq__` is identity; everything else stays NotImplemented so
-    // a reflected slot gets its chance (typeobject.c's object_richcompare).
-    if op == Py_EQ || op == Py_NE {
-        let equal = core::ptr::eq(a, b);
-        let result = if op == Py_EQ { equal } else { !equal };
-        return if result {
+    // `object_richcompare`: `==` is identity and otherwise NotImplemented so
+    // the reflected operand gets its chance (issue #1393); `!=` delegates to
+    // the type's own `==` slot and inverts it unless that answered
+    // NotImplemented; the ordering comparisons always defer.
+    if op == Py_EQ {
+        return if core::ptr::eq(a, b) {
             super::singletons::true_()
         } else {
-            super::singletons::false_()
+            super::singletons::not_implemented()
+        };
+    }
+    if op == Py_NE {
+        // SAFETY: the header read is within the object.
+        let ty = unsafe { header::type_of(a) };
+        // SAFETY: the type's slot takes any objects.
+        return match unsafe { (*ty).tp_richcompare } {
+            None => super::singletons::not_implemented(),
+            Some(eq) => {
+                // SAFETY: the slot is the type's richcompare.
+                let res = unsafe { eq(a, b, Py_EQ) };
+                if res.is_null() || core::ptr::eq(res, super::singletons::not_implemented()) {
+                    return res;
+                }
+                // The `==` slots reachable here answer True or False only,
+                // so inverting is the pointer test; `PyObject_IsTrue`'s
+                // general form needs the bool protocol.
+                if core::ptr::eq(res, super::singletons::true_()) {
+                    super::singletons::false_()
+                } else {
+                    super::singletons::true_()
+                }
+            }
         };
     }
     super::singletons::not_implemented()
@@ -407,6 +438,21 @@ unsafe extern "C" fn hash_pointer(object: *mut PyObject) -> isize {
     unsafe { _Py_HashPointer(object.cast()) }
 }
 
+/// `type_new` stands in as the spec's stub (section 10.1): creating classes
+/// arrives with the heap-type machinery, and the slot must stay filled so
+/// `type_ready_set_new` leaves `type` instantiation-shaped as in CPython.
+unsafe extern "C" fn type_new(
+    _type_: *mut PyTypeObject,
+    _args: *mut PyObject,
+    _kwds: *mut PyObject,
+) -> *mut PyObject {
+    crate::tstate::set_string(
+        exceptions::system_error(),
+        b"coil: type_new is not implemented",
+    );
+    core::ptr::null_mut()
+}
+
 const fn type_type() -> PyTypeObject {
     let mut t = zero_type();
     t.tp_name = c"type".as_ptr();
@@ -422,6 +468,10 @@ const fn type_type() -> PyTypeObject {
     t.tp_traverse = Some(type_traverse);
     t.tp_weaklistoffset = coil_rt_abi::cp312::typeobject::TP_WEAKLIST as isize;
     t.tp_dictoffset = coil_rt_abi::cp312::typeobject::TP_DICT as isize;
+    // CPython's initialiser carries type_new here; without a filled slot
+    // ready_set_new would disallow instantiation, which CPython's `type`
+    // never is.
+    t.tp_new = Some(type_new);
     t.tp_free = Some(crate::alloc::pymem::PyObject_Free);
     t
 }

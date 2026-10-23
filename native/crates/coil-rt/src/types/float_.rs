@@ -23,12 +23,9 @@ use crate::object::exceptions;
 use crate::object::header;
 use crate::object::singletons;
 use crate::object::typeobject::{
-    Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE, chain_is_subtype, zero_type,
+    _Py_TPFLAGS_MATCH_SELF, Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE, chain_is_subtype, zero_type,
 };
 use crate::types::long;
-
-/// `_Py_TPFLAGS_MATCH_SELF`: the float type's private extra flag.
-const PY_TPFLAGS_MATCH_SELF: u32 = 1 << 22;
 
 /// `Py_DTSF_SIGN`: always emit a sign.
 pub const PY_DTSF_SIGN: i32 = 0x01;
@@ -1636,7 +1633,7 @@ const fn float_type() -> PyTypeObject {
     t.tp_as_number = &raw mut FLOAT_AS_NUMBER;
     t.tp_hash = Some(float_hash);
     t.tp_richcompare = Some(float_richcompare);
-    t.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | PY_TPFLAGS_MATCH_SELF;
+    t.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | _Py_TPFLAGS_MATCH_SELF;
     t.tp_free = Some(crate::alloc::pymem::PyObject_Free);
     t
 }

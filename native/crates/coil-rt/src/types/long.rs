@@ -23,7 +23,7 @@ use crate::object::exceptions;
 use crate::object::header;
 use crate::object::singletons;
 use crate::object::typeobject::{
-    Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE, zero_type,
+    _Py_TPFLAGS_MATCH_SELF, Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE, zero_type,
 };
 
 /// Bits per digit (`PyLong_SHIFT`).
@@ -2242,7 +2242,10 @@ const fn long_type() -> PyTypeObject {
     t.tp_as_number = &raw mut LONG_AS_NUMBER;
     t.tp_hash = Some(long_hash);
     t.tp_richcompare = Some(long_richcompare);
-    t.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE | Py_TPFLAGS_LONG_SUBCLASS;
+    t.tp_flags = Py_TPFLAGS_DEFAULT
+        | Py_TPFLAGS_BASETYPE
+        | Py_TPFLAGS_LONG_SUBCLASS
+        | _Py_TPFLAGS_MATCH_SELF;
     t.tp_free = Some(crate::alloc::pymem::PyObject_Free);
     t
 }

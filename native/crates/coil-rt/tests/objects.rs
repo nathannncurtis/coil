@@ -4,7 +4,7 @@
 
 use std::sync::Once;
 
-use coil_capi_sys::{Py_TPFLAGS_READY, PyTypeObject};
+use coil_capi_sys::{Py_TPFLAGS_DISALLOW_INSTANTIATION, Py_TPFLAGS_READY, PyTypeObject};
 use python312::object::{exceptions, header, singletons, typeobject};
 use python312::types::{bool_, complex, float_, long};
 
@@ -354,4 +354,126 @@ fn interim_error_state_round_trips() {
     assert_eq!(python312::tstate::message(), b"some message");
     python312::tstate::clear();
     assert!(python312::tstate::occurred().is_null());
+}
+
+#[test]
+fn static_types_are_immortal() {
+    init();
+    // The exception accessors return the static type objects themselves.
+    for ty in [
+        exceptions::type_error(),
+        exceptions::value_error(),
+        exceptions::overflow_error(),
+        exceptions::zero_division_error(),
+        exceptions::memory_error(),
+        exceptions::system_error(),
+        exceptions::not_implemented_error(),
+    ] {
+        // SAFETY: immortal static types this runtime readied.
+        unsafe {
+            assert_eq!(header::refcnt(ty), header::IMMORTAL_REFCNT);
+            assert!(header::is_immortal(ty));
+        }
+    }
+    for ty in [
+        OBJECT_TYPE,
+        TYPE_TYPE,
+        INT_TYPE,
+        BOOL_TYPE,
+        FLOAT_TYPE,
+        COMPLEX_TYPE,
+        singletons::none_type(),
+        singletons::ellipsis_type(),
+        singletons::not_implemented_type(),
+        exceptions::base_exception_type(),
+    ] {
+        // SAFETY: immortal static types this runtime readied.
+        unsafe {
+            assert_eq!(header::refcnt(ty.cast()), header::IMMORTAL_REFCNT);
+            assert!(header::is_immortal(ty.cast()), "{}", tp_name(ty));
+        }
+    }
+}
+
+#[test]
+fn identity_richcompare_defers_with_not_implemented() {
+    init();
+    // SAFETY: allocation results are checked before any dereference.
+    unsafe {
+        let a = typeobject::PyType_GenericAlloc(OBJECT_TYPE, 0);
+        let b = typeobject::PyType_GenericAlloc(OBJECT_TYPE, 0);
+        assert!(!a.is_null() && !b.is_null());
+        let compare = (*OBJECT_TYPE).tp_richcompare.unwrap();
+        // `==` is identity and otherwise NotImplemented so the reflected
+        // operand gets its chance; `!=` inverts the `==` answer.
+        assert!(core::ptr::eq(
+            compare(a, a, typeobject::Py_EQ),
+            singletons::true_()
+        ));
+        assert!(core::ptr::eq(
+            compare(a, b, typeobject::Py_EQ),
+            singletons::not_implemented()
+        ));
+        assert!(core::ptr::eq(
+            compare(a, a, typeobject::Py_NE),
+            singletons::false_()
+        ));
+        assert!(core::ptr::eq(
+            compare(a, b, typeobject::Py_NE),
+            singletons::not_implemented()
+        ));
+        assert!(core::ptr::eq(
+            compare(a, b, typeobject::Py_LT),
+            singletons::not_implemented()
+        ));
+        python312::alloc::pymem::PyObject_Free(a.cast());
+        python312::alloc::pymem::PyObject_Free(b.cast());
+    }
+}
+
+#[test]
+fn type_object_keeps_its_new_slot() {
+    init();
+    // SAFETY: reading and calling the static type's slot.
+    unsafe {
+        // CPython's `type` carries type_new and is never marked
+        // DISALLOW_INSTANTIATION; the slot is the spec's stub until the
+        // heap-type machinery arrives.
+        let new = (*TYPE_TYPE).tp_new.unwrap();
+        assert_eq!((*TYPE_TYPE).tp_flags & Py_TPFLAGS_DISALLOW_INSTANTIATION, 0);
+        python312::tstate::clear();
+        assert!(new(TYPE_TYPE, core::ptr::null_mut(), core::ptr::null_mut()).is_null());
+        assert!(core::ptr::eq(
+            python312::tstate::occurred(),
+            exceptions::system_error()
+        ));
+        assert_eq!(
+            python312::tstate::message(),
+            b"coil: type_new is not implemented"
+        );
+        python312::tstate::clear();
+    }
+}
+
+#[test]
+fn match_self_flags_match_cpython() {
+    init();
+    // CPython 3.12 sets the private value-comparison hint on `int` and
+    // `float` alone among this runtime's types.
+    // SAFETY: reading static, readied types.
+    unsafe {
+        assert_ne!((*INT_TYPE).tp_flags & typeobject::_Py_TPFLAGS_MATCH_SELF, 0);
+        assert_ne!(
+            (*FLOAT_TYPE).tp_flags & typeobject::_Py_TPFLAGS_MATCH_SELF,
+            0
+        );
+        assert_eq!(
+            (*BOOL_TYPE).tp_flags & typeobject::_Py_TPFLAGS_MATCH_SELF,
+            0
+        );
+        assert_eq!(
+            (*COMPLEX_TYPE).tp_flags & typeobject::_Py_TPFLAGS_MATCH_SELF,
+            0
+        );
+    }
 }
