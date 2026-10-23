@@ -16,16 +16,65 @@
 
 # Bumped when an entry changes in a way its consumers must notice; the
 # runtime and an executable agree when version and hash both match.
-version = 1
+version = 2
 
-# Every coil_rt_* entry point compiled code may call, with its signature.
+# Every coil_rt_* entry point compiled code may call, with its signature
+# as (return type, argument types) in C spelling. Registered once per
+# compiled image at startup (spec sections 2 and 9.2): the code unit's
+# address range with its stack maps so the collector can walk compiled
+# frames, the module table's globals and constants as roots, and the
+# thread's top compiled frame for the walk's anchor.
 [functions]
 
+coil_rt_register_code = { ret = "int", args = [
+    "const void *code_start",
+    "const void *code_end",
+    "const void *stack_maps",
+] }
+
+coil_rt_register_module_table = { ret = "int", args = [
+    "PyObject **table",
+    "size_t count",
+] }
+
+coil_rt_set_frame = { ret = "void", args = ["void *frame"] }
+
 # Offsets into runtime structs that compiled code reads or writes
-# directly instead of calling an entry point.
+# directly instead of calling an entry point, in bytes. A compiled frame
+# keeps rbp chained (section 9.4): saved rbp at [rbp], the return
+# address at [rbp+8], the function descriptor pointer 8 bytes below rbp,
+# and the frame's reference slots stepping down from 16 bytes below it —
+# stack-map bitmap bit i covers the slot at rbp + slot_base + i*slot_stride.
 [offsets]
+
+[offsets.compiled_frame]
+saved_rbp = 0
+return_address = 8
+function_descriptor = -8
+slot_base = -16
+slot_stride = 8
+
+[offsets.thread_state]
+eval_breaker = 56
 
 # The binary formats of the tables the compiler emits and the runtime
 # loads: type descriptors (section 8.3), stack maps (section 9.4) and
 # line tables (section 12.1).
 [formats]
+
+# The stack-map table of one code unit (section 9.4): what
+# coil_rt_register_code receives. Every field is little-endian, packed,
+# and the table is read-only data the compiler emits into .rdata.
+# Entries are sorted ascending by ret_addr; each carries a bitmap over
+# the frame's reference slots, bit i set meaning slot i (at
+# rbp + slot_base + i*slot_stride) holds a live PyObject* at that
+# safepoint.
+[formats.stackmap]
+
+magic = "u32: 0x504D5343 ('CSMP')"
+version = "u32: 1"
+entry_count = "u64: number of entries that follow"
+entry.ret_addr = "u64: absolute return address inside the unit's code"
+entry.nslots = "u32: number of reference slots the frame has"
+entry.bitmap_words = "u32: ceil(nslots / 64)"
+entry.bitmap = "u64 × bitmap_words: bit i covers slot i"
