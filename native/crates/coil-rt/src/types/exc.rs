@@ -214,11 +214,16 @@ unsafe extern "C" fn base_exception_clear(object: *mut PyObject) -> c_int {
 }
 
 unsafe extern "C" fn base_exception_dealloc(object: *mut PyObject) {
-    // CPython's `BaseException_dealloc`: clear the owned fields, then free.
+    // CPython's `BaseException_dealloc` with `subtype_dealloc`'s tail:
+    // clear the owned fields, free the block, then release the reference
+    // the allocation took on the type — a no-op for the immortal static
+    // types, the last instance's reference for a heap type.
     // SAFETY: the object is an instance with the exact layout.
     unsafe {
         base_exception_clear(object);
+        let ty = header::type_of(object);
         crate::alloc::free_block(object.cast());
+        release_object(ty.cast());
     }
 }
 
@@ -1415,29 +1420,6 @@ pub unsafe extern "C" fn PyErr_Format(
 
 // ---------------------------------------------------------- heap exception types
 
-/// Free a heap exception type: CPython's `subtype_dealloc` reduced to
-/// what `PyErr_NewException` fills — the owned name buffer at `ht_tpname`
-/// and the retained `tp_dict` and `tp_base` first, then the block.
-unsafe extern "C" fn heap_exception_dealloc(type_: *mut PyObject) {
-    let ty = type_ as *mut PyTypeObject;
-    // SAFETY: the fields are within the heap type this runtime allocated.
-    unsafe {
-        let dict = (*ty).tp_dict;
-        (*ty).tp_dict = ptr::null_mut();
-        release_object(dict);
-        let base = (*ty).tp_base;
-        (*ty).tp_base = ptr::null_mut();
-        release_object(base.cast());
-        let name = core::ptr::read_unaligned(
-            (ty as *const u8).add(coil_rt_abi::cp312::heaptypeobject::HT_TPNAME) as *const *mut u8,
-        );
-        if !name.is_null() {
-            crate::alloc::free_block(name);
-        }
-        crate::alloc::free_block(type_.cast());
-    }
-}
-
 /// `PyErr_NewException`'s body: a heap type named `name` deriving from
 /// `base`, `dict` retained as its `tp_dict`. The `str` pieces CPython
 /// fills (`ht_name`, `ht_qualname`, `__module__`) stay null until the
@@ -1495,7 +1477,9 @@ unsafe fn new_exception(
             | Py_TPFLAGS_BASE_EXC_SUBCLASS
             | Py_TPFLAGS_HAVE_GC
             | Py_TPFLAGS_HEAPTYPE;
-        (*ty).tp_dealloc = Some(heap_exception_dealloc);
+        // Instances free through the shared instance dealloc; the type
+        // object itself frees through the metatype's `tp_dealloc`.
+        (*ty).tp_dealloc = Some(base_exception_dealloc);
         (*ty).tp_traverse = Some(base_exception_traverse);
         (*ty).tp_clear = Some(base_exception_clear);
         (*ty).tp_alloc = Some(typeobject::PyType_GenericAlloc);
@@ -1504,7 +1488,7 @@ unsafe fn new_exception(
         (*ty).tp_base = base as *mut PyTypeObject;
         retain_object(dict);
         if typeobject::PyType_Ready(ty) < 0 {
-            heap_exception_dealloc(ty.cast());
+            release_object(ty.cast());
             return ptr::null_mut();
         }
         (*ty).tp_dict = dict;
@@ -1673,12 +1657,19 @@ pub extern "C" fn PyErr_SetFromWindowsErr(ierr: c_int) -> *mut PyObject {
 mod tests {
     use super::*;
     use crate::object::typeobject;
-    use std::sync::Once;
+    use std::sync::{Mutex, MutexGuard, Once};
 
     static INIT: Once = Once::new();
 
-    fn init() {
+    /// The tests touch process-global state — static type objects, heap
+    /// types through the allocator, the shared `MemoryError` instance and
+    /// the thread's exception state — so they serialize, like the GIL tests
+    /// do; Rust's default parallel test threads would race them.
+    static SERIAL: Mutex<()> = Mutex::new(());
+
+    fn init() -> MutexGuard<'static, ()> {
         INIT.call_once(|| assert_eq!(typeobject::init_static_types(), 0));
+        SERIAL.lock().unwrap()
     }
 
     /// A read of `exc`'s `context` field, borrowed.
@@ -1695,7 +1686,7 @@ mod tests {
 
     #[test]
     fn set_fetch_restore_round_trips() {
-        init();
+        let _serial = init();
         clear();
         assert!(occurred().is_null());
 
@@ -1754,7 +1745,7 @@ mod tests {
 
     #[test]
     fn instances_match_the_hierarchy() {
-        init();
+        let _serial = init();
         set_string(zero_division_error(), b"div");
         // SAFETY: matches only read the pending state.
         unsafe {
@@ -1785,7 +1776,7 @@ mod tests {
 
     #[test]
     fn exception_group_has_both_bases() {
-        init();
+        let _serial = init();
         // SAFETY: subtype checks read the readied types' MROs.
         unsafe {
             assert_eq!(
@@ -1811,7 +1802,7 @@ mod tests {
 
     #[test]
     fn pyexc_slots_point_at_the_types() {
-        init();
+        let _serial = init();
         // SAFETY: reads of exported slots' values and type fields.
         unsafe {
             // The data export carries the type object's address.
@@ -1841,7 +1832,7 @@ mod tests {
 
     #[test]
     fn set_object_normalizes_and_chains_from_the_handler_stack() {
-        init();
+        let _serial = init();
         clear();
 
         // A non-instance value is normalized away: the pending exception
@@ -1941,7 +1932,7 @@ mod tests {
 
     #[test]
     fn chaining_cuts_cycles() {
-        init();
+        let _serial = init();
         clear();
 
         // An instance raised twice through SetObject keeps one pending
@@ -2030,7 +2021,7 @@ mod tests {
 
     #[test]
     fn normalize_turns_a_class_into_an_instance() {
-        init();
+        let _serial = init();
         clear();
         // SAFETY: an instance of a readied exception type.
         let instance = unsafe { create_instance(value_error() as *mut PyTypeObject) };
@@ -2073,7 +2064,7 @@ mod tests {
 
     #[test]
     fn format_covers_the_message_set() {
-        init();
+        let _serial = init();
         clear();
         // The walker, directly.
         let args = [7u64, c"plain".as_ptr() as u64, 0x1234u64];
@@ -2127,7 +2118,7 @@ mod tests {
 
     #[test]
     fn new_exception_builds_heap_types() {
-        init();
+        let _serial = init();
         clear();
         // SAFETY: static C strings and null arguments.
         let heap = unsafe {
@@ -2188,16 +2179,24 @@ mod tests {
                 (*(documented as *mut PyTypeObject)).tp_doc,
                 c"the doc".as_ptr()
             ));
-            // The blocks free through the heap dealloc.
+            // Ready registered each heap type's MRO; the heap dealloc
+            // must forget it again or the address-keyed entry outlives
+            // the freed block.
+            assert!(typeobject::mro_registered(documented as *mut PyTypeObject));
+            assert!(typeobject::mro_registered(heap as *mut PyTypeObject));
+            // Releasing each type object runs the metatype's dealloc,
+            // which frees the block and must forget the entry first.
             release_object(documented);
             release_object(heap);
+            assert!(!typeobject::mro_registered(documented as *mut PyTypeObject));
+            assert!(!typeobject::mro_registered(heap as *mut PyTypeObject));
         }
         clear();
     }
 
     #[test]
     fn write_unraisable_clears_the_state() {
-        init();
+        let _serial = init();
         clear();
         set_string(runtime_error(), b"cannot be raised");
         // SAFETY: the object argument may be any object or null.
@@ -2215,7 +2214,7 @@ mod tests {
 
     #[test]
     fn set_none_and_restore_traceback_shapes() {
-        init();
+        let _serial = init();
         clear();
         // SAFETY: a readied exception type.
         unsafe {

@@ -16,7 +16,7 @@ use core::ffi::{c_int, c_void};
 
 use coil_capi_sys::{
     Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DEFAULT, Py_TPFLAGS_DISALLOW_INSTANTIATION, Py_TPFLAGS_HAVE_GC,
-    Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_ITEMS_AT_END, Py_TPFLAGS_READY,
+    Py_TPFLAGS_HAVE_VECTORCALL, Py_TPFLAGS_HEAPTYPE, Py_TPFLAGS_ITEMS_AT_END, Py_TPFLAGS_READY,
     Py_TPFLAGS_TYPE_SUBCLASS, PyMemberDef, PyObject, PyTypeObject, freefunc, hashfunc, visitproc,
 };
 
@@ -106,6 +106,25 @@ pub const fn zero_type() -> PyTypeObject {
 fn mro_table() -> &'static Mutex<HashMap<usize, Vec<usize>>> {
     static TABLE: OnceLock<Mutex<HashMap<usize, Vec<usize>>>> = OnceLock::new();
     TABLE.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Whether `PyType_Ready` registered an MRO for `t` in the table.
+#[cfg(test)]
+pub(crate) fn mro_registered(t: *mut PyTypeObject) -> bool {
+    mro_table()
+        .lock()
+        .expect("mro table poisoned")
+        .contains_key(&(t as usize))
+}
+
+/// Forget `t`'s MRO entry: a heap type being freed must drop it, or the
+/// address-keyed entry outlives its block and a later type at the same
+/// address would inherit a stale MRO.
+pub(crate) fn forget_mro(t: *mut PyTypeObject) {
+    mro_table()
+        .lock()
+        .expect("mro table poisoned")
+        .remove(&(t as usize));
 }
 
 /// The MRO of a readied type, or its `tp_base` chain when the type was
@@ -406,6 +425,14 @@ pub unsafe extern "C" fn PyType_GenericAlloc(
     }
     // SAFETY: a fresh zeroed block of `size` bytes.
     unsafe { header::c_init(block.cast(), type_) };
+    // CPython's `PyType_GenericAlloc` takes a reference on a heap type for
+    // each instance, so the type outlives them; static types are immortal
+    // and the retain is a no-op.
+    // SAFETY: the flag read is within the type object.
+    if unsafe { (*type_).tp_flags } & Py_TPFLAGS_HEAPTYPE != 0 {
+        // SAFETY: the type is a live object of this runtime.
+        unsafe { exceptions::retain_object(type_.cast()) };
+    }
     block.cast()
 }
 
@@ -434,10 +461,38 @@ pub(crate) unsafe extern "C" fn type_traverse(
 }
 
 unsafe extern "C" fn type_dealloc(object: *mut PyObject) {
-    // Static type objects are immortal; reaching their dealloc means a
-    // stray decref, which resets the count the way CPython does.
-    // SAFETY: the header write is within the object.
-    unsafe { (*object).ob_refcnt = header::IMMORTAL_REFCNT };
+    // The metatype's dealloc runs when a type object's count reaches zero.
+    // Static type objects are immortal; reaching it for one means a stray
+    // decref, which resets the count the way CPython does. A heap type
+    // (`PyErr_NewException`'s results) reaches it legitimately.
+    let ty = object as *mut PyTypeObject;
+    // SAFETY: the flag read is within the type object.
+    if unsafe { (*ty).tp_flags } & Py_TPFLAGS_HEAPTYPE == 0 {
+        // SAFETY: the header write is within the object.
+        unsafe { (*object).ob_refcnt = header::IMMORTAL_REFCNT };
+        return;
+    }
+    // CPython's `type_dealloc` reduced to what this runtime's heap types
+    // carry: the MRO entry `PyType_Ready` made for the address, the
+    // retained `tp_dict` and `tp_base`, the owned name buffer at
+    // `ht_tpname`, then the block.
+    // SAFETY: the fields are within the heap type this runtime allocated.
+    unsafe {
+        forget_mro(ty);
+        let dict = (*ty).tp_dict;
+        (*ty).tp_dict = core::ptr::null_mut();
+        exceptions::release_object(dict);
+        let base = (*ty).tp_base;
+        (*ty).tp_base = core::ptr::null_mut();
+        exceptions::release_object(base.cast());
+        let name = core::ptr::read_unaligned(
+            (ty as *const u8).add(coil_rt_abi::cp312::heaptypeobject::HT_TPNAME) as *const *mut u8,
+        );
+        if !name.is_null() {
+            crate::alloc::free_block(name);
+        }
+        crate::alloc::free_block(object.cast());
+    }
 }
 
 const fn object_type() -> PyTypeObject {
