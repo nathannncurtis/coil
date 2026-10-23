@@ -3,6 +3,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::backend::x86_64::unwind::Prologue;
+
 use super::LinkError;
 
 /// `SizeOfStackReserve` when the input does not ask for one: 16 MiB, the
@@ -120,6 +122,20 @@ pub enum Subsystem {
     Gui,
 }
 
+/// One compiled function the image must be able to unwind through: its
+/// `.text` extent and the emitted prologue `x86_64/unwind.rs` turns into
+/// `UNWIND_INFO` (spec section 12.4). `name` is diagnostic only.
+#[derive(Clone, Debug)]
+pub struct FunctionUnwind {
+    pub name: String,
+    /// `.text` offset of the function's first byte.
+    pub begin: u32,
+    /// `.text` offset past the function's last byte; `begin == end` is a
+    /// range error, not an empty function.
+    pub end: u32,
+    pub prologue: Prologue,
+}
+
 /// The linker's whole input: one translation unit with fixed section names.
 #[derive(Clone, Debug)]
 pub struct ObjectFile {
@@ -131,6 +147,8 @@ pub struct ObjectFile {
     pub relocs: Vec<Reloc>,
     /// DLL name -> imported function names; the loader resolves by name.
     pub imports: BTreeMap<String, Vec<String>>,
+    /// Functions with unwind info: one `.pdata` entry each (spec 12.4).
+    pub unwind: Vec<FunctionUnwind>,
     /// Entry symbol; must be defined in `.text`.
     pub entry: String,
     pub subsystem: Subsystem,
@@ -296,6 +314,7 @@ mod tests {
             imports: [("kernel32.dll".to_string(), vec!["ExitProcess".to_string()])]
                 .into_iter()
                 .collect(),
+            unwind: Vec::new(),
             entry: "entry".into(),
             subsystem: Subsystem::Console,
             stack_reserve: None,

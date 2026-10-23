@@ -193,6 +193,7 @@ mod tests {
                     )
                 })
                 .collect(),
+            unwind: Vec::new(),
             entry: "entry".into(),
             subsystem: Subsystem::Console,
             stack_reserve: None,

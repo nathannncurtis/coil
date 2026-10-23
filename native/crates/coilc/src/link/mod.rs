@@ -1,9 +1,8 @@
 //! The linker: object files into a PE32+ executable with `.text .rdata .data
 //! .pdata .xdata .reloc .rsrc .idata` sections (spec sections 2 and 13.3).
 //! This task covers the core: `.text/.rdata/.data/.bss` input, imports,
-//! relocations and the PE writer; `.pdata`/`.xdata` is a separate task and
-//! its data-directory entry stays empty for now, while `.rsrc` is filled
-//! from `rsrc.rs` when resources are given.
+//! relocations, the PE writer and the `.pdata`/`.xdata` unwind tables;
+//! `.rsrc` is filled from `rsrc.rs` when resources are given.
 
 pub mod imports;
 pub mod objfile;
@@ -60,6 +59,20 @@ pub enum LinkError {
         count: usize,
     },
     NameHasNul(&'static str),
+    BadUnwindInfo {
+        function: String,
+        reason: String,
+    },
+    FunctionRange {
+        name: String,
+        begin: u32,
+        end: u32,
+        text_size: u32,
+    },
+    OverlappingFunctions {
+        first: String,
+        second: String,
+    },
     LayoutOverflow,
     /// The resource inputs could not be built into a `.rsrc` section.
     Rsrc(RsrcError),
@@ -119,6 +132,24 @@ impl fmt::Display for LinkError {
                 write!(f, "{count} exports do not fit the 16-bit ordinal table")
             }
             LinkError::NameHasNul(what) => write!(f, "{what} contains a NUL byte"),
+            LinkError::BadUnwindInfo { function, reason } => {
+                write!(
+                    f,
+                    "function '{function}' has unusable unwind info: {reason}"
+                )
+            }
+            LinkError::FunctionRange {
+                name,
+                begin,
+                end,
+                text_size,
+            } => write!(
+                f,
+                "function '{name}' spans {begin:#x}..{end:#x}, which is not inside .text's {text_size:#x} bytes"
+            ),
+            LinkError::OverlappingFunctions { first, second } => {
+                write!(f, "functions '{first}' and '{second}' overlap in .text")
+            }
             LinkError::LayoutOverflow => write!(f, "image layout arithmetic overflowed"),
             LinkError::Rsrc(error) => write!(f, "resources: {error}"),
         }

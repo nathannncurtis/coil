@@ -206,6 +206,7 @@ fn minimal_object() -> ObjectFile {
         }],
         relocs: Vec::new(),
         imports: BTreeMap::new(),
+        unwind: Vec::new(),
         entry: "entry".into(),
         subsystem: Subsystem::Console,
         stack_reserve: None,
