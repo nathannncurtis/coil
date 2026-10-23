@@ -994,42 +994,50 @@ impl Tokenizer {
                 column: Some(err.column),
             };
         }
-        let message = match self.done {
-            Done::Eof => "unexpected EOF in multi-line statement".to_string(),
-            Done::TabSpace => {
-                return TokenizeError {
-                    kind: TokenizeErrorKind::TabError,
-                    message: "inconsistent use of tabs and spaces in indentation".to_string(),
-                    line: Some(self.lineno),
-                    column: None,
-                };
-            }
-            Done::Toodeep => {
-                return TokenizeError {
-                    kind: TokenizeErrorKind::IndentationError,
-                    message: "too many levels of indentation".to_string(),
-                    line: Some(self.lineno),
-                    column: None,
-                };
-            }
-            Done::Dedent => {
-                return TokenizeError {
-                    kind: TokenizeErrorKind::IndentationError,
-                    message: "unindent does not match any outer indentation level".to_string(),
-                    line: Some(self.lineno),
-                    column: None,
-                };
-            }
-            Done::LineCont => "unexpected character after line continuation character".to_string(),
-            _ => "unknown tokenization error".to_string(),
+        if self.done == Done::Eof {
+            return TokenizeError {
+                kind: TokenizeErrorKind::TokenError,
+                message: "unexpected EOF in multi-line statement".to_string(),
+                line: Some(self.lineno),
+                // E_EOF goes through PyErr_SyntaxLocationObject, which
+                // carries inp - buf as-is.
+                column: Some(self.inp as i64),
+            };
+        }
+        let (kind, message) = match self.done {
+            Done::TabSpace => (
+                TokenizeErrorKind::TabError,
+                "inconsistent use of tabs and spaces in indentation",
+            ),
+            Done::Toodeep => (
+                TokenizeErrorKind::IndentationError,
+                "too many levels of indentation",
+            ),
+            Done::Dedent => (
+                TokenizeErrorKind::IndentationError,
+                "unindent does not match any outer indentation level",
+            ),
+            Done::LineCont => (
+                TokenizeErrorKind::TokenError,
+                "unexpected character after line continuation character",
+            ),
+            _ => (TokenizeErrorKind::TokenError, "unknown tokenization error"),
         };
         TokenizeError {
-            kind: TokenizeErrorKind::TokenError,
-            message,
+            kind,
+            message: message.to_string(),
             line: Some(self.lineno),
-            // _tokenizer_error reports inp - buf for E_EOF/E_LINECONT.
-            column: Some((self.inp - self.buf.len()) as i64),
+            // The built SyntaxError carries the character offset of inp
+            // within the current line, its newline excluded.
+            column: Some(self.error_offset()),
         }
+    }
+
+    /// `_PyPegen_byte_offset_to_character_offset` over `buf[..inp - 1]` at
+    /// byte offset `inp`: the error position of the non-EOF failures.
+    fn error_offset(&self) -> i64 {
+        let line_len = self.inp.saturating_sub(1).min(self.buf.len());
+        count_chars_between(&self.buf[..line_len], 0, self.inp)
     }
 
     // -- helpers over the input ------------------------------------------------
@@ -2866,15 +2874,33 @@ mod tests {
 
     #[test]
     fn tokenizer_errors() {
-        let cases: &[(&[u8], TokenizeErrorKind, u32)] = &[
-            (b"\x001\n", TokenizeErrorKind::TokenError, 1),
-            (b"x = (\n1\n", TokenizeErrorKind::TokenError, 2),
-            (b"s = 'abc", TokenizeErrorKind::TokenError, 1),
+        let cases: &[(&[u8], TokenizeErrorKind, u32, i64)] = &[
+            (b"\x001\n", TokenizeErrorKind::TokenError, 1, 0),
+            (b"x = (\n1\n", TokenizeErrorKind::TokenError, 2, 0),
+            (b"s = 'abc", TokenizeErrorKind::TokenError, 1, 5),
+            // _tokenizer_error positions: inp - buf for E_EOF, the character
+            // offset of inp in the line without its newline otherwise.
+            (b"x = \\ y\n", TokenizeErrorKind::TokenError, 1, 8),
+            (b"x = \\y\n", TokenizeErrorKind::TokenError, 1, 7),
+            (b"1_\n", TokenizeErrorKind::TokenError, 1, 2),
+            (
+                b"if 1:\n\tpass\n        pass\n",
+                TokenizeErrorKind::TabError,
+                3,
+                13,
+            ),
+            (
+                b"if 1:\n    pass\n  x\n",
+                TokenizeErrorKind::IndentationError,
+                3,
+                4,
+            ),
         ];
-        for (source, kind, line) in cases {
+        for (source, kind, line, column) in cases {
             let err = tokenize_module_view(source).unwrap_err();
             assert_eq!(err.kind, *kind, "{:?}", source);
             assert_eq!(err.line, Some(*line), "{:?}", source);
+            assert_eq!(err.column, Some(*column), "{:?}", source);
         }
     }
 
