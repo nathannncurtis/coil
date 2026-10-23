@@ -6,5 +6,6 @@ pub mod ir;
 pub mod print;
 pub mod serialize;
 pub mod types;
+pub mod verify;
 
 include!(concat!(env!("OUT_DIR"), "/schema_hash.rs"));
