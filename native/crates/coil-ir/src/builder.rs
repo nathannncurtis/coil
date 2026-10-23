@@ -408,7 +408,8 @@ impl FunctionBuilder {
                     // path carrying a definition. Empty phis survive only in
                     // blocks that were unsealed when the read happened and
                     // seal unreachable; the entry, always reachable, errors
-                    // at seal.
+                    // at seal, and finish rejects an entry phi outright,
+                    // so ignoring the error still yields no function.
                     return Err(Error::UndefinedVariable { var, block: cur });
                 }
                 // No predecessors and not the entry: the block is
@@ -811,6 +812,21 @@ impl FunctionBuilder {
             };
             if !b.sealed {
                 return Err(Error::UnsealedBlock {
+                    block: BlockId(i as u32),
+                });
+            }
+            if BlockId(i as u32) == self.entry
+                && let Some(p) = b.phis.first()
+            {
+                // The entry runs first, so its only predecessors are back
+                // edges and a phi there has no incoming on the first pass:
+                // the read that made it found no definition, which sealing
+                // reports for the empty, self-only and non-dominating
+                // shapes. Reject the phi outright, whatever its incomings,
+                // so a caller that ignored a seal error is still handed no
+                // function.
+                return Err(Error::UndefinedVariable {
+                    var: self.phi_vars[&p.into],
                     block: BlockId(i as u32),
                 });
             }

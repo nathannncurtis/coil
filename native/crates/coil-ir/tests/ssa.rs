@@ -1941,6 +1941,187 @@ fn undefined_read_in_unsealed_entry_is_undefined_at_seal() {
 }
 
 #[test]
+fn undefined_read_in_unsealed_entry_cannot_be_finished() {
+    // Sealing reports the read but leaves the entry sealed with the empty
+    // phi in place, and a retried seal returns Ok; finish must still refuse
+    // to hand out a function the verifier would accept.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let early = b.read_variable(U, b.entry()).unwrap();
+    let into = b.fresh(Type::Bottom);
+    b.push(Instr::Copy { src: early, into }).unwrap();
+    b.set_term(b.entry(), Terminator::Return { value: into })
+        .unwrap();
+    match b.seal_block(b.entry()) {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+    b.seal_block(b.entry()).unwrap();
+    match b.finish() {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
+fn self_loop_entry_read_cannot_be_finished() {
+    // The entry's only predecessor is itself, so the incomplete phi fills
+    // with itself alone; sealing reports the self-cycle but leaves the phi
+    // with its self-referential incoming, and a retried seal returns Ok.
+    // The entry runs before any edge into it, so finish must reject the
+    // phi even though its incoming list is not empty.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let early = b.read_variable(U, b.entry()).unwrap();
+    let into = b.fresh(Type::Bottom);
+    b.push(Instr::Copy { src: early, into }).unwrap();
+    b.set_term(b.entry(), Terminator::Jump { to: b.entry() })
+        .unwrap();
+    match b.seal_block(b.entry()) {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+    b.seal_block(b.entry()).unwrap();
+    match b.finish() {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
+fn back_edge_entry_leftover_phi_cannot_be_finished() {
+    // X is written only in a body that jumps back to the entry; sealing
+    // reports the non-dominating replacement but leaves the filled phi,
+    // and a retried seal returns Ok. The body runs after the entry, so the
+    // read still has no definition on the first pass and finish rejects
+    // the phi.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let p = v(0);
+    b.read_variable(X, b.entry()).unwrap();
+    let c0 = cond(&mut b, p);
+    let body = b.new_block();
+    let exit = b.new_block();
+    b.set_term(
+        b.entry(),
+        Terminator::Branch {
+            cond: c0,
+            then_to: body,
+            else_to: exit,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(body).unwrap();
+    let v_body = konst(&mut b, 0);
+    b.write_variable(X, body, v_body).unwrap();
+    b.set_term(body, Terminator::Jump { to: b.entry() })
+        .unwrap();
+
+    b.switch_to(exit).unwrap();
+    b.set_term(exit, Terminator::Return { value: p }).unwrap();
+
+    b.seal_block(body).unwrap();
+    b.seal_block(exit).unwrap();
+    match b.seal_block(b.entry()) {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, X);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+    b.seal_block(b.entry()).unwrap();
+    match b.finish() {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, X);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
+fn nontrivial_entry_back_edge_phi_cannot_be_finished() {
+    // Two bodies write different values and jump back to the entry: the
+    // phi is non-trivial, so sealing succeeds and reports nothing, yet the
+    // read in the entry still had no definition on the first pass. Finish
+    // rejects the phi outright.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let p = v(0);
+    b.read_variable(X, b.entry()).unwrap();
+    let c0 = cond(&mut b, p);
+    let b1 = b.new_block();
+    let b2 = b.new_block();
+    b.set_term(
+        b.entry(),
+        Terminator::Branch {
+            cond: c0,
+            then_to: b1,
+            else_to: b2,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(b1).unwrap();
+    let v1 = konst(&mut b, 0);
+    b.write_variable(X, b1, v1).unwrap();
+    b.set_term(b1, Terminator::Jump { to: b.entry() }).unwrap();
+
+    b.switch_to(b2).unwrap();
+    let v2 = konst(&mut b, 1);
+    b.write_variable(X, b2, v2).unwrap();
+    b.set_term(b2, Terminator::Jump { to: b.entry() }).unwrap();
+
+    b.seal_all().unwrap();
+    match b.finish() {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, X);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
+fn dead_block_read_keeps_empty_phi_at_finish() {
+    // A block with no predecessors that is not the entry seals unreachable;
+    // its empty phi is consistent with the empty predecessor list and still
+    // finishes and verifies.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    b.set_term(b.entry(), Terminator::Return { value: v(0) })
+        .unwrap();
+    b.seal_block(b.entry()).unwrap();
+
+    let dead = b.new_block();
+    b.switch_to(dead).unwrap();
+    let u = b.read_variable(U, dead).unwrap();
+    let into = b.fresh(Type::Bottom);
+    b.push(Instr::Copy { src: u, into }).unwrap();
+    b.set_term(dead, Terminator::Return { value: into })
+        .unwrap();
+    b.seal_block(dead).unwrap();
+
+    let f = b.finish().unwrap();
+    assert_eq!(
+        f.blocks[dead.0 as usize].phis,
+        vec![Phi {
+            into: f.blocks[dead.0 as usize].phis[0].into,
+            incomings: Vec::new().into(),
+        }]
+    );
+    assert!(verify::verify_function(&f, &[]).is_ok());
+}
+
+#[test]
 fn late_edge_into_sealed_block_is_rejected() {
     // Sealing fixes a block's predecessor set. B2 is sealed with B1 as its
     // only predecessor, then B3 tries to add itself via a handler edge and a
