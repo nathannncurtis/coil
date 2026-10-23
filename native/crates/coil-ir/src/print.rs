@@ -250,7 +250,8 @@ pub fn instr_results(ins: &Instr) -> Vec<Value> {
         | I::YieldFrom { into, .. }
         | I::Await { into, .. }
         | I::PushExcInfo { into, .. }
-        | I::FinallyEnter { into, .. } => vec![*into],
+        | I::FinallyEnter { into, .. }
+        | I::PrepReraiseStar { into, .. } => vec![*into],
         I::IAddOvf { into, ovf, .. }
         | I::ISubOvf { into, ovf, .. }
         | I::IMulOvf { into, ovf, .. }
@@ -259,6 +260,9 @@ pub fn instr_results(ins: &Instr) -> Vec<Value> {
         | I::ShlOvf { into, ovf, .. } => vec![*into, *ovf],
         I::TypeGuard { ok, fail, .. } | I::ShapeGuard { ok, fail, .. } => vec![*ok, *fail],
         I::CatchBegin { matched, exc, .. } => vec![*matched, *exc],
+        I::CatchStarBegin {
+            matched, exc, rest, ..
+        } => vec![*matched, *exc, *rest],
         I::Unpack { into, .. } => into.to_vec(),
         I::SetAttr { .. }
         | I::DelAttr { .. }
@@ -574,6 +578,12 @@ fn op_text(pool: &ConstPool, ins: &Instr) -> String {
         }
         I::Safepoint => s.push_str("safepoint"),
         I::CatchBegin { types, .. } => s.push_str(&format!("catchbegin {}", val(*types))),
+        I::CatchStarBegin { src, types, .. } => {
+            s.push_str(&format!("catchstarbegin {}, {}", val(*src), val(*types)))
+        }
+        I::PrepReraiseStar { orig, excs, .. } => {
+            s.push_str(&format!("prepreraisestar {}, {}", val(*orig), val(*excs)))
+        }
         I::CatchEnd => s.push_str("catchend"),
         I::PushExcInfo { .. } => s.push_str("pushexcinfo"),
         I::PopExcInfo => s.push_str("popexcinfo"),

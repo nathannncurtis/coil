@@ -1226,6 +1226,26 @@ fn instr(w: &mut W, i: &Instr) {
             w.u16(82);
             w.u32(reason.0);
         }
+        I::CatchStarBegin {
+            src,
+            types,
+            matched,
+            exc,
+            rest,
+        } => {
+            w.u16(90);
+            w.u32(src.0);
+            w.u32(types.0);
+            w.u32(matched.0);
+            w.u32(exc.0);
+            w.u32(rest.0);
+        }
+        I::PrepReraiseStar { orig, excs, into } => {
+            w.u16(91);
+            w.u32(orig.0);
+            w.u32(excs.0);
+            w.u32(into.0);
+        }
         I::IDivOvf {
             lhs,
             rhs,
@@ -1626,6 +1646,18 @@ fn instr_r(r: &mut R) -> Result<Instr, Error> {
         },
         82 => I::FinallyExit {
             reason: Value(r.u32()?),
+        },
+        90 => I::CatchStarBegin {
+            src: Value(r.u32()?),
+            types: Value(r.u32()?),
+            matched: Value(r.u32()?),
+            exc: Value(r.u32()?),
+            rest: Value(r.u32()?),
+        },
+        91 => I::PrepReraiseStar {
+            orig: Value(r.u32()?),
+            excs: Value(r.u32()?),
+            into: Value(r.u32()?),
         },
         83 | 85 => {
             let lhs = Value(r.u32()?);
