@@ -99,6 +99,9 @@ mod slot {
     #[link(name = "kernel32")]
     unsafe extern "system" {
         fn TlsAlloc() -> u32;
+        // Only the architectures without pinned TEB layouts read through
+        // the API; x64 reads the TEB directly in `read` below.
+        #[cfg(not(target_arch = "x86_64"))]
         fn TlsGetValue(dw_tls_index: u32) -> *mut c_void;
         fn TlsSetValue(dw_tls_index: u32, lp_tls_value: *mut c_void) -> i32;
     }
