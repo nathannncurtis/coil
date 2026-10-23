@@ -893,6 +893,9 @@ pub struct Tokenizer {
     type_comments: bool,
     comment_newline: bool,
     implicit_newline: bool,
+    /// Whether the underflow that hit `E_EOF` would have reset the readline
+    /// buffer (`tok->start == NULL && !INSIDE_FSTRING`).
+    eof_reset: bool,
 
     modes: [Mode; MAXFSTRINGLEVEL],
     mode_index: usize,
@@ -1004,6 +1007,7 @@ impl Tokenizer {
             type_comments,
             comment_newline: false,
             implicit_newline: false,
+            eof_reset: false,
             modes: [Mode::new(); MAXFSTRINGLEVEL],
             mode_index: 0,
             lines: lines.into_iter(),
@@ -1030,24 +1034,34 @@ impl Tokenizer {
 
     // -- input ---------------------------------------------------------------
 
-    /// `tok_underflow_readline` + `tok_readline_string`.
+    /// `tok_underflow_readline` + `tok_readline_string`. At end of input no
+    /// state is touched: the cursor stays at the end of the last line, whose
+    /// `cur - line_start` the parser reports for synthetic tokens (`_tok_get`
+    /// at `c == EOF` with `done == E_EOF`), while `eof_reset` carries the
+    /// readline flavor's reset for the tokenize error.
     fn underflow(&mut self) -> bool {
+        let line = match self.lines.next() {
+            Some(line) => line,
+            None => {
+                // The readline flavor resets cur=inp=buf here for a fresh
+                // token; the string flavor the parser mirrors leaves the
+                // cursor at the end of the last line. Only the flag is
+                // recorded: `finish_error` speaks for the readline flavor.
+                self.eof_reset = self.start.is_none() && self.mode_index == 0;
+                self.done = Done::Eof;
+                return false;
+            }
+        };
         if self.start.is_none() && self.mode_index == 0 {
             self.cur = 0;
             self.inp = 0;
             self.buf.clear();
         }
-        let line = match self.lines.next() {
-            Some(line) => line,
-            None => {
-                self.done = Done::Eof;
-                return false;
-            }
-        };
         self.buf.extend_from_slice(&line);
         self.inp = self.buf.len();
         self.line_start = self.cur;
         if self.inp == self.cur {
+            self.eof_reset = self.start.is_none() && self.mode_index == 0;
             self.done = Done::Eof;
             return false;
         }
@@ -1138,13 +1152,14 @@ impl Tokenizer {
             };
         }
         if self.done == Done::Eof {
+            // E_EOF goes through PyErr_SyntaxLocationObject with inp - buf,
+            // which the readline flavor's fresh-token reset zeroes.
+            let column = if self.eof_reset { 0 } else { self.inp as i64 };
             return TokenizeError {
                 kind: TokenizeErrorKind::TokenError,
                 message: "unexpected EOF in multi-line statement".to_string(),
                 line: Some(self.lineno),
-                // E_EOF goes through PyErr_SyntaxLocationObject, which
-                // carries inp - buf as-is.
-                column: Some(self.inp as i64),
+                column: Some(column),
             };
         }
         let (kind, message) = match self.done {
@@ -3400,8 +3415,10 @@ mod tests {
             (b"\x001\n", TokenizeErrorKind::TokenError, 1, 0),
             (b"x = (\n1\n", TokenizeErrorKind::TokenError, 2, 0),
             (b"s = 'abc", TokenizeErrorKind::TokenError, 1, 5),
-            // _tokenizer_error positions: inp - buf for E_EOF, the character
-            // offset of inp in the line without its newline otherwise.
+            // _tokenizer_error positions: zero for an E_EOF at a fresh token
+            // (the readline buffer reset), inp - buf for a mid-token E_EOF,
+            // the character offset of inp in the line without its newline
+            // otherwise.
             (b"x = \\ y\n", TokenizeErrorKind::TokenError, 1, 8),
             (b"x = \\y\n", TokenizeErrorKind::TokenError, 1, 7),
             (b"1_\n", TokenizeErrorKind::TokenError, 1, 2),
