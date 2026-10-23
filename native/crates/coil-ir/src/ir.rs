@@ -735,9 +735,8 @@ impl Instr {
 /// The single terminator of a block.
 #[derive(Clone, PartialEq, Debug)]
 pub enum Terminator {
-    Jump {
-        to: BlockId,
-    },
+    /// `Jump(to)`: unconditional edge to `to`; no operands, no result.
+    Jump { to: BlockId },
     /// `Branch(cond, then_to, else_to)`: `cond: Bool`.
     Branch {
         cond: Value,
@@ -750,9 +749,9 @@ pub enum Terminator {
         cases: Box<[(i64, BlockId)]>,
         default: BlockId,
     },
-    Return {
-        value: Value,
-    },
+    /// `Return(value)`: return `value` (boxed or unboxed per its type) to
+    /// the caller; no result.
+    Return { value: Value },
     /// `Raise(exc, cause)`: `exc: None` re-raises the current exception;
     /// `cause: None` chains implicitly, `const None` suppresses (`from None`).
     Raise {
