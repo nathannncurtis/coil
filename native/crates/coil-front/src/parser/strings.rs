@@ -217,6 +217,23 @@ fn utf8_decode_error(bytes: &[u8], err: &std::str::Utf8Error) -> String {
     }
 }
 
+/// `str(UnicodeDecodeError)` for an escape failure: `exceptions.c` shows the
+/// offending byte when the span covers exactly one, else the half-open span
+/// with its last index.
+fn unicodeescape_error(s: &[u8], start: usize, end: usize, reason: &str) -> String {
+    if end == start + 1 && start < s.len() {
+        format!(
+            "'unicodeescape' codec can't decode byte 0x{:02x} in position {start}: {reason}",
+            s[start]
+        )
+    } else {
+        format!(
+            "'unicodeescape' codec can't decode bytes in position {start}-{}: {reason}",
+            end - 1
+        )
+    }
+}
+
 /// `_PyPegen_decode_string` for a string constant: raw text is UTF-8,
 /// otherwise the escape preprocessor plus the unicode-escape decoder.
 fn decode_string(p: &mut Parser, raw: bool, s: &[u8]) -> Option<Vec<u32>> {
@@ -239,10 +256,7 @@ fn decode_string(p: &mut Parser, raw: bool, s: &[u8]) -> Option<Vec<u32>> {
     match decode_unicode_escapes(&preprocessed) {
         Ok(value) => Some(value),
         Err(DecodeError::Unicode(message)) => {
-            p.raise_decode_error(
-                "unicode error",
-                format!("'unicodeescape' codec can't decode bytes: {message}"),
-            );
+            p.raise_decode_error("unicode error", message);
             None
         }
         Err(DecodeError::Value(message)) => {
@@ -314,8 +328,16 @@ fn decode_unicode_escapes(s: &[u8]) -> Result<Vec<u32>, DecodeError> {
             out.push(c as u32);
             continue;
         }
+        // The error handler runs with the backslash's index and the scan's
+        // stop as the failure span.
+        let startinpos = i - 1;
         if i >= s.len() {
-            return Err(DecodeError::Unicode("\\ at end of string".to_string()));
+            return Err(DecodeError::Unicode(unicodeescape_error(
+                s,
+                startinpos,
+                s.len(),
+                "\\ at end of string",
+            )));
         }
         let c = s[i];
         i += 1;
@@ -349,49 +371,51 @@ fn decode_unicode_escapes(s: &[u8]) -> Result<Vec<u32>, DecodeError> {
                     b'u' => 4,
                     _ => 8,
                 };
+                let kind = match c {
+                    b'x' => "xXX",
+                    b'u' => "uXXXX",
+                    _ => "UXXXXXXXX",
+                };
+                let message = format!("truncated \\{kind} escape");
                 let mut ch: u32 = 0;
                 for _ in 0..count {
                     if i >= s.len() {
-                        return Err(DecodeError::Unicode(format!(
-                            "truncated \\{} escape",
-                            if c == b'x' {
-                                "xXX"
-                            } else if c == b'u' {
-                                "uXXXX"
-                            } else {
-                                "UXXXXXXXX"
-                            }
+                        return Err(DecodeError::Unicode(unicodeescape_error(
+                            s,
+                            startinpos,
+                            s.len(),
+                            &message,
                         )));
                     }
                     match hex_value(s[i]) {
                         Some(d) => ch = (ch << 4) + d,
                         None => {
-                            return Err(DecodeError::Unicode(format!(
-                                "truncated \\{} escape",
-                                if c == b'x' {
-                                    "xXX"
-                                } else if c == b'u' {
-                                    "uXXXX"
-                                } else {
-                                    "UXXXXXXXX"
-                                }
+                            return Err(DecodeError::Unicode(unicodeescape_error(
+                                s, startinpos, i, &message,
                             )));
                         }
                     }
                     i += 1;
                 }
                 if ch > 0x10FFFF {
-                    return Err(DecodeError::Unicode(
-                        "illegal Unicode character".to_string(),
-                    ));
+                    return Err(DecodeError::Unicode(unicodeescape_error(
+                        s,
+                        startinpos,
+                        i,
+                        "illegal Unicode character",
+                    )));
                 }
                 out.push(ch);
             }
             b'N' => {
+                let mut message = "malformed \\N character escape";
                 if i >= s.len() {
-                    return Err(DecodeError::Unicode(
-                        "malformed \\N character escape".to_string(),
-                    ));
+                    return Err(DecodeError::Unicode(unicodeescape_error(
+                        s,
+                        startinpos,
+                        s.len(),
+                        message,
+                    )));
                 }
                 if s[i] == b'{' {
                     i += 1;
@@ -400,25 +424,28 @@ fn decode_unicode_escapes(s: &[u8]) -> Result<Vec<u32>, DecodeError> {
                         i += 1;
                     }
                     if i >= s.len() {
-                        return Err(DecodeError::Unicode(
-                            "malformed \\N character escape".to_string(),
-                        ));
+                        return Err(DecodeError::Unicode(unicodeescape_error(
+                            s,
+                            startinpos,
+                            s.len(),
+                            message,
+                        )));
                     }
                     let name = &s[start..i];
-                    i += 1;
-                    if !name.is_empty()
-                        && let Some(ch) = lookup_unicode_name(name)
-                    {
-                        out.push(ch);
-                        continue;
+                    if !name.is_empty() {
+                        // A real name consumes the closing brace; an empty
+                        // or unknown one reports at or before it.
+                        i += 1;
+                        if let Some(ch) = lookup_unicode_name(name) {
+                            out.push(ch);
+                            continue;
+                        }
+                        message = "unknown Unicode character name";
                     }
-                    return Err(DecodeError::Unicode(
-                        "unknown Unicode character name".to_string(),
-                    ));
                 }
-                return Err(DecodeError::Unicode(
-                    "malformed \\N character escape".to_string(),
-                ));
+                return Err(DecodeError::Unicode(unicodeescape_error(
+                    s, startinpos, i, message,
+                )));
             }
             _ => {
                 out.push('\\' as u32);
@@ -955,7 +982,7 @@ fn formatted_value(
             p.raise_known_location(
                 Pos::from_expr(&conv.result),
                 format!(
-                    "f-string: invalid conversion character {}: expected 's', 'r', or 'a'",
+                    "f-string: invalid conversion character '{}': expected 's', 'r', or 'a'",
                     utf32_to_string(text)
                 ),
             );
