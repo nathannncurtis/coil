@@ -280,7 +280,7 @@ pub unsafe extern "C" fn PyList_Size(op: *mut PyObject) -> isize {
 /// `op` must be a list object.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn PyList_GetItem(op: *mut PyObject, i: isize) -> *mut PyObject {
-    if !(unsafe { is_list(op) }) || i < 0 {
+    if !(unsafe { is_list(op) }) {
         crate::tstate::set_string(
             exceptions::system_error(),
             b"bad argument to internal function",
@@ -289,7 +289,7 @@ pub unsafe extern "C" fn PyList_GetItem(op: *mut PyObject, i: isize) -> *mut PyO
     }
     let list = op.cast::<PyListObject>();
     // SAFETY: the size read is within the list.
-    if i >= unsafe { (*list).ob_base.ob_size } {
+    if i < 0 || i >= unsafe { (*list).ob_base.ob_size } {
         crate::tstate::set_string(exceptions::index_error(), b"list index out of range");
         return core::ptr::null_mut();
     }
@@ -308,7 +308,7 @@ pub unsafe extern "C" fn PyList_SetItem(
     i: isize,
     newitem: *mut PyObject,
 ) -> c_int {
-    if !(unsafe { is_list(op) }) || i < 0 || newitem.is_null() {
+    if !(unsafe { is_list(op) }) || newitem.is_null() {
         crate::tstate::set_string(
             exceptions::system_error(),
             b"bad argument to internal function",
@@ -319,7 +319,8 @@ pub unsafe extern "C" fn PyList_SetItem(
     // SAFETY: the guard covers the size read and item store.
     unsafe {
         let _guard = locked(op);
-        if i >= (*list).ob_base.ob_size {
+        // SAFETY: the size read is within the list.
+        if i < 0 || i >= (*list).ob_base.ob_size {
             crate::tstate::set_string(
                 exceptions::index_error(),
                 b"list assignment index out of range",
@@ -601,13 +602,15 @@ unsafe fn merge_runs(
     // saved first run.
     unsafe {
         while left < buf.len() && right < slice.len() {
-            // Taking from the left run on ties keeps the sort stable.
-            if op_lt(buf[left], slice[right])? {
-                slice[out] = buf[left];
-                left += 1;
-            } else {
+            // Take from the right run only when it is strictly smaller:
+            // ties keep the left run's earlier position, which is what
+            // makes the sort stable.
+            if op_lt(slice[right], buf[left])? {
                 slice[out] = slice[right];
                 right += 1;
+            } else {
+                slice[out] = buf[left];
+                left += 1;
             }
             out += 1;
         }

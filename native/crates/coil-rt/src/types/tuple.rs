@@ -183,15 +183,25 @@ unsafe extern "C" fn tuplerichcompare(
             }
         }
         if i >= vitems.len() || i >= witems.len() {
-            // No differing element: compare sizes.
-            let ordering = vlen.cmp(&wlen);
-            return match (op, ordering) {
-                (Py_EQ, core::cmp::Ordering::Equal)
-                | (Py_LE, core::cmp::Ordering::Less)
-                | (Py_LE, core::cmp::Ordering::Equal)
-                | (Py_GE, core::cmp::Ordering::Greater)
-                | (Py_GE, core::cmp::Ordering::Equal) => singletons::true_(),
-                _ => singletons::false_(),
+            // No differing element: compare sizes, mapping every
+            // operator like CPython's switch over the length ordering.
+            let ordering = match vlen.cmp(&wlen) {
+                core::cmp::Ordering::Less => -1,
+                core::cmp::Ordering::Equal => 0,
+                core::cmp::Ordering::Greater => 1,
+            };
+            let answer = match op {
+                Py_LT => ordering < 0,
+                Py_LE => ordering <= 0,
+                Py_EQ => ordering == 0,
+                Py_NE => ordering != 0,
+                Py_GT => ordering > 0,
+                _ => ordering >= 0,
+            };
+            return if answer {
+                singletons::true_()
+            } else {
+                singletons::false_()
             };
         }
         if op == Py_EQ {

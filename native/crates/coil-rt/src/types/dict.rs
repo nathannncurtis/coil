@@ -905,8 +905,11 @@ pub(crate) unsafe fn dict_items(
 /// `mp` must be a dict object.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn PyDict_Keys(mp: *mut PyObject) -> *mut PyObject {
-    // SAFETY: `mp` is a dict object.
-    let items = unsafe { dict_items(mp) }.unwrap_or_default();
+    // SAFETY: `dict_items` validates `mp` and sets the error on a miss.
+    let items = match unsafe { dict_items(mp) } {
+        Ok(items) => items,
+        Err(()) => return core::ptr::null_mut(),
+    };
     view_or_list(items.into_iter().map(|(k, _)| k).collect())
 }
 
@@ -917,8 +920,11 @@ pub unsafe extern "C" fn PyDict_Keys(mp: *mut PyObject) -> *mut PyObject {
 /// `mp` must be a dict object.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn PyDict_Values(mp: *mut PyObject) -> *mut PyObject {
-    // SAFETY: `mp` is a dict object.
-    let items = unsafe { dict_items(mp) }.unwrap_or_default();
+    // SAFETY: `dict_items` validates `mp` and sets the error on a miss.
+    let items = match unsafe { dict_items(mp) } {
+        Ok(items) => items,
+        Err(()) => return core::ptr::null_mut(),
+    };
     view_or_list(items.into_iter().map(|(_, v)| v).collect())
 }
 
@@ -930,8 +936,11 @@ pub unsafe extern "C" fn PyDict_Values(mp: *mut PyObject) -> *mut PyObject {
 /// `mp` must be a dict object.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn PyDict_Items(mp: *mut PyObject) -> *mut PyObject {
-    // SAFETY: `mp` is a dict object.
-    let items = unsafe { dict_items(mp) }.unwrap_or_default();
+    // SAFETY: `dict_items` validates `mp` and sets the error on a miss.
+    let items = match unsafe { dict_items(mp) } {
+        Ok(items) => items,
+        Err(()) => return core::ptr::null_mut(),
+    };
     let pairs: Vec<*mut PyObject> = items
         .into_iter()
         .map(|(k, v)| crate::types::tuple::from_array(&[k, v]))

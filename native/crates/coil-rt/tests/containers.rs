@@ -143,6 +143,16 @@ fn assert_error(expected: *mut PyObject) {
     tstate::clear();
 }
 
+/// The pending error's type and message, then clear it.
+fn assert_error_message(expected: *mut PyObject, message: &str) {
+    assert!(
+        core::ptr::eq(tstate::occurred(), expected),
+        "expected a different exception"
+    );
+    assert_eq!(String::from_utf8_lossy(&tstate::message()), message);
+    tstate::clear();
+}
+
 #[test]
 fn container_layouts_match_the_abi() {
     init();
@@ -397,6 +407,137 @@ fn tuple_entry_points_follow_the_cpython_contract() {
     }
 }
 
+/// Tuple ordering through the rich-comparison slot: a common prefix
+/// falls through to a length comparison that answers every operator,
+/// and a differing element decides before lengths matter.
+#[test]
+fn tuple_ordering_matches_cpython() {
+    use python312::object::singletons;
+    use python312::object::typeobject::{Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE};
+
+    init();
+
+    fn cmp(a: &[&str], b: &[&str], op: core::ffi::c_int) -> bool {
+        let lhs = build_tuple(a);
+        let rhs = build_tuple(b);
+        // SAFETY: both operands are tuples; the slot is tuplerichcompare.
+        let result = unsafe { (*TUPLE_TYPE).tp_richcompare.unwrap()(lhs, rhs, op) };
+        assert!(!result.is_null());
+        let is_true = core::ptr::eq(result, singletons::true_());
+        let is_false = core::ptr::eq(result, singletons::false_());
+        assert!(is_true || is_false, "expected a bool from a tuple compare");
+        is_true
+    }
+
+    // A prefix of the other: the lengths decide, for every operator.
+    assert!(cmp(&["1", "2"], &["1", "2", "3"], Py_LT));
+    assert!(cmp(&["1", "2"], &["1", "2", "3"], Py_LE));
+    assert!(cmp(&["1", "2"], &["1", "2", "3"], Py_NE));
+    assert!(!cmp(&["1", "2"], &["1", "2", "3"], Py_EQ));
+    assert!(!cmp(&["1", "2"], &["1", "2", "3"], Py_GT));
+    assert!(!cmp(&["1", "2"], &["1", "2", "3"], Py_GE));
+    assert!(cmp(&["1"], &["1", "2"], Py_LT));
+    assert!(cmp(&["1", "2"], &["1"], Py_GT));
+    assert!(cmp(&["1"], &["1", "2"], Py_NE));
+
+    // Equal lengths and equal items: equality and both inclusive orders.
+    assert!(cmp(&["1", "2"], &["1", "2"], Py_EQ));
+    assert!(cmp(&["1", "2"], &["1", "2"], Py_LE));
+    assert!(cmp(&["1", "2"], &["1", "2"], Py_GE));
+    assert!(!cmp(&["1", "2"], &["1", "2"], Py_LT));
+    assert!(!cmp(&["1", "2"], &["1", "2"], Py_GT));
+    assert!(!cmp(&["1", "2"], &["1", "2"], Py_NE));
+
+    // The first differing element decides before the lengths do.
+    assert!(cmp(&["1", "2"], &["1", "3"], Py_LT));
+    assert!(!cmp(&["1", "3"], &["1", "2"], Py_LE));
+    assert!(cmp(&["1", "3"], &["1", "2"], Py_NE));
+
+    // Sorting a mixed-length list orders by the same rules.
+    let sorted = list::PyList_New(0);
+    // SAFETY: the shared object is a list built here.
+    unsafe {
+        for tokens in [&["1", "2"][..], &["1", "2", "3"][..], &["1"][..]] {
+            assert_eq!(list::PyList_Append(sorted, build_tuple(tokens)), 0);
+        }
+        assert_eq!(list::PyList_Sort(sorted), 0);
+        let mut sizes = Vec::new();
+        for i in 0..3 {
+            sizes.push(tuple::PyTuple_Size(list::PyList_GetItem(sorted, i)));
+        }
+        assert_eq!(sizes, vec![1, 2, 3]);
+    }
+}
+
+/// The sort's `<` may not shortcut on identity: identical operands of a
+/// type without ordering still raise (`PyObject_RichCompareBool`
+/// shortcuts == and != only), so a TypeError beats a bogus answer.
+#[test]
+fn sort_of_identical_unorderable_objects_raises() {
+    use python312::types::complex;
+
+    init();
+
+    let object = complex::PyComplex_FromDoubles(1.0, 2.0);
+    let sorted = list::PyList_New(0);
+    // SAFETY: the shared object is a list holding one complex twice.
+    unsafe {
+        assert_eq!(list::PyList_Append(sorted, object), 0);
+        assert_eq!(list::PyList_Append(sorted, object), 0);
+        assert_eq!(list::PyList_Sort(sorted), -1);
+    }
+    assert_error(exceptions::type_error());
+
+    // The same shape with orderable elements is fine.
+    let ints = list::PyList_New(0);
+    // SAFETY: the shared object is a list holding one int twice.
+    unsafe {
+        let same = int(1);
+        assert_eq!(list::PyList_Append(ints, same), 0);
+        assert_eq!(list::PyList_Append(ints, same), 0);
+        assert_eq!(list::PyList_Sort(ints), 0);
+        assert_eq!(int_value(list::PyList_GetItem(ints, 0)), 1);
+    }
+}
+
+/// Equal elements keep their incoming order: the merge takes the left
+/// run on ties, which is what makes the sort stable.
+#[test]
+fn sort_keeps_equal_elements_in_place() {
+    init();
+
+    let first = build_tuple(&["1", "2"]);
+    let second = build_tuple(&["1", "2"]);
+    assert!(!core::ptr::eq(first, second), "two distinct tuples");
+    let sorted = list::PyList_New(0);
+    // SAFETY: the shared object is a list built here.
+    unsafe {
+        assert_eq!(list::PyList_Append(sorted, second), 0);
+        assert_eq!(list::PyList_Append(sorted, first), 0);
+        assert_eq!(list::PyList_Sort(sorted), 0);
+        assert!(
+            core::ptr::eq(list::PyList_GetItem(sorted, 0), second),
+            "the earlier equal tuple comes first"
+        );
+        assert!(core::ptr::eq(list::PyList_GetItem(sorted, 1), first));
+
+        // The same across all four runs of a width-1 then width-2 pass.
+        let small_a = build_tuple(&["0", "1"]);
+        let big_a = build_tuple(&["1", "1"]);
+        let small_b = build_tuple(&["0", "1"]);
+        let big_b = build_tuple(&["1", "1"]);
+        let four = list::PyList_New(0);
+        for item in [big_a, small_a, big_b, small_b] {
+            assert_eq!(list::PyList_Append(four, item), 0);
+        }
+        assert_eq!(list::PyList_Sort(four), 0);
+        assert!(core::ptr::eq(list::PyList_GetItem(four, 0), small_a));
+        assert!(core::ptr::eq(list::PyList_GetItem(four, 1), small_b));
+        assert!(core::ptr::eq(list::PyList_GetItem(four, 2), big_a));
+        assert!(core::ptr::eq(list::PyList_GetItem(four, 3), big_b));
+    }
+}
+
 #[test]
 fn list_entry_points_follow_the_cpython_contract() {
     init();
@@ -412,9 +553,19 @@ fn list_entry_points_follow_the_cpython_contract() {
         assert_eq!(int_value(list::PyList_GetItem(object, 7)), 7);
 
         assert!(list::PyList_GetItem(object, 8).is_null());
-        assert_error(exceptions::index_error());
+        assert_error_message(exceptions::index_error(), "list index out of range");
+        assert!(list::PyList_GetItem(object, -1).is_null());
+        assert_error_message(exceptions::index_error(), "list index out of range");
         assert_eq!(list::PyList_SetItem(object, 8, int(0)), -1);
-        assert_error(exceptions::index_error());
+        assert_error_message(
+            exceptions::index_error(),
+            "list assignment index out of range",
+        );
+        assert_eq!(list::PyList_SetItem(object, -1, int(0)), -1);
+        assert_error_message(
+            exceptions::index_error(),
+            "list assignment index out of range",
+        );
 
         assert_eq!(list::PyList_Insert(object, 0, int(100)), 0);
         assert_eq!(int_value(list::PyList_GetItem(object, 0)), 100);
@@ -495,6 +646,14 @@ fn dict_entry_points_follow_the_cpython_contract() {
         let pair = list::PyList_GetItem(items, 2);
         assert_eq!(int_value(tuple::PyTuple_GetItem(pair, 0)), 2);
         assert_eq!(int_value(tuple::PyTuple_GetItem(pair, 1)), 4);
+
+        // Non-dict arguments leave the error set and return NULL.
+        assert!(dict::PyDict_Keys(int(7)).is_null());
+        assert_error(exceptions::system_error());
+        assert!(dict::PyDict_Values(int(7)).is_null());
+        assert_error(exceptions::system_error());
+        assert!(dict::PyDict_Items(int(7)).is_null());
+        assert_error(exceptions::system_error());
 
         let copy = dict::PyDict_Copy(mp);
         assert_eq!(dict_keys(copy), dict_keys(mp));

@@ -26,20 +26,29 @@ pub(crate) enum Cmp {
 }
 
 /// `PyObject_RichCompareBool`'s dispatch for the container types: the
-/// identity shortcuts for `==`/`!=` (CPython's), then the left operand's
-/// slot, then the reflected right operand's when the left declined
-/// (`do_richcompare`'s pairing). No subclass-priority rule yet: static
-/// types have no metaclass-overridden comparisons to order.
+/// identity shortcuts for `==`/`!=` (CPython's, and those alone), then
+/// the left operand's slot, then the reflected right operand's when the
+/// left declined (`do_richcompare`'s pairing). No subclass-priority
+/// rule yet: static types have no metaclass-overridden comparisons to
+/// order.
 ///
 /// # Safety
 ///
 /// `a` and `b` must point to valid `PyObject` headers of readied types.
 pub(crate) unsafe fn rich_compare(a: *mut PyObject, b: *mut PyObject, op: c_int) -> Cmp {
-    use typeobject::{Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT};
+    use typeobject::{Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE};
     // SAFETY: header reads within the objects.
     unsafe {
+        // `PyObject_RichCompareBool`'s shortcut: only == and != may
+        // resolve on identity; the ordering operators must reach the
+        // slots, which may legitimately raise (complex < complex).
         if core::ptr::eq(a, b) {
-            return Cmp::Bool(op == Py_EQ || op == Py_LE || op == Py_GE);
+            if op == Py_EQ {
+                return Cmp::Bool(true);
+            }
+            if op == Py_NE {
+                return Cmp::Bool(false);
+            }
         }
         let mut result = compare_via(header::type_of(a), a, b, op);
         if matches!(result, Cmp::NotImplemented) {
