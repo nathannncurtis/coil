@@ -85,10 +85,7 @@ fn run(args: &[String]) -> i32 {
     let mode = match args.first().map(String::as_str) {
         Some("--tokens") => Mode::Tokens,
         Some("--ast") => Mode::Ast,
-        Some("--symtable") => {
-            eprintln!("error: --symtable is not implemented in this build");
-            return 2;
-        }
+        Some("--symtable") => Mode::Symtable,
         _ => {
             eprintln!("usage: coil-front-dump --tokens|--ast|--symtable FILE...");
             return 2;
@@ -107,6 +104,7 @@ fn run(args: &[String]) -> i32 {
         match mode {
             Mode::Tokens => tokens_record(path, &bytes, &mut out),
             Mode::Ast => ast_record(path, &bytes, &mut out),
+            Mode::Symtable => symtable_record(path, &bytes, &mut out),
         }
         if stdout.write_all(out.as_bytes()).is_err() {
             return 2;
@@ -114,6 +112,59 @@ fn run(args: &[String]) -> i32 {
         out.clear();
     }
     0
+}
+
+/// The parse error and symtable error records share the SyntaxError shape;
+/// a symtable RuntimeError reports through the same fields.
+fn error_record(out: &mut String, kind: &str, message: &str, error: &impl FrontError) {
+    out.push_str(",\"ok\":false,\"error\":{\"type\":\"");
+    out.push_str(kind);
+    out.push_str("\",\"msg\":");
+    json_string(out, message);
+    out.push_str(&format!(
+        ",\"lineno\":{},\"offset\":{},\"end_lineno\":{},\"end_offset\":{}}}}}\n",
+        opt(error.lineno()),
+        opt(error.offset()),
+        opt(error.end_lineno()),
+        opt(error.end_offset()),
+    ));
+}
+
+trait FrontError {
+    fn lineno(&self) -> Option<i32>;
+    fn offset(&self) -> Option<i32>;
+    fn end_lineno(&self) -> Option<i32>;
+    fn end_offset(&self) -> Option<i32>;
+}
+
+impl FrontError for coil_front::parser::ParseError {
+    fn lineno(&self) -> Option<i32> {
+        self.lineno
+    }
+    fn offset(&self) -> Option<i32> {
+        self.offset
+    }
+    fn end_lineno(&self) -> Option<i32> {
+        self.end_lineno
+    }
+    fn end_offset(&self) -> Option<i32> {
+        self.end_offset
+    }
+}
+
+impl FrontError for coil_front::symtable::SymtableError {
+    fn lineno(&self) -> Option<i32> {
+        self.lineno
+    }
+    fn offset(&self) -> Option<i32> {
+        self.offset
+    }
+    fn end_lineno(&self) -> Option<i32> {
+        self.end_lineno
+    }
+    fn end_offset(&self) -> Option<i32> {
+        self.end_offset
+    }
 }
 
 fn ast_record(path: &str, bytes: &[u8], out: &mut String) {
@@ -126,17 +177,29 @@ fn ast_record(path: &str, bytes: &[u8], out: &mut String) {
             out.push_str("}\n");
         }
         Err(error) => {
-            out.push_str(",\"ok\":false,\"error\":{\"type\":\"");
-            out.push_str(error.kind.name());
-            out.push_str("\",\"msg\":");
-            json_string(out, &error.message);
-            out.push_str(&format!(
-                ",\"lineno\":{},\"offset\":{},\"end_lineno\":{},\"end_offset\":{}}}}}\n",
-                opt(error.lineno),
-                opt(error.offset),
-                opt(error.end_lineno),
-                opt(error.end_offset),
-            ));
+            error_record(out, error.kind.name(), &error.message, &error);
+        }
+    }
+}
+
+fn symtable_record(path: &str, bytes: &[u8], out: &mut String) {
+    out.push_str("{\"path\":");
+    json_string(out, path);
+    match coil_front::parser::parse_module(bytes, Some(std::path::Path::new(path))) {
+        Ok((module, mut interner)) => {
+            match coil_front::symtable::symtable(&module, &mut interner) {
+                Ok(table) => {
+                    out.push_str(",\"ok\":true,\"symtable\":");
+                    out.push_str(&coil_front::dump::dump_symtable(&table, &interner));
+                    out.push_str("}\n");
+                }
+                Err(error) => {
+                    error_record(out, error.kind.name(), &error.message, &error);
+                }
+            }
+        }
+        Err(error) => {
+            error_record(out, error.kind.name(), &error.message, &error);
         }
     }
 }
@@ -151,6 +214,7 @@ fn opt(value: Option<i32>) -> String {
 enum Mode {
     Tokens,
     Ast,
+    Symtable,
 }
 
 fn main() {
