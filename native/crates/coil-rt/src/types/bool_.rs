@@ -97,8 +97,18 @@ unsafe extern "C" fn bool_or(a: *mut PyObject, b: *mut PyObject) -> *mut PyObjec
     }
 }
 
+unsafe extern "C" fn bool_repr(self_: *mut PyObject) -> *mut PyObject {
+    let text = if core::ptr::eq(self_, singletons::true_()) {
+        "True"
+    } else {
+        "False"
+    };
+    crate::types::unicode::str_from_utf8(text)
+}
+
 const fn bool_type() -> PyTypeObject {
     let mut t = zero_type();
+    t.tp_repr = Some(bool_repr);
     t.tp_name = c"bool".as_ptr();
     t.tp_basicsize = coil_rt_abi::cp312::long::OB_DIGIT as isize;
     t.tp_itemsize = core::mem::size_of::<u32>() as isize;
@@ -151,8 +161,8 @@ static mut BOOL_AS_NUMBER: PyNumberMethods = PyNumberMethods {
     nb_inplace_matrix_multiply: None,
 };
 
-/// The `bool` type object (CPython's `PyBool_Type`). `tp_repr` and
-/// `tp_new` stay unset until `str` objects and argument parsing exist;
-/// `tp_richcompare` and `tp_hash` inherit `int`'s, as in CPython.
+/// The `bool` type object (CPython's `PyBool_Type`). `tp_str` stays unset
+/// so `str()` falls back to `bool_repr`, as in CPython; `tp_richcompare`
+/// and `tp_hash` inherit `int`'s.
 #[unsafe(no_mangle)]
 pub static mut PyBool_Type: PyTypeObject = bool_type();

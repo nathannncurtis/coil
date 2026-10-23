@@ -7,9 +7,8 @@
 //! schoolbook add/sub/mul, Knuth-D division (`x_divrem`), floor/mod from
 //! truncating divrem, the correctly rounded int-to-double paths
 //! (`_PyLong_Frexp`, `long_true_divide`), and `_PyLong_Format`'s
-//! conversions. Formatting produces bytes, not `str` objects: the `tp_repr`
-//! slot and every str-returning entry stay unset until the unicode runtime
-//! exists, and the `nb_divmod` slot until tuples do.
+//! conversions. `tp_new` stays unset until argument parsing exists, and
+//! the `nb_divmod` slot until tuples do.
 
 use core::cmp::Ordering;
 use core::ffi::{c_char, c_int, c_longlong, c_ulonglong, c_void};
@@ -2233,8 +2232,19 @@ unsafe extern "C" fn long_dealloc(object: *mut PyObject) {
 
 // ------------------------------------------------------------ type object
 
+unsafe extern "C" fn long_repr(self_: *mut PyObject) -> *mut PyObject {
+    // SAFETY: the object is an int per the slot contract.
+    unsafe {
+        let Some(text) = format(self_ as *const PyLongObject, 10, false) else {
+            return core::ptr::null_mut();
+        };
+        crate::types::unicode::str_from_utf8(&text)
+    }
+}
+
 const fn long_type() -> PyTypeObject {
     let mut t = zero_type();
+    t.tp_repr = Some(long_repr);
     t.tp_name = c"int".as_ptr();
     t.tp_basicsize = coil_rt_abi::cp312::long::OB_DIGIT as isize;
     t.tp_itemsize = core::mem::size_of::<u32>() as isize;
@@ -2291,9 +2301,9 @@ static mut LONG_AS_NUMBER: PyNumberMethods = PyNumberMethods {
     nb_inplace_matrix_multiply: None,
 };
 
-/// The `int` type object (CPython's `PyLong_Type`). `tp_repr` and `tp_new`
-/// stay unset until `str` objects and argument parsing exist; readying
-/// marks the type non-instantiable, which the str task lifts.
+/// The `int` type object (CPython's `PyLong_Type`). `tp_str` stays unset
+/// so `str()` falls back to the decimal repr, as in CPython; `tp_new`
+/// waits for argument parsing.
 #[unsafe(no_mangle)]
 pub static mut PyLong_Type: PyTypeObject = long_type();
 

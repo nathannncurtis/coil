@@ -1,0 +1,1996 @@
+# method [args...] input result
+upper		B:
+upper	a	B:A
+upper	abc	B:ABC
+upper	hello world	B:HELLO WORLD
+upper	Hello, World!	B:HELLO, WORLD!
+upper	  spaced  out  	B:  SPACED  OUT  
+upper	\t\ttabs\tand\nnewlines\n	B:\t\tTABS\tAND\nNEWLINES\n
+upper	abcabcabc	B:ABCABCABC
+upper	aaa	B:AAA
+upper	xyz	B:XYZ
+upper	1234567890	B:1234567890
+upper	Ab1	B:AB1
+upper	'quoted' and "double"	B:'QUOTED' AND "DOUBLE"
+upper	back\\slash	B:BACK\\SLASH
+upper	\x00\x01\x02	B:\x00\x01\x02
+upper	\x7f\x80\xff	B:\x7f\x80\xff
+upper	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+upper	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+upper	MiXeD CaSe ByTeS	B:MIXED CASE BYTES
+lower		B:
+lower	a	B:a
+lower	abc	B:abc
+lower	hello world	B:hello world
+lower	Hello, World!	B:hello, world!
+lower	  spaced  out  	B:  spaced  out  
+lower	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+lower	abcabcabc	B:abcabcabc
+lower	aaa	B:aaa
+lower	xyz	B:xyz
+lower	1234567890	B:1234567890
+lower	Ab1	B:ab1
+lower	'quoted' and "double"	B:'quoted' and "double"
+lower	back\\slash	B:back\\slash
+lower	\x00\x01\x02	B:\x00\x01\x02
+lower	\x7f\x80\xff	B:\x7f\x80\xff
+lower	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+lower	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+lower	MiXeD CaSe ByTeS	B:mixed case bytes
+capitalize		B:
+capitalize	a	B:A
+capitalize	abc	B:Abc
+capitalize	hello world	B:Hello world
+capitalize	Hello, World!	B:Hello, world!
+capitalize	  spaced  out  	B:  spaced  out  
+capitalize	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+capitalize	abcabcabc	B:Abcabcabc
+capitalize	aaa	B:Aaa
+capitalize	xyz	B:Xyz
+capitalize	1234567890	B:1234567890
+capitalize	Ab1	B:Ab1
+capitalize	'quoted' and "double"	B:'quoted' and "double"
+capitalize	back\\slash	B:Back\\slash
+capitalize	\x00\x01\x02	B:\x00\x01\x02
+capitalize	\x7f\x80\xff	B:\x7f\x80\xff
+capitalize	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+capitalize	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+capitalize	MiXeD CaSe ByTeS	B:Mixed case bytes
+title		B:
+title	a	B:A
+title	abc	B:Abc
+title	hello world	B:Hello World
+title	Hello, World!	B:Hello, World!
+title	  spaced  out  	B:  Spaced  Out  
+title	\t\ttabs\tand\nnewlines\n	B:\t\tTabs\tAnd\nNewlines\n
+title	abcabcabc	B:Abcabcabc
+title	aaa	B:Aaa
+title	xyz	B:Xyz
+title	1234567890	B:1234567890
+title	Ab1	B:Ab1
+title	'quoted' and "double"	B:'Quoted' And "Double"
+title	back\\slash	B:Back\\Slash
+title	\x00\x01\x02	B:\x00\x01\x02
+title	\x7f\x80\xff	B:\x7f\x80\xff
+title	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+title	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+title	MiXeD CaSe ByTeS	B:Mixed Case Bytes
+swapcase		B:
+swapcase	a	B:A
+swapcase	abc	B:ABC
+swapcase	hello world	B:HELLO WORLD
+swapcase	Hello, World!	B:hELLO, wORLD!
+swapcase	  spaced  out  	B:  SPACED  OUT  
+swapcase	\t\ttabs\tand\nnewlines\n	B:\t\tTABS\tAND\nNEWLINES\n
+swapcase	abcabcabc	B:ABCABCABC
+swapcase	aaa	B:AAA
+swapcase	xyz	B:XYZ
+swapcase	1234567890	B:1234567890
+swapcase	Ab1	B:aB1
+swapcase	'quoted' and "double"	B:'QUOTED' AND "DOUBLE"
+swapcase	back\\slash	B:BACK\\SLASH
+swapcase	\x00\x01\x02	B:\x00\x01\x02
+swapcase	\x7f\x80\xff	B:\x7f\x80\xff
+swapcase	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+swapcase	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+swapcase	MiXeD CaSe ByTeS	B:mIxEd cAsE bYtEs
+strip			B:
+strip		a	B:a
+strip		abc	B:abc
+strip		hello world	B:hello world
+strip		Hello, World!	B:Hello, World!
+strip		  spaced  out  	B:spaced  out
+strip		\t\ttabs\tand\nnewlines\n	B:tabs\tand\nnewlines
+strip		abcabcabc	B:abcabcabc
+strip		aaa	B:aaa
+strip		xyz	B:xyz
+strip		1234567890	B:1234567890
+strip		Ab1	B:Ab1
+strip		'quoted' and "double"	B:'quoted' and "double"
+strip		back\\slash	B:back\\slash
+strip		\x00\x01\x02	B:\x00\x01\x02
+strip		\x7f\x80\xff	B:\x7f\x80\xff
+strip		\xe9\xe9\xe9	B:\xe9\xe9\xe9
+strip		\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+strip		MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+strip	ab		B:
+strip	ab	a	B:
+strip	ab	abc	B:c
+strip	ab	hello world	B:hello world
+strip	ab	Hello, World!	B:Hello, World!
+strip	ab	  spaced  out  	B:  spaced  out  
+strip	ab	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+strip	ab	abcabcabc	B:cabcabc
+strip	ab	aaa	B:
+strip	ab	xyz	B:xyz
+strip	ab	1234567890	B:1234567890
+strip	ab	Ab1	B:Ab1
+strip	ab	'quoted' and "double"	B:'quoted' and "double"
+strip	ab	back\\slash	B:ck\\slash
+strip	ab	\x00\x01\x02	B:\x00\x01\x02
+strip	ab	\x7f\x80\xff	B:\x7f\x80\xff
+strip	ab	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+strip	ab	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+strip	ab	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+lstrip			B:
+lstrip		a	B:a
+lstrip		abc	B:abc
+lstrip		hello world	B:hello world
+lstrip		Hello, World!	B:Hello, World!
+lstrip		  spaced  out  	B:spaced  out  
+lstrip		\t\ttabs\tand\nnewlines\n	B:tabs\tand\nnewlines\n
+lstrip		abcabcabc	B:abcabcabc
+lstrip		aaa	B:aaa
+lstrip		xyz	B:xyz
+lstrip		1234567890	B:1234567890
+lstrip		Ab1	B:Ab1
+lstrip		'quoted' and "double"	B:'quoted' and "double"
+lstrip		back\\slash	B:back\\slash
+lstrip		\x00\x01\x02	B:\x00\x01\x02
+lstrip		\x7f\x80\xff	B:\x7f\x80\xff
+lstrip		\xe9\xe9\xe9	B:\xe9\xe9\xe9
+lstrip		\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+lstrip		MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+lstrip	ab		B:
+lstrip	ab	a	B:
+lstrip	ab	abc	B:c
+lstrip	ab	hello world	B:hello world
+lstrip	ab	Hello, World!	B:Hello, World!
+lstrip	ab	  spaced  out  	B:  spaced  out  
+lstrip	ab	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+lstrip	ab	abcabcabc	B:cabcabc
+lstrip	ab	aaa	B:
+lstrip	ab	xyz	B:xyz
+lstrip	ab	1234567890	B:1234567890
+lstrip	ab	Ab1	B:Ab1
+lstrip	ab	'quoted' and "double"	B:'quoted' and "double"
+lstrip	ab	back\\slash	B:ck\\slash
+lstrip	ab	\x00\x01\x02	B:\x00\x01\x02
+lstrip	ab	\x7f\x80\xff	B:\x7f\x80\xff
+lstrip	ab	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+lstrip	ab	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+lstrip	ab	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+rstrip			B:
+rstrip		a	B:a
+rstrip		abc	B:abc
+rstrip		hello world	B:hello world
+rstrip		Hello, World!	B:Hello, World!
+rstrip		  spaced  out  	B:  spaced  out
+rstrip		\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines
+rstrip		abcabcabc	B:abcabcabc
+rstrip		aaa	B:aaa
+rstrip		xyz	B:xyz
+rstrip		1234567890	B:1234567890
+rstrip		Ab1	B:Ab1
+rstrip		'quoted' and "double"	B:'quoted' and "double"
+rstrip		back\\slash	B:back\\slash
+rstrip		\x00\x01\x02	B:\x00\x01\x02
+rstrip		\x7f\x80\xff	B:\x7f\x80\xff
+rstrip		\xe9\xe9\xe9	B:\xe9\xe9\xe9
+rstrip		\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+rstrip		MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+rstrip	ab		B:
+rstrip	ab	a	B:
+rstrip	ab	abc	B:abc
+rstrip	ab	hello world	B:hello world
+rstrip	ab	Hello, World!	B:Hello, World!
+rstrip	ab	  spaced  out  	B:  spaced  out  
+rstrip	ab	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+rstrip	ab	abcabcabc	B:abcabcabc
+rstrip	ab	aaa	B:
+rstrip	ab	xyz	B:xyz
+rstrip	ab	1234567890	B:1234567890
+rstrip	ab	Ab1	B:Ab1
+rstrip	ab	'quoted' and "double"	B:'quoted' and "double"
+rstrip	ab	back\\slash	B:back\\slash
+rstrip	ab	\x00\x01\x02	B:\x00\x01\x02
+rstrip	ab	\x7f\x80\xff	B:\x7f\x80\xff
+rstrip	ab	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+rstrip	ab	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+rstrip	ab	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+center	i:7		B:       
+center	i:7	a	B:   a   
+center	i:7	abc	B:  abc  
+center	i:7	hello world	B:hello world
+center	i:7	Hello, World!	B:Hello, World!
+center	i:7	  spaced  out  	B:  spaced  out  
+center	i:7	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+center	i:7	abcabcabc	B:abcabcabc
+center	i:7	aaa	B:  aaa  
+center	i:7	xyz	B:  xyz  
+center	i:7	1234567890	B:1234567890
+center	i:7	Ab1	B:  Ab1  
+center	i:7	'quoted' and "double"	B:'quoted' and "double"
+center	i:7	back\\slash	B:back\\slash
+center	i:7	\x00\x01\x02	B:  \x00\x01\x02  
+center	i:7	\x7f\x80\xff	B:  \x7f\x80\xff  
+center	i:7	\xe9\xe9\xe9	B:  \xe9\xe9\xe9  
+center	i:7	\xde\xad\xbe\xef	B:  \xde\xad\xbe\xef 
+center	i:7	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+center	i:7	*		B:*******
+center	i:7	*	a	B:***a***
+center	i:7	*	abc	B:**abc**
+center	i:7	*	hello world	B:hello world
+center	i:7	*	Hello, World!	B:Hello, World!
+center	i:7	*	  spaced  out  	B:  spaced  out  
+center	i:7	*	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+center	i:7	*	abcabcabc	B:abcabcabc
+center	i:7	*	aaa	B:**aaa**
+center	i:7	*	xyz	B:**xyz**
+center	i:7	*	1234567890	B:1234567890
+center	i:7	*	Ab1	B:**Ab1**
+center	i:7	*	'quoted' and "double"	B:'quoted' and "double"
+center	i:7	*	back\\slash	B:back\\slash
+center	i:7	*	\x00\x01\x02	B:**\x00\x01\x02**
+center	i:7	*	\x7f\x80\xff	B:**\x7f\x80\xff**
+center	i:7	*	\xe9\xe9\xe9	B:**\xe9\xe9\xe9**
+center	i:7	*	\xde\xad\xbe\xef	B:**\xde\xad\xbe\xef*
+center	i:7	*	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+center	i:-1		B:
+center	i:-1	a	B:a
+center	i:-1	abc	B:abc
+center	i:-1	hello world	B:hello world
+center	i:-1	Hello, World!	B:Hello, World!
+center	i:-1	  spaced  out  	B:  spaced  out  
+center	i:-1	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+center	i:-1	abcabcabc	B:abcabcabc
+center	i:-1	aaa	B:aaa
+center	i:-1	xyz	B:xyz
+center	i:-1	1234567890	B:1234567890
+center	i:-1	Ab1	B:Ab1
+center	i:-1	'quoted' and "double"	B:'quoted' and "double"
+center	i:-1	back\\slash	B:back\\slash
+center	i:-1	\x00\x01\x02	B:\x00\x01\x02
+center	i:-1	\x7f\x80\xff	B:\x7f\x80\xff
+center	i:-1	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+center	i:-1	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+center	i:-1	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+center	i:7	**		e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	a	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	abc	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	hello world	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	Hello, World!	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	  spaced  out  	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	\t\ttabs\tand\nnewlines\n	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	abcabcabc	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	aaa	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	xyz	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	1234567890	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	Ab1	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	'quoted' and "double"	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	back\\slash	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	\x00\x01\x02	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	\x7f\x80\xff	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	\xe9\xe9\xe9	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	\xde\xad\xbe\xef	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+center	i:7	**	MiXeD CaSe ByTeS	e:TypeError:center() argument 2 must be a byte string of length 1, not bytes
+ljust	i:7		B:       
+ljust	i:7	a	B:a      
+ljust	i:7	abc	B:abc    
+ljust	i:7	hello world	B:hello world
+ljust	i:7	Hello, World!	B:Hello, World!
+ljust	i:7	  spaced  out  	B:  spaced  out  
+ljust	i:7	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+ljust	i:7	abcabcabc	B:abcabcabc
+ljust	i:7	aaa	B:aaa    
+ljust	i:7	xyz	B:xyz    
+ljust	i:7	1234567890	B:1234567890
+ljust	i:7	Ab1	B:Ab1    
+ljust	i:7	'quoted' and "double"	B:'quoted' and "double"
+ljust	i:7	back\\slash	B:back\\slash
+ljust	i:7	\x00\x01\x02	B:\x00\x01\x02    
+ljust	i:7	\x7f\x80\xff	B:\x7f\x80\xff    
+ljust	i:7	\xe9\xe9\xe9	B:\xe9\xe9\xe9    
+ljust	i:7	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef   
+ljust	i:7	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+ljust	i:7	*		B:*******
+ljust	i:7	*	a	B:a******
+ljust	i:7	*	abc	B:abc****
+ljust	i:7	*	hello world	B:hello world
+ljust	i:7	*	Hello, World!	B:Hello, World!
+ljust	i:7	*	  spaced  out  	B:  spaced  out  
+ljust	i:7	*	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+ljust	i:7	*	abcabcabc	B:abcabcabc
+ljust	i:7	*	aaa	B:aaa****
+ljust	i:7	*	xyz	B:xyz****
+ljust	i:7	*	1234567890	B:1234567890
+ljust	i:7	*	Ab1	B:Ab1****
+ljust	i:7	*	'quoted' and "double"	B:'quoted' and "double"
+ljust	i:7	*	back\\slash	B:back\\slash
+ljust	i:7	*	\x00\x01\x02	B:\x00\x01\x02****
+ljust	i:7	*	\x7f\x80\xff	B:\x7f\x80\xff****
+ljust	i:7	*	\xe9\xe9\xe9	B:\xe9\xe9\xe9****
+ljust	i:7	*	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef***
+ljust	i:7	*	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+ljust	i:2		B:  
+ljust	i:2	a	B:a 
+ljust	i:2	abc	B:abc
+ljust	i:2	hello world	B:hello world
+ljust	i:2	Hello, World!	B:Hello, World!
+ljust	i:2	  spaced  out  	B:  spaced  out  
+ljust	i:2	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+ljust	i:2	abcabcabc	B:abcabcabc
+ljust	i:2	aaa	B:aaa
+ljust	i:2	xyz	B:xyz
+ljust	i:2	1234567890	B:1234567890
+ljust	i:2	Ab1	B:Ab1
+ljust	i:2	'quoted' and "double"	B:'quoted' and "double"
+ljust	i:2	back\\slash	B:back\\slash
+ljust	i:2	\x00\x01\x02	B:\x00\x01\x02
+ljust	i:2	\x7f\x80\xff	B:\x7f\x80\xff
+ljust	i:2	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+ljust	i:2	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+ljust	i:2	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+rjust	i:7		B:       
+rjust	i:7	a	B:      a
+rjust	i:7	abc	B:    abc
+rjust	i:7	hello world	B:hello world
+rjust	i:7	Hello, World!	B:Hello, World!
+rjust	i:7	  spaced  out  	B:  spaced  out  
+rjust	i:7	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+rjust	i:7	abcabcabc	B:abcabcabc
+rjust	i:7	aaa	B:    aaa
+rjust	i:7	xyz	B:    xyz
+rjust	i:7	1234567890	B:1234567890
+rjust	i:7	Ab1	B:    Ab1
+rjust	i:7	'quoted' and "double"	B:'quoted' and "double"
+rjust	i:7	back\\slash	B:back\\slash
+rjust	i:7	\x00\x01\x02	B:    \x00\x01\x02
+rjust	i:7	\x7f\x80\xff	B:    \x7f\x80\xff
+rjust	i:7	\xe9\xe9\xe9	B:    \xe9\xe9\xe9
+rjust	i:7	\xde\xad\xbe\xef	B:   \xde\xad\xbe\xef
+rjust	i:7	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+rjust	i:7	0		B:0000000
+rjust	i:7	0	a	B:000000a
+rjust	i:7	0	abc	B:0000abc
+rjust	i:7	0	hello world	B:hello world
+rjust	i:7	0	Hello, World!	B:Hello, World!
+rjust	i:7	0	  spaced  out  	B:  spaced  out  
+rjust	i:7	0	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+rjust	i:7	0	abcabcabc	B:abcabcabc
+rjust	i:7	0	aaa	B:0000aaa
+rjust	i:7	0	xyz	B:0000xyz
+rjust	i:7	0	1234567890	B:1234567890
+rjust	i:7	0	Ab1	B:0000Ab1
+rjust	i:7	0	'quoted' and "double"	B:'quoted' and "double"
+rjust	i:7	0	back\\slash	B:back\\slash
+rjust	i:7	0	\x00\x01\x02	B:0000\x00\x01\x02
+rjust	i:7	0	\x7f\x80\xff	B:0000\x7f\x80\xff
+rjust	i:7	0	\xe9\xe9\xe9	B:0000\xe9\xe9\xe9
+rjust	i:7	0	\xde\xad\xbe\xef	B:000\xde\xad\xbe\xef
+rjust	i:7	0	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+zfill	i:7		B:0000000
+zfill	i:7	a	B:000000a
+zfill	i:7	abc	B:0000abc
+zfill	i:7	hello world	B:hello world
+zfill	i:7	Hello, World!	B:Hello, World!
+zfill	i:7	  spaced  out  	B:  spaced  out  
+zfill	i:7	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+zfill	i:7	abcabcabc	B:abcabcabc
+zfill	i:7	aaa	B:0000aaa
+zfill	i:7	xyz	B:0000xyz
+zfill	i:7	1234567890	B:1234567890
+zfill	i:7	Ab1	B:0000Ab1
+zfill	i:7	'quoted' and "double"	B:'quoted' and "double"
+zfill	i:7	back\\slash	B:back\\slash
+zfill	i:7	\x00\x01\x02	B:0000\x00\x01\x02
+zfill	i:7	\x7f\x80\xff	B:0000\x7f\x80\xff
+zfill	i:7	\xe9\xe9\xe9	B:0000\xe9\xe9\xe9
+zfill	i:7	\xde\xad\xbe\xef	B:000\xde\xad\xbe\xef
+zfill	i:7	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+zfill	i:2		B:00
+zfill	i:2	a	B:0a
+zfill	i:2	abc	B:abc
+zfill	i:2	hello world	B:hello world
+zfill	i:2	Hello, World!	B:Hello, World!
+zfill	i:2	  spaced  out  	B:  spaced  out  
+zfill	i:2	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+zfill	i:2	abcabcabc	B:abcabcabc
+zfill	i:2	aaa	B:aaa
+zfill	i:2	xyz	B:xyz
+zfill	i:2	1234567890	B:1234567890
+zfill	i:2	Ab1	B:Ab1
+zfill	i:2	'quoted' and "double"	B:'quoted' and "double"
+zfill	i:2	back\\slash	B:back\\slash
+zfill	i:2	\x00\x01\x02	B:\x00\x01\x02
+zfill	i:2	\x7f\x80\xff	B:\x7f\x80\xff
+zfill	i:2	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+zfill	i:2	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+zfill	i:2	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+zfill	i:-7		B:
+zfill	i:-7	a	B:a
+zfill	i:-7	abc	B:abc
+zfill	i:-7	hello world	B:hello world
+zfill	i:-7	Hello, World!	B:Hello, World!
+zfill	i:-7	  spaced  out  	B:  spaced  out  
+zfill	i:-7	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+zfill	i:-7	abcabcabc	B:abcabcabc
+zfill	i:-7	aaa	B:aaa
+zfill	i:-7	xyz	B:xyz
+zfill	i:-7	1234567890	B:1234567890
+zfill	i:-7	Ab1	B:Ab1
+zfill	i:-7	'quoted' and "double"	B:'quoted' and "double"
+zfill	i:-7	back\\slash	B:back\\slash
+zfill	i:-7	\x00\x01\x02	B:\x00\x01\x02
+zfill	i:-7	\x7f\x80\xff	B:\x7f\x80\xff
+zfill	i:-7	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+zfill	i:-7	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+zfill	i:-7	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+expandtabs		B:
+expandtabs	a	B:a
+expandtabs	abc	B:abc
+expandtabs	hello world	B:hello world
+expandtabs	Hello, World!	B:Hello, World!
+expandtabs	  spaced  out  	B:  spaced  out  
+expandtabs	\t\ttabs\tand\nnewlines\n	B:                tabs    and\nnewlines\n
+expandtabs	abcabcabc	B:abcabcabc
+expandtabs	aaa	B:aaa
+expandtabs	xyz	B:xyz
+expandtabs	1234567890	B:1234567890
+expandtabs	Ab1	B:Ab1
+expandtabs	'quoted' and "double"	B:'quoted' and "double"
+expandtabs	back\\slash	B:back\\slash
+expandtabs	\x00\x01\x02	B:\x00\x01\x02
+expandtabs	\x7f\x80\xff	B:\x7f\x80\xff
+expandtabs	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+expandtabs	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+expandtabs	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+expandtabs	i:0		B:
+expandtabs	i:0	a	B:a
+expandtabs	i:0	abc	B:abc
+expandtabs	i:0	hello world	B:hello world
+expandtabs	i:0	Hello, World!	B:Hello, World!
+expandtabs	i:0	  spaced  out  	B:  spaced  out  
+expandtabs	i:0	\t\ttabs\tand\nnewlines\n	B:tabsand\nnewlines\n
+expandtabs	i:0	abcabcabc	B:abcabcabc
+expandtabs	i:0	aaa	B:aaa
+expandtabs	i:0	xyz	B:xyz
+expandtabs	i:0	1234567890	B:1234567890
+expandtabs	i:0	Ab1	B:Ab1
+expandtabs	i:0	'quoted' and "double"	B:'quoted' and "double"
+expandtabs	i:0	back\\slash	B:back\\slash
+expandtabs	i:0	\x00\x01\x02	B:\x00\x01\x02
+expandtabs	i:0	\x7f\x80\xff	B:\x7f\x80\xff
+expandtabs	i:0	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+expandtabs	i:0	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+expandtabs	i:0	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+expandtabs	i:4		B:
+expandtabs	i:4	a	B:a
+expandtabs	i:4	abc	B:abc
+expandtabs	i:4	hello world	B:hello world
+expandtabs	i:4	Hello, World!	B:Hello, World!
+expandtabs	i:4	  spaced  out  	B:  spaced  out  
+expandtabs	i:4	\t\ttabs\tand\nnewlines\n	B:        tabs    and\nnewlines\n
+expandtabs	i:4	abcabcabc	B:abcabcabc
+expandtabs	i:4	aaa	B:aaa
+expandtabs	i:4	xyz	B:xyz
+expandtabs	i:4	1234567890	B:1234567890
+expandtabs	i:4	Ab1	B:Ab1
+expandtabs	i:4	'quoted' and "double"	B:'quoted' and "double"
+expandtabs	i:4	back\\slash	B:back\\slash
+expandtabs	i:4	\x00\x01\x02	B:\x00\x01\x02
+expandtabs	i:4	\x7f\x80\xff	B:\x7f\x80\xff
+expandtabs	i:4	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+expandtabs	i:4	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+expandtabs	i:4	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+expandtabs	i:-1		B:
+expandtabs	i:-1	a	B:a
+expandtabs	i:-1	abc	B:abc
+expandtabs	i:-1	hello world	B:hello world
+expandtabs	i:-1	Hello, World!	B:Hello, World!
+expandtabs	i:-1	  spaced  out  	B:  spaced  out  
+expandtabs	i:-1	\t\ttabs\tand\nnewlines\n	B:tabsand\nnewlines\n
+expandtabs	i:-1	abcabcabc	B:abcabcabc
+expandtabs	i:-1	aaa	B:aaa
+expandtabs	i:-1	xyz	B:xyz
+expandtabs	i:-1	1234567890	B:1234567890
+expandtabs	i:-1	Ab1	B:Ab1
+expandtabs	i:-1	'quoted' and "double"	B:'quoted' and "double"
+expandtabs	i:-1	back\\slash	B:back\\slash
+expandtabs	i:-1	\x00\x01\x02	B:\x00\x01\x02
+expandtabs	i:-1	\x7f\x80\xff	B:\x7f\x80\xff
+expandtabs	i:-1	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+expandtabs	i:-1	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+expandtabs	i:-1	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+count	a	i:0	i:-1		i:0
+count	a	i:0	i:-1	a	i:0
+count	a	i:0	i:-1	abc	i:1
+count	a	i:0	i:-1	hello world	i:0
+count	a	i:0	i:-1	Hello, World!	i:0
+count	a	i:0	i:-1	  spaced  out  	i:1
+count	a	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:2
+count	a	i:0	i:-1	abcabcabc	i:3
+count	a	i:0	i:-1	aaa	i:2
+count	a	i:0	i:-1	xyz	i:0
+count	a	i:0	i:-1	1234567890	i:0
+count	a	i:0	i:-1	Ab1	i:0
+count	a	i:0	i:-1	'quoted' and "double"	i:1
+count	a	i:0	i:-1	back\\slash	i:2
+count	a	i:0	i:-1	\x00\x01\x02	i:0
+count	a	i:0	i:-1	\x7f\x80\xff	i:0
+count	a	i:0	i:-1	\xe9\xe9\xe9	i:0
+count	a	i:0	i:-1	\xde\xad\xbe\xef	i:0
+count	a	i:0	i:-1	MiXeD CaSe ByTeS	i:1
+count	\xe9	i:0	i:-1		i:0
+count	\xe9	i:0	i:-1	a	i:0
+count	\xe9	i:0	i:-1	abc	i:0
+count	\xe9	i:0	i:-1	hello world	i:0
+count	\xe9	i:0	i:-1	Hello, World!	i:0
+count	\xe9	i:0	i:-1	  spaced  out  	i:0
+count	\xe9	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:0
+count	\xe9	i:0	i:-1	abcabcabc	i:0
+count	\xe9	i:0	i:-1	aaa	i:0
+count	\xe9	i:0	i:-1	xyz	i:0
+count	\xe9	i:0	i:-1	1234567890	i:0
+count	\xe9	i:0	i:-1	Ab1	i:0
+count	\xe9	i:0	i:-1	'quoted' and "double"	i:0
+count	\xe9	i:0	i:-1	back\\slash	i:0
+count	\xe9	i:0	i:-1	\x00\x01\x02	i:0
+count	\xe9	i:0	i:-1	\x7f\x80\xff	i:0
+count	\xe9	i:0	i:-1	\xe9\xe9\xe9	i:2
+count	\xe9	i:0	i:-1	\xde\xad\xbe\xef	i:0
+count	\xe9	i:0	i:-1	MiXeD CaSe ByTeS	i:0
+find	a	i:0	i:-1		i:-1
+find	a	i:0	i:-1	a	i:-1
+find	a	i:0	i:-1	abc	i:0
+find	a	i:0	i:-1	hello world	i:-1
+find	a	i:0	i:-1	Hello, World!	i:-1
+find	a	i:0	i:-1	  spaced  out  	i:4
+find	a	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:3
+find	a	i:0	i:-1	abcabcabc	i:0
+find	a	i:0	i:-1	aaa	i:0
+find	a	i:0	i:-1	xyz	i:-1
+find	a	i:0	i:-1	1234567890	i:-1
+find	a	i:0	i:-1	Ab1	i:-1
+find	a	i:0	i:-1	'quoted' and "double"	i:9
+find	a	i:0	i:-1	back\\slash	i:1
+find	a	i:0	i:-1	\x00\x01\x02	i:-1
+find	a	i:0	i:-1	\x7f\x80\xff	i:-1
+find	a	i:0	i:-1	\xe9\xe9\xe9	i:-1
+find	a	i:0	i:-1	\xde\xad\xbe\xef	i:-1
+find	a	i:0	i:-1	MiXeD CaSe ByTeS	i:7
+find	\xff	i:0	i:-1		i:-1
+find	\xff	i:0	i:-1	a	i:-1
+find	\xff	i:0	i:-1	abc	i:-1
+find	\xff	i:0	i:-1	hello world	i:-1
+find	\xff	i:0	i:-1	Hello, World!	i:-1
+find	\xff	i:0	i:-1	  spaced  out  	i:-1
+find	\xff	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:-1
+find	\xff	i:0	i:-1	abcabcabc	i:-1
+find	\xff	i:0	i:-1	aaa	i:-1
+find	\xff	i:0	i:-1	xyz	i:-1
+find	\xff	i:0	i:-1	1234567890	i:-1
+find	\xff	i:0	i:-1	Ab1	i:-1
+find	\xff	i:0	i:-1	'quoted' and "double"	i:-1
+find	\xff	i:0	i:-1	back\\slash	i:-1
+find	\xff	i:0	i:-1	\x00\x01\x02	i:-1
+find	\xff	i:0	i:-1	\x7f\x80\xff	i:-1
+find	\xff	i:0	i:-1	\xe9\xe9\xe9	i:-1
+find	\xff	i:0	i:-1	\xde\xad\xbe\xef	i:-1
+find	\xff	i:0	i:-1	MiXeD CaSe ByTeS	i:-1
+rfind	a	i:0	i:-1		i:-1
+rfind	a	i:0	i:-1	a	i:-1
+rfind	a	i:0	i:-1	abc	i:0
+rfind	a	i:0	i:-1	hello world	i:-1
+rfind	a	i:0	i:-1	Hello, World!	i:-1
+rfind	a	i:0	i:-1	  spaced  out  	i:4
+rfind	a	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:7
+rfind	a	i:0	i:-1	abcabcabc	i:6
+rfind	a	i:0	i:-1	aaa	i:1
+rfind	a	i:0	i:-1	xyz	i:-1
+rfind	a	i:0	i:-1	1234567890	i:-1
+rfind	a	i:0	i:-1	Ab1	i:-1
+rfind	a	i:0	i:-1	'quoted' and "double"	i:9
+rfind	a	i:0	i:-1	back\\slash	i:7
+rfind	a	i:0	i:-1	\x00\x01\x02	i:-1
+rfind	a	i:0	i:-1	\x7f\x80\xff	i:-1
+rfind	a	i:0	i:-1	\xe9\xe9\xe9	i:-1
+rfind	a	i:0	i:-1	\xde\xad\xbe\xef	i:-1
+rfind	a	i:0	i:-1	MiXeD CaSe ByTeS	i:7
+rfind	z	i:0	i:-1		i:-1
+rfind	z	i:0	i:-1	a	i:-1
+rfind	z	i:0	i:-1	abc	i:-1
+rfind	z	i:0	i:-1	hello world	i:-1
+rfind	z	i:0	i:-1	Hello, World!	i:-1
+rfind	z	i:0	i:-1	  spaced  out  	i:-1
+rfind	z	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:-1
+rfind	z	i:0	i:-1	abcabcabc	i:-1
+rfind	z	i:0	i:-1	aaa	i:-1
+rfind	z	i:0	i:-1	xyz	i:-1
+rfind	z	i:0	i:-1	1234567890	i:-1
+rfind	z	i:0	i:-1	Ab1	i:-1
+rfind	z	i:0	i:-1	'quoted' and "double"	i:-1
+rfind	z	i:0	i:-1	back\\slash	i:-1
+rfind	z	i:0	i:-1	\x00\x01\x02	i:-1
+rfind	z	i:0	i:-1	\x7f\x80\xff	i:-1
+rfind	z	i:0	i:-1	\xe9\xe9\xe9	i:-1
+rfind	z	i:0	i:-1	\xde\xad\xbe\xef	i:-1
+rfind	z	i:0	i:-1	MiXeD CaSe ByTeS	i:-1
+startswith	ab	i:0	i:-1		b:0
+startswith	ab	i:0	i:-1	a	b:0
+startswith	ab	i:0	i:-1	abc	b:1
+startswith	ab	i:0	i:-1	hello world	b:0
+startswith	ab	i:0	i:-1	Hello, World!	b:0
+startswith	ab	i:0	i:-1	  spaced  out  	b:0
+startswith	ab	i:0	i:-1	\t\ttabs\tand\nnewlines\n	b:0
+startswith	ab	i:0	i:-1	abcabcabc	b:1
+startswith	ab	i:0	i:-1	aaa	b:0
+startswith	ab	i:0	i:-1	xyz	b:0
+startswith	ab	i:0	i:-1	1234567890	b:0
+startswith	ab	i:0	i:-1	Ab1	b:0
+startswith	ab	i:0	i:-1	'quoted' and "double"	b:0
+startswith	ab	i:0	i:-1	back\\slash	b:0
+startswith	ab	i:0	i:-1	\x00\x01\x02	b:0
+startswith	ab	i:0	i:-1	\x7f\x80\xff	b:0
+startswith	ab	i:0	i:-1	\xe9\xe9\xe9	b:0
+startswith	ab	i:0	i:-1	\xde\xad\xbe\xef	b:0
+startswith	ab	i:0	i:-1	MiXeD CaSe ByTeS	b:0
+startswith		i:0	i:-1		b:1
+startswith		i:0	i:-1	a	b:1
+startswith		i:0	i:-1	abc	b:1
+startswith		i:0	i:-1	hello world	b:1
+startswith		i:0	i:-1	Hello, World!	b:1
+startswith		i:0	i:-1	  spaced  out  	b:1
+startswith		i:0	i:-1	\t\ttabs\tand\nnewlines\n	b:1
+startswith		i:0	i:-1	abcabcabc	b:1
+startswith		i:0	i:-1	aaa	b:1
+startswith		i:0	i:-1	xyz	b:1
+startswith		i:0	i:-1	1234567890	b:1
+startswith		i:0	i:-1	Ab1	b:1
+startswith		i:0	i:-1	'quoted' and "double"	b:1
+startswith		i:0	i:-1	back\\slash	b:1
+startswith		i:0	i:-1	\x00\x01\x02	b:1
+startswith		i:0	i:-1	\x7f\x80\xff	b:1
+startswith		i:0	i:-1	\xe9\xe9\xe9	b:1
+startswith		i:0	i:-1	\xde\xad\xbe\xef	b:1
+startswith		i:0	i:-1	MiXeD CaSe ByTeS	b:1
+endswith	c	i:0	i:-1		b:0
+endswith	c	i:0	i:-1	a	b:0
+endswith	c	i:0	i:-1	abc	b:0
+endswith	c	i:0	i:-1	hello world	b:0
+endswith	c	i:0	i:-1	Hello, World!	b:0
+endswith	c	i:0	i:-1	  spaced  out  	b:0
+endswith	c	i:0	i:-1	\t\ttabs\tand\nnewlines\n	b:0
+endswith	c	i:0	i:-1	abcabcabc	b:0
+endswith	c	i:0	i:-1	aaa	b:0
+endswith	c	i:0	i:-1	xyz	b:0
+endswith	c	i:0	i:-1	1234567890	b:0
+endswith	c	i:0	i:-1	Ab1	b:0
+endswith	c	i:0	i:-1	'quoted' and "double"	b:0
+endswith	c	i:0	i:-1	back\\slash	b:0
+endswith	c	i:0	i:-1	\x00\x01\x02	b:0
+endswith	c	i:0	i:-1	\x7f\x80\xff	b:0
+endswith	c	i:0	i:-1	\xe9\xe9\xe9	b:0
+endswith	c	i:0	i:-1	\xde\xad\xbe\xef	b:0
+endswith	c	i:0	i:-1	MiXeD CaSe ByTeS	b:0
+endswith		i:0	i:-1		b:1
+endswith		i:0	i:-1	a	b:1
+endswith		i:0	i:-1	abc	b:1
+endswith		i:0	i:-1	hello world	b:1
+endswith		i:0	i:-1	Hello, World!	b:1
+endswith		i:0	i:-1	  spaced  out  	b:1
+endswith		i:0	i:-1	\t\ttabs\tand\nnewlines\n	b:1
+endswith		i:0	i:-1	abcabcabc	b:1
+endswith		i:0	i:-1	aaa	b:1
+endswith		i:0	i:-1	xyz	b:1
+endswith		i:0	i:-1	1234567890	b:1
+endswith		i:0	i:-1	Ab1	b:1
+endswith		i:0	i:-1	'quoted' and "double"	b:1
+endswith		i:0	i:-1	back\\slash	b:1
+endswith		i:0	i:-1	\x00\x01\x02	b:1
+endswith		i:0	i:-1	\x7f\x80\xff	b:1
+endswith		i:0	i:-1	\xe9\xe9\xe9	b:1
+endswith		i:0	i:-1	\xde\xad\xbe\xef	b:1
+endswith		i:0	i:-1	MiXeD CaSe ByTeS	b:1
+replace	a	X	i:-1		B:
+replace	a	X	i:-1	a	B:X
+replace	a	X	i:-1	abc	B:Xbc
+replace	a	X	i:-1	hello world	B:hello world
+replace	a	X	i:-1	Hello, World!	B:Hello, World!
+replace	a	X	i:-1	  spaced  out  	B:  spXced  out  
+replace	a	X	i:-1	\t\ttabs\tand\nnewlines\n	B:\t\ttXbs\tXnd\nnewlines\n
+replace	a	X	i:-1	abcabcabc	B:XbcXbcXbc
+replace	a	X	i:-1	aaa	B:XXX
+replace	a	X	i:-1	xyz	B:xyz
+replace	a	X	i:-1	1234567890	B:1234567890
+replace	a	X	i:-1	Ab1	B:Ab1
+replace	a	X	i:-1	'quoted' and "double"	B:'quoted' Xnd "double"
+replace	a	X	i:-1	back\\slash	B:bXck\\slXsh
+replace	a	X	i:-1	\x00\x01\x02	B:\x00\x01\x02
+replace	a	X	i:-1	\x7f\x80\xff	B:\x7f\x80\xff
+replace	a	X	i:-1	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+replace	a	X	i:-1	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+replace	a	X	i:-1	MiXeD CaSe ByTeS	B:MiXeD CXSe ByTeS
+replace	a	X	i:2		B:
+replace	a	X	i:2	a	B:X
+replace	a	X	i:2	abc	B:Xbc
+replace	a	X	i:2	hello world	B:hello world
+replace	a	X	i:2	Hello, World!	B:Hello, World!
+replace	a	X	i:2	  spaced  out  	B:  spXced  out  
+replace	a	X	i:2	\t\ttabs\tand\nnewlines\n	B:\t\ttXbs\tXnd\nnewlines\n
+replace	a	X	i:2	abcabcabc	B:XbcXbcabc
+replace	a	X	i:2	aaa	B:XXa
+replace	a	X	i:2	xyz	B:xyz
+replace	a	X	i:2	1234567890	B:1234567890
+replace	a	X	i:2	Ab1	B:Ab1
+replace	a	X	i:2	'quoted' and "double"	B:'quoted' Xnd "double"
+replace	a	X	i:2	back\\slash	B:bXck\\slXsh
+replace	a	X	i:2	\x00\x01\x02	B:\x00\x01\x02
+replace	a	X	i:2	\x7f\x80\xff	B:\x7f\x80\xff
+replace	a	X	i:2	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+replace	a	X	i:2	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+replace	a	X	i:2	MiXeD CaSe ByTeS	B:MiXeD CXSe ByTeS
+replace		-	i:-1		B:-
+replace		-	i:-1	a	B:-a-
+replace		-	i:-1	abc	B:-a-b-c-
+replace		-	i:-1	hello world	B:-h-e-l-l-o- -w-o-r-l-d-
+replace		-	i:-1	Hello, World!	B:-H-e-l-l-o-,- -W-o-r-l-d-!-
+replace		-	i:-1	  spaced  out  	B:- - -s-p-a-c-e-d- - -o-u-t- - -
+replace		-	i:-1	\t\ttabs\tand\nnewlines\n	B:-\t-\t-t-a-b-s-\t-a-n-d-\n-n-e-w-l-i-n-e-s-\n-
+replace		-	i:-1	abcabcabc	B:-a-b-c-a-b-c-a-b-c-
+replace		-	i:-1	aaa	B:-a-a-a-
+replace		-	i:-1	xyz	B:-x-y-z-
+replace		-	i:-1	1234567890	B:-1-2-3-4-5-6-7-8-9-0-
+replace		-	i:-1	Ab1	B:-A-b-1-
+replace		-	i:-1	'quoted' and "double"	B:-'-q-u-o-t-e-d-'- -a-n-d- -"-d-o-u-b-l-e-"-
+replace		-	i:-1	back\\slash	B:-b-a-c-k-\\-s-l-a-s-h-
+replace		-	i:-1	\x00\x01\x02	B:-\x00-\x01-\x02-
+replace		-	i:-1	\x7f\x80\xff	B:-\x7f-\x80-\xff-
+replace		-	i:-1	\xe9\xe9\xe9	B:-\xe9-\xe9-\xe9-
+replace		-	i:-1	\xde\xad\xbe\xef	B:-\xde-\xad-\xbe-\xef-
+replace		-	i:-1	MiXeD CaSe ByTeS	B:-M-i-X-e-D- -C-a-S-e- -B-y-T-e-S-
+replace	abc		i:-1		B:
+replace	abc		i:-1	a	B:a
+replace	abc		i:-1	abc	B:
+replace	abc		i:-1	hello world	B:hello world
+replace	abc		i:-1	Hello, World!	B:Hello, World!
+replace	abc		i:-1	  spaced  out  	B:  spaced  out  
+replace	abc		i:-1	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+replace	abc		i:-1	abcabcabc	B:
+replace	abc		i:-1	aaa	B:aaa
+replace	abc		i:-1	xyz	B:xyz
+replace	abc		i:-1	1234567890	B:1234567890
+replace	abc		i:-1	Ab1	B:Ab1
+replace	abc		i:-1	'quoted' and "double"	B:'quoted' and "double"
+replace	abc		i:-1	back\\slash	B:back\\slash
+replace	abc		i:-1	\x00\x01\x02	B:\x00\x01\x02
+replace	abc		i:-1	\x7f\x80\xff	B:\x7f\x80\xff
+replace	abc		i:-1	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+replace	abc		i:-1	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+replace	abc		i:-1	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+removeprefix	ab		B:
+removeprefix	ab	a	B:a
+removeprefix	ab	abc	B:c
+removeprefix	ab	hello world	B:hello world
+removeprefix	ab	Hello, World!	B:Hello, World!
+removeprefix	ab	  spaced  out  	B:  spaced  out  
+removeprefix	ab	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+removeprefix	ab	abcabcabc	B:cabcabc
+removeprefix	ab	aaa	B:aaa
+removeprefix	ab	xyz	B:xyz
+removeprefix	ab	1234567890	B:1234567890
+removeprefix	ab	Ab1	B:Ab1
+removeprefix	ab	'quoted' and "double"	B:'quoted' and "double"
+removeprefix	ab	back\\slash	B:back\\slash
+removeprefix	ab	\x00\x01\x02	B:\x00\x01\x02
+removeprefix	ab	\x7f\x80\xff	B:\x7f\x80\xff
+removeprefix	ab	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+removeprefix	ab	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+removeprefix	ab	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+removeprefix	zz		B:
+removeprefix	zz	a	B:a
+removeprefix	zz	abc	B:abc
+removeprefix	zz	hello world	B:hello world
+removeprefix	zz	Hello, World!	B:Hello, World!
+removeprefix	zz	  spaced  out  	B:  spaced  out  
+removeprefix	zz	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+removeprefix	zz	abcabcabc	B:abcabcabc
+removeprefix	zz	aaa	B:aaa
+removeprefix	zz	xyz	B:xyz
+removeprefix	zz	1234567890	B:1234567890
+removeprefix	zz	Ab1	B:Ab1
+removeprefix	zz	'quoted' and "double"	B:'quoted' and "double"
+removeprefix	zz	back\\slash	B:back\\slash
+removeprefix	zz	\x00\x01\x02	B:\x00\x01\x02
+removeprefix	zz	\x7f\x80\xff	B:\x7f\x80\xff
+removeprefix	zz	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+removeprefix	zz	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+removeprefix	zz	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+removesuffix	bc		B:
+removesuffix	bc	a	B:a
+removesuffix	bc	abc	B:a
+removesuffix	bc	hello world	B:hello world
+removesuffix	bc	Hello, World!	B:Hello, World!
+removesuffix	bc	  spaced  out  	B:  spaced  out  
+removesuffix	bc	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+removesuffix	bc	abcabcabc	B:abcabca
+removesuffix	bc	aaa	B:aaa
+removesuffix	bc	xyz	B:xyz
+removesuffix	bc	1234567890	B:1234567890
+removesuffix	bc	Ab1	B:Ab1
+removesuffix	bc	'quoted' and "double"	B:'quoted' and "double"
+removesuffix	bc	back\\slash	B:back\\slash
+removesuffix	bc	\x00\x01\x02	B:\x00\x01\x02
+removesuffix	bc	\x7f\x80\xff	B:\x7f\x80\xff
+removesuffix	bc	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+removesuffix	bc	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+removesuffix	bc	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+removesuffix	zz		B:
+removesuffix	zz	a	B:a
+removesuffix	zz	abc	B:abc
+removesuffix	zz	hello world	B:hello world
+removesuffix	zz	Hello, World!	B:Hello, World!
+removesuffix	zz	  spaced  out  	B:  spaced  out  
+removesuffix	zz	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+removesuffix	zz	abcabcabc	B:abcabcabc
+removesuffix	zz	aaa	B:aaa
+removesuffix	zz	xyz	B:xyz
+removesuffix	zz	1234567890	B:1234567890
+removesuffix	zz	Ab1	B:Ab1
+removesuffix	zz	'quoted' and "double"	B:'quoted' and "double"
+removesuffix	zz	back\\slash	B:back\\slash
+removesuffix	zz	\x00\x01\x02	B:\x00\x01\x02
+removesuffix	zz	\x7f\x80\xff	B:\x7f\x80\xff
+removesuffix	zz	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+removesuffix	zz	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+removesuffix	zz	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+isalpha		b:0
+isalpha	a	b:1
+isalpha	abc	b:1
+isalpha	hello world	b:0
+isalpha	Hello, World!	b:0
+isalpha	  spaced  out  	b:0
+isalpha	\t\ttabs\tand\nnewlines\n	b:0
+isalpha	abcabcabc	b:1
+isalpha	aaa	b:1
+isalpha	xyz	b:1
+isalpha	1234567890	b:0
+isalpha	Ab1	b:0
+isalpha	'quoted' and "double"	b:0
+isalpha	back\\slash	b:0
+isalpha	\x00\x01\x02	b:0
+isalpha	\x7f\x80\xff	b:0
+isalpha	\xe9\xe9\xe9	b:0
+isalpha	\xde\xad\xbe\xef	b:0
+isalpha	MiXeD CaSe ByTeS	b:0
+isdigit		b:0
+isdigit	a	b:0
+isdigit	abc	b:0
+isdigit	hello world	b:0
+isdigit	Hello, World!	b:0
+isdigit	  spaced  out  	b:0
+isdigit	\t\ttabs\tand\nnewlines\n	b:0
+isdigit	abcabcabc	b:0
+isdigit	aaa	b:0
+isdigit	xyz	b:0
+isdigit	1234567890	b:1
+isdigit	Ab1	b:0
+isdigit	'quoted' and "double"	b:0
+isdigit	back\\slash	b:0
+isdigit	\x00\x01\x02	b:0
+isdigit	\x7f\x80\xff	b:0
+isdigit	\xe9\xe9\xe9	b:0
+isdigit	\xde\xad\xbe\xef	b:0
+isdigit	MiXeD CaSe ByTeS	b:0
+isalnum		b:0
+isalnum	a	b:1
+isalnum	abc	b:1
+isalnum	hello world	b:0
+isalnum	Hello, World!	b:0
+isalnum	  spaced  out  	b:0
+isalnum	\t\ttabs\tand\nnewlines\n	b:0
+isalnum	abcabcabc	b:1
+isalnum	aaa	b:1
+isalnum	xyz	b:1
+isalnum	1234567890	b:1
+isalnum	Ab1	b:1
+isalnum	'quoted' and "double"	b:0
+isalnum	back\\slash	b:0
+isalnum	\x00\x01\x02	b:0
+isalnum	\x7f\x80\xff	b:0
+isalnum	\xe9\xe9\xe9	b:0
+isalnum	\xde\xad\xbe\xef	b:0
+isalnum	MiXeD CaSe ByTeS	b:0
+isascii		b:1
+isascii	a	b:1
+isascii	abc	b:1
+isascii	hello world	b:1
+isascii	Hello, World!	b:1
+isascii	  spaced  out  	b:1
+isascii	\t\ttabs\tand\nnewlines\n	b:1
+isascii	abcabcabc	b:1
+isascii	aaa	b:1
+isascii	xyz	b:1
+isascii	1234567890	b:1
+isascii	Ab1	b:1
+isascii	'quoted' and "double"	b:1
+isascii	back\\slash	b:1
+isascii	\x00\x01\x02	b:1
+isascii	\x7f\x80\xff	b:0
+isascii	\xe9\xe9\xe9	b:0
+isascii	\xde\xad\xbe\xef	b:0
+isascii	MiXeD CaSe ByTeS	b:1
+isspace		b:0
+isspace	a	b:0
+isspace	abc	b:0
+isspace	hello world	b:0
+isspace	Hello, World!	b:0
+isspace	  spaced  out  	b:0
+isspace	\t\ttabs\tand\nnewlines\n	b:0
+isspace	abcabcabc	b:0
+isspace	aaa	b:0
+isspace	xyz	b:0
+isspace	1234567890	b:0
+isspace	Ab1	b:0
+isspace	'quoted' and "double"	b:0
+isspace	back\\slash	b:0
+isspace	\x00\x01\x02	b:0
+isspace	\x7f\x80\xff	b:0
+isspace	\xe9\xe9\xe9	b:0
+isspace	\xde\xad\xbe\xef	b:0
+isspace	MiXeD CaSe ByTeS	b:0
+islower		b:0
+islower	a	b:1
+islower	abc	b:1
+islower	hello world	b:1
+islower	Hello, World!	b:0
+islower	  spaced  out  	b:1
+islower	\t\ttabs\tand\nnewlines\n	b:1
+islower	abcabcabc	b:1
+islower	aaa	b:1
+islower	xyz	b:1
+islower	1234567890	b:0
+islower	Ab1	b:0
+islower	'quoted' and "double"	b:1
+islower	back\\slash	b:1
+islower	\x00\x01\x02	b:0
+islower	\x7f\x80\xff	b:0
+islower	\xe9\xe9\xe9	b:0
+islower	\xde\xad\xbe\xef	b:0
+islower	MiXeD CaSe ByTeS	b:0
+isupper		b:0
+isupper	a	b:0
+isupper	abc	b:0
+isupper	hello world	b:0
+isupper	Hello, World!	b:0
+isupper	  spaced  out  	b:0
+isupper	\t\ttabs\tand\nnewlines\n	b:0
+isupper	abcabcabc	b:0
+isupper	aaa	b:0
+isupper	xyz	b:0
+isupper	1234567890	b:0
+isupper	Ab1	b:0
+isupper	'quoted' and "double"	b:0
+isupper	back\\slash	b:0
+isupper	\x00\x01\x02	b:0
+isupper	\x7f\x80\xff	b:0
+isupper	\xe9\xe9\xe9	b:0
+isupper	\xde\xad\xbe\xef	b:0
+isupper	MiXeD CaSe ByTeS	b:0
+istitle		b:0
+istitle	a	b:0
+istitle	abc	b:0
+istitle	hello world	b:0
+istitle	Hello, World!	b:1
+istitle	  spaced  out  	b:0
+istitle	\t\ttabs\tand\nnewlines\n	b:0
+istitle	abcabcabc	b:0
+istitle	aaa	b:0
+istitle	xyz	b:0
+istitle	1234567890	b:0
+istitle	Ab1	b:1
+istitle	'quoted' and "double"	b:0
+istitle	back\\slash	b:0
+istitle	\x00\x01\x02	b:0
+istitle	\x7f\x80\xff	b:0
+istitle	\xe9\xe9\xe9	b:0
+istitle	\xde\xad\xbe\xef	b:0
+istitle	MiXeD CaSe ByTeS	b:0
+split		i:-1		L:0
+split		i:-1	a	L:1	a
+split		i:-1	abc	L:1	abc
+split		i:-1	hello world	L:2	hello	world
+split		i:-1	Hello, World!	L:2	Hello,	World!
+split		i:-1	  spaced  out  	L:2	spaced	out
+split		i:-1	\t\ttabs\tand\nnewlines\n	L:3	tabs	and	newlines
+split		i:-1	abcabcabc	L:1	abcabcabc
+split		i:-1	aaa	L:1	aaa
+split		i:-1	xyz	L:1	xyz
+split		i:-1	1234567890	L:1	1234567890
+split		i:-1	Ab1	L:1	Ab1
+split		i:-1	'quoted' and "double"	L:3	'quoted'	and	"double"
+split		i:-1	back\\slash	L:1	back\\slash
+split		i:-1	\x00\x01\x02	L:1	\x00\x01\x02
+split		i:-1	\x7f\x80\xff	L:1	\x7f\x80\xff
+split		i:-1	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+split		i:-1	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+split		i:-1	MiXeD CaSe ByTeS	L:3	MiXeD	CaSe	ByTeS
+split		i:1		L:0
+split		i:1	a	L:1	a
+split		i:1	abc	L:1	abc
+split		i:1	hello world	L:2	hello	world
+split		i:1	Hello, World!	L:2	Hello,	World!
+split		i:1	  spaced  out  	L:2	spaced	out  
+split		i:1	\t\ttabs\tand\nnewlines\n	L:2	tabs	and\nnewlines\n
+split		i:1	abcabcabc	L:1	abcabcabc
+split		i:1	aaa	L:1	aaa
+split		i:1	xyz	L:1	xyz
+split		i:1	1234567890	L:1	1234567890
+split		i:1	Ab1	L:1	Ab1
+split		i:1	'quoted' and "double"	L:2	'quoted'	and "double"
+split		i:1	back\\slash	L:1	back\\slash
+split		i:1	\x00\x01\x02	L:1	\x00\x01\x02
+split		i:1	\x7f\x80\xff	L:1	\x7f\x80\xff
+split		i:1	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+split		i:1	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+split		i:1	MiXeD CaSe ByTeS	L:2	MiXeD	CaSe ByTeS
+split	a	i:-1		L:1	
+split	a	i:-1	a	L:2		
+split	a	i:-1	abc	L:2		bc
+split	a	i:-1	hello world	L:1	hello world
+split	a	i:-1	Hello, World!	L:1	Hello, World!
+split	a	i:-1	  spaced  out  	L:2	  sp	ced  out  
+split	a	i:-1	\t\ttabs\tand\nnewlines\n	L:3	\t\tt	bs\t	nd\nnewlines\n
+split	a	i:-1	abcabcabc	L:4		bc	bc	bc
+split	a	i:-1	aaa	L:4				
+split	a	i:-1	xyz	L:1	xyz
+split	a	i:-1	1234567890	L:1	1234567890
+split	a	i:-1	Ab1	L:1	Ab1
+split	a	i:-1	'quoted' and "double"	L:2	'quoted' 	nd "double"
+split	a	i:-1	back\\slash	L:3	b	ck\\sl	sh
+split	a	i:-1	\x00\x01\x02	L:1	\x00\x01\x02
+split	a	i:-1	\x7f\x80\xff	L:1	\x7f\x80\xff
+split	a	i:-1	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+split	a	i:-1	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+split	a	i:-1	MiXeD CaSe ByTeS	L:2	MiXeD C	Se ByTeS
+split	a	i:0		L:1	
+split	a	i:0	a	L:1	a
+split	a	i:0	abc	L:1	abc
+split	a	i:0	hello world	L:1	hello world
+split	a	i:0	Hello, World!	L:1	Hello, World!
+split	a	i:0	  spaced  out  	L:1	  spaced  out  
+split	a	i:0	\t\ttabs\tand\nnewlines\n	L:1	\t\ttabs\tand\nnewlines\n
+split	a	i:0	abcabcabc	L:1	abcabcabc
+split	a	i:0	aaa	L:1	aaa
+split	a	i:0	xyz	L:1	xyz
+split	a	i:0	1234567890	L:1	1234567890
+split	a	i:0	Ab1	L:1	Ab1
+split	a	i:0	'quoted' and "double"	L:1	'quoted' and "double"
+split	a	i:0	back\\slash	L:1	back\\slash
+split	a	i:0	\x00\x01\x02	L:1	\x00\x01\x02
+split	a	i:0	\x7f\x80\xff	L:1	\x7f\x80\xff
+split	a	i:0	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+split	a	i:0	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+split	a	i:0	MiXeD CaSe ByTeS	L:1	MiXeD CaSe ByTeS
+split	\xe9	i:-1		L:1	
+split	\xe9	i:-1	a	L:1	a
+split	\xe9	i:-1	abc	L:1	abc
+split	\xe9	i:-1	hello world	L:1	hello world
+split	\xe9	i:-1	Hello, World!	L:1	Hello, World!
+split	\xe9	i:-1	  spaced  out  	L:1	  spaced  out  
+split	\xe9	i:-1	\t\ttabs\tand\nnewlines\n	L:1	\t\ttabs\tand\nnewlines\n
+split	\xe9	i:-1	abcabcabc	L:1	abcabcabc
+split	\xe9	i:-1	aaa	L:1	aaa
+split	\xe9	i:-1	xyz	L:1	xyz
+split	\xe9	i:-1	1234567890	L:1	1234567890
+split	\xe9	i:-1	Ab1	L:1	Ab1
+split	\xe9	i:-1	'quoted' and "double"	L:1	'quoted' and "double"
+split	\xe9	i:-1	back\\slash	L:1	back\\slash
+split	\xe9	i:-1	\x00\x01\x02	L:1	\x00\x01\x02
+split	\xe9	i:-1	\x7f\x80\xff	L:1	\x7f\x80\xff
+split	\xe9	i:-1	\xe9\xe9\xe9	L:4				
+split	\xe9	i:-1	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+split	\xe9	i:-1	MiXeD CaSe ByTeS	L:1	MiXeD CaSe ByTeS
+rsplit		i:-1		L:0
+rsplit		i:-1	a	L:1	a
+rsplit		i:-1	abc	L:1	abc
+rsplit		i:-1	hello world	L:2	hello	world
+rsplit		i:-1	Hello, World!	L:2	Hello,	World!
+rsplit		i:-1	  spaced  out  	L:2	spaced	out
+rsplit		i:-1	\t\ttabs\tand\nnewlines\n	L:3	tabs	and	newlines
+rsplit		i:-1	abcabcabc	L:1	abcabcabc
+rsplit		i:-1	aaa	L:1	aaa
+rsplit		i:-1	xyz	L:1	xyz
+rsplit		i:-1	1234567890	L:1	1234567890
+rsplit		i:-1	Ab1	L:1	Ab1
+rsplit		i:-1	'quoted' and "double"	L:3	'quoted'	and	"double"
+rsplit		i:-1	back\\slash	L:1	back\\slash
+rsplit		i:-1	\x00\x01\x02	L:1	\x00\x01\x02
+rsplit		i:-1	\x7f\x80\xff	L:1	\x7f\x80\xff
+rsplit		i:-1	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+rsplit		i:-1	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+rsplit		i:-1	MiXeD CaSe ByTeS	L:3	MiXeD	CaSe	ByTeS
+rsplit		i:1		L:0
+rsplit		i:1	a	L:1	a
+rsplit		i:1	abc	L:1	abc
+rsplit		i:1	hello world	L:2	hello	world
+rsplit		i:1	Hello, World!	L:2	Hello,	World!
+rsplit		i:1	  spaced  out  	L:2	  spaced	out
+rsplit		i:1	\t\ttabs\tand\nnewlines\n	L:2	\t\ttabs\tand	newlines
+rsplit		i:1	abcabcabc	L:1	abcabcabc
+rsplit		i:1	aaa	L:1	aaa
+rsplit		i:1	xyz	L:1	xyz
+rsplit		i:1	1234567890	L:1	1234567890
+rsplit		i:1	Ab1	L:1	Ab1
+rsplit		i:1	'quoted' and "double"	L:2	'quoted' and	"double"
+rsplit		i:1	back\\slash	L:1	back\\slash
+rsplit		i:1	\x00\x01\x02	L:1	\x00\x01\x02
+rsplit		i:1	\x7f\x80\xff	L:1	\x7f\x80\xff
+rsplit		i:1	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+rsplit		i:1	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+rsplit		i:1	MiXeD CaSe ByTeS	L:2	MiXeD CaSe	ByTeS
+rsplit	a	i:-1		L:1	
+rsplit	a	i:-1	a	L:2		
+rsplit	a	i:-1	abc	L:2		bc
+rsplit	a	i:-1	hello world	L:1	hello world
+rsplit	a	i:-1	Hello, World!	L:1	Hello, World!
+rsplit	a	i:-1	  spaced  out  	L:2	  sp	ced  out  
+rsplit	a	i:-1	\t\ttabs\tand\nnewlines\n	L:3	\t\tt	bs\t	nd\nnewlines\n
+rsplit	a	i:-1	abcabcabc	L:4		bc	bc	bc
+rsplit	a	i:-1	aaa	L:4				
+rsplit	a	i:-1	xyz	L:1	xyz
+rsplit	a	i:-1	1234567890	L:1	1234567890
+rsplit	a	i:-1	Ab1	L:1	Ab1
+rsplit	a	i:-1	'quoted' and "double"	L:2	'quoted' 	nd "double"
+rsplit	a	i:-1	back\\slash	L:3	b	ck\\sl	sh
+rsplit	a	i:-1	\x00\x01\x02	L:1	\x00\x01\x02
+rsplit	a	i:-1	\x7f\x80\xff	L:1	\x7f\x80\xff
+rsplit	a	i:-1	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+rsplit	a	i:-1	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+rsplit	a	i:-1	MiXeD CaSe ByTeS	L:2	MiXeD C	Se ByTeS
+splitlines	b:0		L:0
+splitlines	b:0	a	L:1	a
+splitlines	b:0	abc	L:1	abc
+splitlines	b:0	hello world	L:1	hello world
+splitlines	b:0	Hello, World!	L:1	Hello, World!
+splitlines	b:0	  spaced  out  	L:1	  spaced  out  
+splitlines	b:0	\t\ttabs\tand\nnewlines\n	L:2	\t\ttabs\tand	newlines
+splitlines	b:0	abcabcabc	L:1	abcabcabc
+splitlines	b:0	aaa	L:1	aaa
+splitlines	b:0	xyz	L:1	xyz
+splitlines	b:0	1234567890	L:1	1234567890
+splitlines	b:0	Ab1	L:1	Ab1
+splitlines	b:0	'quoted' and "double"	L:1	'quoted' and "double"
+splitlines	b:0	back\\slash	L:1	back\\slash
+splitlines	b:0	\x00\x01\x02	L:1	\x00\x01\x02
+splitlines	b:0	\x7f\x80\xff	L:1	\x7f\x80\xff
+splitlines	b:0	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+splitlines	b:0	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+splitlines	b:0	MiXeD CaSe ByTeS	L:1	MiXeD CaSe ByTeS
+splitlines	b:1		L:0
+splitlines	b:1	a	L:1	a
+splitlines	b:1	abc	L:1	abc
+splitlines	b:1	hello world	L:1	hello world
+splitlines	b:1	Hello, World!	L:1	Hello, World!
+splitlines	b:1	  spaced  out  	L:1	  spaced  out  
+splitlines	b:1	\t\ttabs\tand\nnewlines\n	L:2	\t\ttabs\tand\n	newlines\n
+splitlines	b:1	abcabcabc	L:1	abcabcabc
+splitlines	b:1	aaa	L:1	aaa
+splitlines	b:1	xyz	L:1	xyz
+splitlines	b:1	1234567890	L:1	1234567890
+splitlines	b:1	Ab1	L:1	Ab1
+splitlines	b:1	'quoted' and "double"	L:1	'quoted' and "double"
+splitlines	b:1	back\\slash	L:1	back\\slash
+splitlines	b:1	\x00\x01\x02	L:1	\x00\x01\x02
+splitlines	b:1	\x7f\x80\xff	L:1	\x7f\x80\xff
+splitlines	b:1	\xe9\xe9\xe9	L:1	\xe9\xe9\xe9
+splitlines	b:1	\xde\xad\xbe\xef	L:1	\xde\xad\xbe\xef
+splitlines	b:1	MiXeD CaSe ByTeS	L:1	MiXeD CaSe ByTeS
+partition	b		L:3			
+partition	b	a	L:3	a		
+partition	b	abc	L:3	a	b	c
+partition	b	hello world	L:3	hello world		
+partition	b	Hello, World!	L:3	Hello, World!		
+partition	b	  spaced  out  	L:3	  spaced  out  		
+partition	b	\t\ttabs\tand\nnewlines\n	L:3	\t\tta	b	s\tand\nnewlines\n
+partition	b	abcabcabc	L:3	a	b	cabcabc
+partition	b	aaa	L:3	aaa		
+partition	b	xyz	L:3	xyz		
+partition	b	1234567890	L:3	1234567890		
+partition	b	Ab1	L:3	A	b	1
+partition	b	'quoted' and "double"	L:3	'quoted' and "dou	b	le"
+partition	b	back\\slash	L:3		b	ack\\slash
+partition	b	\x00\x01\x02	L:3	\x00\x01\x02		
+partition	b	\x7f\x80\xff	L:3	\x7f\x80\xff		
+partition	b	\xe9\xe9\xe9	L:3	\xe9\xe9\xe9		
+partition	b	\xde\xad\xbe\xef	L:3	\xde\xad\xbe\xef		
+partition	b	MiXeD CaSe ByTeS	L:3	MiXeD CaSe ByTeS		
+partition	zz		L:3			
+partition	zz	a	L:3	a		
+partition	zz	abc	L:3	abc		
+partition	zz	hello world	L:3	hello world		
+partition	zz	Hello, World!	L:3	Hello, World!		
+partition	zz	  spaced  out  	L:3	  spaced  out  		
+partition	zz	\t\ttabs\tand\nnewlines\n	L:3	\t\ttabs\tand\nnewlines\n		
+partition	zz	abcabcabc	L:3	abcabcabc		
+partition	zz	aaa	L:3	aaa		
+partition	zz	xyz	L:3	xyz		
+partition	zz	1234567890	L:3	1234567890		
+partition	zz	Ab1	L:3	Ab1		
+partition	zz	'quoted' and "double"	L:3	'quoted' and "double"		
+partition	zz	back\\slash	L:3	back\\slash		
+partition	zz	\x00\x01\x02	L:3	\x00\x01\x02		
+partition	zz	\x7f\x80\xff	L:3	\x7f\x80\xff		
+partition	zz	\xe9\xe9\xe9	L:3	\xe9\xe9\xe9		
+partition	zz	\xde\xad\xbe\xef	L:3	\xde\xad\xbe\xef		
+partition	zz	MiXeD CaSe ByTeS	L:3	MiXeD CaSe ByTeS		
+rpartition	b		L:3			
+rpartition	b	a	L:3			a
+rpartition	b	abc	L:3	a	b	c
+rpartition	b	hello world	L:3			hello world
+rpartition	b	Hello, World!	L:3			Hello, World!
+rpartition	b	  spaced  out  	L:3			  spaced  out  
+rpartition	b	\t\ttabs\tand\nnewlines\n	L:3	\t\tta	b	s\tand\nnewlines\n
+rpartition	b	abcabcabc	L:3	abcabca	b	c
+rpartition	b	aaa	L:3			aaa
+rpartition	b	xyz	L:3			xyz
+rpartition	b	1234567890	L:3			1234567890
+rpartition	b	Ab1	L:3	A	b	1
+rpartition	b	'quoted' and "double"	L:3	'quoted' and "dou	b	le"
+rpartition	b	back\\slash	L:3		b	ack\\slash
+rpartition	b	\x00\x01\x02	L:3			\x00\x01\x02
+rpartition	b	\x7f\x80\xff	L:3			\x7f\x80\xff
+rpartition	b	\xe9\xe9\xe9	L:3			\xe9\xe9\xe9
+rpartition	b	\xde\xad\xbe\xef	L:3			\xde\xad\xbe\xef
+rpartition	b	MiXeD CaSe ByTeS	L:3			MiXeD CaSe ByTeS
+rpartition	zz		L:3			
+rpartition	zz	a	L:3			a
+rpartition	zz	abc	L:3			abc
+rpartition	zz	hello world	L:3			hello world
+rpartition	zz	Hello, World!	L:3			Hello, World!
+rpartition	zz	  spaced  out  	L:3			  spaced  out  
+rpartition	zz	\t\ttabs\tand\nnewlines\n	L:3			\t\ttabs\tand\nnewlines\n
+rpartition	zz	abcabcabc	L:3			abcabcabc
+rpartition	zz	aaa	L:3			aaa
+rpartition	zz	xyz	L:3			xyz
+rpartition	zz	1234567890	L:3			1234567890
+rpartition	zz	Ab1	L:3			Ab1
+rpartition	zz	'quoted' and "double"	L:3			'quoted' and "double"
+rpartition	zz	back\\slash	L:3			back\\slash
+rpartition	zz	\x00\x01\x02	L:3			\x00\x01\x02
+rpartition	zz	\x7f\x80\xff	L:3			\x7f\x80\xff
+rpartition	zz	\xe9\xe9\xe9	L:3			\xe9\xe9\xe9
+rpartition	zz	\xde\xad\xbe\xef	L:3			\xde\xad\xbe\xef
+rpartition	zz	MiXeD CaSe ByTeS	L:3			MiXeD CaSe ByTeS
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff			B:
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		a	B:a
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		abc	B:abc
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		hello world	B:hello world
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		Hello, World!	B:Hello, World!
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		  spaced  out  	B:  spaced  out  
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		abcabcabc	B:abcabcabc
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		aaa	B:aaa
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		xyz	B:xyz
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		1234567890	B:1234567890
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		Ab1	B:Ab1
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		'quoted' and "double"	B:'quoted' and "double"
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		back\\slash	B:back\\slash
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		\x00\x01\x02	B:\x00\x01\x02
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		\x7f\x80\xff	B:\x7f\x80\xff
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		\xe9\xe9\xe9	B:\xe9\xe9\xe9
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff		MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe			e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		a	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		abc	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		hello world	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		Hello, World!	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		  spaced  out  	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		\t\ttabs\tand\nnewlines\n	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		abcabcabc	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		aaa	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		xyz	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		1234567890	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		Ab1	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		'quoted' and "double"	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		back\\slash	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		\x00\x01\x02	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		\x7f\x80\xff	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		\xe9\xe9\xe9	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		\xde\xad\xbe\xef	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe		MiXeD CaSe ByTeS	e:ValueError:translation table must be 256 characters long
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe		B:
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	a	B:a
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	abc	B:ac
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	hello world	B:eowo
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	Hello, World!	B:eoWo!
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	  spaced  out  	B:saceou
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	\t\ttabs\tand\nnewlines\n	B:\t\tas\taewies
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	abcabcabc	B:acacac
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	aaa	B:aaa
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	xyz	B:y
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	1234567890	B:13579
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	Ab1	B:A1
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	'quoted' and "double"	B:'quoe'aoue
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	back\\slash	B:acksas
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	\x00\x01\x02	B:\x01
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	\x7f\x80\xff	B:\x7f\xff
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	\xde\xad\xbe\xef	B:\xad\xef
+translate	\x00\x01\x02\x03\x04\x05\x06\x07\x08\t\n\x0b\x0c\r\x0e\x0f\x10\x11\x12\x13\x14\x15\x16\x17\x18\x19\x1a\x1b\x1c\x1d\x1e\x1f !"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\x7f\x80\x81\x82\x83\x84\x85\x86\x87\x88\x89\x8a\x8b\x8c\x8d\x8e\x8f\x90\x91\x92\x93\x94\x95\x96\x97\x98\x99\x9a\x9b\x9c\x9d\x9e\x9f\xa0\xa1\xa2\xa3\xa4\xa5\xa6\xa7\xa8\xa9\xaa\xab\xac\xad\xae\xaf\xb0\xb1\xb2\xb3\xb4\xb5\xb6\xb7\xb8\xb9\xba\xbb\xbc\xbd\xbe\xbf\xc0\xc1\xc2\xc3\xc4\xc5\xc6\xc7\xc8\xc9\xca\xcb\xcc\xcd\xce\xcf\xd0\xd1\xd2\xd3\xd4\xd5\xd6\xd7\xd8\xd9\xda\xdb\xdc\xdd\xde\xdf\xe0\xe1\xe2\xe3\xe4\xe5\xe6\xe7\xe8\xe9\xea\xeb\xec\xed\xee\xef\xf0\xf1\xf2\xf3\xf4\xf5\xf6\xf7\xf8\xf9\xfa\xfb\xfc\xfd\xfe\xff	\x00\x02\x04\x06\x08\n\x0c\x0e\x10\x12\x14\x16\x18\x1a\x1c\x1e "$&(*,.02468:<>@BDFHJLNPRTVXZ\\^`bdfhjlnprtvxz|~\x80\x82\x84\x86\x88\x8a\x8c\x8e\x90\x92\x94\x96\x98\x9a\x9c\x9e\xa0\xa2\xa4\xa6\xa8\xaa\xac\xae\xb0\xb2\xb4\xb6\xb8\xba\xbc\xbe\xc0\xc2\xc4\xc6\xc8\xca\xcc\xce\xd0\xd2\xd4\xd6\xd8\xda\xdc\xde\xe0\xe2\xe4\xe6\xe8\xea\xec\xee\xf0\xf2\xf4\xf6\xf8\xfa\xfc\xfe	MiXeD CaSe ByTeS	B:MieCaSeyeS
+fromhex	00 ff 10		B:\x00\xff\x10
+fromhex	0ff		e:ValueError:non-hexadecimal number found in fromhex() arg at position 3
+fromhex	0f 0f		B:\x0f\x0f
+fromhex	ffffffffffffffff		B:\xff\xff\xff\xff\xff\xff\xff\xff
+fromhex	0 0 0		e:ValueError:non-hexadecimal number found in fromhex() arg at position 1
+fromhex	000		e:ValueError:non-hexadecimal number found in fromhex() arg at position 3
+fromhex	ff\tff		B:\xff\xff
+fromhex	f		e:ValueError:non-hexadecimal number found in fromhex() arg at position 1
+fromhex	zz		e:ValueError:non-hexadecimal number found in fromhex() arg at position 0
+fromhex	0x00		e:ValueError:non-hexadecimal number found in fromhex() arg at position 1
+fromhex	aa bb cc		B:\xaa\xbb\xcc
+fromhex	aaaaaaaaaaaaaaaaaaaaaaaaaaaaaa		B:\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa\xaa
+fromhex	00  ff		B:\x00\xff
+fromhex	00 FF		B:\x00\xff
+fromhex	0 0 		e:ValueError:non-hexadecimal number found in fromhex() arg at position 1
+translate_maketrans	abc	xyz			B:
+translate_maketrans	abc	xyz		a	B:x
+translate_maketrans	abc	xyz		abc	B:xyz
+translate_maketrans	abc	xyz		hello world	B:hello world
+translate_maketrans	abc	xyz		Hello, World!	B:Hello, World!
+translate_maketrans	abc	xyz		  spaced  out  	B:  spxzed  out  
+translate_maketrans	abc	xyz		\t\ttabs\tand\nnewlines\n	B:\t\ttxys\txnd\nnewlines\n
+translate_maketrans	abc	xyz		abcabcabc	B:xyzxyzxyz
+translate_maketrans	abc	xyz		aaa	B:xxx
+translate_maketrans	abc	xyz		xyz	B:xyz
+translate_maketrans	abc	xyz		1234567890	B:1234567890
+translate_maketrans	abc	xyz		Ab1	B:Ay1
+translate_maketrans	abc	xyz		'quoted' and "double"	B:'quoted' xnd "douyle"
+translate_maketrans	abc	xyz		back\\slash	B:yxzk\\slxsh
+translate_maketrans	abc	xyz		\x00\x01\x02	B:\x00\x01\x02
+translate_maketrans	abc	xyz		\x7f\x80\xff	B:\x7f\x80\xff
+translate_maketrans	abc	xyz		\xe9\xe9\xe9	B:\xe9\xe9\xe9
+translate_maketrans	abc	xyz		\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+translate_maketrans	abc	xyz		MiXeD CaSe ByTeS	B:MiXeD CxSe ByTeS
+translate_maketrans	abc	xy			e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		a	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		abc	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		hello world	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		Hello, World!	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		  spaced  out  	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		\t\ttabs\tand\nnewlines\n	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		abcabcabc	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		aaa	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		xyz	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		1234567890	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		Ab1	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		'quoted' and "double"	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		back\\slash	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		\x00\x01\x02	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		\x7f\x80\xff	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		\xe9\xe9\xe9	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		\xde\xad\xbe\xef	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xy		MiXeD CaSe ByTeS	e:ValueError:maketrans arguments must have same length
+translate_maketrans	abc	xyz	ab		B:
+translate_maketrans	abc	xyz	ab	a	B:
+translate_maketrans	abc	xyz	ab	abc	B:z
+translate_maketrans	abc	xyz	ab	hello world	B:hello world
+translate_maketrans	abc	xyz	ab	Hello, World!	B:Hello, World!
+translate_maketrans	abc	xyz	ab	  spaced  out  	B:  spzed  out  
+translate_maketrans	abc	xyz	ab	\t\ttabs\tand\nnewlines\n	B:\t\tts\tnd\nnewlines\n
+translate_maketrans	abc	xyz	ab	abcabcabc	B:zzz
+translate_maketrans	abc	xyz	ab	aaa	B:
+translate_maketrans	abc	xyz	ab	xyz	B:xyz
+translate_maketrans	abc	xyz	ab	1234567890	B:1234567890
+translate_maketrans	abc	xyz	ab	Ab1	B:A1
+translate_maketrans	abc	xyz	ab	'quoted' and "double"	B:'quoted' nd "doule"
+translate_maketrans	abc	xyz	ab	back\\slash	B:zk\\slsh
+translate_maketrans	abc	xyz	ab	\x00\x01\x02	B:\x00\x01\x02
+translate_maketrans	abc	xyz	ab	\x7f\x80\xff	B:\x7f\x80\xff
+translate_maketrans	abc	xyz	ab	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+translate_maketrans	abc	xyz	ab	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+translate_maketrans	abc	xyz	ab	MiXeD CaSe ByTeS	B:MiXeD CSe ByTeS
+translate_maketrans			\x00\x05		B:
+translate_maketrans			\x00\x05	a	B:a
+translate_maketrans			\x00\x05	abc	B:abc
+translate_maketrans			\x00\x05	hello world	B:hello world
+translate_maketrans			\x00\x05	Hello, World!	B:Hello, World!
+translate_maketrans			\x00\x05	  spaced  out  	B:  spaced  out  
+translate_maketrans			\x00\x05	\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+translate_maketrans			\x00\x05	abcabcabc	B:abcabcabc
+translate_maketrans			\x00\x05	aaa	B:aaa
+translate_maketrans			\x00\x05	xyz	B:xyz
+translate_maketrans			\x00\x05	1234567890	B:1234567890
+translate_maketrans			\x00\x05	Ab1	B:Ab1
+translate_maketrans			\x00\x05	'quoted' and "double"	B:'quoted' and "double"
+translate_maketrans			\x00\x05	back\\slash	B:back\\slash
+translate_maketrans			\x00\x05	\x00\x01\x02	B:\x01\x02
+translate_maketrans			\x00\x05	\x7f\x80\xff	B:\x7f\x80\xff
+translate_maketrans			\x00\x05	\xe9\xe9\xe9	B:\xe9\xe9\xe9
+translate_maketrans			\x00\x05	\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+translate_maketrans			\x00\x05	MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+translate_maketrans	\x00\xff	\xff\x00			B:
+translate_maketrans	\x00\xff	\xff\x00		a	B:a
+translate_maketrans	\x00\xff	\xff\x00		abc	B:abc
+translate_maketrans	\x00\xff	\xff\x00		hello world	B:hello world
+translate_maketrans	\x00\xff	\xff\x00		Hello, World!	B:Hello, World!
+translate_maketrans	\x00\xff	\xff\x00		  spaced  out  	B:  spaced  out  
+translate_maketrans	\x00\xff	\xff\x00		\t\ttabs\tand\nnewlines\n	B:\t\ttabs\tand\nnewlines\n
+translate_maketrans	\x00\xff	\xff\x00		abcabcabc	B:abcabcabc
+translate_maketrans	\x00\xff	\xff\x00		aaa	B:aaa
+translate_maketrans	\x00\xff	\xff\x00		xyz	B:xyz
+translate_maketrans	\x00\xff	\xff\x00		1234567890	B:1234567890
+translate_maketrans	\x00\xff	\xff\x00		Ab1	B:Ab1
+translate_maketrans	\x00\xff	\xff\x00		'quoted' and "double"	B:'quoted' and "double"
+translate_maketrans	\x00\xff	\xff\x00		back\\slash	B:back\\slash
+translate_maketrans	\x00\xff	\xff\x00		\x00\x01\x02	B:\xff\x01\x02
+translate_maketrans	\x00\xff	\xff\x00		\x7f\x80\xff	B:\x7f\x80\x00
+translate_maketrans	\x00\xff	\xff\x00		\xe9\xe9\xe9	B:\xe9\xe9\xe9
+translate_maketrans	\x00\xff	\xff\x00		\xde\xad\xbe\xef	B:\xde\xad\xbe\xef
+translate_maketrans	\x00\xff	\xff\x00		MiXeD CaSe ByTeS	B:MiXeD CaSe ByTeS
+hex		i:0		e:ValueError:sep must be length 1.
+hex	-	i:1		s:
+hex	-	i:2		s:
+hex	-	i:-2		s:
+hex	-	i:100		s:
+hex				s:
+hex		i:0	\x00	e:ValueError:sep must be length 1.
+hex	-	i:1	\x00	s:00
+hex	-	i:2	\x00	s:00
+hex	-	i:-2	\x00	s:00
+hex	-	i:100	\x00	s:00
+hex			\x00	s:00
+hex		i:0	\x00\xff\x10	e:ValueError:sep must be length 1.
+hex	-	i:1	\x00\xff\x10	s:00-ff-10
+hex	-	i:2	\x00\xff\x10	s:00-ff10
+hex	-	i:-2	\x00\xff\x10	s:00ff-10
+hex	-	i:100	\x00\xff\x10	s:00ff10
+hex			\x00\xff\x10	s:00ff10
+hex		i:0	\x00\x01\x02\x03\x04\x05\x06\x07	e:ValueError:sep must be length 1.
+hex	-	i:1	\x00\x01\x02\x03\x04\x05\x06\x07	s:00-01-02-03-04-05-06-07
+hex	-	i:2	\x00\x01\x02\x03\x04\x05\x06\x07	s:0001-0203-0405-0607
+hex	-	i:-2	\x00\x01\x02\x03\x04\x05\x06\x07	s:0001-0203-0405-0607
+hex	-	i:100	\x00\x01\x02\x03\x04\x05\x06\x07	s:0001020304050607
+hex			\x00\x01\x02\x03\x04\x05\x06\x07	s:0001020304050607
+hex		i:0	\xde\xad\xbe\xef\xde\xad\xbe\xef\xde\xad\xbe\xef	e:ValueError:sep must be length 1.
+hex	-	i:1	\xde\xad\xbe\xef\xde\xad\xbe\xef\xde\xad\xbe\xef	s:de-ad-be-ef-de-ad-be-ef-de-ad-be-ef
+hex	-	i:2	\xde\xad\xbe\xef\xde\xad\xbe\xef\xde\xad\xbe\xef	s:dead-beef-dead-beef-dead-beef
+hex	-	i:-2	\xde\xad\xbe\xef\xde\xad\xbe\xef\xde\xad\xbe\xef	s:dead-beef-dead-beef-dead-beef
+hex	-	i:100	\xde\xad\xbe\xef\xde\xad\xbe\xef\xde\xad\xbe\xef	s:deadbeefdeadbeefdeadbeef
+hex			\xde\xad\xbe\xef\xde\xad\xbe\xef\xde\xad\xbe\xef	s:deadbeefdeadbeefdeadbeef
+decode	ascii		hello	s:hello
+decode	ascii	strict	hello	s:hello
+decode	ascii	ignore	hello	s:hello
+decode	ascii	replace	hello	s:hello
+decode	latin1		hello	s:hello
+decode	latin-1	strict	hello	s:hello
+decode	utf8		hello	s:hello
+decode	utf-8	strict	hello	s:hello
+decode	utf-8	surrogateescape	hello	s:hello
+decode	utf-16		hello	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x6f in position 4: truncated data
+decode	utf-16le		hello	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x6f in position 4: truncated data
+decode	utf-16be		hello	e:UnicodeDecodeError:'utf-16-be' codec can't decode byte 0x6f in position 4: truncated data
+decode	utf-32		hello	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		hello	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		hello	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		hello	s:hello
+decode	unicode_escape	ignore	hello	s:hello
+decode	unicode_escape	replace	hello	s:hello
+decode	unicode_escape	backslashreplace	hello	s:hello
+decode	rawunicodeescape		hello	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		hello	s:hello
+decode	u16		hello	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x6f in position 4: truncated data
+decode	u32		hello	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		hello	s:hello
+decode	l1		hello	s:hello
+decode	cp819		hello	s:hello
+decode	latin		hello	s:hello
+decode	utf-16-le		hello	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x6f in position 4: truncated data
+decode	utf_16_le		hello	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x6f in position 4: truncated data
+decode	utf-32-le		hello	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		hello	e:LookupError:unknown encoding: utf16le
+decode	utf32be		hello	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		hello	s:hello
+decode	raw-unicode-escape		hello	s:hello
+decode	mbcs		hello	e:LookupError:unknown encoding: mbcs
+decode	ascii		caf\xe9	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xe9 in position 3: ordinal not in range(128)
+decode	ascii	strict	caf\xe9	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xe9 in position 3: ordinal not in range(128)
+decode	ascii	ignore	caf\xe9	s:caf
+decode	ascii	replace	caf\xe9	s:caf�
+decode	latin1		caf\xe9	s:café
+decode	latin-1	strict	caf\xe9	s:café
+decode	utf8		caf\xe9	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0xe9 in position 3: unexpected end of data
+decode	utf-8	strict	caf\xe9	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0xe9 in position 3: unexpected end of data
+decode	utf-8	surrogateescape	caf\xe9	s:caf\udce9
+decode	utf-16		caf\xe9	s:慣
+decode	utf-16le		caf\xe9	s:慣
+decode	utf-16be		caf\xe9	s:捡曩
+decode	utf-32		caf\xe9	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		caf\xe9	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		caf\xe9	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		caf\xe9	s:café
+decode	unicode_escape	ignore	caf\xe9	s:café
+decode	unicode_escape	replace	caf\xe9	s:café
+decode	unicode_escape	backslashreplace	caf\xe9	s:café
+decode	rawunicodeescape		caf\xe9	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		caf\xe9	s:café
+decode	u16		caf\xe9	s:慣
+decode	u32		caf\xe9	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		caf\xe9	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xe9 in position 3: ordinal not in range(128)
+decode	l1		caf\xe9	s:café
+decode	cp819		caf\xe9	s:café
+decode	latin		caf\xe9	s:café
+decode	utf-16-le		caf\xe9	s:慣
+decode	utf_16_le		caf\xe9	s:慣
+decode	utf-32-le		caf\xe9	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		caf\xe9	e:LookupError:unknown encoding: utf16le
+decode	utf32be		caf\xe9	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		caf\xe9	s:café
+decode	raw-unicode-escape		caf\xe9	s:café
+decode	mbcs		caf\xe9	e:LookupError:unknown encoding: mbcs
+decode	ascii		\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xff in position 0: ordinal not in range(128)
+decode	ascii	strict	\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xff in position 0: ordinal not in range(128)
+decode	ascii	ignore	\xff\xfeh\x00i\x00	s:h i 
+decode	ascii	replace	\xff\xfeh\x00i\x00	s:��h i 
+decode	latin1		\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	latin-1	strict	\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	utf8		\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+decode	utf-8	strict	\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+decode	utf-8	surrogateescape	\xff\xfeh\x00i\x00	s:\udcff\udcfeh i 
+decode	utf-16		\xff\xfeh\x00i\x00	s:hi
+decode	utf-16le		\xff\xfeh\x00i\x00	s:﻿hi
+decode	utf-16be		\xff\xfeh\x00i\x00	s:￾栀椀
+decode	utf-32		\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		\xff\xfeh\x00i\x00	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	unicode_escape	ignore	\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	unicode_escape	replace	\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	unicode_escape	backslashreplace	\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	rawunicodeescape		\xff\xfeh\x00i\x00	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	u16		\xff\xfeh\x00i\x00	s:hi
+decode	u32		\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xff in position 0: ordinal not in range(128)
+decode	l1		\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	cp819		\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	latin		\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	utf-16-le		\xff\xfeh\x00i\x00	s:﻿hi
+decode	utf_16_le		\xff\xfeh\x00i\x00	s:﻿hi
+decode	utf-32-le		\xff\xfeh\x00i\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		\xff\xfeh\x00i\x00	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\xff\xfeh\x00i\x00	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	raw-unicode-escape		\xff\xfeh\x00i\x00	s:ÿþh i 
+decode	mbcs		\xff\xfeh\x00i\x00	e:LookupError:unknown encoding: mbcs
+decode	ascii		h\x00i\x00	s:h i 
+decode	ascii	strict	h\x00i\x00	s:h i 
+decode	ascii	ignore	h\x00i\x00	s:h i 
+decode	ascii	replace	h\x00i\x00	s:h i 
+decode	latin1		h\x00i\x00	s:h i 
+decode	latin-1	strict	h\x00i\x00	s:h i 
+decode	utf8		h\x00i\x00	s:h i 
+decode	utf-8	strict	h\x00i\x00	s:h i 
+decode	utf-8	surrogateescape	h\x00i\x00	s:h i 
+decode	utf-16		h\x00i\x00	s:hi
+decode	utf-16le		h\x00i\x00	s:hi
+decode	utf-16be		h\x00i\x00	s:栀椀
+decode	utf-32		h\x00i\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		h\x00i\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		h\x00i\x00	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		h\x00i\x00	s:h i 
+decode	unicode_escape	ignore	h\x00i\x00	s:h i 
+decode	unicode_escape	replace	h\x00i\x00	s:h i 
+decode	unicode_escape	backslashreplace	h\x00i\x00	s:h i 
+decode	rawunicodeescape		h\x00i\x00	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		h\x00i\x00	s:h i 
+decode	u16		h\x00i\x00	s:hi
+decode	u32		h\x00i\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		h\x00i\x00	s:h i 
+decode	l1		h\x00i\x00	s:h i 
+decode	cp819		h\x00i\x00	s:h i 
+decode	latin		h\x00i\x00	s:h i 
+decode	utf-16-le		h\x00i\x00	s:hi
+decode	utf_16_le		h\x00i\x00	s:hi
+decode	utf-32-le		h\x00i\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		h\x00i\x00	e:LookupError:unknown encoding: utf16le
+decode	utf32be		h\x00i\x00	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		h\x00i\x00	s:h i 
+decode	raw-unicode-escape		h\x00i\x00	s:h i 
+decode	mbcs		h\x00i\x00	e:LookupError:unknown encoding: mbcs
+decode	ascii		\x00\x00h\x00	s:  h 
+decode	ascii	strict	\x00\x00h\x00	s:  h 
+decode	ascii	ignore	\x00\x00h\x00	s:  h 
+decode	ascii	replace	\x00\x00h\x00	s:  h 
+decode	latin1		\x00\x00h\x00	s:  h 
+decode	latin-1	strict	\x00\x00h\x00	s:  h 
+decode	utf8		\x00\x00h\x00	s:  h 
+decode	utf-8	strict	\x00\x00h\x00	s:  h 
+decode	utf-8	surrogateescape	\x00\x00h\x00	s:  h 
+decode	utf-16		\x00\x00h\x00	s: h
+decode	utf-16le		\x00\x00h\x00	s: h
+decode	utf-16be		\x00\x00h\x00	s: 栀
+decode	utf-32		\x00\x00h\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		\x00\x00h\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		\x00\x00h\x00	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\x00\x00h\x00	s:  h 
+decode	unicode_escape	ignore	\x00\x00h\x00	s:  h 
+decode	unicode_escape	replace	\x00\x00h\x00	s:  h 
+decode	unicode_escape	backslashreplace	\x00\x00h\x00	s:  h 
+decode	rawunicodeescape		\x00\x00h\x00	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\x00\x00h\x00	s:  h 
+decode	u16		\x00\x00h\x00	s: h
+decode	u32		\x00\x00h\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		\x00\x00h\x00	s:  h 
+decode	l1		\x00\x00h\x00	s:  h 
+decode	cp819		\x00\x00h\x00	s:  h 
+decode	latin		\x00\x00h\x00	s:  h 
+decode	utf-16-le		\x00\x00h\x00	s: h
+decode	utf_16_le		\x00\x00h\x00	s: h
+decode	utf-32-le		\x00\x00h\x00	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		\x00\x00h\x00	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\x00\x00h\x00	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\x00\x00h\x00	s:  h 
+decode	raw-unicode-escape		\x00\x00h\x00	s:  h 
+decode	mbcs		\x00\x00h\x00	e:LookupError:unknown encoding: mbcs
+decode	ascii		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	ascii	strict	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	ascii	ignore	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	ascii	replace	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	latin1		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	latin-1	strict	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	utf8		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	utf-8	strict	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	utf-8	surrogateescape	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	utf-16		h\x00\x00\x00i\x00\x00\x00	s:h i 
+decode	utf-16le		h\x00\x00\x00i\x00\x00\x00	s:h i 
+decode	utf-16be		h\x00\x00\x00i\x00\x00\x00	s:栀 椀 
+decode	utf-32		h\x00\x00\x00i\x00\x00\x00	s:hi
+decode	utf_32_le		h\x00\x00\x00i\x00\x00\x00	s:hi
+decode	unicodeescape		h\x00\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	unicode_escape	ignore	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	unicode_escape	replace	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	unicode_escape	backslashreplace	h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	rawunicodeescape		h\x00\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	u16		h\x00\x00\x00i\x00\x00\x00	s:h i 
+decode	u32		h\x00\x00\x00i\x00\x00\x00	s:hi
+decode	646		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	l1		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	cp819		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	latin		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	utf-16-le		h\x00\x00\x00i\x00\x00\x00	s:h i 
+decode	utf_16_le		h\x00\x00\x00i\x00\x00\x00	s:h i 
+decode	utf-32-le		h\x00\x00\x00i\x00\x00\x00	s:hi
+decode	utf16le		h\x00\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: utf16le
+decode	utf32be		h\x00\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	raw-unicode-escape		h\x00\x00\x00i\x00\x00\x00	s:h   i   
+decode	mbcs		h\x00\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: mbcs
+decode	ascii		\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	ascii	strict	\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	ascii	ignore	\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	ascii	replace	\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	latin1		\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	latin-1	strict	\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	utf8		\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	utf-8	strict	\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	utf-8	surrogateescape	\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	utf-16		\\x41\\u00e9\\U0001f600	s:硜ㄴ畜〰㥥啜〰㄰㙦〰
+decode	utf-16le		\\x41\\u00e9\\U0001f600	s:硜ㄴ畜〰㥥啜〰㄰㙦〰
+decode	utf-16be		\\x41\\u00e9\\U0001f600	s:屸㐱屵〰改展〰〱昶〰
+decode	utf-32		\\x41\\u00e9\\U0001f600	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		\\x41\\u00e9\\U0001f600	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		\\x41\\u00e9\\U0001f600	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\\x41\\u00e9\\U0001f600	s:Aé😀
+decode	unicode_escape	ignore	\\x41\\u00e9\\U0001f600	s:Aé😀
+decode	unicode_escape	replace	\\x41\\u00e9\\U0001f600	s:Aé😀
+decode	unicode_escape	backslashreplace	\\x41\\u00e9\\U0001f600	s:Aé😀
+decode	rawunicodeescape		\\x41\\u00e9\\U0001f600	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\\x41\\u00e9\\U0001f600	s:\\x41é😀
+decode	u16		\\x41\\u00e9\\U0001f600	s:硜ㄴ畜〰㥥啜〰㄰㙦〰
+decode	u32		\\x41\\u00e9\\U0001f600	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	l1		\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	cp819		\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	latin		\\x41\\u00e9\\U0001f600	s:\\x41\\u00e9\\U0001f600
+decode	utf-16-le		\\x41\\u00e9\\U0001f600	s:硜ㄴ畜〰㥥啜〰㄰㙦〰
+decode	utf_16_le		\\x41\\u00e9\\U0001f600	s:硜ㄴ畜〰㥥啜〰㄰㙦〰
+decode	utf-32-le		\\x41\\u00e9\\U0001f600	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		\\x41\\u00e9\\U0001f600	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\\x41\\u00e9\\U0001f600	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\\x41\\u00e9\\U0001f600	s:Aé😀
+decode	raw-unicode-escape		\\x41\\u00e9\\U0001f600	s:\\x41é😀
+decode	mbcs		\\x41\\u00e9\\U0001f600	e:LookupError:unknown encoding: mbcs
+decode	ascii		\\x4	s:\\x4
+decode	ascii	strict	\\x4	s:\\x4
+decode	ascii	ignore	\\x4	s:\\x4
+decode	ascii	replace	\\x4	s:\\x4
+decode	latin1		\\x4	s:\\x4
+decode	latin-1	strict	\\x4	s:\\x4
+decode	utf8		\\x4	s:\\x4
+decode	utf-8	strict	\\x4	s:\\x4
+decode	utf-8	surrogateescape	\\x4	s:\\x4
+decode	utf-16		\\x4	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x34 in position 2: truncated data
+decode	utf-16le		\\x4	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x34 in position 2: truncated data
+decode	utf-16be		\\x4	e:UnicodeDecodeError:'utf-16-be' codec can't decode byte 0x34 in position 2: truncated data
+decode	utf-32		\\x4	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-2: truncated data
+decode	utf_32_le		\\x4	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-2: truncated data
+decode	unicodeescape		\\x4	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\\x4	e:UnicodeDecodeError:'unicodeescape' codec can't decode bytes in position 0-2: truncated \\xXX escape
+decode	unicode_escape	ignore	\\x4	s:
+decode	unicode_escape	replace	\\x4	s:�
+decode	unicode_escape	backslashreplace	\\x4	s:\\x5c\\x78\\x34
+decode	rawunicodeescape		\\x4	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\\x4	s:\\x4
+decode	u16		\\x4	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x34 in position 2: truncated data
+decode	u32		\\x4	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-2: truncated data
+decode	646		\\x4	s:\\x4
+decode	l1		\\x4	s:\\x4
+decode	cp819		\\x4	s:\\x4
+decode	latin		\\x4	s:\\x4
+decode	utf-16-le		\\x4	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x34 in position 2: truncated data
+decode	utf_16_le		\\x4	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x34 in position 2: truncated data
+decode	utf-32-le		\\x4	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-2: truncated data
+decode	utf16le		\\x4	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\\x4	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\\x4	e:UnicodeDecodeError:'unicodeescape' codec can't decode bytes in position 0-2: truncated \\xXX escape
+decode	raw-unicode-escape		\\x4	s:\\x4
+decode	mbcs		\\x4	e:LookupError:unknown encoding: mbcs
+decode	ascii		\\	s:\\
+decode	ascii	strict	\\	s:\\
+decode	ascii	ignore	\\	s:\\
+decode	ascii	replace	\\	s:\\
+decode	latin1		\\	s:\\
+decode	latin-1	strict	\\	s:\\
+decode	utf8		\\	s:\\
+decode	utf-8	strict	\\	s:\\
+decode	utf-8	surrogateescape	\\	s:\\
+decode	utf-16		\\	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	utf-16le		\\	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	utf-16be		\\	e:UnicodeDecodeError:'utf-16-be' codec can't decode byte 0x5c in position 0: truncated data
+decode	utf-32		\\	e:UnicodeDecodeError:'utf-32-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	utf_32_le		\\	e:UnicodeDecodeError:'utf-32-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	unicodeescape		\\	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\\	e:UnicodeDecodeError:'unicodeescape' codec can't decode byte 0x5c in position 0: \\ at end of string
+decode	unicode_escape	ignore	\\	s:
+decode	unicode_escape	replace	\\	s:�
+decode	unicode_escape	backslashreplace	\\	s:\\x5c
+decode	rawunicodeescape		\\	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\\	s:\\
+decode	u16		\\	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	u32		\\	e:UnicodeDecodeError:'utf-32-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	646		\\	s:\\
+decode	l1		\\	s:\\
+decode	cp819		\\	s:\\
+decode	latin		\\	s:\\
+decode	utf-16-le		\\	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	utf_16_le		\\	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	utf-32-le		\\	e:UnicodeDecodeError:'utf-32-le' codec can't decode byte 0x5c in position 0: truncated data
+decode	utf16le		\\	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\\	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\\	e:UnicodeDecodeError:'unicodeescape' codec can't decode byte 0x5c in position 0: \\ at end of string
+decode	raw-unicode-escape		\\	s:\\
+decode	mbcs		\\	e:LookupError:unknown encoding: mbcs
+decode	ascii		a\\qb	s:a\\qb
+decode	ascii	strict	a\\qb	s:a\\qb
+decode	ascii	ignore	a\\qb	s:a\\qb
+decode	ascii	replace	a\\qb	s:a\\qb
+decode	latin1		a\\qb	s:a\\qb
+decode	latin-1	strict	a\\qb	s:a\\qb
+decode	utf8		a\\qb	s:a\\qb
+decode	utf-8	strict	a\\qb	s:a\\qb
+decode	utf-8	surrogateescape	a\\qb	s:a\\qb
+decode	utf-16		a\\qb	s:屡扱
+decode	utf-16le		a\\qb	s:屡扱
+decode	utf-16be		a\\qb	s:慜煢
+decode	utf-32		a\\qb	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		a\\qb	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		a\\qb	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		a\\qb	s:a\\qb
+decode	unicode_escape	ignore	a\\qb	s:a\\qb
+decode	unicode_escape	replace	a\\qb	s:a\\qb
+decode	unicode_escape	backslashreplace	a\\qb	s:a\\qb
+decode	rawunicodeescape		a\\qb	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		a\\qb	s:a\\qb
+decode	u16		a\\qb	s:屡扱
+decode	u32		a\\qb	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		a\\qb	s:a\\qb
+decode	l1		a\\qb	s:a\\qb
+decode	cp819		a\\qb	s:a\\qb
+decode	latin		a\\qb	s:a\\qb
+decode	utf-16-le		a\\qb	s:屡扱
+decode	utf_16_le		a\\qb	s:屡扱
+decode	utf-32-le		a\\qb	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		a\\qb	e:LookupError:unknown encoding: utf16le
+decode	utf32be		a\\qb	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		a\\qb	s:a\\qb
+decode	raw-unicode-escape		a\\qb	s:a\\qb
+decode	mbcs		a\\qb	e:LookupError:unknown encoding: mbcs
+decode	ascii		\xff\xfe\x00\x00i\x00\x00\x00	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xff in position 0: ordinal not in range(128)
+decode	ascii	strict	\xff\xfe\x00\x00i\x00\x00\x00	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xff in position 0: ordinal not in range(128)
+decode	ascii	ignore	\xff\xfe\x00\x00i\x00\x00\x00	s:  i   
+decode	ascii	replace	\xff\xfe\x00\x00i\x00\x00\x00	s:��  i   
+decode	latin1		\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	latin-1	strict	\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	utf8		\xff\xfe\x00\x00i\x00\x00\x00	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+decode	utf-8	strict	\xff\xfe\x00\x00i\x00\x00\x00	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0xff in position 0: invalid start byte
+decode	utf-8	surrogateescape	\xff\xfe\x00\x00i\x00\x00\x00	s:\udcff\udcfe  i   
+decode	utf-16		\xff\xfe\x00\x00i\x00\x00\x00	s: i 
+decode	utf-16le		\xff\xfe\x00\x00i\x00\x00\x00	s:﻿ i 
+decode	utf-16be		\xff\xfe\x00\x00i\x00\x00\x00	s:￾ 椀 
+decode	utf-32		\xff\xfe\x00\x00i\x00\x00\x00	s:i
+decode	utf_32_le		\xff\xfe\x00\x00i\x00\x00\x00	s:﻿i
+decode	unicodeescape		\xff\xfe\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	unicode_escape	ignore	\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	unicode_escape	replace	\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	unicode_escape	backslashreplace	\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	rawunicodeescape		\xff\xfe\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	u16		\xff\xfe\x00\x00i\x00\x00\x00	s: i 
+decode	u32		\xff\xfe\x00\x00i\x00\x00\x00	s:i
+decode	646		\xff\xfe\x00\x00i\x00\x00\x00	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xff in position 0: ordinal not in range(128)
+decode	l1		\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	cp819		\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	latin		\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	utf-16-le		\xff\xfe\x00\x00i\x00\x00\x00	s:﻿ i 
+decode	utf_16_le		\xff\xfe\x00\x00i\x00\x00\x00	s:﻿ i 
+decode	utf-32-le		\xff\xfe\x00\x00i\x00\x00\x00	s:﻿i
+decode	utf16le		\xff\xfe\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\xff\xfe\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	raw-unicode-escape		\xff\xfe\x00\x00i\x00\x00\x00	s:ÿþ  i   
+decode	mbcs		\xff\xfe\x00\x00i\x00\x00\x00	e:LookupError:unknown encoding: mbcs
+decode	ascii		\xef\xbb\xbfhi	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xef in position 0: ordinal not in range(128)
+decode	ascii	strict	\xef\xbb\xbfhi	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xef in position 0: ordinal not in range(128)
+decode	ascii	ignore	\xef\xbb\xbfhi	s:hi
+decode	ascii	replace	\xef\xbb\xbfhi	s:���hi
+decode	latin1		\xef\xbb\xbfhi	s:ï»¿hi
+decode	latin-1	strict	\xef\xbb\xbfhi	s:ï»¿hi
+decode	utf8		\xef\xbb\xbfhi	s:﻿hi
+decode	utf-8	strict	\xef\xbb\xbfhi	s:﻿hi
+decode	utf-8	surrogateescape	\xef\xbb\xbfhi	s:﻿hi
+decode	utf-16		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x69 in position 4: truncated data
+decode	utf-16le		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x69 in position 4: truncated data
+decode	utf-16be		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-16-be' codec can't decode byte 0x69 in position 4: truncated data
+decode	utf-32		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		\xef\xbb\xbfhi	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\xef\xbb\xbfhi	s:ï»¿hi
+decode	unicode_escape	ignore	\xef\xbb\xbfhi	s:ï»¿hi
+decode	unicode_escape	replace	\xef\xbb\xbfhi	s:ï»¿hi
+decode	unicode_escape	backslashreplace	\xef\xbb\xbfhi	s:ï»¿hi
+decode	rawunicodeescape		\xef\xbb\xbfhi	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\xef\xbb\xbfhi	s:ï»¿hi
+decode	u16		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x69 in position 4: truncated data
+decode	u32		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		\xef\xbb\xbfhi	e:UnicodeDecodeError:'ascii' codec can't decode byte 0xef in position 0: ordinal not in range(128)
+decode	l1		\xef\xbb\xbfhi	s:ï»¿hi
+decode	cp819		\xef\xbb\xbfhi	s:ï»¿hi
+decode	latin		\xef\xbb\xbfhi	s:ï»¿hi
+decode	utf-16-le		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x69 in position 4: truncated data
+decode	utf_16_le		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-16-le' codec can't decode byte 0x69 in position 4: truncated data
+decode	utf-32-le		\xef\xbb\xbfhi	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		\xef\xbb\xbfhi	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\xef\xbb\xbfhi	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\xef\xbb\xbfhi	s:ï»¿hi
+decode	raw-unicode-escape		\xef\xbb\xbfhi	s:ï»¿hi
+decode	mbcs		\xef\xbb\xbfhi	e:LookupError:unknown encoding: mbcs
+decode	ascii		a\\U00110000b	s:a\\U00110000b
+decode	ascii	strict	a\\U00110000b	s:a\\U00110000b
+decode	ascii	ignore	a\\U00110000b	s:a\\U00110000b
+decode	ascii	replace	a\\U00110000b	s:a\\U00110000b
+decode	latin1		a\\U00110000b	s:a\\U00110000b
+decode	latin-1	strict	a\\U00110000b	s:a\\U00110000b
+decode	utf8		a\\U00110000b	s:a\\U00110000b
+decode	utf-8	strict	a\\U00110000b	s:a\\U00110000b
+decode	utf-8	surrogateescape	a\\U00110000b	s:a\\U00110000b
+decode	utf-16		a\\U00110000b	s:屡さ㄰〱〰戰
+decode	utf-16le		a\\U00110000b	s:屡さ㄰〱〰戰
+decode	utf-16be		a\\U00110000b	s:慜唰〱㄰〰ぢ
+decode	utf-32		a\\U00110000b	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		a\\U00110000b	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		a\\U00110000b	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		a\\U00110000b	e:UnicodeDecodeError:'unicodeescape' codec can't decode bytes in position 1-10: illegal Unicode character
+decode	unicode_escape	ignore	a\\U00110000b	s:ab
+decode	unicode_escape	replace	a\\U00110000b	s:a�b
+decode	unicode_escape	backslashreplace	a\\U00110000b	s:a\\x5c\\x55\\x30\\x30\\x31\\x31\\x30\\x30\\x30\\x30b
+decode	rawunicodeescape		a\\U00110000b	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		a\\U00110000b	e:UnicodeDecodeError:'rawunicodeescape' codec can't decode bytes in position 1-10: \\Uxxxxxxxx out of range
+decode	u16		a\\U00110000b	s:屡さ㄰〱〰戰
+decode	u32		a\\U00110000b	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		a\\U00110000b	s:a\\U00110000b
+decode	l1		a\\U00110000b	s:a\\U00110000b
+decode	cp819		a\\U00110000b	s:a\\U00110000b
+decode	latin		a\\U00110000b	s:a\\U00110000b
+decode	utf-16-le		a\\U00110000b	s:屡さ㄰〱〰戰
+decode	utf_16_le		a\\U00110000b	s:屡さ㄰〱〰戰
+decode	utf-32-le		a\\U00110000b	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		a\\U00110000b	e:LookupError:unknown encoding: utf16le
+decode	utf32be		a\\U00110000b	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		a\\U00110000b	e:UnicodeDecodeError:'unicodeescape' codec can't decode bytes in position 1-10: illegal Unicode character
+decode	raw-unicode-escape		a\\U00110000b	e:UnicodeDecodeError:'rawunicodeescape' codec can't decode bytes in position 1-10: \\Uxxxxxxxx out of range
+decode	mbcs		a\\U00110000b	e:LookupError:unknown encoding: mbcs
+decode	ascii		\x80abc	e:UnicodeDecodeError:'ascii' codec can't decode byte 0x80 in position 0: ordinal not in range(128)
+decode	ascii	strict	\x80abc	e:UnicodeDecodeError:'ascii' codec can't decode byte 0x80 in position 0: ordinal not in range(128)
+decode	ascii	ignore	\x80abc	s:abc
+decode	ascii	replace	\x80abc	s:�abc
+decode	latin1		\x80abc	s:abc
+decode	latin-1	strict	\x80abc	s:abc
+decode	utf8		\x80abc	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0x80 in position 0: invalid start byte
+decode	utf-8	strict	\x80abc	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0x80 in position 0: invalid start byte
+decode	utf-8	surrogateescape	\x80abc	s:\udc80abc
+decode	utf-16		\x80abc	s:憀换
+decode	utf-16le		\x80abc	s:憀换
+decode	utf-16be		\x80abc	s:聡扣
+decode	utf-32		\x80abc	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf_32_le		\x80abc	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	unicodeescape		\x80abc	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\x80abc	s:abc
+decode	unicode_escape	ignore	\x80abc	s:abc
+decode	unicode_escape	replace	\x80abc	s:abc
+decode	unicode_escape	backslashreplace	\x80abc	s:abc
+decode	rawunicodeescape		\x80abc	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\x80abc	s:abc
+decode	u16		\x80abc	s:憀换
+decode	u32		\x80abc	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	646		\x80abc	e:UnicodeDecodeError:'ascii' codec can't decode byte 0x80 in position 0: ordinal not in range(128)
+decode	l1		\x80abc	s:abc
+decode	cp819		\x80abc	s:abc
+decode	latin		\x80abc	s:abc
+decode	utf-16-le		\x80abc	s:憀换
+decode	utf_16_le		\x80abc	s:憀换
+decode	utf-32-le		\x80abc	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-3: code point not in range(0x110000)
+decode	utf16le		\x80abc	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\x80abc	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\x80abc	s:abc
+decode	raw-unicode-escape		\x80abc	s:abc
+decode	mbcs		\x80abc	e:LookupError:unknown encoding: mbcs
+decode	ascii		\\u	s:\\u
+decode	ascii	strict	\\u	s:\\u
+decode	ascii	ignore	\\u	s:\\u
+decode	ascii	replace	\\u	s:\\u
+decode	latin1		\\u	s:\\u
+decode	latin-1	strict	\\u	s:\\u
+decode	utf8		\\u	s:\\u
+decode	utf-8	strict	\\u	s:\\u
+decode	utf-8	surrogateescape	\\u	s:\\u
+decode	utf-16		\\u	s:畜
+decode	utf-16le		\\u	s:畜
+decode	utf-16be		\\u	s:屵
+decode	utf-32		\\u	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-1: truncated data
+decode	utf_32_le		\\u	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-1: truncated data
+decode	unicodeescape		\\u	e:LookupError:unknown encoding: unicodeescape
+decode	unicode_escape		\\u	e:UnicodeDecodeError:'unicodeescape' codec can't decode bytes in position 0-1: truncated \\uXXXX escape
+decode	unicode_escape	ignore	\\u	s:
+decode	unicode_escape	replace	\\u	s:�
+decode	unicode_escape	backslashreplace	\\u	s:\\x5c\\x75
+decode	rawunicodeescape		\\u	e:LookupError:unknown encoding: rawunicodeescape
+decode	raw_unicode_escape		\\u	e:UnicodeDecodeError:'rawunicodeescape' codec can't decode bytes in position 0-1: truncated \\uXXXX escape
+decode	u16		\\u	s:畜
+decode	u32		\\u	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-1: truncated data
+decode	646		\\u	s:\\u
+decode	l1		\\u	s:\\u
+decode	cp819		\\u	s:\\u
+decode	latin		\\u	s:\\u
+decode	utf-16-le		\\u	s:畜
+decode	utf_16_le		\\u	s:畜
+decode	utf-32-le		\\u	e:UnicodeDecodeError:'utf-32-le' codec can't decode bytes in position 0-1: truncated data
+decode	utf16le		\\u	e:LookupError:unknown encoding: utf16le
+decode	utf32be		\\u	e:LookupError:unknown encoding: utf32be
+decode	unicode-escape		\\u	e:UnicodeDecodeError:'unicodeescape' codec can't decode bytes in position 0-1: truncated \\uXXXX escape
+decode	raw-unicode-escape		\\u	e:UnicodeDecodeError:'rawunicodeescape' codec can't decode bytes in position 0-1: truncated \\uXXXX escape
+decode	mbcs		\\u	e:LookupError:unknown encoding: mbcs

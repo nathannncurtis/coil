@@ -227,6 +227,17 @@ pub mod base_exception {
     pub const SIZEOF: usize = 72;
 }
 
+/// `PyUnicodeErrorObject`: `UnicodeDecodeError`/`UnicodeEncodeError`/
+/// `UnicodeTranslateError` instances (exact).
+pub mod unicode_error {
+    pub const ENCODING: usize = 72;
+    pub const OBJECT: usize = 80;
+    pub const START: usize = 88;
+    pub const END: usize = 96;
+    pub const REASON: usize = 104;
+    pub const SIZEOF: usize = 112;
+}
+
 /// `PyTracebackObject` (exact).
 pub mod traceback {
     pub const TB_NEXT: usize = 16;

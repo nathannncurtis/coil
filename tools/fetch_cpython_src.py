@@ -28,8 +28,11 @@ URL = f"https://www.python.org/ftp/python/{VERSION}/{ARCHIVE_NAME}"
 SHA256 = ARCHIVE_SHA256[VERSION]
 DEFAULT_DEST = Path.home() / ".coil" / "cache" / "stdlib-src" / VERSION
 STAMP_NAME = ".verified"
-# Everything below the leading "Python-3.12.10/" that the front end needs.
-EXTRACT_RULES = ("Lib/", "Grammar/", "Parser/Python.asdl")
+# Everything below the leading "Python-3.12.10/" that the front end and
+# tools/gen_unicode_data.py (the generated character-type tables) need.
+EXTRACT_RULES = ("Lib/", "Grammar/", "Parser/Python.asdl", "Objects/unicodetype_db.h",
+                 "Objects/unicodectype.c",
+                 "Tools/unicode/makeunicodedata.py")
 
 
 def _wanted(name: str) -> bool:
@@ -41,7 +44,7 @@ def is_verified(dest: Path) -> bool:
     try:
         if stamp.read_text(encoding="ascii").strip() != SHA256:
             return False
-        return (dest / "Lib").is_dir() and (dest / "Grammar").is_dir() and (dest / "Parser" / "Python.asdl").is_file()
+        return (dest / "Lib").is_dir() and (dest / "Grammar").is_dir() and (dest / "Parser" / "Python.asdl").is_file() and (dest / "Objects" / "unicodetype_db.h").is_file() and (dest / "Objects" / "unicodectype.c").is_file() and (dest / "Tools" / "unicode" / "makeunicodedata.py").is_file()
     except OSError:
         return False
 
