@@ -183,22 +183,59 @@ fn split_literal(bytes: &[u8]) -> RawLiteral<'_> {
     }
 }
 
+/// `str(UnicodeDecodeError)` for a strict UTF-8 decode of `bytes`: the
+/// message CPython quotes in `(unicode error)` SyntaxErrors. The position is
+/// an index into `bytes`, so raw literals report it over the whole body and
+/// the escape pass over the failing non-ASCII run.
+fn utf8_decode_error(bytes: &[u8], err: &std::str::Utf8Error) -> String {
+    let start = err.valid_up_to();
+    match err.error_len() {
+        None => {
+            let end = bytes.len() - 1;
+            if end == start {
+                format!(
+                    "'utf-8' codec can't decode byte 0x{:02x} in position {start}: unexpected end of data",
+                    bytes[start]
+                )
+            } else {
+                format!(
+                    "'utf-8' codec can't decode bytes in position {start}-{end}: unexpected end of data"
+                )
+            }
+        }
+        // A valid lead byte with a broken continuation, or a byte that cannot
+        // start a sequence at all — CPython's two continuation failures.
+        Some(_) => {
+            let lead = bytes[start];
+            let reason = if (0xC2..=0xF4).contains(&lead) {
+                "invalid continuation byte"
+            } else {
+                "invalid start byte"
+            };
+            format!("'utf-8' codec can't decode byte 0x{lead:02x} in position {start}: {reason}")
+        }
+    }
+}
+
 /// `_PyPegen_decode_string` for a string constant: raw text is UTF-8,
 /// otherwise the escape preprocessor plus the unicode-escape decoder.
 fn decode_string(p: &mut Parser, raw: bool, s: &[u8]) -> Option<Vec<u32>> {
     if raw {
         return match std::str::from_utf8(s) {
             Ok(text) => Some(text.chars().map(|c| c as u32).collect()),
-            Err(_) => {
-                p.raise_decode_error(
-                    "unicode error",
-                    "'utf-8' codec can't decode bytes".to_string(),
-                );
+            Err(e) => {
+                p.raise_string_decode_error("unicode error", utf8_decode_error(s, &e));
                 None
             }
         };
     }
-    let preprocessed = escape_preprocess(s);
+    let preprocessed = match escape_preprocess(s) {
+        Ok(preprocessed) => preprocessed,
+        Err(message) => {
+            p.raise_string_decode_error("unicode error", message);
+            return None;
+        }
+    };
     match decode_unicode_escapes(&preprocessed) {
         Ok(value) => Some(value),
         Err(DecodeError::Unicode(message)) => {
@@ -217,8 +254,10 @@ fn decode_string(p: &mut Parser, raw: bool, s: &[u8]) -> Option<Vec<u32>> {
 
 /// `decode_unicode_with_escapes`' first pass: everything non-ASCII becomes a
 /// `\U00xxxxxx` escape and a backslash before a non-ASCII byte becomes
-/// `\`, so the escape decoder sees ASCII only.
-fn escape_preprocess(s: &[u8]) -> Vec<u8> {
+/// `\`, so the escape decoder sees ASCII only. A non-ASCII run decodes
+/// strictly, and its failure is the `UnicodeDecodeError` CPython raises
+/// (positions relative to the run).
+fn escape_preprocess(s: &[u8]) -> Result<Vec<u8>, String> {
     let mut out = Vec::with_capacity(s.len());
     let mut i = 0;
     while i < s.len() {
@@ -237,16 +276,20 @@ fn escape_preprocess(s: &[u8]) -> Vec<u8> {
             while i < s.len() && s[i] >= 0x80 {
                 i += 1;
             }
-            let run = String::from_utf8_lossy(&s[start..i]);
-            for c in run.chars() {
-                out.extend_from_slice(format!("\\U{:08x}", c as u32).as_bytes());
+            match std::str::from_utf8(&s[start..i]) {
+                Ok(run) => {
+                    for c in run.chars() {
+                        out.extend_from_slice(format!("\\U{:08x}", c as u32).as_bytes());
+                    }
+                }
+                Err(e) => return Err(utf8_decode_error(&s[start..i], &e)),
             }
         } else {
             out.push(s[i]);
             i += 1;
         }
     }
-    out
+    Ok(out)
 }
 
 fn hex_value(b: u8) -> Option<u32> {
@@ -643,11 +686,8 @@ fn fstring_middle_text(p: &mut Parser) -> Option<Expr> {
     let pos = Pos::from_token(&t);
     let value: Vec<u32> = match std::str::from_utf8(&t.bytes) {
         Ok(text) => text.chars().map(|c| c as u32).collect(),
-        Err(_) => {
-            p.raise_decode_error(
-                "unicode error",
-                "'utf-8' codec can't decode bytes".to_string(),
-            );
+        Err(e) => {
+            p.raise_decode_error("unicode error", utf8_decode_error(&t.bytes, &e));
             return None;
         }
     };
