@@ -1344,3 +1344,49 @@ fn unreachable_predecessor_is_not_dominance_checked() {
         Err(VerifyError::PhiPredecessorMismatch { .. })
     ));
 }
+
+#[test]
+fn removed_trivial_phi_is_replaced_in_other_variables() {
+    // x = 0; while truth(n): y = x  (x is never reassigned); return y
+    // Reading x in the unsealed header makes an incomplete phi and y is
+    // written with it. Sealing proves the phi trivial; y must then read as
+    // the phi's replacement, not the removed phi.
+    const Y: Sym = Sym(4);
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let n = v(0);
+    let x0 = konst(&mut b, 0);
+    b.write_variable(X, b.entry(), x0).unwrap();
+    let hdr = b.new_block();
+    let body = b.new_block();
+    let exit = b.new_block();
+    b.set_term(b.entry(), Terminator::Jump { to: hdr }).unwrap();
+    b.seal_block(b.entry()).unwrap();
+
+    b.switch_to(hdr).unwrap();
+    let x_hdr = b.read_variable(X, hdr).unwrap();
+    b.write_variable(Y, hdr, x_hdr).unwrap();
+    let c = cond(&mut b, n);
+    b.set_term(
+        hdr,
+        Terminator::Branch {
+            cond: c,
+            then_to: body,
+            else_to: exit,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(body).unwrap();
+    b.set_term(body, Terminator::Jump { to: hdr }).unwrap();
+    b.seal_block(body).unwrap();
+    b.seal_block(hdr).unwrap();
+    b.seal_block(exit).unwrap();
+
+    b.switch_to(exit).unwrap();
+    let y = b.read_variable(Y, exit).unwrap();
+    assert_eq!(y, x0);
+    b.set_term(exit, Terminator::Return { value: y }).unwrap();
+    let f = b.finish().unwrap();
+    assert!(f.blocks.iter().all(|blk| blk.phis.is_empty()));
+    verify::verify_function(&f).unwrap();
+}

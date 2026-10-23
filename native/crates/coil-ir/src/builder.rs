@@ -350,13 +350,15 @@ impl FunctionBuilder {
             .collect();
         self.replace_all_uses(phi, same);
         self.blocks[block.0 as usize].phis.remove(pos);
-        // Later reads of the variable must not return the removed phi; a
-        // write after the read in the same block keeps precedence.
-        let var = self.phi_vars[&phi];
+        // Later reads must not return the removed phi, whichever variable
+        // holds it: `y = x` stores the phi under `y` too. Only entries that
+        // still hold the phi change, so a later write keeps precedence.
         self.phi_vars.remove(&phi);
         for d in &mut self.defs {
-            if d.get(&var) == Some(&phi) {
-                d.insert(var, same);
+            for v in d.values_mut() {
+                if *v == phi {
+                    *v = same;
+                }
             }
         }
         for user in users {
