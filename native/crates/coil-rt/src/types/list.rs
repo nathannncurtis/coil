@@ -15,11 +15,9 @@ use coil_capi_sys::{
 use crate::object::exceptions;
 use crate::object::header;
 use crate::object::lock;
+use crate::object::typeobject::_Py_TPFLAGS_MATCH_SELF;
 use crate::object::typeobject::{Py_LT, PyType_GenericAlloc, zero_type};
 use crate::types::{Cmp, rich_compare};
-
-/// `list`'s private extra flag (`_Py_TPFLAGS_MATCH_SELF`).
-const PY_TPFLAGS_MATCH_SELF: u32 = 1 << 22;
 
 /// CPython 3.12's `PyListObject` with the Coil tail: the var-object
 /// header, the item array pointer and over-allocation count of
@@ -206,7 +204,7 @@ const fn list_type() -> PyTypeObject {
         | Py_TPFLAGS_BASETYPE
         | Py_TPFLAGS_LIST_SUBCLASS
         | Py_TPFLAGS_SEQUENCE
-        | PY_TPFLAGS_MATCH_SELF;
+        | _Py_TPFLAGS_MATCH_SELF;
     t.tp_traverse = Some(list_traverse);
     t.tp_iter = Some(list_iter);
     t.tp_alloc = Some(PyType_GenericAlloc);
