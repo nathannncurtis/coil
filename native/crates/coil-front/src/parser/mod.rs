@@ -1080,39 +1080,6 @@ impl Parser {
         self.raise_error(ExcKind::Syntax, false, detail)
     }
 
-    /// The same raise from a string literal's action: the reported range ends
-    /// at the closing quote rather than past it.
-    pub(crate) fn raise_string_decode_error(&mut self, prefix: &str, message: String) -> bool {
-        let detail = format!("({prefix}) {message}");
-        if self.error.is_some() {
-            return false;
-        }
-        if self.fill == 0 {
-            self.raise_error_known_location(ExcKind::Syntax, 0, 0, 0, -1, detail);
-            return false;
-        }
-        let t = self.tokens[self.fill - 1].clone();
-        let col = if t.col_offset == -1 {
-            self.tokenizer.cur_col_offset()
-        } else {
-            t.col_offset + 1
-        };
-        let end_col = if t.end_col_offset != -1 {
-            t.end_col_offset - 1
-        } else {
-            -1
-        };
-        self.raise_error_known_location(
-            ExcKind::Syntax,
-            t.lineno as i64,
-            col,
-            t.end_lineno as i64,
-            end_col,
-            detail,
-        );
-        false
-    }
-
     /// `_Pypegen_tokenizer_error` plus `raise_decode_error`, the two paths
     /// `initialize_token` takes for an `ERRORTOKEN`.
     fn tokenizer_error(&mut self) -> bool {

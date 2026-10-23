@@ -241,7 +241,7 @@ fn decode_string(p: &mut Parser, raw: bool, s: &[u8]) -> Option<Vec<u32>> {
         return match std::str::from_utf8(s) {
             Ok(text) => Some(text.chars().map(|c| c as u32).collect()),
             Err(e) => {
-                p.raise_string_decode_error("unicode error", utf8_decode_error(s, &e));
+                p.raise_decode_error("unicode error", utf8_decode_error(s, &e));
                 None
             }
         };
@@ -249,7 +249,7 @@ fn decode_string(p: &mut Parser, raw: bool, s: &[u8]) -> Option<Vec<u32>> {
     let preprocessed = match escape_preprocess(s) {
         Ok(preprocessed) => preprocessed,
         Err(message) => {
-            p.raise_string_decode_error("unicode error", message);
+            p.raise_decode_error("unicode error", message);
             return None;
         }
     };
