@@ -1716,7 +1716,13 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use super::ExcKind;
+    use super::ParseError;
+    use super::parse_eval;
+    use super::parse_interactive;
     use super::parse_module;
+    use crate::ast_generated::Mod;
+    use crate::intern::Interner;
 
     /// The reported error: (message, lineno, offset, end_lineno,
     /// end_offset), with `None` standing in for CPython's `-1` "absent" end.
@@ -2349,5 +2355,277 @@ mod tests {
                 "{source:?}"
             );
         }
+    }
+    /// CPython 3.12.10's exact SyntaxError for inputs that hit the reviewed
+    /// paths: the generic error's position (the +1 of
+    /// RAISE_ERROR_KNOWN_LOCATION applies to the ENDMARKER's -1/-1), the
+    /// keyword tokens a `NAME` item never matches, the ungated dict
+    /// alternative, the invalid alternatives whose action returns NULL, the
+    /// bare `*` in slices and the tokenizer's non-printable character.
+    #[test]
+    fn syntax_error_positions_match_cpython() {
+        type ParseFn = fn(&[u8], Option<&std::path::Path>) -> Result<(Mod, Interner), ParseError>;
+        type Expectation<'a> = (&'a str, ParseFn, &'a str, ExcKind, i32, i32, i32, i32);
+        let cases: &[Expectation] = &[
+            (
+                "x =",
+                parse_interactive,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "1+",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "1 +",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                0,
+                0,
+                0,
+                0,
+            ),
+            (
+                " ",
+                parse_eval,
+                "unexpected indent",
+                ExcKind::Indentation,
+                1,
+                1,
+                1,
+                -1,
+            ),
+            (
+                "#x",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "\n",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "lambda x:",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "",
+                parse_interactive,
+                "invalid syntax",
+                ExcKind::Syntax,
+                0,
+                0,
+                0,
+                0,
+            ),
+            (
+                "del",
+                parse_interactive,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "[in",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                4,
+            ),
+            (
+                "(in",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                4,
+            ),
+            (
+                "{in",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                4,
+            ),
+            (
+                "[if",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                4,
+            ),
+            (
+                "[yield",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                7,
+            ),
+            (
+                "{1:2, 3 4}",
+                parse_module,
+                "':' expected after dictionary key",
+                ExcKind::Syntax,
+                1,
+                7,
+                1,
+                0,
+            ),
+            (
+                "x = {1: 2, 3 4}",
+                parse_module,
+                "':' expected after dictionary key",
+                ExcKind::Syntax,
+                1,
+                12,
+                1,
+                0,
+            ),
+            (
+                "{1: 2, 3 4} = 42",
+                parse_module,
+                "':' expected after dictionary key",
+                ExcKind::Syntax,
+                1,
+                8,
+                1,
+                0,
+            ),
+            (
+                "ef foo(a=1,*b,c=3,/,d,e): pass",
+                parse_module,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                4,
+                1,
+                7,
+            ),
+            (
+                "ef f(a = 5, b, /): pass",
+                parse_module,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                4,
+                1,
+                5,
+            ),
+            (
+                "el A[*(1:2)]",
+                parse_module,
+                "Invalid star expression",
+                ExcKind::Syntax,
+                1,
+                9,
+                1,
+                10,
+            ),
+            (
+                "x = A[*(1:2)]",
+                parse_module,
+                "Invalid star expression",
+                ExcKind::Syntax,
+                1,
+                10,
+                1,
+                11,
+            ),
+            (
+                "print x",
+                parse_module,
+                "Missing parentheses in call to 'print'. Did you mean print(...)?",
+                ExcKind::Syntax,
+                1,
+                1,
+                1,
+                8,
+            ),
+            (
+                "(\u{feff}\u{e4} = 5",
+                parse_module,
+                "invalid non-printable character U+FEFF",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                2,
+            ),
+        ];
+        for &(source, parse, message, kind, lineno, offset, end_lineno, end_offset) in cases {
+            let error = parse(source.as_bytes(), None)
+                .err()
+                .unwrap_or_else(|| panic!("{source:?} parsed successfully, expected {message}"));
+            assert_eq!(error.kind.name(), kind.name(), "{source:?}");
+            assert_eq!(error.message, message, "{source:?}");
+            assert_eq!(error.lineno, Some(lineno), "{source:?}");
+            assert_eq!(error.offset, Some(offset), "{source:?}");
+            assert_eq!(error.end_lineno, Some(end_lineno), "{source:?}");
+            assert_eq!(error.end_offset, Some(end_offset), "{source:?}");
+        }
+    }
+
+    /// The `slices` rule takes `starred_expression`, whose `*` still binds
+    /// in valid positions.
+    #[test]
+    fn starred_slice_still_parses() {
+        assert!(parse_module(b"x = A[*a]", None).is_ok());
+        assert!(parse_module(b"x = A[*a, *b]", None).is_ok());
     }
 }
