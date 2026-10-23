@@ -211,7 +211,40 @@ pub fn current() -> *mut ThreadState {
     }
     let state = Box::into_raw(Box::new(ThreadState::new()));
     slot::set(state);
+    registry::register(state);
     state
+}
+
+/// The registry of every live thread state: what the collector walks for
+/// the thread-state roots of section 9.2 (pending exceptions, `exc_info`
+/// stacks, contexts, saved frame pointers). States are created once and
+/// never freed, so entries are only added; addresses, not typed pointers,
+/// so the registry is `Send`.
+pub mod registry {
+    use super::ThreadState;
+    use std::sync::{Mutex, OnceLock};
+
+    fn states() -> &'static Mutex<Vec<usize>> {
+        static STATES: OnceLock<Mutex<Vec<usize>>> = OnceLock::new();
+        STATES.get_or_init(|| Mutex::new(Vec::new()))
+    }
+
+    pub(super) fn register(state: *mut ThreadState) {
+        states()
+            .lock()
+            .expect("thread-state registry poisoned")
+            .push(state as usize);
+    }
+
+    /// Every live thread state, in creation order.
+    pub fn all() -> Vec<*mut ThreadState> {
+        states()
+            .lock()
+            .expect("thread-state registry poisoned")
+            .iter()
+            .map(|addr| *addr as *mut ThreadState)
+            .collect()
+    }
 }
 
 /// The current thread's state, or null before first use; for paths that must

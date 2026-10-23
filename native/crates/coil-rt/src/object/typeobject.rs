@@ -1062,6 +1062,14 @@ unsafe fn type_ready_impl(t: *mut PyTypeObject) -> c_int {
             return -1;
         }
         (*t).tp_flags |= Py_TPFLAGS_READY;
+        // Every readied static type is a collector root (section 9.2):
+        // its `tp_dict`, `tp_mro` and `tp_bases` keep graphs alive, and
+        // being outside the GC heap it is traced rather than marked.
+        // Heap types are GC-heap objects the mark phase reaches through
+        // their instances' `ob_type`.
+        if (*t).tp_flags & Py_TPFLAGS_HEAPTYPE == 0 {
+            crate::gc::roots::register_static_type(t.cast());
+        }
     }
     0
 }
@@ -1111,6 +1119,7 @@ pub fn init_static_types() -> c_int {
             &raw mut types::bytes::PyBytesIter_Type,
             &raw mut types::bytes::PyByteArray_Type,
             &raw mut types::bytes::PyByteArrayIter_Type,
+            &raw mut crate::gc::weakref::PyWeakRef_Type,
         ];
         for t in objects {
             if PyType_Ready(t) < 0 {

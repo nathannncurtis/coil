@@ -34,6 +34,14 @@ pub unsafe fn c_init(object: *mut PyObject, ob_type: *mut PyTypeObject) {
     unsafe {
         (*object).ob_refcnt = 1;
         (*object).ob_type = ob_type;
+        // The constructor's result is a Python object, whatever raw
+        // allocation it came from: tag its granule, the role the
+        // `is_object` tagging of `PyObject_Init` plays for the collector
+        // (spec sections 9.2 and 9.3). Counted-regime objects sit 16
+        // bytes into their block; the tag belongs at the object.
+        if let Some(page) = crate::alloc::page_of(object as usize) {
+            page.set_is_object(page.granule_of(page.base(), object as usize));
+        }
     }
 }
 
