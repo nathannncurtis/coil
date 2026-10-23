@@ -968,8 +968,17 @@ fn may_raise_marks() {
         }
         .may_raise()
     );
+    // Python float division and modulo by zero raise ZeroDivisionError.
     assert!(
-        !Instr::FDiv {
+        Instr::FDiv {
+            lhs: v(0),
+            rhs: v(1),
+            into: v(2)
+        }
+        .may_raise()
+    );
+    assert!(
+        Instr::FMod {
             lhs: v(0),
             rhs: v(1),
             into: v(2)

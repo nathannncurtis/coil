@@ -384,9 +384,11 @@ pub enum Instr {
     FSub { lhs: Value, rhs: Value, into: Value },
     /// `FMul(lhs, rhs) -> into: Float64`.
     FMul { lhs: Value, rhs: Value, into: Value },
-    /// `FDiv(lhs, rhs) -> into: Float64`: IEEE division; never raises.
+    /// `FDiv(lhs, rhs) -> into: Float64`: Python `/`; raises
+    /// `ZeroDivisionError` on `rhs == 0.0`, as `IDiv` does.
     FDiv { lhs: Value, rhs: Value, into: Value },
-    /// `FMod(lhs, rhs) -> into: Float64`.
+    /// `FMod(lhs, rhs) -> into: Float64`: Python `%` (the result takes the
+    /// divisor's sign); raises `ZeroDivisionError` on `rhs == 0.0`.
     FMod { lhs: Value, rhs: Value, into: Value },
     /// `FNeg(src) -> into: Float64`.
     FNeg { src: Value, into: Value },
@@ -691,6 +693,8 @@ impl Instr {
                 | I::IDivOvf { .. }
                 | I::ShlOvf { .. }
                 | I::IDiv { .. }
+                | I::FDiv { .. }
+                | I::FMod { .. }
                 | I::IMod { .. }
                 | I::Shl { .. }
                 | I::Shr { .. }
