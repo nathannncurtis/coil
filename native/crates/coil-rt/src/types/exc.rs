@@ -266,6 +266,159 @@ unsafe extern "C" fn base_exception_init(
     0
 }
 
+/// Reads and writes of the `PyUnicodeErrorObject` tail fields (spec 8.2)
+/// at the pinned offsets of the ABI module, for the concrete
+/// `UnicodeDecodeError`/`UnicodeEncodeError`/`UnicodeTranslateError`.
+mod unicode_field {
+    use coil_capi_sys::PyObject;
+    use coil_rt_abi::cp312::unicode_error as offsets;
+
+    /// Read the `encoding` field.
+    ///
+    /// # Safety
+    ///
+    /// `exc` must be an instance of one of the three Unicode error types.
+    pub(crate) unsafe fn encoding(exc: *mut PyObject) -> *mut PyObject {
+        // SAFETY: the field is at the pinned offset of the exact layout.
+        unsafe { read_object(exc, offsets::ENCODING) }
+    }
+
+    /// Write the `encoding` field.
+    ///
+    /// # Safety
+    ///
+    /// `exc` as the getter; the field takes over `value`'s reference.
+    pub(super) unsafe fn set_encoding(exc: *mut PyObject, value: *mut PyObject) {
+        // SAFETY: as the getter, on the writable field.
+        unsafe { write_object(exc, offsets::ENCODING, value) }
+    }
+
+    /// Read the `object` field.
+    ///
+    /// # Safety
+    ///
+    /// `exc` as the getter.
+    pub(crate) unsafe fn object(exc: *mut PyObject) -> *mut PyObject {
+        // SAFETY: as `encoding`.
+        unsafe { read_object(exc, offsets::OBJECT) }
+    }
+
+    /// Write the `object` field.
+    ///
+    /// # Safety
+    ///
+    /// `exc` as the getter; the field takes over `value`'s reference.
+    pub(super) unsafe fn set_object(exc: *mut PyObject, value: *mut PyObject) {
+        // SAFETY: as `set_encoding`.
+        unsafe { write_object(exc, offsets::OBJECT, value) }
+    }
+
+    /// Write the `start` field.
+    ///
+    /// # Safety
+    ///
+    /// `exc` as the getter.
+    pub(super) unsafe fn set_start(exc: *mut PyObject, start: isize) {
+        // SAFETY: as the getter, on the writable field.
+        unsafe {
+            core::ptr::write_unaligned((exc as *mut u8).add(offsets::START) as *mut isize, start)
+        }
+    }
+
+    /// Write the `end` field.
+    ///
+    /// # Safety
+    ///
+    /// `exc` as the getter.
+    pub(super) unsafe fn set_end(exc: *mut PyObject, end: isize) {
+        // SAFETY: as `set_start`.
+        unsafe { core::ptr::write_unaligned((exc as *mut u8).add(offsets::END) as *mut isize, end) }
+    }
+
+    /// Read the `reason` field.
+    ///
+    /// # Safety
+    ///
+    /// `exc` as the getter.
+    pub(crate) unsafe fn reason(exc: *mut PyObject) -> *mut PyObject {
+        // SAFETY: as `encoding`.
+        unsafe { read_object(exc, offsets::REASON) }
+    }
+
+    /// Write the `reason` field.
+    ///
+    /// # Safety
+    ///
+    /// `exc` as the getter; the field takes over `value`'s reference.
+    pub(super) unsafe fn set_reason(exc: *mut PyObject, value: *mut PyObject) {
+        // SAFETY: as `set_encoding`.
+        unsafe { write_object(exc, offsets::REASON, value) }
+    }
+
+    unsafe fn read_object(exc: *mut PyObject, offset: usize) -> *mut PyObject {
+        // SAFETY: the caller guarantees the field is inside the instance.
+        unsafe { core::ptr::read_unaligned((exc as *const u8).add(offset) as *const *mut PyObject) }
+    }
+
+    unsafe fn write_object(exc: *mut PyObject, offset: usize, value: *mut PyObject) {
+        // SAFETY: as `read_object`, on the writable field.
+        unsafe {
+            core::ptr::write_unaligned((exc as *mut u8).add(offset) as *mut *mut PyObject, value)
+        }
+    }
+}
+
+unsafe extern "C" fn unicode_error_traverse(
+    object: *mut PyObject,
+    visit: visitproc,
+    arg: *mut c_void,
+) -> c_int {
+    // CPython's `UnicodeError_traverse`: the tail fields beside the base's.
+    // SAFETY: every field read is within the instance layout.
+    unsafe {
+        for referent in [
+            unicode_field::encoding(object),
+            unicode_field::object(object),
+            unicode_field::reason(object),
+        ] {
+            if !referent.is_null() && visit(referent, arg) != 0 {
+                return -1;
+            }
+        }
+        base_exception_traverse(object, visit, arg)
+    }
+}
+
+unsafe extern "C" fn unicode_error_clear(object: *mut PyObject) -> c_int {
+    // CPython's `UnicodeError_clear`.
+    // SAFETY: the field accesses are within the instance layout.
+    unsafe {
+        macro_rules! clear_field {
+            ($get:ident, $set:ident) => {{
+                let referent = unicode_field::$get(object);
+                unicode_field::$set(object, ptr::null_mut());
+                release_object(referent);
+            }};
+        }
+        clear_field!(encoding, set_encoding);
+        clear_field!(object, set_object);
+        clear_field!(reason, set_reason);
+        base_exception_clear(object)
+    }
+}
+
+unsafe extern "C" fn unicode_error_dealloc(object: *mut PyObject) {
+    // CPython's `UnicodeError_dealloc`: clear the tail fields, then the
+    // base's dealloc body frees the block.
+    // SAFETY: the object is an instance with the exact layout.
+    unsafe {
+        unicode_error_clear(object);
+        let ty = header::type_of(object);
+        crate::alloc::free_block(object.cast());
+        release_object(ty.cast());
+    }
+}
+
 const fn base_exception_type_object() -> PyTypeObject {
     let mut t = zero_type();
     t.tp_name = c"BaseException".as_ptr();
@@ -750,6 +903,21 @@ pub fn init_exception_types() -> c_int {
         }
         // SAFETY: the outer block; readied once, before concurrency.
         crate::gc::counted::note_coil_type(base_exception_type());
+        // The three concrete codec exceptions carry `PyUnicodeErrorObject`'s
+        // tail fields and their `UnicodeError_*` slots (as CPython's
+        // `MiddlingExtendsException` types do); `UnicodeError` itself stays
+        // `BaseException`-sized.
+        for t in [
+            unicode_decode_error(),
+            unicode_encode_error(),
+            unicode_translate_error(),
+        ] {
+            let ty = t as *mut PyTypeObject;
+            (*ty).tp_basicsize = coil_rt_abi::cp312::unicode_error::SIZEOF as isize;
+            (*ty).tp_dealloc = Some(unicode_error_dealloc);
+            (*ty).tp_traverse = Some(unicode_error_traverse);
+            (*ty).tp_clear = Some(unicode_error_clear);
+        }
         for t in SUBTYPE_OBJECTS.0 {
             if typeobject::PyType_Ready(*t) < 0 {
                 return -1;
@@ -859,6 +1027,71 @@ fn set_raised_owned(exc: *mut PyObject) {
         (*state).current_exception = exc;
         (*state).message.clear();
         release_object(old);
+    }
+}
+
+/// Raise one of the three concrete Unicode errors with every
+/// `PyUnicodeErrorObject` field filled and `args` the constructor
+/// arguments: five for decode and encode, four (no encoding) for
+/// translate. `object` is borrowed (bytes for decode, str for encode
+/// and translate); `message` is the exact `str(exc)` rendering, which
+/// rides in the sidecar until `__str__` renders from the fields.
+pub(crate) fn raise_unicode_error(
+    exc_type: *mut PyObject,
+    encoding: Option<&str>,
+    object: *mut PyObject,
+    start: isize,
+    end: isize,
+    reason: &str,
+    message: &str,
+) {
+    // SAFETY: `exc_type` is one of the three readied Unicode error types
+    // and every field write stays within the pinned layout.
+    unsafe {
+        let exc = create_instance(exc_type as *mut PyTypeObject);
+        if exc.is_null() {
+            // The failure is already set, message included.
+            return;
+        }
+        let encoding_obj = match encoding {
+            Some(encoding) => crate::types::unicode::str_from_utf8(encoding),
+            None => singletons::none(),
+        };
+        let reason_obj = crate::types::unicode::str_from_utf8(reason);
+        let start_obj = crate::types::long::PyLong_FromSsize_t(start);
+        let end_obj = crate::types::long::PyLong_FromSsize_t(end);
+        if encoding_obj.is_null()
+            || reason_obj.is_null()
+            || start_obj.is_null()
+            || end_obj.is_null()
+        {
+            release_object(exc);
+            return;
+        }
+        retain_object(object);
+        unicode_field::set_encoding(exc, encoding_obj);
+        unicode_field::set_object(exc, object);
+        unicode_field::set_start(exc, start);
+        unicode_field::set_end(exc, end);
+        unicode_field::set_reason(exc, reason_obj);
+        // `args` holds its own reference to each item.
+        let args = if encoding.is_some() {
+            crate::types::tuple::from_array(&[encoding_obj, object, start_obj, end_obj, reason_obj])
+        } else {
+            crate::types::tuple::from_array(&[object, start_obj, end_obj, reason_obj])
+        };
+        if args.is_null() {
+            release_object(exc);
+            return;
+        }
+        field::set_args(exc, args);
+        let state = tstate::current();
+        let topmost = topmost_exception_value(state);
+        if !topmost.is_null() && !ptr::eq(topmost, exc) {
+            chain_context(exc, topmost);
+        }
+        set_raised_owned(exc);
+        (*state).message.extend_from_slice(message.as_bytes());
     }
 }
 
@@ -1675,6 +1908,128 @@ pub unsafe extern "C" fn PyException_SetContext(
     // SAFETY: the instance owns the context field.
     unsafe { set_context_field(self_, context) };
     0
+}
+
+/// Build one of the three concrete Unicode errors from its constructor
+/// arguments: the five decode/encode items or the four translate ones
+/// (`object` first, no encoding), as `UnicodeError_init` parses them.
+/// `args` carries a reference per item and the fields take their own.
+unsafe fn unicode_error_from_args(
+    exc_type: *mut PyObject,
+    translate: bool,
+    encoding: *mut PyObject,
+    object: *mut PyObject,
+    start: isize,
+    end: isize,
+    reason: *mut PyObject,
+) -> *mut PyObject {
+    // SAFETY: `exc_type` is one of the three readied Unicode error types.
+    unsafe {
+        let exc = create_instance(exc_type as *mut PyTypeObject);
+        if exc.is_null() {
+            return ptr::null_mut();
+        }
+        let start_obj = crate::types::long::PyLong_FromSsize_t(start);
+        let end_obj = crate::types::long::PyLong_FromSsize_t(end);
+        let args = if translate {
+            crate::types::tuple::from_array(&[object, start_obj, end_obj, reason])
+        } else {
+            crate::types::tuple::from_array(&[encoding, object, start_obj, end_obj, reason])
+        };
+        if start_obj.is_null() || end_obj.is_null() || args.is_null() {
+            release_object(exc);
+            return ptr::null_mut();
+        }
+        release_object(start_obj);
+        release_object(end_obj);
+        if !translate {
+            retain_object(encoding);
+        }
+        retain_object(object);
+        retain_object(reason);
+        field::set_args(exc, args);
+        if !translate {
+            unicode_field::set_encoding(exc, encoding);
+        }
+        unicode_field::set_object(exc, object);
+        unicode_field::set_start(exc, start);
+        unicode_field::set_end(exc, end);
+        unicode_field::set_reason(exc, reason);
+        exc
+    }
+}
+
+/// `PyUnicodeDecodeError_Create`.
+///
+/// # Safety
+///
+/// `string` must hold `length` bytes; `encoding`/`reason` C strings.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyUnicodeDecodeError_Create(
+    encoding: *const c_char,
+    string: *const c_char,
+    length: isize,
+    start: isize,
+    end: isize,
+    reason: *const c_char,
+) -> *mut PyObject {
+    // SAFETY: the C strings are NUL-terminated per contract.
+    unsafe {
+        let encoding_obj = crate::types::unicode::str_from_utf8(util::cstr(encoding));
+        let bytes_obj = crate::types::bytes::PyBytes_FromStringAndSize(string, length);
+        let reason_obj = crate::types::unicode::str_from_utf8(util::cstr(reason));
+        if encoding_obj.is_null() || bytes_obj.is_null() || reason_obj.is_null() {
+            release_object(encoding_obj);
+            release_object(bytes_obj);
+            release_object(reason_obj);
+            return ptr::null_mut();
+        }
+        let exc = unicode_error_from_args(
+            unicode_decode_error(),
+            false,
+            encoding_obj,
+            bytes_obj,
+            start,
+            end,
+            reason_obj,
+        );
+        release_object(encoding_obj);
+        release_object(bytes_obj);
+        release_object(reason_obj);
+        exc
+    }
+}
+
+/// `_PyUnicodeTranslateError_Create`.
+///
+/// # Safety
+///
+/// `unicode` must be a valid string object; `reason` a C string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn _PyUnicodeTranslateError_Create(
+    unicode: *mut PyObject,
+    start: isize,
+    end: isize,
+    reason: *const c_char,
+) -> *mut PyObject {
+    // SAFETY: as `PyUnicodeDecodeError_Create`.
+    unsafe {
+        let reason_obj = crate::types::unicode::str_from_utf8(util::cstr(reason));
+        if reason_obj.is_null() {
+            return ptr::null_mut();
+        }
+        let exc = unicode_error_from_args(
+            unicode_translate_error(),
+            true,
+            ptr::null_mut(),
+            unicode,
+            start,
+            end,
+            reason_obj,
+        );
+        release_object(reason_obj);
+        exc
+    }
 }
 
 // --------------------------------------------------------------- Windows err

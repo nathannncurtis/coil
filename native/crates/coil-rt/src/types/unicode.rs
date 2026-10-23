@@ -16,10 +16,11 @@
 use core::ffi::{c_char, c_int, c_void};
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::hash::{BuildHasher, Hasher};
+use std::sync::OnceLock;
 
 use coil_capi_sys::{
     Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DEFAULT, Py_TPFLAGS_UNICODE_SUBCLASS, PyMappingMethods,
-    PyNumberMethods, PyObject, PySequenceMethods, PyTypeObject,
+    PyNumberMethods, PyObject, PySequenceMethods, PyTypeObject, c_long,
 };
 
 use crate::object::header;
@@ -805,7 +806,7 @@ pub unsafe fn copy(unicode: *mut PyObject) -> *mut PyObject {
 /// handler pass below does.
 /// The smallest kind's maxchar for a set of characters: 0x7F below the
 /// ASCII boundary, else the largest code point.
-fn maxchar_of(chars: &[u32]) -> u32 {
+pub(crate) fn maxchar_of(chars: &[u32]) -> u32 {
     let mut maxchar: u32 = 0;
     for &ch in chars {
         if ch > maxchar {
@@ -2975,7 +2976,7 @@ pub fn translate_core(
 /// needs unicodedata's name database) come with their own tasks; any
 /// other name raises `LookupError` like an unregistered handler.
 #[derive(Clone, Copy, PartialEq)]
-enum ErrHandler {
+pub(crate) enum ErrHandler {
     Strict,
     Ignore,
     Replace,
@@ -2983,9 +2984,35 @@ enum ErrHandler {
     XmlCharRefReplace,
     SurrogateEscape,
     SurrogatePass,
+    /// A name the built-in set does not cover. CPython resolves these
+    /// through the error-handler registry, but only once an error occurs,
+    /// so the variant rides along and raises at the error path.
+    Named(&'static str),
 }
 
-fn error_handler(errors: Option<&str>) -> ErrHandler {
+/// The error-handler registry lookup the `_codecs` module layer installs
+/// over its table: for a registered name, the message naming why it still
+/// cannot run; `None` when the name is unknown.
+static HANDLER_LOOKUP: OnceLock<fn(&str) -> Option<&'static str>> = OnceLock::new();
+
+pub(crate) fn install_handler_lookup(lookup: fn(&str) -> Option<&'static str>) {
+    let _ = HANDLER_LOOKUP.set(lookup);
+}
+
+/// What a codec error path raises for a name outside the built-in set:
+/// the registry's LookupError, or the typed error the registry hook
+/// names for a handler it holds.
+pub(crate) fn named_handler_error(name: &str) {
+    let registered = HANDLER_LOOKUP.get().and_then(|lookup| lookup(name));
+    match registered {
+        Some(why) => {
+            crate::tstate::set_string(exceptions::system_error(), why.as_bytes());
+        }
+        None => lookup_error_message(format!("unknown error handler name '{name}'")),
+    }
+}
+
+pub(crate) fn error_handler(errors: Option<&'static str>) -> ErrHandler {
     match errors {
         None | Some("strict") => ErrHandler::Strict,
         Some("ignore") => ErrHandler::Ignore,
@@ -2994,13 +3021,7 @@ fn error_handler(errors: Option<&str>) -> ErrHandler {
         Some("xmlcharrefreplace") => ErrHandler::XmlCharRefReplace,
         Some("surrogateescape") => ErrHandler::SurrogateEscape,
         Some("surrogatepass") => ErrHandler::SurrogatePass,
-        Some(other) => {
-            crate::tstate::set_string(
-                exceptions::lookup_error(),
-                format!("unknown error handler name '{other}'").as_bytes(),
-            );
-            ErrHandler::Strict
-        }
+        Some(other) => ErrHandler::Named(other),
     }
 }
 
@@ -3014,7 +3035,7 @@ fn lookup_error_message(message: String) {
 /// live interpreter: `ignore` drops the escape, `replace` writes U+FFFD,
 /// `backslashreplace` re-escapes the raw bytes; every other handler
 /// raises and returns false.
-fn escape_error(
+pub(crate) fn escape_error(
     out: &mut Vec<u32>,
     s: &[u8],
     start: isize,
@@ -3040,9 +3061,87 @@ fn escape_error(
             }
             true
         }
+        ErrHandler::XmlCharRefReplace => {
+            // `PyCodec_XMLCharRefReplaceErrors` rejects decode
+            // exceptions outright.
+            crate::tstate::set_string(
+                exceptions::type_error(),
+                b"don't know how to handle UnicodeDecodeError in error callback",
+            );
+            false
+        }
+        ErrHandler::Named(name) => {
+            named_handler_error(name);
+            false
+        }
         _ => {
             raise_decode_error(encoding, s, start, end, message);
             false
+        }
+    }
+}
+
+/// The registry's generic decode-error path (`PyCodec_*Errors` applied
+/// to a decode exception over `[start, end)` of `s`): the built-in
+/// handlers' effect on `out` and the new input position, or the raised
+/// exception. `None` means the caller stops with the pending error.
+pub(crate) fn generic_decode_error(
+    out: &mut Vec<u32>,
+    s: &[u8],
+    start: isize,
+    end: isize,
+    handler: ErrHandler,
+    encoding: &str,
+    reason: &str,
+) -> Option<isize> {
+    let from = start.max(0) as usize;
+    let to = (end.max(0) as usize).min(s.len());
+    match handler {
+        ErrHandler::Ignore => Some(end),
+        ErrHandler::Replace => {
+            out.push(0xFFFD);
+            Some(end)
+        }
+        ErrHandler::BackslashReplace => {
+            for &b in &s[from..to] {
+                out.push(b'\\' as u32);
+                out.push(b'x' as u32);
+                out.push(HEX_DIGITS[(b >> 4) as usize] as u32);
+                out.push(HEX_DIGITS[(b & 0xf) as usize] as u32);
+            }
+            Some(end)
+        }
+        ErrHandler::SurrogateEscape => {
+            // Up to four non-ASCII bytes map to U+DC80..; an ASCII byte
+            // re-raises the original error.
+            let mut consumed = 0usize;
+            while consumed < 4 && from + consumed < to && s[from + consumed] >= 128 {
+                out.push(0xDC00 + s[from + consumed] as u32);
+                consumed += 1;
+            }
+            if consumed == 0 {
+                raise_decode_error(encoding, s, start, end, reason);
+                None
+            } else {
+                Some(start + consumed as isize)
+            }
+        }
+        ErrHandler::XmlCharRefReplace => {
+            crate::tstate::set_string(
+                exceptions::type_error(),
+                b"don't know how to handle UnicodeDecodeError in error callback",
+            );
+            None
+        }
+        // Strict, and surrogatepass over a non-standard encoding name,
+        // which re-raises the original exception.
+        ErrHandler::Strict | ErrHandler::SurrogatePass => {
+            raise_decode_error(encoding, s, start, end, reason);
+            None
+        }
+        ErrHandler::Named(name) => {
+            named_handler_error(name);
+            None
         }
     }
 }
@@ -3070,7 +3169,24 @@ pub(crate) fn raise_decode_error(
             end - 1
         )
     };
-    crate::tstate::set_string(exceptions::unicode_decode_error(), message.as_bytes());
+    // The exception's `object` is a bytes copy of the input; the fields
+    // index into the same content.
+    let object = crate::types::bytes::from_vec(Some(object.to_vec()));
+    if let Some(object) = object {
+        exceptions::raise_unicode_error(
+            exceptions::unicode_decode_error(),
+            Some(encoding),
+            object,
+            start,
+            end,
+            reason,
+            &message,
+        );
+        // SAFETY: our reference, created a moment ago.
+        unsafe { crate::types::exc::release_object(object) };
+    } else {
+        crate::tstate::set_string(exceptions::unicode_decode_error(), message.as_bytes());
+    }
 }
 
 /// The `UnicodeEncodeError.__str__` rendering.
@@ -3100,7 +3216,23 @@ pub(crate) fn raise_encode_error(
             end - 1
         )
     };
-    crate::tstate::set_string(exceptions::unicode_encode_error(), message.as_bytes());
+    // The exception's `object` is a str copy of the input.
+    let object = chars_to_object(object, maxchar_of(object));
+    if !object.is_null() {
+        exceptions::raise_unicode_error(
+            exceptions::unicode_encode_error(),
+            Some(encoding),
+            object,
+            start,
+            end,
+            reason,
+            &message,
+        );
+        // SAFETY: our reference, created a moment ago.
+        unsafe { crate::types::exc::release_object(object) };
+    } else {
+        crate::tstate::set_string(exceptions::unicode_encode_error(), message.as_bytes());
+    }
 }
 
 /// The `UnicodeTranslateError.__str__` rendering.
@@ -3122,10 +3254,25 @@ pub fn raise_translate_error(object: &[u32], start: isize, end: isize, reason: &
             end - 1
         )
     };
-    crate::tstate::set_string(exceptions::unicode_translate_error(), message.as_bytes());
+    let object = chars_to_object(object, maxchar_of(object));
+    if !object.is_null() {
+        exceptions::raise_unicode_error(
+            exceptions::unicode_translate_error(),
+            None,
+            object,
+            start,
+            end,
+            reason,
+            &message,
+        );
+        // SAFETY: our reference, created a moment ago.
+        unsafe { crate::types::exc::release_object(object) };
+    } else {
+        crate::tstate::set_string(exceptions::unicode_translate_error(), message.as_bytes());
+    }
 }
 
-const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
+pub(crate) const HEX_DIGITS: &[u8; 16] = b"0123456789abcdef";
 
 fn push_hex(out: &mut Vec<u8>, value: u32, digits: usize) {
     for shift in (0..digits * 4).step_by(4).rev() {
@@ -3152,9 +3299,9 @@ fn join_surrogates(high: u32, low: u32) -> u32 {
 /// The UTF-8 byte scanner (`codecs.h`'s `STRINGLIB(utf8_decode)`): the
 /// decoded character, or the negative error codes 1-4 as in CPython.
 /// The scanner code for a sequence cut off by the end of the input.
-const TRUNCATED: i32 = -5;
+pub(crate) const TRUNCATED: i32 = -5;
 
-fn utf8_scan_one(s: &[u8]) -> (i32, u32) {
+pub(crate) fn utf8_scan_one(s: &[u8]) -> (i32, u32) {
     let ch = s[0] as u32;
     if ch < 0x80 {
         return (0, ch);
@@ -3253,7 +3400,11 @@ fn utf8_scan_one(s: &[u8]) -> (i32, u32) {
 }
 
 /// `unicode_decode_utf8`: the scanner plus the inline error handlers.
-fn decode_utf8_bytes(s: &[u8], handler: ErrHandler) -> Option<Vec<u32>> {
+pub(crate) fn decode_utf8_bytes(
+    s: &[u8],
+    handler: ErrHandler,
+    mut consumed: Option<&mut isize>,
+) -> Option<Vec<u32>> {
     let mut out: Vec<u32> = Vec::with_capacity(s.len());
     let mut pos = 0usize;
     while pos < s.len() {
@@ -3281,7 +3432,24 @@ fn decode_utf8_bytes(s: &[u8], handler: ErrHandler) -> Option<Vec<u32>> {
                 "invalid continuation byte",
             ),
         };
+        // Stateful input holds a truncated tail back for the next chunk;
+        // a truncated surrogate half waits for its third byte so a
+        // following pair can still join.
+        if let Some(consumed) = consumed.as_mut()
+            && (error == TRUNCATED
+                || (error == -2
+                    && s[pos] == 0xED
+                    && s.len() - pos == 2
+                    && (0xA0..=0xBF).contains(&s[pos + 1])))
+        {
+            **consumed = pos as isize;
+            break;
+        }
         match handler {
+            ErrHandler::Named(name) => {
+                named_handler_error(name);
+                return None;
+            }
             ErrHandler::Ignore => pos = end as usize,
             ErrHandler::Replace => {
                 out.push(0xFFFD);
@@ -3299,11 +3467,14 @@ fn decode_utf8_bytes(s: &[u8], handler: ErrHandler) -> Option<Vec<u32>> {
             }
         }
     }
+    if let Some(consumed) = consumed {
+        *consumed = pos as isize;
+    }
     Some(out)
 }
 
 /// The `errors` C-string argument: `None` when absent.
-unsafe fn errors_arg(errors: *const c_char) -> Option<&'static str> {
+pub(crate) unsafe fn errors_arg(errors: *const c_char) -> Option<&'static str> {
     // SAFETY: the caller owns the C string for the call's duration.
     unsafe {
         if errors.is_null() {
@@ -3315,7 +3486,7 @@ unsafe fn errors_arg(errors: *const c_char) -> Option<&'static str> {
 }
 
 /// The one-byte encoders (`unicode_encode_ucs1`), `limit` 128 or 256.
-fn encode_ucs1(chars: &[u32], limit: u32, handler: ErrHandler) -> Option<Vec<u8>> {
+pub(crate) fn encode_ucs1(chars: &[u32], limit: u32, handler: ErrHandler) -> Option<Vec<u8>> {
     let encoding = if limit == 256 { "latin-1" } else { "ascii" };
     let reason = if limit == 256 {
         "ordinal not in range(256)"
@@ -3395,6 +3566,10 @@ fn encode_ucs1(chars: &[u32], limit: u32, handler: ErrHandler) -> Option<Vec<u8>
                     );
                     return None;
                 }
+                ErrHandler::Named(name) => {
+                    named_handler_error(name);
+                    return None;
+                }
             }
         }
     }
@@ -3403,11 +3578,15 @@ fn encode_ucs1(chars: &[u32], limit: u32, handler: ErrHandler) -> Option<Vec<u8>
 
 /// The UTF-8 encoder (`utf8_encode` in `codecs.h`): strict rejects lone
 /// surrogates, `surrogatepass` writes their three-byte form.
-fn encode_utf8_bytes(chars: &[u32], handler: ErrHandler) -> Option<Vec<u8>> {
+pub(crate) fn encode_utf8_bytes(chars: &[u32], handler: ErrHandler) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(chars.len());
     for (pos, &ch) in chars.iter().enumerate() {
         if is_surrogate(ch) {
             match handler {
+                ErrHandler::Named(name) => {
+                    named_handler_error(name);
+                    return None;
+                }
                 ErrHandler::SurrogatePass => {
                     out.push(0xE0 | (ch >> 12) as u8);
                     out.push(0x80 | ((ch >> 6) & 0x3F) as u8);
@@ -3464,7 +3643,7 @@ pub unsafe extern "C" fn PyUnicode_DecodeASCII(
     }
 }
 
-fn decode_ascii_bytes(s: &[u8], handler: ErrHandler) -> Option<Vec<u32>> {
+pub(crate) fn decode_ascii_bytes(s: &[u8], handler: ErrHandler) -> Option<Vec<u32>> {
     let mut chars: Vec<u32> = Vec::with_capacity(s.len());
     for (pos, &byte) in s.iter().enumerate() {
         if byte < 0x80 {
@@ -3472,6 +3651,10 @@ fn decode_ascii_bytes(s: &[u8], handler: ErrHandler) -> Option<Vec<u32>> {
             continue;
         }
         match handler {
+            ErrHandler::Named(name) => {
+                named_handler_error(name);
+                return None;
+            }
             ErrHandler::Ignore => {}
             ErrHandler::Replace => chars.push(0xFFFD),
             ErrHandler::SurrogateEscape => chars.push(0xDC00 + byte as u32),
@@ -3559,7 +3742,7 @@ fn encode_ucs1_object(chars: &[u32], limit: u32, handler: ErrHandler) -> *mut Py
 /// The escape decoder core (`_PyUnicode_DecodeUnicodeEscapeInternal`).
 /// `\N{...}` raises CPython's error for an unloaded unicodedata capsule;
 /// the name database arrives with the unicodedata task.
-fn decode_unicode_escape(
+pub(crate) fn decode_unicode_escape(
     s: &[u8],
     handler: ErrHandler,
     consumed: Option<&mut isize>,
@@ -3858,7 +4041,7 @@ pub unsafe extern "C" fn _PyUnicode_DecodeRawUnicodeEscapeStateful(
     }
 }
 
-fn decode_raw_unicode_escape(
+pub(crate) fn decode_raw_unicode_escape(
     s: &[u8],
     handler: ErrHandler,
     consumed: Option<&mut isize>,
@@ -3976,7 +4159,7 @@ pub unsafe extern "C" fn PyUnicode_AsRawUnicodeEscapeString(
 /// The escape encoders: `unicode-escape` spells backslash, quotes and
 /// control characters with escapes; `raw-unicode-escape` copies 8-bit
 /// characters as-is.
-fn encode_escape_bytes(chars: &[u32], full: bool) -> *mut PyObject {
+pub(crate) fn encode_escape_bytes(chars: &[u32], full: bool) -> *mut PyObject {
     let mut out: Vec<u8> = Vec::new();
     for &ch in chars {
         if ch < 0x100 {
@@ -4015,10 +4198,346 @@ fn encode_escape_bytes(chars: &[u32], full: bool) -> *mut PyObject {
     }
 }
 
+// ------------------------------------------------------------------ UTF-7
+
+/// `unicodeobject.c`'s `utf7_category`: 0 Set D (direct), 1 Set O,
+/// 2 whitespace, 3 special (base64 territory).
+const UTF7_CATEGORY: [u8; 128] = [
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 2, 2, 3, 3, 2, 3, 3, //
+    3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, //
+    2, 1, 1, 1, 1, 1, 1, 0, 0, 0, 1, 3, 0, 0, 0, 0, //
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, //
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 3, 1, 1, 1, //
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, //
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 3, 3,
+];
+
+const BASE64_DIGITS: &[u8; 64] =
+    b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+fn is_base64(ch: u8) -> bool {
+    ch.is_ascii_alphanumeric() || ch == b'+' || ch == b'/'
+}
+
+fn from_base64(ch: u8) -> u32 {
+    BASE64_DIGITS.iter().position(|&d| d == ch).unwrap() as u32
+}
+
+fn decode_direct(ch: u8) -> bool {
+    ch <= 127 && ch != b'+'
+}
+
+fn encode_direct(ch: u32, direct_o: bool, direct_ws: bool) -> bool {
+    let category = UTF7_CATEGORY[ch as usize];
+    (0 < ch && ch < 128)
+        && (category == 0 || (direct_ws && category == 2) || (direct_o && category == 1))
+}
+
+/// The UTF-7 decoder (`PyUnicode_DecodeUTF7Stateful`): a base-64 state
+/// machine over the ASCII set, with the shift sequence's `+` position
+/// kept for stateful input so the caller can resume. Error regions go
+/// through the registry's generic handler path.
+pub(crate) fn decode_utf7_bytes(
+    s: &[u8],
+    handler: ErrHandler,
+    consumed: Option<&mut isize>,
+) -> Option<Vec<u32>> {
+    if s.is_empty() {
+        if let Some(consumed) = consumed {
+            *consumed = 0;
+        }
+        return Some(Vec::new());
+    }
+    let mut out: Vec<u32> = Vec::with_capacity(s.len());
+    let mut in_shift = false;
+    let mut shift_out_start = 0usize;
+    let mut base64bits: u32 = 0;
+    let mut base64buffer: u32 = 0;
+    let mut surrogate: u32 = 0;
+    let mut pos = 0usize;
+    let mut startinpos = 0usize;
+    while pos < s.len() {
+        let ch = s[pos];
+        if in_shift {
+            if is_base64(ch) {
+                base64buffer = (base64buffer << 6) | from_base64(ch);
+                base64bits += 6;
+                pos += 1;
+                if base64bits >= 16 {
+                    let out_ch = base64buffer >> (base64bits - 16);
+                    base64bits -= 16;
+                    base64buffer &= (1 << base64bits) - 1;
+                    if surrogate != 0 {
+                        if is_low_surrogate(out_ch) {
+                            out.push(join_surrogates(surrogate, out_ch));
+                            surrogate = 0;
+                            continue;
+                        }
+                        out.push(surrogate);
+                        surrogate = 0;
+                    }
+                    if is_high_surrogate(out_ch) {
+                        surrogate = out_ch;
+                    } else {
+                        out.push(out_ch);
+                    }
+                }
+                continue;
+            }
+            // A non-base-64 character closes the section.
+            in_shift = false;
+            if base64bits > 0 && (base64bits >= 6 || base64buffer != 0) {
+                pos += 1;
+                let reason = if base64bits >= 6 {
+                    "partial character in shift sequence"
+                } else {
+                    "non-zero padding bits in shift sequence"
+                };
+                let resume = generic_decode_error(
+                    &mut out,
+                    s,
+                    startinpos as isize,
+                    pos as isize,
+                    handler,
+                    "utf-7",
+                    reason,
+                )?;
+                pos = resume.max(0) as usize;
+                continue;
+            }
+            if surrogate != 0 && decode_direct(ch) {
+                out.push(surrogate);
+            }
+            surrogate = 0;
+            if ch == b'-' {
+                pos += 1;
+            }
+            continue;
+        }
+        if ch == b'+' {
+            startinpos = pos;
+            pos += 1;
+            if pos < s.len() && s[pos] == b'-' {
+                pos += 1;
+                out.push(b'+' as u32);
+            } else if pos < s.len() && !is_base64(s[pos]) {
+                pos += 1;
+                let resume = generic_decode_error(
+                    &mut out,
+                    s,
+                    startinpos as isize,
+                    pos as isize,
+                    handler,
+                    "utf-7",
+                    "ill-formed sequence",
+                )?;
+                pos = resume.max(0) as usize;
+            } else {
+                in_shift = true;
+                surrogate = 0;
+                shift_out_start = out.len();
+                base64bits = 0;
+                base64buffer = 0;
+            }
+            continue;
+        }
+        if decode_direct(ch) {
+            out.push(ch as u32);
+            pos += 1;
+            continue;
+        }
+        startinpos = pos;
+        pos += 1;
+        let resume = generic_decode_error(
+            &mut out,
+            s,
+            startinpos as isize,
+            pos as isize,
+            handler,
+            "utf-7",
+            "unexpected special character",
+        )?;
+        pos = resume.max(0) as usize;
+    }
+    // End of input.
+    if in_shift && consumed.is_none() {
+        in_shift = false;
+        if surrogate != 0 || base64bits >= 6 || (base64bits > 0 && base64buffer != 0) {
+            let resume = generic_decode_error(
+                &mut out,
+                s,
+                startinpos as isize,
+                s.len() as isize,
+                handler,
+                "utf-7",
+                "unterminated shift sequence",
+            )?;
+            pos = resume.max(0) as usize;
+            if pos < s.len() {
+                // The handler resumed mid-input; redo the byte.
+                return decode_utf7_bytes(&s[pos..], handler, None).map(|mut tail| {
+                    out.append(&mut tail);
+                    out
+                });
+            }
+        }
+    }
+    let _ = in_shift;
+    if let Some(consumed) = consumed {
+        *consumed = if in_shift {
+            out.truncate(shift_out_start);
+            startinpos as isize
+        } else {
+            pos as isize
+        };
+    }
+    Some(out)
+}
+
+/// The UTF-7 encoder (`_PyUnicode_EncodeUTF7`): set D always direct,
+/// set O and whitespace per the flags (`_codecs` passes both false).
+/// Encoding never fails.
+pub(crate) fn encode_utf7_bytes(chars: &[u32], base64_set_o: bool, base64_ws: bool) -> Vec<u8> {
+    let direct_o = !base64_set_o;
+    let direct_ws = !base64_ws;
+    let mut out: Vec<u8> = Vec::with_capacity(chars.len() * 8);
+    let mut in_shift = false;
+    let mut base64bits: u32 = 0;
+    let mut base64buffer: u32 = 0;
+    for &ch in chars {
+        if in_shift && encode_direct(ch, direct_o, direct_ws) {
+            // Shifting out.
+            if base64bits != 0 {
+                out.push(BASE64_DIGITS[((base64buffer << (6 - base64bits)) & 0x3F) as usize]);
+                base64buffer = 0;
+                base64bits = 0;
+            }
+            in_shift = false;
+            // Characters not in the base-64 set implicitly unshift the
+            // sequence, so no '-' is required except before '-' itself.
+            if is_base64(ch as u8) || ch == b'-' as u32 {
+                out.push(b'-');
+            }
+            out.push(ch as u8);
+            continue;
+        }
+        if !in_shift {
+            if ch == b'+' as u32 {
+                out.push(b'+');
+                out.push(b'-');
+                continue;
+            }
+            if encode_direct(ch, direct_o, direct_ws) {
+                out.push(ch as u8);
+                continue;
+            }
+            out.push(b'+');
+            in_shift = true;
+        }
+        let mut ch = ch;
+        if ch >= 0x10000 {
+            // The first surrogate, then the second as the loop tail.
+            base64bits += 16;
+            base64buffer = (base64buffer << 16) | (0xD800 + ((ch - 0x10000) >> 10));
+            while base64bits >= 6 {
+                out.push(BASE64_DIGITS[((base64buffer >> (base64bits - 6)) & 0x3F) as usize]);
+                base64bits -= 6;
+            }
+            ch = 0xDC00 + ((ch - 0x10000) & 0x3FF);
+        }
+        base64bits += 16;
+        base64buffer = (base64buffer << 16) | ch;
+        while base64bits >= 6 {
+            out.push(BASE64_DIGITS[((base64buffer >> (base64bits - 6)) & 0x3F) as usize]);
+            base64bits -= 6;
+        }
+    }
+    if base64bits != 0 {
+        out.push(BASE64_DIGITS[((base64buffer << (6 - base64bits)) & 0x3F) as usize]);
+    }
+    if in_shift {
+        out.push(b'-');
+    }
+    out
+}
+
+/// `PyUnicode_DecodeUTF7`.
+///
+/// # Safety
+///
+/// `s` must point to `size` bytes.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyUnicode_DecodeUTF7(
+    s: *const c_char,
+    size: isize,
+    errors: *const c_char,
+) -> *mut PyObject {
+    // SAFETY: the byte range and C string are the caller's contract.
+    unsafe { PyUnicode_DecodeUTF7Stateful(s, size, errors, core::ptr::null_mut()) }
+}
+
+/// `PyUnicode_DecodeUTF7Stateful`.
+///
+/// # Safety
+///
+/// `s` must point to `size` bytes; `consumed` null or writable.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyUnicode_DecodeUTF7Stateful(
+    s: *const c_char,
+    size: isize,
+    errors: *const c_char,
+    consumed: *mut isize,
+) -> *mut PyObject {
+    // SAFETY: the byte range and C string are the caller's contract.
+    unsafe {
+        let bytes = core::slice::from_raw_parts(s.cast::<u8>(), size.max(0) as usize);
+        let mut used: isize = size;
+        let used_arg = if consumed.is_null() {
+            None
+        } else {
+            Some(&mut used)
+        };
+        let Some(chars) = decode_utf7_bytes(bytes, error_handler(errors_arg(errors)), used_arg)
+        else {
+            return core::ptr::null_mut();
+        };
+        if !consumed.is_null() {
+            *consumed = used;
+        }
+        chars_to_object(&chars, 0)
+    }
+}
+
+/// `_PyUnicode_EncodeUTF7`.
+///
+/// # Safety
+///
+/// `str` must be a valid string object.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn _PyUnicode_EncodeUTF7(
+    str: *mut PyObject,
+    base64_set_o: c_int,
+    base64_ws: c_int,
+    _errors: *const c_char,
+) -> *mut PyObject {
+    // SAFETY: reads stay within the string.
+    unsafe {
+        let Some(hay) = as_chars(str) else {
+            return core::ptr::null_mut();
+        };
+        let bytes = encode_utf7_bytes(&hay.as_vec(), base64_set_o != 0, base64_ws != 0);
+        match crate::types::bytes::from_vec(Some(bytes)) {
+            Some(object) => object,
+            None => core::ptr::null_mut(),
+        }
+    }
+}
+
 /// The UTF-16 scanner (`codecs.h`'s `STRINGLIB(utf16_decode)`): returns
 /// the character, or the negative codes 1-3 (unexpected end, illegal
 /// encoding, illegal surrogate) as CPython's switch expects.
-fn utf16_scan_one(q: &[u8], native_ordering: bool) -> (i32, u32) {
+pub(crate) fn utf16_scan_one(q: &[u8], native_ordering: bool) -> (i32, u32) {
     if q.len() < 2 {
         return (-1, 0);
     }
@@ -4046,10 +4565,11 @@ fn utf16_scan_one(q: &[u8], native_ordering: bool) -> (i32, u32) {
     (0, join_surrogates(ch, ch2))
 }
 
-fn decode_utf16_bytes(
+pub(crate) fn decode_utf16_bytes(
     s: &[u8],
     handler: ErrHandler,
     byteorder: Option<&mut i32>,
+    mut consumed: Option<&mut isize>,
 ) -> Option<Vec<u32>> {
     let mut bo: i32 = 0;
     if let Some(order) = &byteorder {
@@ -4069,12 +4589,26 @@ fn decode_utf16_bytes(
             *order = bo;
         }
     }
+    if offset == s.len() {
+        // A lone BOM consumed everything.
+        if let Some(consumed) = consumed {
+            *consumed = s.len() as isize;
+        }
+        return Some(Vec::new());
+    }
     let rest = &s[offset..];
     let native_ordering = bo <= 0;
     let encoding = if native_ordering {
         "utf-16-le"
     } else {
         "utf-16-be"
+    };
+    let read_unit = |at: usize| -> u32 {
+        if native_ordering {
+            ((s[at + 1] as u32) << 8) | s[at] as u32
+        } else {
+            ((s[at] as u32) << 8) | s[at + 1] as u32
+        }
     };
     let mut out: Vec<u32> = Vec::with_capacity(rest.len() / 2);
     let mut pos = 0usize;
@@ -4093,9 +4627,22 @@ fn decode_utf16_bytes(
                 if pos == rest.len() {
                     break;
                 }
-                // An odd trailing byte.
+                // An odd trailing byte: final input calls the handler,
+                // stateful input keeps it for the next chunk.
+                if let Some(consumed) = consumed.as_mut() {
+                    **consumed = (offset + pos) as isize;
+                    break;
+                }
                 match handler {
-                    ErrHandler::Ignore | ErrHandler::Replace => break,
+                    ErrHandler::Named(name) => {
+                        named_handler_error(name);
+                        return None;
+                    }
+                    ErrHandler::Ignore => break,
+                    ErrHandler::Replace => {
+                        out.push(0xFFFD);
+                        break;
+                    }
                     _ => {
                         raise_decode_error(
                             encoding,
@@ -4108,31 +4655,49 @@ fn decode_utf16_bytes(
                     }
                 }
             }
-            -1 => match handler {
-                ErrHandler::Ignore | ErrHandler::Replace => break,
-                _ => {
-                    raise_decode_error(
-                        encoding,
-                        s,
-                        s.len() as isize - 2,
-                        s.len() as isize,
-                        "unexpected end of data",
-                    );
-                    return None;
+            -1 => {
+                // The 2-byte unit at `pos` is a high surrogate with no
+                // pair to follow.
+                if let Some(consumed) = consumed.as_mut() {
+                    **consumed = (offset + pos) as isize;
+                    break;
                 }
-            },
-            -2 => {
-                let start = (offset + pos - 2) as isize;
                 match handler {
+                    ErrHandler::Named(name) => {
+                        named_handler_error(name);
+                        return None;
+                    }
+                    ErrHandler::Ignore => break,
+                    ErrHandler::Replace => {
+                        out.push(0xFFFD);
+                        break;
+                    }
+                    _ => {
+                        raise_decode_error(
+                            encoding,
+                            s,
+                            (offset + pos) as isize,
+                            s.len() as isize,
+                            "unexpected end of data",
+                        );
+                        return None;
+                    }
+                }
+            }
+            -2 => {
+                let start = (offset + pos) as isize;
+                match handler {
+                    ErrHandler::Named(name) => {
+                        named_handler_error(name);
+                        return None;
+                    }
                     ErrHandler::Ignore => pos += 2,
                     ErrHandler::Replace => {
                         out.push(0xFFFD);
                         pos += 2;
                     }
                     ErrHandler::SurrogatePass => {
-                        out.push(
-                            u16::from_ne_bytes([s[start as usize], s[start as usize + 1]]) as u32,
-                        );
+                        out.push(read_unit(start as usize));
                         pos += 2;
                     }
                     _ => {
@@ -4142,17 +4707,19 @@ fn decode_utf16_bytes(
                 }
             }
             -3 => {
-                let start = (offset + pos - 4) as isize;
+                let start = (offset + pos) as isize;
                 match handler {
+                    ErrHandler::Named(name) => {
+                        named_handler_error(name);
+                        return None;
+                    }
                     ErrHandler::Ignore => pos += 2,
                     ErrHandler::Replace => {
                         out.push(0xFFFD);
                         pos += 2;
                     }
                     ErrHandler::SurrogatePass => {
-                        out.push(
-                            u16::from_ne_bytes([s[start as usize], s[start as usize + 1]]) as u32,
-                        );
+                        out.push(read_unit(start as usize));
                         pos += 2;
                     }
                     _ => {
@@ -4172,6 +4739,9 @@ fn decode_utf16_bytes(
         if pos >= rest.len() {
             break;
         }
+    }
+    if let Some(consumed) = consumed {
+        *consumed = (offset + pos) as isize;
     }
     Some(out)
 }
@@ -4196,9 +4766,12 @@ pub unsafe extern "C" fn PyUnicode_DecodeUTF16(
         } else {
             Some(*byteorder)
         };
-        let Some(chars) =
-            decode_utf16_bytes(bytes, error_handler(errors_arg(errors)), order.as_mut())
-        else {
+        let Some(chars) = decode_utf16_bytes(
+            bytes,
+            error_handler(errors_arg(errors)),
+            order.as_mut(),
+            None,
+        ) else {
             return core::ptr::null_mut();
         };
         if !byteorder.is_null() {
@@ -4223,17 +4796,37 @@ pub unsafe extern "C" fn PyUnicode_DecodeUTF16Stateful(
 ) -> *mut PyObject {
     // SAFETY: reads and writes stay within the caller's contract.
     unsafe {
-        // The interim runtime consumes whole inputs; partial decodes come
-        // with the stream task, so `consumed` reports the full size.
-        let result = PyUnicode_DecodeUTF16(s, size, errors, byteorder);
-        if !result.is_null() && !consumed.is_null() {
-            *consumed = size;
+        let bytes = core::slice::from_raw_parts(s.cast::<u8>(), size.max(0) as usize);
+        let mut order = if byteorder.is_null() { 0 } else { *byteorder };
+        let mut used: isize = size;
+        let used_arg = if consumed.is_null() {
+            None
+        } else {
+            Some(&mut used)
+        };
+        let Some(chars) = decode_utf16_bytes(
+            bytes,
+            error_handler(errors_arg(errors)),
+            Some(&mut order),
+            used_arg,
+        ) else {
+            return core::ptr::null_mut();
+        };
+        if !byteorder.is_null() {
+            *byteorder = order;
         }
-        result
+        if !consumed.is_null() {
+            *consumed = used;
+        }
+        chars_to_object(&chars, 0)
     }
 }
 
-fn encode_utf16_bytes(chars: &[u32], byteorder: i32, handler: ErrHandler) -> Option<Vec<u8>> {
+pub(crate) fn encode_utf16_bytes(
+    chars: &[u32],
+    byteorder: i32,
+    handler: ErrHandler,
+) -> Option<Vec<u8>> {
     let little = if byteorder == 0 {
         cfg!(target_endian = "little")
     } else {
@@ -4258,6 +4851,10 @@ fn encode_utf16_bytes(chars: &[u32], byteorder: i32, handler: ErrHandler) -> Opt
         };
         if is_surrogate(ch) {
             match handler {
+                ErrHandler::Named(name) => {
+                    named_handler_error(name);
+                    return None;
+                }
                 ErrHandler::SurrogatePass => write_unit(&mut out, ch),
                 ErrHandler::Ignore => {}
                 ErrHandler::BackslashReplace => {
@@ -4359,7 +4956,8 @@ pub unsafe extern "C" fn PyUnicode_DecodeUTF32(
     unsafe {
         let bytes = core::slice::from_raw_parts(s.cast::<u8>(), size.max(0) as usize);
         let mut order = if byteorder.is_null() { 0 } else { *byteorder };
-        let Some(chars) = decode_utf32_bytes(bytes, error_handler(errors_arg(errors)), &mut order)
+        let Some(chars) =
+            decode_utf32_bytes(bytes, error_handler(errors_arg(errors)), &mut order, None)
         else {
             return core::ptr::null_mut();
         };
@@ -4370,7 +4968,12 @@ pub unsafe extern "C" fn PyUnicode_DecodeUTF32(
     }
 }
 
-fn decode_utf32_bytes(s: &[u8], handler: ErrHandler, byteorder: &mut i32) -> Option<Vec<u32>> {
+pub(crate) fn decode_utf32_bytes(
+    s: &[u8],
+    handler: ErrHandler,
+    byteorder: &mut i32,
+    mut consumed: Option<&mut isize>,
+) -> Option<Vec<u32>> {
     let mut bo = *byteorder;
     let mut offset = 0usize;
     if bo == 0 && s.len() >= 4 {
@@ -4434,7 +5037,17 @@ fn decode_utf32_bytes(s: &[u8], handler: ErrHandler, byteorder: &mut i32) -> Opt
         }
     }
     if pos < rest.len() {
+        // A partial code unit at the end: final input calls the handler,
+        // stateful input keeps it for the next chunk.
+        if let Some(consumed) = consumed.as_mut() {
+            **consumed = (offset + pos) as isize;
+            return Some(out);
+        }
         match handler {
+            ErrHandler::Named(name) => {
+                named_handler_error(name);
+                return None;
+            }
             ErrHandler::Ignore | ErrHandler::Replace => {}
             _ => {
                 raise_decode_error(
@@ -4447,6 +5060,9 @@ fn decode_utf32_bytes(s: &[u8], handler: ErrHandler, byteorder: &mut i32) -> Opt
                 return None;
             }
         }
+    }
+    if let Some(consumed) = consumed {
+        *consumed = (offset + pos) as isize;
     }
     Some(out)
 }
@@ -4466,13 +5082,29 @@ pub unsafe extern "C" fn PyUnicode_DecodeUTF32Stateful(
 ) -> *mut PyObject {
     // SAFETY: reads and writes stay within the caller's contract.
     unsafe {
-        // Whole-input decoding; partial consumption comes with the
-        // stream task.
-        let result = PyUnicode_DecodeUTF32(s, size, errors, byteorder);
-        if !result.is_null() && !consumed.is_null() {
-            *consumed = size;
+        let bytes = core::slice::from_raw_parts(s.cast::<u8>(), size.max(0) as usize);
+        let mut order = if byteorder.is_null() { 0 } else { *byteorder };
+        let mut used: isize = size;
+        let used_arg = if consumed.is_null() {
+            None
+        } else {
+            Some(&mut used)
+        };
+        let Some(chars) = decode_utf32_bytes(
+            bytes,
+            error_handler(errors_arg(errors)),
+            &mut order,
+            used_arg,
+        ) else {
+            return core::ptr::null_mut();
+        };
+        if !byteorder.is_null() {
+            *byteorder = order;
         }
-        result
+        if !consumed.is_null() {
+            *consumed = used;
+        }
+        chars_to_object(&chars, 0)
     }
 }
 
@@ -4508,7 +5140,11 @@ pub unsafe extern "C" fn _PyUnicode_EncodeUTF32(
     }
 }
 
-fn encode_utf32_bytes(chars: &[u32], byteorder: i32, handler: ErrHandler) -> Option<Vec<u8>> {
+pub(crate) fn encode_utf32_bytes(
+    chars: &[u32],
+    byteorder: i32,
+    handler: ErrHandler,
+) -> Option<Vec<u8>> {
     let little = if byteorder == 0 {
         cfg!(target_endian = "little")
     } else {
@@ -4568,9 +5204,120 @@ pub unsafe extern "C" fn PyUnicode_AsUTF32String(unicode: *mut PyObject) -> *mut
     }
 }
 
-/// The charmap decoder for string tables (`charmap_decode_string`'s
-/// general path): byte-to-code-point, U+FFFE meaning unmapped. Bytes and
-/// dict tables need the container runtime and raise a typed error.
+/// A charmap mapping entry, classified the way `charmap_decode_mapping`
+/// and `charmapencode_lookup` classify `mapping[ordinal]`: an integer
+/// (the caller's range checks apply), a str value (borrowed when it came
+/// from a container), a one-character value read out of a str mapping, a
+/// bytes value, "undefined" (a missing key or `None`), or a value no
+/// direction accepts.
+enum MappedValue {
+    Long(c_long),
+    Str(*mut PyObject),
+    Char(u32),
+    Bytes(*mut PyObject),
+    Undefined,
+    Other(*mut PyObject),
+}
+
+/// Classify a mapping value (`charmap_lookup`'s value rules). Objects
+/// stay borrowed; the callers read them before returning.
+///
+/// # Safety
+///
+/// `value` must be a valid object.
+unsafe fn classify_mapped_value(value: *mut PyObject) -> MappedValue {
+    use crate::types::{bytes, long};
+    unsafe {
+        if core::ptr::eq(value, singletons::none()) {
+            MappedValue::Undefined
+        } else if long::is_long(value) {
+            // `PyLong_AsLong` leaves an OverflowError pending on values
+            // too large for a C long; every caller range-checks the -1
+            // it returns into a TypeError, replacing that error, which
+            // is exactly CPython's unchecked `PyLong_AS_LONG` read.
+            MappedValue::Long(long::PyLong_AsLong(value))
+        } else if check(value) {
+            MappedValue::Str(value)
+        } else if bytes::check(value) {
+            MappedValue::Bytes(value)
+        } else {
+            MappedValue::Other(value)
+        }
+    }
+}
+
+/// `PyObject_GetItem(mapping, ordinal)` specialised to the types a
+/// charmap mapping can be, with a miss (any `LookupError`) reading as
+/// the undefined mapping. `None` returns with a pending error.
+///
+/// # Safety
+///
+/// `mapping` must be a valid object.
+unsafe fn mapping_lookup(mapping: *mut PyObject, ordinal: u32) -> Option<MappedValue> {
+    use crate::types::{bytes, dict, list, long, tuple};
+    unsafe {
+        let index = ordinal as isize;
+        if dict::is_dict(mapping) {
+            let key = long::PyLong_FromSsize_t(index);
+            if key.is_null() {
+                return None;
+            }
+            let value = dict::PyDict_GetItemWithError(mapping, key);
+            exceptions::release_object(key);
+            if value.is_null() {
+                return Some(MappedValue::Undefined);
+            }
+            Some(classify_mapped_value(value))
+        } else if list::is_list(mapping) {
+            if index >= list::PyList_Size(mapping) {
+                return Some(MappedValue::Undefined);
+            }
+            Some(classify_mapped_value(list::PyList_GetItem(mapping, index)))
+        } else if tuple::is_tuple(mapping) {
+            if index >= tuple::PyTuple_Size(mapping) {
+                return Some(MappedValue::Undefined);
+            }
+            Some(classify_mapped_value(tuple::PyTuple_GetItem(
+                mapping, index,
+            )))
+        } else if check(mapping) {
+            // A str's item at m is its one-character slice there.
+            if index >= get_length(mapping) {
+                return Some(MappedValue::Undefined);
+            }
+            Some(MappedValue::Char(read(kind(mapping), data(mapping), index)))
+        } else if bytes::check(mapping) || bytes::bytearray_check(mapping) {
+            let len = if bytes::check(mapping) {
+                bytes::size(mapping)
+            } else {
+                bytes::bytearray_size(mapping)
+            };
+            if index >= len {
+                return Some(MappedValue::Undefined);
+            }
+            let contents = if bytes::check(mapping) {
+                bytes::as_string(mapping)
+            } else {
+                bytes::PyByteArray_AsString(mapping)
+            };
+            // SAFETY: the index is within the object's contents.
+            Some(MappedValue::Long(
+                *contents.add(index as usize) as u8 as c_long
+            ))
+        } else {
+            let name = util::cstr((*header::type_of(mapping)).tp_name);
+            crate::tstate::set_string(
+                exceptions::type_error(),
+                format!("'{name}' object is not subscriptable").as_bytes(),
+            );
+            None
+        }
+    }
+}
+
+/// The charmap decoder (`charmap_decode_string` for exact str tables,
+/// `charmap_decode_mapping` for everything else): U+FFFE meaning
+/// unmapped, int/str/None values per the general mapping rules.
 ///
 /// # Safety
 ///
@@ -4596,46 +5343,115 @@ pub unsafe extern "C" fn PyUnicode_DecodeCharmap(
     }
 }
 
-fn decode_charmap_bytes(s: &[u8], mapping: *mut PyObject, handler: ErrHandler) -> Option<Vec<u32>> {
+pub(crate) fn decode_charmap_bytes(
+    s: &[u8],
+    mapping: *mut PyObject,
+    handler: ErrHandler,
+) -> Option<Vec<u32>> {
+    // A null mapping is latin-1, as in `PyUnicode_DecodeCharmap`.
+    if mapping.is_null() {
+        return Some(s.iter().map(|b| *b as u32).collect());
+    }
     // SAFETY: `mapping` is a valid object.
-    let (maplen, mapdata) = unsafe {
-        if !check_exact(mapping) {
-            crate::tstate::set_string(
-                exceptions::system_error(),
-                b"coil: charmap tables of bytes or dict type need the container runtime",
-            );
-            return None;
-        }
-        (get_length(mapping) as usize, data(mapping))
-    };
-    let mut out: Vec<u32> = Vec::with_capacity(s.len());
-    for &byte in s {
-        let x = if (byte as usize) < maplen {
-            // SAFETY: index is below the mapping's length.
-            unsafe { read(kind(mapping), mapdata, byte as isize) }
-        } else {
-            0xFFFE
-        };
-        if x == 0xFFFE {
-            match handler {
-                ErrHandler::Ignore => {}
-                ErrHandler::Replace => out.push(0xFFFD),
-                _ => {
-                    raise_decode_error(
-                        "charmap",
+    unsafe {
+        if check_exact(mapping) {
+            // `charmap_decode_string`'s table path: one char per entry,
+            // so the output length is the input position.
+            let (maplen, mapdata) = (get_length(mapping) as usize, data(mapping));
+            let mut out: Vec<u32> = Vec::with_capacity(s.len());
+            for &byte in s {
+                let x = if (byte as usize) < maplen {
+                    // SAFETY: the index is below the mapping's length.
+                    read(kind(mapping), mapdata, byte as isize)
+                } else {
+                    0xFFFE
+                };
+                if x == 0xFFFE {
+                    // The position is always `pos + 1`, where the loop
+                    // already continues.
+                    let at = out.len() as isize;
+                    generic_decode_error(
+                        &mut out,
                         s,
-                        out.len() as isize,
-                        out.len() as isize + 1,
+                        at,
+                        at + 1,
+                        handler,
+                        "charmap",
                         "character maps to <undefined>",
+                    )?;
+                } else {
+                    out.push(x);
+                }
+            }
+            return Some(out);
+        }
+        // `charmap_decode_mapping`
+        let mut out: Vec<u32> = Vec::with_capacity(s.len());
+        let mut pos = 0usize;
+        while pos < s.len() {
+            let undefined = match mapping_lookup(mapping, s[pos] as u32)? {
+                MappedValue::Long(v) => {
+                    if v == 0xFFFE {
+                        true
+                    } else if !(0..=0x10FFFF).contains(&v) {
+                        crate::tstate::set_string(
+                            exceptions::type_error(),
+                            b"character mapping must be in range(0x110000)",
+                        );
+                        return None;
+                    } else {
+                        out.push(v as u32);
+                        pos += 1;
+                        continue;
+                    }
+                }
+                MappedValue::Char(ch) => {
+                    if ch == 0xFFFE {
+                        true
+                    } else {
+                        out.push(ch);
+                        pos += 1;
+                        continue;
+                    }
+                }
+                MappedValue::Str(value) => {
+                    let len = get_length(value);
+                    if len == 1 && read(kind(value), data(value), 0) == 0xFFFE {
+                        // A one-character U+FFFE value is the undefined
+                        // mapping.
+                        true
+                    } else {
+                        for i in 0..len {
+                            out.push(read(kind(value), data(value), i));
+                        }
+                        pos += 1;
+                        continue;
+                    }
+                }
+                MappedValue::Bytes(_) | MappedValue::Other(_) => {
+                    crate::tstate::set_string(
+                        exceptions::type_error(),
+                        b"character mapping must return integer, None or str",
                     );
                     return None;
                 }
+                MappedValue::Undefined => true,
+            };
+            if undefined {
+                let newpos = generic_decode_error(
+                    &mut out,
+                    s,
+                    pos as isize,
+                    pos as isize + 1,
+                    handler,
+                    "charmap",
+                    "character maps to <undefined>",
+                )?;
+                pos = newpos.max(0) as usize;
             }
-        } else {
-            out.push(x);
         }
+        Some(out)
     }
-    Some(out)
 }
 
 /// `PyUnicode_AsCharmapString`.
@@ -4647,16 +5463,17 @@ fn decode_charmap_bytes(s: &[u8], mapping: *mut PyObject, handler: ErrHandler) -
 pub unsafe extern "C" fn PyUnicode_AsCharmapString(
     unicode: *mut PyObject,
     mapping: *mut PyObject,
-    errors: *const c_char,
 ) -> *mut PyObject {
     // SAFETY: reads stay within the string.
     unsafe {
         let Some(hay) = as_chars(unicode) else {
             return core::ptr::null_mut();
         };
-        let Some(bytes) =
-            encode_charmap_bytes(&hay.as_vec(), mapping, error_handler(errors_arg(errors)))
-        else {
+        let Some(bytes) = encode_charmap_bytes(
+            &hay.as_vec(),
+            mapping,
+            error_handler(errors_arg(core::ptr::null())),
+        ) else {
             return core::ptr::null_mut();
         };
         match crate::types::bytes::from_vec(Some(bytes)) {
@@ -4666,7 +5483,75 @@ pub unsafe extern "C" fn PyUnicode_AsCharmapString(
     }
 }
 
-fn encode_charmap_bytes(
+/// `charmapencode_lookup` + `charmapencode_output`: append `ch`'s mapping
+/// to `out`. `Ok(false)` is the undefined mapping; `Err(())` returns with
+/// a pending error.
+///
+/// # Safety
+///
+/// `mapping` must be a valid object.
+unsafe fn charmap_encode_entry(
+    mapping: *mut PyObject,
+    ch: u32,
+    out: &mut Vec<u8>,
+) -> Result<bool, ()> {
+    use crate::types::bytes;
+    unsafe {
+        match mapping_lookup(mapping, ch).ok_or(())? {
+            MappedValue::Long(v) => {
+                if !(0..=255).contains(&v) {
+                    crate::tstate::set_string(
+                        exceptions::type_error(),
+                        b"character mapping must be in range(256)",
+                    );
+                    return Err(());
+                }
+                out.push(v as u8);
+                Ok(true)
+            }
+            MappedValue::Bytes(value) => {
+                let len = bytes::size(value) as usize;
+                // SAFETY: the length covers the bytes object's contents.
+                let contents =
+                    core::slice::from_raw_parts(bytes::as_string(value).cast::<u8>(), len);
+                out.extend_from_slice(contents);
+                Ok(true)
+            }
+            MappedValue::Undefined => Ok(false),
+            MappedValue::Char(_) => {
+                crate::tstate::set_string(
+                    exceptions::type_error(),
+                    b"character mapping must return integer, bytes or None, not str",
+                );
+                Err(())
+            }
+            MappedValue::Str(value) | MappedValue::Other(value) => {
+                let name = util::cstr((*header::type_of(value)).tp_name);
+                crate::tstate::set_string(
+                    exceptions::type_error(),
+                    format!("character mapping must return integer, bytes or None, not {name}")
+                        .as_bytes(),
+                );
+                Err(())
+            }
+        }
+    }
+}
+
+/// The scan step of `charmap_encoding_error`: whether `ch` has a mapping,
+/// raising the lookup's own errors (an out-of-range int or a value of the
+/// wrong type) the way CPython's scan does.
+///
+/// # Safety
+///
+/// `mapping` must be a valid object.
+unsafe fn charmap_encode_defined(mapping: *mut PyObject, ch: u32) -> Result<bool, ()> {
+    let mut sink = Vec::new();
+    // SAFETY: `mapping` is a valid object.
+    unsafe { charmap_encode_entry(mapping, ch, &mut sink) }
+}
+
+pub(crate) fn encode_charmap_bytes(
     chars: &[u32],
     mapping: *mut PyObject,
     handler: ErrHandler,
@@ -4674,42 +5559,106 @@ fn encode_charmap_bytes(
     if mapping.is_null() {
         return encode_ucs1(chars, 0x100, handler);
     }
-    // SAFETY: `mapping` is a valid object.
-    let (maplen, mapdata) = unsafe {
-        if !check_exact(mapping) {
-            crate::tstate::set_string(
-                exceptions::system_error(),
-                b"coil: charmap tables of bytes or dict type need the container runtime",
-            );
-            return None;
-        }
-        (get_length(mapping) as usize, data(mapping))
-    };
     let mut out = Vec::with_capacity(chars.len());
-    for (pos, &ch) in chars.iter().enumerate() {
-        let x = if (ch as usize) < maplen {
-            // SAFETY: index is below the mapping's length.
-            unsafe { read(kind(mapping), mapdata, ch as isize) }
-        } else {
-            0xFFFE
-        };
-        if x == 0xFFFE {
+    let mut inpos = 0usize;
+    // SAFETY: `mapping` is a valid object.
+    unsafe {
+        while inpos < chars.len() {
+            // SAFETY: the loop index is within `chars`.
+            match charmap_encode_entry(mapping, chars[inpos], &mut out) {
+                Ok(true) => {
+                    inpos += 1;
+                    continue;
+                }
+                Ok(false) => {}
+                Err(()) => return None,
+            }
+            // An unencodable character: collect the whole undefined run
+            // and let the handler at it.
+            let collstart = inpos as isize;
+            let mut collend = inpos + 1;
+            while collend < chars.len() {
+                // SAFETY: the loop index is within `chars`.
+                if charmap_encode_defined(mapping, chars[collend]).ok()? {
+                    break;
+                }
+                collend += 1;
+            }
+            let collend = collend as isize;
+            let undefined = "character maps to <undefined>";
             match handler {
-                ErrHandler::Ignore => {}
-                ErrHandler::Replace => out.push(b'?'),
-                _ => {
-                    raise_encode_error(
-                        "charmap",
-                        chars,
-                        pos as isize,
-                        pos as isize + 1,
-                        "character maps to <undefined>",
-                    );
+                ErrHandler::Ignore => inpos = collend as usize,
+                ErrHandler::Replace => {
+                    for _ in collstart..collend {
+                        // SAFETY: `?` is an ordinary character to look up.
+                        if !charmap_encode_entry(mapping, b'?' as u32, &mut out).ok()? {
+                            raise_encode_error("charmap", chars, collstart, collend, undefined);
+                            return None;
+                        }
+                    }
+                    inpos = collend as usize;
+                }
+                ErrHandler::XmlCharRefReplace => {
+                    for &ch in &chars[collstart as usize..collend as usize] {
+                        let text = format!("&#{};", ch);
+                        for &b in text.as_bytes() {
+                            // SAFETY: the reference's ASCII goes through
+                            // the table one character at a time.
+                            if !charmap_encode_entry(mapping, b as u32, &mut out).ok()? {
+                                raise_encode_error("charmap", chars, collstart, collend, undefined);
+                                return None;
+                            }
+                        }
+                    }
+                    inpos = collend as usize;
+                }
+                // The registry handlers' replacements go back through
+                // the mapping; an unmapped replacement character fails
+                // the whole run.
+                ErrHandler::BackslashReplace => {
+                    for &ch in &chars[collstart as usize..collend as usize] {
+                        let escape = if ch < 0x100 {
+                            format!("\\x{ch:02x}")
+                        } else if ch < 0x10000 {
+                            format!("\\u{ch:04x}")
+                        } else {
+                            format!("\\U{ch:08x}")
+                        };
+                        for e in escape.chars() {
+                            // SAFETY: the escape's characters are looked
+                            // up one at a time.
+                            if !charmap_encode_entry(mapping, e as u32, &mut out).ok()? {
+                                raise_encode_error("charmap", chars, collstart, collend, undefined);
+                                return None;
+                            }
+                        }
+                    }
+                    inpos = collend as usize;
+                }
+                // `PyCodec_SurrogateEscapeErrors` over an encode error
+                // copies U+DC80..U+DCFF characters as raw bytes and
+                // re-raises on anything else.
+                ErrHandler::SurrogateEscape => {
+                    for &ch in &chars[collstart as usize..collend as usize] {
+                        if !(0xDC80..=0xDCFF).contains(&ch) {
+                            raise_encode_error("charmap", chars, collstart, collend, undefined);
+                            return None;
+                        }
+                        out.push((ch - 0xDC00) as u8);
+                    }
+                    inpos = collend as usize;
+                }
+                // Strict, and surrogatepass over a non-standard encoding
+                // name, which re-raises the original error.
+                ErrHandler::Strict | ErrHandler::SurrogatePass => {
+                    raise_encode_error("charmap", chars, collstart, collend, undefined);
+                    return None;
+                }
+                ErrHandler::Named(name) => {
+                    named_handler_error(name);
                     return None;
                 }
             }
-        } else {
-            out.push(x as u8);
         }
     }
     Some(out)
@@ -4743,35 +5692,68 @@ pub unsafe extern "C" fn _PyUnicode_EncodeCharmap(
     }
 }
 
-/// `PyUnicode_BuildEncodingMap` builds the trie object CPython's codecs
-/// module consumes; the object model for it arrives with the container
-/// task, so the interim runtime raises a typed error.
+/// `PyUnicode_BuildEncodingMap`: the char-code-to-index dict form. CPython
+/// builds a compact three-level trie instead when the table allows it; a
+/// dict is an equally valid encoding mapping for `PyUnicode_AsCharmapString`,
+/// so the runtime returns it in both cases and leaves the trie object to
+/// the method-binding object model.
 ///
 /// # Safety
 ///
 /// `string` must be a valid string object.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn PyUnicode_BuildEncodingMap(string: *mut PyObject) -> *mut PyObject {
+    use crate::types::{dict, long};
     // SAFETY: reads stay within the string.
     unsafe {
-        if !check(string) || get_length(string) == 0 {
+        if !check(string) {
             crate::tstate::set_string(
-                exceptions::value_error(),
-                "map must be non-empty".as_bytes(),
+                exceptions::type_error(),
+                b"bad argument type for built-in operation",
             );
             return core::ptr::null_mut();
         }
-        crate::tstate::set_string(
-            exceptions::system_error(),
-            b"coil: EncodingMap objects need the container runtime",
-        );
-        core::ptr::null_mut()
+        let len = get_length(string).min(256);
+        if len == 0 {
+            crate::tstate::set_string(
+                exceptions::type_error(),
+                b"bad argument type for built-in operation",
+            );
+            return core::ptr::null_mut();
+        }
+        let result = dict::PyDict_New();
+        if result.is_null() {
+            return core::ptr::null_mut();
+        }
+        let (kind_, data_) = (kind(string), data(string));
+        for i in 0..len {
+            let key = long::PyLong_FromSsize_t(read(kind_, data_, i) as isize);
+            if key.is_null() {
+                exceptions::release_object(result);
+                return core::ptr::null_mut();
+            }
+            let value = long::PyLong_FromSsize_t(i);
+            let ok = if value.is_null() {
+                false
+            } else {
+                dict::PyDict_SetItem(result, key, value) == 0
+            };
+            exceptions::release_object(key);
+            if !value.is_null() {
+                exceptions::release_object(value);
+            }
+            if !ok {
+                exceptions::release_object(result);
+                return core::ptr::null_mut();
+            }
+        }
+        result
     }
 }
 
 /// `_Py_normalize_encoding`: lowercased, blanks removed, `-` folded to
 /// `_`, truncated to `buflen - 1`.
-fn normalize_encoding(name: &str, buflen: usize) -> String {
+pub(crate) fn normalize_encoding(name: &str, buflen: usize) -> String {
     let mut out = String::with_capacity(buflen - 1);
     for c in name.chars() {
         let mapped = if c == ' ' || c == '\t' {
@@ -4790,32 +5772,37 @@ fn normalize_encoding(name: &str, buflen: usize) -> String {
 
 /// The built-in decode codec set; names beyond it raise `LookupError`
 /// until the codecs registry task.
-fn decode_by_name(name: Option<&str>, bytes: &[u8], handler: ErrHandler) -> Option<Vec<u32>> {
+pub(crate) fn decode_by_name(
+    name: Option<&str>,
+    bytes: &[u8],
+    handler: ErrHandler,
+) -> Option<Vec<u32>> {
     match name {
-        None | Some("utf8") | Some("utf_8") => decode_utf8_bytes(bytes, handler),
+        None | Some("utf8") | Some("utf_8") => decode_utf8_bytes(bytes, handler, None),
+        Some("utf7") | Some("utf_7") | Some("u7") => decode_utf7_bytes(bytes, handler, None),
         Some("utf16") | Some("utf_16") | Some("u16") => {
             let mut order = 0i32;
-            decode_utf16_bytes(bytes, handler, Some(&mut order))
+            decode_utf16_bytes(bytes, handler, Some(&mut order), None)
         }
         Some("utf32") | Some("utf_32") | Some("u32") => {
             let mut order = 0i32;
-            decode_utf32_bytes(bytes, handler, &mut order)
+            decode_utf32_bytes(bytes, handler, &mut order, None)
         }
         Some("utf_16le") | Some("utf_16_le") => {
             let mut order = -1i32;
-            decode_utf16_bytes(bytes, handler, Some(&mut order))
+            decode_utf16_bytes(bytes, handler, Some(&mut order), None)
         }
         Some("utf_16be") | Some("utf_16_be") => {
             let mut order = 1i32;
-            decode_utf16_bytes(bytes, handler, Some(&mut order))
+            decode_utf16_bytes(bytes, handler, Some(&mut order), None)
         }
         Some("utf_32le") | Some("utf_32_le") => {
             let mut order = -1i32;
-            decode_utf32_bytes(bytes, handler, &mut order)
+            decode_utf32_bytes(bytes, handler, &mut order, None)
         }
         Some("utf_32be") | Some("utf_32_be") => {
             let mut order = 1i32;
-            decode_utf32_bytes(bytes, handler, &mut order)
+            decode_utf32_bytes(bytes, handler, &mut order, None)
         }
         Some("ascii")
         | Some("us_ascii")
@@ -4826,6 +5813,9 @@ fn decode_by_name(name: Option<&str>, bytes: &[u8], handler: ErrHandler) -> Opti
         | Some("latin") | Some("8859") | Some("cp819") => {
             Some(bytes.iter().map(|b| *b as u32).collect::<Vec<u32>>())
         }
+        // The registry's charmap codec decodes through a table the
+        // encodings package supplies; without one it is latin-1.
+        Some("charmap") => decode_charmap_bytes(bytes, core::ptr::null_mut(), handler),
         Some("unicode_escape") => decode_unicode_escape(bytes, handler, None),
         Some("raw_unicode_escape") => decode_raw_unicode_escape(bytes, handler, None),
         Some(other) => {
@@ -4866,9 +5856,10 @@ pub unsafe extern "C" fn PyUnicode_Decode(
 }
 
 /// The built-in encode codec set (see `PyUnicode_AsEncodedString`).
-fn encode_by_name(name: &str, chars: &[u32], handler: ErrHandler) -> Option<Vec<u8>> {
+pub(crate) fn encode_by_name(name: &str, chars: &[u32], handler: ErrHandler) -> Option<Vec<u8>> {
     match name {
         "utf8" | "utf_8" => encode_utf8_bytes(chars, handler),
+        "utf7" | "utf_7" | "u7" => Some(encode_utf7_bytes(chars, false, false)),
         "utf16" | "utf_16" | "u16" => encode_utf16_bytes(chars, 0, handler),
         "utf32" | "utf_32" | "u32" => encode_utf32_bytes(chars, 0, handler),
         "utf_16le" | "utf_16_le" => encode_utf16_bytes(chars, -1, handler),
@@ -5092,7 +6083,7 @@ pub unsafe extern "C" fn PyUnicode_DecodeFSDefaultAndSize(
     // SAFETY: the byte range is the caller's contract.
     unsafe {
         let bytes = core::slice::from_raw_parts(s.cast::<u8>(), size.max(0) as usize);
-        let Some(chars) = decode_utf8_bytes(bytes, ErrHandler::SurrogateEscape) else {
+        let Some(chars) = decode_utf8_bytes(bytes, ErrHandler::SurrogateEscape, None) else {
             return core::ptr::null_mut();
         };
         chars_to_object(&chars, 0)
@@ -5157,7 +6148,7 @@ pub unsafe extern "C" fn PyUnicode_DecodeLocaleAndSize(
     unsafe {
         let bytes = core::slice::from_raw_parts(str_.cast::<u8>(), size.max(0) as usize);
         let handler = error_handler(errors_arg(errors));
-        let Some(chars) = decode_utf8_bytes(bytes, handler) else {
+        let Some(chars) = decode_utf8_bytes(bytes, handler, None) else {
             return core::ptr::null_mut();
         };
         chars_to_object(&chars, 0)
@@ -6940,7 +7931,13 @@ pub unsafe extern "C" fn PyUnicode_DecodeUTF8(
     errors: *const c_char,
 ) -> *mut PyObject {
     // SAFETY: the byte range and C string are the caller's contract.
-    unsafe { decode_utf8_range(s, size, errors, None) }
+    unsafe {
+        let bytes = core::slice::from_raw_parts(s.cast::<u8>(), size.max(0) as usize);
+        let Some(chars) = decode_utf8_bytes(bytes, error_handler(errors_arg(errors)), None) else {
+            return core::ptr::null_mut();
+        };
+        chars_to_object(&chars, maxchar_of(&chars))
+    }
 }
 
 /// `PyUnicode_DecodeUTF8Stateful`.
@@ -6957,26 +7954,6 @@ pub unsafe extern "C" fn PyUnicode_DecodeUTF8Stateful(
 ) -> *mut PyObject {
     // SAFETY: the byte range and C string are the caller's contract.
     unsafe {
-        let mut used = size;
-        let result = decode_utf8_range(s, size, errors, Some(&mut used));
-        if !consumed.is_null() && !result.is_null() {
-            *consumed = used;
-        }
-        result
-    }
-}
-
-/// The shared body of the two UTF-8 decode entries: strict decoding of the
-/// first `size` bytes, reporting how many bytes were consumed when the tail
-/// holds an incomplete sequence.
-unsafe fn decode_utf8_range(
-    s: *const c_char,
-    size: isize,
-    errors: *const c_char,
-    consumed: Option<&mut isize>,
-) -> *mut PyObject {
-    // SAFETY: the byte range is the caller's contract.
-    unsafe {
         if s.is_null() {
             crate::tstate::set_string(
                 exceptions::system_error(),
@@ -6985,60 +7962,20 @@ unsafe fn decode_utf8_range(
             return core::ptr::null_mut();
         }
         let bytes = core::slice::from_raw_parts(s.cast::<u8>(), size.max(0) as usize);
-        let handler = error_handler(errors_arg(errors));
-        // Trim an incomplete trailing sequence the way CPython's scanner
-        // does: its error positions end at the sequence start.
-        let mut end = bytes.len();
-        if consumed.is_some() {
-            let mut i = bytes.len();
-            while i > bytes.len().saturating_sub(3) && i > 0 {
-                let b = bytes[i - 1];
-                if !(0x80..0xC0).contains(&b) {
-                    break;
-                }
-                i -= 1;
-            }
-            // A lead byte whose sequence would run past the buffer ends
-            // the decodable prefix.
-            let mut lead = bytes.len();
-            let mut scan = bytes.len();
-            while scan > 0 {
-                let b = bytes[scan - 1];
-                if b >= 0xC0 {
-                    lead = scan - 1;
-                    break;
-                }
-                if b < 0x80 {
-                    break;
-                }
-                scan -= 1;
-            }
-            if scan > 0 && bytes[lead] >= 0xC0 {
-                let need = match bytes[lead] {
-                    0xC0..=0xDF => 2,
-                    0xE0..=0xEF => 3,
-                    _ => 4,
-                };
-                if lead + need > bytes.len() {
-                    end = lead;
-                }
-            }
+        let mut used: isize = size;
+        let used_arg = if consumed.is_null() {
+            None
+        } else {
+            Some(&mut used)
+        };
+        let Some(chars) = decode_utf8_bytes(bytes, error_handler(errors_arg(errors)), used_arg)
+        else {
+            return core::ptr::null_mut();
+        };
+        if !consumed.is_null() {
+            *consumed = used;
         }
-        let handler2 = handler;
-        match decode_utf8_bytes(&bytes[..end], handler2) {
-            Some(chars) => {
-                if let Some(slot) = consumed {
-                    *slot = end as isize;
-                }
-                chars_to_object(&chars, maxchar_of(&chars))
-            }
-            None => {
-                if let Some(slot) = consumed {
-                    *slot = 0;
-                }
-                core::ptr::null_mut()
-            }
-        }
+        chars_to_object(&chars, maxchar_of(&chars))
     }
 }
 
@@ -7077,7 +8014,7 @@ pub unsafe extern "C" fn PyUnicode_FromStringAndSize(
         if maxchar == 0 {
             return from_ascii_unchecked(bytes);
         }
-        let Some(chars) = decode_utf8_bytes(bytes, ErrHandler::Strict) else {
+        let Some(chars) = decode_utf8_bytes(bytes, ErrHandler::Strict, None) else {
             return core::ptr::null_mut();
         };
         chars_to_object(&chars, maxchar_of(&chars))
@@ -7577,7 +8514,7 @@ pub unsafe extern "C" fn PyUnicode_FSDecoder(obj: *mut PyObject, result: *mut c_
         } else if crate::types::bytes::check(obj) {
             let (len, ptr) = crate::types::bytes::as_string_parts(obj);
             let bytes = core::slice::from_raw_parts(ptr.cast::<u8>(), len.max(0) as usize);
-            let Some(chars) = decode_utf8_bytes(bytes, ErrHandler::Strict) else {
+            let Some(chars) = decode_utf8_bytes(bytes, ErrHandler::Strict, None) else {
                 return 0;
             };
             chars_to_object(&chars, maxchar_of(&chars))
@@ -7847,7 +8784,7 @@ pub extern "C" fn _PyUnicode_IsLinebreak(ch: u32) -> c_int {
 
 /// The instance check behind the error accessors: CPython uses
 /// `PyErr_GivenExceptionMatches`, which walks the base chain.
-unsafe fn is_exception_instance(exc: *mut PyObject, expected: *mut PyObject) -> bool {
+pub(crate) unsafe fn is_exception_instance(exc: *mut PyObject, expected: *mut PyObject) -> bool {
     // SAFETY: the object and type are valid; the chain is static.
     unsafe {
         let mut t = (*(exc as *const PyObject)).ob_type;
@@ -8522,162 +9459,6 @@ pub unsafe extern "C" fn _PyUnicode_WideCharString_Opt_Converter(
     0
 }
 
-/// A spec-section-10.1 stub: UTF-7 is a platform codec Coil does not ship.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn _PyUnicode_EncodeUTF7(
-    _unicode: *mut PyObject,
-    _base64_set_o: c_int,
-    _encode_set_o: c_int,
-    _encode_set_s: c_int,
-    _errors: *const c_char,
-) -> *mut PyObject {
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: _PyUnicode_EncodeUTF7 is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: UTF-7 is a platform codec Coil does not ship.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyUnicode_DecodeUTF7(
-    s: *const c_char,
-    size: isize,
-    errors: *const c_char,
-) -> *mut PyObject {
-    let _ = (s, size, errors);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: PyUnicode_DecodeUTF7 is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: UTF-7 is a platform codec Coil does not ship.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyUnicode_DecodeUTF7Stateful(
-    s: *const c_char,
-    size: isize,
-    errors: *const c_char,
-    consumed: *mut isize,
-) -> *mut PyObject {
-    let _ = (s, size, errors, consumed);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: PyUnicode_DecodeUTF7Stateful is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: `mbcs` needs `MultiByteToWideChar`.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyUnicode_DecodeMBCS(
-    s: *const c_char,
-    size: isize,
-    errors: *const c_char,
-) -> *mut PyObject {
-    let _ = (s, size, errors);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: PyUnicode_DecodeMBCS is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: `mbcs` needs `MultiByteToWideChar`.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyUnicode_DecodeMBCSStateful(
-    s: *const c_char,
-    size: isize,
-    errors: *const c_char,
-    consumed: *mut isize,
-) -> *mut PyObject {
-    let _ = (s, size, errors, consumed);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: PyUnicode_DecodeMBCSStateful is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: `mbcs` needs `MultiByteToWideChar`.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyUnicode_AsMBCSString(
-    unicode: *mut PyObject,
-    errors: *const c_char,
-) -> *mut PyObject {
-    let _ = (unicode, errors);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: PyUnicode_AsMBCSString is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: code pages need `MultiByteToWideChar`.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyUnicode_DecodeCodePageStateful(
-    code_page: c_int,
-    s: *const c_char,
-    size: isize,
-    errors: *const c_char,
-    consumed: *mut isize,
-) -> *mut PyObject {
-    let _ = (code_page, s, size, errors, consumed);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: PyUnicode_DecodeCodePageStateful is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: code pages need `WideCharToMultiByte`.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyUnicode_EncodeCodePage(
-    code_page: c_int,
-    unicode: *mut PyObject,
-    errors: *const c_char,
-) -> *mut PyObject {
-    let _ = (code_page, unicode, errors);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: PyUnicode_EncodeCodePage is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
 /// A spec-section-10.1 stub: the printf-style parser needs the argument
 /// machinery (and stable Rust cannot read C varargs).
 ///
@@ -8712,50 +9493,6 @@ pub unsafe extern "C" fn PyUnicode_FromFormatV(
     crate::tstate::set_string(
         exceptions::system_error(),
         b"coil: PyUnicode_FromFormatV is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: creating codec error instances needs the
-/// exceptions task's instance machinery.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyUnicodeDecodeError_Create(
-    encoding: *const c_char,
-    object: *const c_char,
-    length: isize,
-    start: isize,
-    end: isize,
-    reason: *const c_char,
-) -> *mut PyObject {
-    let _ = (encoding, object, length, start, end, reason);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: PyUnicodeDecodeError_Create is not implemented",
-    );
-    core::ptr::null_mut()
-}
-
-/// A spec-section-10.1 stub: creating codec error instances needs the
-/// exceptions task's instance machinery.
-///
-/// # Safety
-///
-/// See the CPython 3.12 contract for this entry point.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn _PyUnicodeTranslateError_Create(
-    object: *mut PyObject,
-    start: isize,
-    end: isize,
-    reason: *const c_char,
-) -> *mut PyObject {
-    let _ = (object, start, end, reason);
-    crate::tstate::set_string(
-        exceptions::system_error(),
-        b"coil: _PyUnicodeTranslateError_Create is not implemented",
     );
     core::ptr::null_mut()
 }

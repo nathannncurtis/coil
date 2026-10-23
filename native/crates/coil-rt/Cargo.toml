@@ -8,6 +8,8 @@ publish.workspace = true
 [dependencies]
 coil-rt-abi = { path = "../coil-rt-abi" }
 coil-capi-sys = { path = "../coil-capi-sys" }
+# The SRE matching engine behind `_sre` (spec section 10.6).
+sre-engine = "=0.4.3"
 
 [dev-dependencies]
 cc = "=1.10.0"
