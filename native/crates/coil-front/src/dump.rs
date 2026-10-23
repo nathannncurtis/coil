@@ -8,6 +8,7 @@ use std::fmt::Write as _;
 
 use crate::ast::*;
 use crate::intern::{Interner, Sym};
+use crate::symtable::SymbolTable;
 
 /// Serialises `module` exactly as front_oracle.py serialises the `ast` field
 /// of its `--ast` record for the same source.
@@ -18,6 +19,18 @@ pub fn dump_module(module: &Mod, interner: &Interner) -> String {
         interner,
     }
     .module(module);
+    out
+}
+
+/// Serialises `table` exactly as front_oracle.py serialises the `symtable`
+/// field of its `--symtable` record for the same source.
+pub fn dump_symtable(table: &SymbolTable, interner: &Interner) -> String {
+    let mut out = String::new();
+    Writer {
+        out: &mut out,
+        interner,
+    }
+    .symbol_table(table);
     out
 }
 
@@ -1599,6 +1612,66 @@ impl Writer<'_> {
                 self.end();
             }
         }
+    }
+
+    /// A JSON string over a Rust `&str`, escaped like `string`.
+    fn text(&mut self, text: &str) {
+        let code_points: Vec<u32> = text.chars().map(u32::from).collect();
+        self.string(&code_points);
+    }
+
+    /// `encode_table` in front_oracle.py: the table's fields in its order,
+    /// symbols sorted by name code points, each mapping to its sorted true
+    /// `symtable.Symbol` predicates, then the children in table order.
+    fn symbol_table(&mut self, table: &SymbolTable) {
+        let top: Vec<u32> = "top".chars().map(u32::from).collect();
+        // `SymbolTable.lookup`'s `module_scope`: the table name is "top".
+        let module_scope = self.interner.resolve(table.name) == top.as_slice();
+        self.raw("{\"name\":");
+        self.sym(table.name);
+        self.raw(",\"type\":");
+        self.text(table.kind.reported_name());
+        self.raw(",\"lineno\":");
+        self.int(table.lineno);
+        self.raw(",\"is_optimized\":");
+        self.raw(if table.kind.is_optimized() {
+            "true"
+        } else {
+            "false"
+        });
+        self.raw(",\"is_nested\":");
+        self.raw(if table.is_nested { "true" } else { "false" });
+        self.raw(",\"symbols\":{");
+        let mut symbols = table.symbols.clone();
+        symbols.sort_by(|a, b| self.interner.resolve(a.0).cmp(self.interner.resolve(b.0)));
+        for (index, (name, flags)) in symbols.iter().enumerate() {
+            if index > 0 {
+                self.raw(",");
+            }
+            self.sym(*name);
+            self.raw(":[");
+            // `Symbol.is_namespace`: a child block bound to the same name.
+            let is_namespace = table.children.iter().any(|child| child.name == *name);
+            for (index, predicate) in
+                SymbolTable::symbol_predicates(*flags, module_scope, is_namespace)
+                    .into_iter()
+                    .enumerate()
+            {
+                if index > 0 {
+                    self.raw(",");
+                }
+                self.text(predicate);
+            }
+            self.raw("]");
+        }
+        self.raw("},\"children\":[");
+        for (index, child) in table.children.iter().enumerate() {
+            if index > 0 {
+                self.raw(",");
+            }
+            self.symbol_table(child);
+        }
+        self.raw("]}");
     }
 }
 
