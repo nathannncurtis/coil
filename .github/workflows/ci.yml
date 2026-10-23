@@ -52,6 +52,8 @@ jobs:
               - 'native/**'
               - 'tools/gen_ast.py'
               - 'tools/fetch_cpython_src.py'
+              - 'tools/layout_oracle.c'
+              - 'tools/layout_oracle.py'
               - '.github/workflows/ci.yml'
             compat:
               - 'tests/compat/**'
@@ -210,6 +212,14 @@ jobs:
           python-version: "3.12.10"
       - name: Generated AST types are current
         run: python tools/gen_ast.py --check
+      - name: MSVC environment for the CPython header layout oracle
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+      - name: coil-rt-abi constants match the pinned CPython headers
+        if: runner.os == 'Windows'
+        run: python tools/layout_oracle.py --check
       - name: Install the pinned Rust toolchain
         working-directory: native
         run: rustup show

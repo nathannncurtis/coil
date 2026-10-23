@@ -9,3 +9,7 @@ version = "0.0.0"
 [[package]]
 name = "coil-ir"
 version = "0.0.0"
+
+[[package]]
+name = "coil-rt-abi"
+version = "0.0.0"
