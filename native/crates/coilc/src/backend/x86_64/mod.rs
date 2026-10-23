@@ -3,3 +3,4 @@
 
 pub mod encode;
 pub mod regs;
+pub mod unwind;

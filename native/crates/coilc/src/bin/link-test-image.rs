@@ -361,6 +361,7 @@ fn test_object(subsystem: Subsystem, no_constants: bool) -> (ObjectFile, u32) {
         ]
         .into_iter()
         .collect(),
+        unwind: Vec::new(),
         entry: "entry".into(),
         subsystem,
         stack_reserve: None,

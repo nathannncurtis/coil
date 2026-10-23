@@ -1,7 +1,6 @@
 //! The PE32+ writer: DOS stub, NT headers, optional header, section table
 //! and data directories for `IMAGE_FILE_MACHINE_AMD64` (spec sections 2
-//! and 13.3). The exception (`.pdata`/`.xdata`) data-directory entry is
-//! left empty on purpose: `link/pdata.rs` owns it and is a separate task.
+//! and 13.3), including the `.pdata`/`.xdata` unwind tables (spec 12.4).
 //! `.rsrc` is built by `link/rsrc.rs` whenever resources are given, and
 //! `python3_forwarder` writes the `python3.dll` stable-ABI forwarder on
 //! the same header layout (spec section 10.1).
@@ -13,6 +12,7 @@ use sha2::{Digest, Sha256};
 use super::LinkError;
 use super::imports;
 use super::objfile::{ObjectFile, Place, SectionId, Subsystem};
+use super::pdata;
 use super::reloc::{self, SectionBytes};
 use super::rsrc;
 
@@ -61,6 +61,7 @@ const PE_OFFSET: usize = 0x80;
 /// Data-directory indices, for the entries this writer fills.
 const DIRECTORY_IMPORT: usize = 1;
 const DIRECTORY_RESOURCE: usize = 2;
+const DIRECTORY_EXCEPTION: usize = 3;
 const DIRECTORY_BASERELOC: usize = 5;
 const DIRECTORY_IAT: usize = 12;
 
@@ -86,6 +87,13 @@ pub struct Layout {
     pub data_vsize: u32,
     pub idata_rva: u32,
     pub idata_vsize: u32,
+    pub pdata_rva: u32,
+    pub pdata_vsize: u32,
+    /// `(rva, size)` for the exception data directory; `(0, 0)` without
+    /// unwind entries.
+    pub exception_directory: (u32, u32),
+    pub xdata_rva: u32,
+    pub xdata_vsize: u32,
     /// `(rva, size)` for the IAT data directory; `(0, 0)` without imports.
     pub iat_directory: (u32, u32),
     pub reloc_rva: u32,
@@ -176,7 +184,12 @@ fn link_inner(
     } else {
         imports::size(obj)?
     };
-    let idata_rva = align_up(data_rva + data_vsize, SECTION_ALIGNMENT)?;
+    // Unwind tables sit between `.data` and `.idata`; without unwind entries
+    // neither extent exists, exactly as for `.idata` without imports.
+    let (pdata_vsize, xdata_vsize) = pdata::sizes(obj)?;
+    let pdata_rva = align_up(data_rva + data_vsize, SECTION_ALIGNMENT)?;
+    let xdata_rva = align_up(pdata_rva + pdata_vsize, SECTION_ALIGNMENT)?;
+    let idata_rva = align_up(xdata_rva + xdata_vsize, SECTION_ALIGNMENT)?;
     let reloc_rva = align_up(idata_rva + idata_vsize, SECTION_ALIGNMENT)?;
 
     let entry_offset = obj
@@ -196,6 +209,11 @@ fn link_inner(
         data_vsize,
         idata_rva,
         idata_vsize,
+        pdata_rva,
+        pdata_vsize,
+        exception_directory: (0, 0),
+        xdata_rva,
+        xdata_vsize,
         iat_directory: (0, 0),
         reloc_rva,
         reloc_vsize: 0,
@@ -207,6 +225,10 @@ fn link_inner(
 
     let import_table = imports::build(obj, idata_rva)?;
     layout.iat_directory = import_table.iat_directory;
+    let unwind_tables = pdata::build(obj, text_rva, xdata_rva)?;
+    if pdata_vsize > 0 {
+        layout.exception_directory = (pdata_rva, pdata_vsize);
+    }
 
     let mut sections = SectionBytes::new(obj);
     let dir64 = reloc::apply(obj, &layout, &import_table, &mut sections)?;
@@ -248,6 +270,20 @@ fn link_inner(
                 | IMAGE_SCN_MEM_WRITE,
             vsize: data_vsize,
             raw: sections.data,
+        });
+    }
+    if pdata_vsize > 0 {
+        table.push(SectionOut {
+            name: ".pdata",
+            characteristics: IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
+            vsize: pdata_vsize,
+            raw: unwind_tables.pdata,
+        });
+        table.push(SectionOut {
+            name: ".xdata",
+            characteristics: IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
+            vsize: xdata_vsize,
+            raw: unwind_tables.xdata,
         });
     }
     if !obj.imports.is_empty() {
@@ -572,10 +608,12 @@ fn section_rva(layout: &Layout, name: &str) -> u32 {
         ".text" => layout.text_rva,
         ".rdata" => layout.rdata_rva,
         ".data" => layout.data_rva,
+        ".pdata" => layout.pdata_rva,
+        ".xdata" => layout.xdata_rva,
         ".idata" => layout.idata_rva,
         ".reloc" => layout.reloc_rva,
         ".rsrc" => layout.rsrc_rva,
-        _ => unreachable!("the writer only places the six known sections"),
+        _ => unreachable!("the writer only places the eight known sections"),
     }
 }
 
@@ -595,8 +633,13 @@ fn optional_header(
             .unwrap_or(0)
     };
     let size_of_code = raw_of(".text");
-    let size_of_initialized_data =
-        raw_of(".rdata") + raw_of(".data") + raw_of(".idata") + raw_of(".reloc") + raw_of(".rsrc");
+    let size_of_initialized_data = raw_of(".rdata")
+        + raw_of(".data")
+        + raw_of(".pdata")
+        + raw_of(".xdata")
+        + raw_of(".idata")
+        + raw_of(".reloc")
+        + raw_of(".rsrc");
 
     let mut oh: Vec<u8> = Vec::with_capacity(SIZE_OF_OPTIONAL_HEADER as usize);
     push_u16(&mut oh, OPTIONAL_HEADER_MAGIC_PE32PLUS);
@@ -646,9 +689,9 @@ fn optional_header(
         (layout.reloc_rva, layout.reloc_vsize)
     };
     for index in 0..NUMBER_OF_RVA_AND_SIZES as usize {
-        // The exception directory stays empty; `pdata.rs` owns it.
         let (rva, size) = match index {
             DIRECTORY_IMPORT => import,
+            DIRECTORY_EXCEPTION => layout.exception_directory,
             DIRECTORY_RESOURCE => {
                 if layout.rsrc_vsize == 0 {
                     (0, 0)
@@ -702,11 +745,18 @@ fn align_up(value: u32, align: u32) -> Result<u32, LinkError> {
 #[cfg(test)]
 mod tests {
     use super::{IMAGE_BASE, link, link_image, link_with_resources, python3_forwarder, rsrc};
+    use crate::backend::x86_64::regs::Gpr;
+    use crate::backend::x86_64::unwind::{Prologue, unwind_info};
     use crate::link::LinkError;
     use crate::link::objfile::{
-        BssSpec, ObjectFile, Place, Reloc, SectionContent, SectionId, Subsystem, Symbol, Target,
+        BssSpec, FunctionUnwind, ObjectFile, Place, Reloc, SectionContent, SectionId, Subsystem,
+        Symbol, Target,
     };
     use sha2::{Digest, Sha256};
+
+    fn align_0x1000(value: u32) -> u32 {
+        (value + 0xFFF) & !0xFFF
+    }
 
     fn object() -> ObjectFile {
         ObjectFile {
@@ -751,6 +801,7 @@ mod tests {
             imports: [("kernel32.dll".to_string(), vec!["ExitProcess".to_string()])]
                 .into_iter()
                 .collect(),
+            unwind: Vec::new(),
             entry: "entry".into(),
             subsystem: Subsystem::Console,
             stack_reserve: None,
@@ -934,6 +985,107 @@ mod tests {
         for at in [0x110, 0x130] {
             assert_eq!(&image[at..at + 8], &[0; 8]);
         }
+    }
+
+    #[test]
+    fn unwind_functions_get_pdata_xdata_and_the_exception_directory() {
+        // Two functions with different prologue shapes inside `.text`; the
+        // image must carry `.pdata`/`.xdata` between `.data` and `.idata`,
+        // the exception data directory over `.pdata`, and one sorted
+        // `RUNTIME_FUNCTION` per function whose unwind data points into
+        // `.xdata`.
+        let mut obj = object();
+        obj.text.bytes = vec![0xCC; 0x60];
+        let small = Prologue::new(0x20, &[]);
+        let large = Prologue::new(0x3008, &[Gpr::Rbx, Gpr::R12]);
+        obj.unwind = vec![
+            FunctionUnwind {
+                name: "large".into(),
+                begin: 0x30,
+                end: 0x60,
+                prologue: large.clone(),
+            },
+            FunctionUnwind {
+                name: "small".into(),
+                begin: 0x0,
+                end: 0x30,
+                prologue: small.clone(),
+            },
+        ];
+
+        let linked = link_image(&obj).unwrap();
+        let layout = &linked.layout;
+        assert_eq!(
+            layout.exception_directory,
+            (layout.pdata_rva, layout.pdata_vsize)
+        );
+        assert_eq!(layout.pdata_vsize, 2 * 12);
+        assert_eq!(
+            layout.xdata_vsize as usize,
+            unwind_info(&small).unwrap().len() + unwind_info(&large).unwrap().len()
+        );
+
+        let image = &linked.image;
+        let section = |name: &str| {
+            let count = u16::from_le_bytes(image[0x86..0x88].try_into().unwrap()) as usize;
+            let mut at = 0x188;
+            for _ in 0..count {
+                let this = String::from_utf8_lossy(&image[at..at + 8])
+                    .trim_end_matches('\0')
+                    .to_string();
+                if this == name {
+                    return Some((
+                        u32::from_le_bytes(image[at + 8..at + 12].try_into().unwrap()),
+                        u32::from_le_bytes(image[at + 12..at + 16].try_into().unwrap()),
+                        u32::from_le_bytes(image[at + 16..at + 20].try_into().unwrap()),
+                        u32::from_le_bytes(image[at + 20..at + 24].try_into().unwrap()),
+                    ));
+                }
+                at += 40;
+            }
+            None
+        };
+        let (pdata_vsize, pdata_rva, pdata_raw, pdata_ptr) = section(".pdata").unwrap();
+        let (xdata_vsize, xdata_rva, _, xdata_ptr) = section(".xdata").unwrap();
+        assert_eq!(pdata_vsize, layout.pdata_vsize);
+        assert_eq!(pdata_rva, layout.pdata_rva);
+        assert_eq!(xdata_vsize, layout.xdata_vsize);
+        assert_eq!(xdata_rva, layout.xdata_rva);
+        assert_eq!(
+            layout.idata_rva,
+            align_0x1000(pdata_rva).max(align_0x1000(xdata_rva + xdata_vsize))
+        );
+
+        // The RUNTIME_FUNCTION bytes: sorted by BeginAddress, extents in
+        // .text, unwind data at consecutive .xdata offsets.
+        let small_info = unwind_info(&small).unwrap();
+        let mut expected = Vec::new();
+        expected.extend_from_slice(&(layout.text_rva).to_le_bytes());
+        expected.extend_from_slice(&(layout.text_rva + 0x30).to_le_bytes());
+        expected.extend_from_slice(&(layout.xdata_rva).to_le_bytes());
+        expected.extend_from_slice(&(layout.text_rva + 0x30).to_le_bytes());
+        expected.extend_from_slice(&(layout.text_rva + 0x60).to_le_bytes());
+        expected.extend_from_slice(&(layout.xdata_rva + small_info.len() as u32).to_le_bytes());
+        assert_eq!(
+            &image[pdata_ptr as usize..pdata_ptr as usize + 24],
+            &expected[..]
+        );
+
+        let mut xdata = Vec::new();
+        xdata.extend_from_slice(&small_info);
+        xdata.extend_from_slice(&unwind_info(&large).unwrap());
+        assert_eq!(
+            &image[xdata_ptr as usize..xdata_ptr as usize + xdata.len()],
+            &xdata[..]
+        );
+
+        // The exception data directory, optional-header offset 112 + 24.
+        let mut directory = Vec::new();
+        directory.extend_from_slice(&layout.pdata_rva.to_le_bytes());
+        directory.extend_from_slice(&layout.pdata_vsize.to_le_bytes());
+        let at = 0x80 + 4 + 20 + 112 + 24;
+        assert_eq!(&image[at..at + 8], &directory[..]);
+        assert_eq!(pdata_raw % 0x200, 0);
     }
 
     #[test]
