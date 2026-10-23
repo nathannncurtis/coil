@@ -23,7 +23,7 @@ const UWOP_ALLOC_LARGE: u8 = 1;
 /// `UWOP_ALLOC_SMALL`: `OpInfo` is `size / 8`, so at most 14 slots.
 const UWOP_ALLOC_SMALL: u8 = 2;
 /// `UWOP_SET_FPREG`.
-const UWOP_SET_FPREG: u8 = 4;
+const UWOP_SET_FPREG: u8 = 3;
 
 /// The largest frame `UWOP_ALLOC_SMALL` describes: `OpInfo` is 4 bits.
 const MAX_ALLOC_SMALL: u32 = 14 * 8;
@@ -238,7 +238,7 @@ mod tests {
     use super::{Prologue, UnwindError, prologue_bytes, unwind_info};
     use crate::backend::x86_64::regs::Gpr;
 
-    const SET_FPREG: u8 = 4;
+    const SET_FPREG: u8 = 3;
     const PUSH_NONVOL: u8 = 0;
     const ALLOC_SMALL: u8 = 2;
     const ALLOC_LARGE: u8 = 1;

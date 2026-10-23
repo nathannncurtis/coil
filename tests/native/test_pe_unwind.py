@@ -13,9 +13,13 @@ On Windows the image is also executed. ``walker`` runs inside a
 walks back to ``main`` with ``RtlLookupFunctionEntry`` +
 ``RtlVirtualUnwind``: every frame's return address must lie inside the
 expected function's extent, the looked-up ``RUNTIME_FUNCTION`` must be
-exactly that function's, the return address must sit at the reported
-stack pointer, that pointer must be 8 (mod 16), and the establisher frame
-must equal it minus 8, since every function pushes rbp first. Exit code
+exactly that function's, the return address must sit just below the
+reported stack pointer, that pointer must be 16-byte aligned, and the
+establisher frame must equal it minus 0x10, since every function pushes
+rbp first. The deepest chain frame hands ``walker`` a deliberately
+poisoned ``r12``, so the walk also proves the walker zeroes its
+callee-saved frame counter instead of inheriting the value the
+process-start path left. Exit code
 42 means the walk verified every frame back to ``main``; 1xx/2xx codes
 name the failed check (see the bin's doc comment).
 """
@@ -45,9 +49,9 @@ WALK_FAILURES = {
     101: "RtlLookupFunctionEntry returned null for walker's own pc",
     102: "walker's pc lies outside its own RUNTIME_FUNCTION",
     103: "RtlVirtualUnwind reported a handler where none is described",
-    110: "the return address is not stored at the reported stack pointer",
-    111: "a frame's entry rsp is not 8 (mod 16)",
-    112: "EstablisherFrame is not entry rsp minus 8",
+    110: "the return address is not stored just below the reported stack pointer",
+    111: "the caller's stack pointer is not 16-byte aligned",
+    112: "EstablisherFrame is not the stack pointer minus 0x10",
     140: "a return address lies outside the expected function's extent",
     130: "RtlLookupFunctionEntry returned null for a return address",
     141: "the looked-up RUNTIME_FUNCTION is not the expected function's",
@@ -90,7 +94,15 @@ def test_exception_directory_and_sections(linked) -> None:
     )
 
     by_name = {s.Name.rstrip(b"\x00").decode(): s for s in pe.sections}
-    assert [n for n in by_name] == [".text", ".data", ".pdata", ".xdata", ".idata", ".reloc"]
+    assert [n for n in by_name] == [
+        ".text",
+        ".rdata",
+        ".data",
+        ".pdata",
+        ".xdata",
+        ".idata",
+        ".reloc",
+    ]
     for name, rva_fact, size_fact in [
         (".pdata", "pdata_rva", "pdata_size"),
         (".xdata", "xdata_rva", "xdata_size"),
@@ -182,8 +194,17 @@ def test_unwind_walk_reaches_main(linked, tmp_path: Path, attempt: int) -> None:
     # every address the walker compares comes from RtlLookupFunctionEntry.
     exe = tmp_path / f"walk-{attempt}.exe"
     exe.write_bytes(data)
-    result = subprocess.run([str(exe)], timeout=30)
-    assert result.returncode == 42, (
-        f"run {attempt}: exit {result.returncode}: "
-        f"{WALK_FAILURES.get(result.returncode, 'unknown failure')}"
-    )
+    # The walk prints one trace byte per step: PEB, capture, lookup, then
+    # V (before unwind) / U (after) / G (checks) / T (expected extent) /
+    # E (extent ok) / K k (the lookup of the return address) per
+    # iteration, ending in * on success.
+    result = subprocess.run([str(exe)], timeout=30, capture_output=True)
+    trace = result.stdout.decode("latin-1")
+    code = result.returncode
+    if 200 <= code < 220:
+        failure = f"unwind step {code - 200} left an implausible rsp"
+    elif 220 <= code < 240:
+        failure = f"unwind step {code - 220} left a return address outside .text"
+    else:
+        failure = WALK_FAILURES.get(code, "unknown failure")
+    assert code == 42, f"run {attempt}: exit {code}: {failure}: trace {trace!r}"

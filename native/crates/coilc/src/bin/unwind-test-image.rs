@@ -15,9 +15,10 @@
 //! `main` with `RtlLookupFunctionEntry` + `RtlVirtualUnwind`: every frame's
 //! return address must fall inside the expected function's `.pdata` extent,
 //! the looked-up `RUNTIME_FUNCTION` must be exactly that function's, the
-//! return address must sit at the reported stack pointer, that pointer must
-//! be `8 (mod 16)` as the ABI fixes, and `EstablisherFrame` must equal it
-//! minus 8, since every frame here pushes rbp first. Exit code 42 means the
+//! return address must sit just below the reported stack pointer, that
+//! pointer must be 16-byte aligned as the ABI fixes, and
+//! `EstablisherFrame` must equal it minus 0x10, since every frame here
+//! pushes rbp first. Exit code 42 means the
 //! walk reached `main` with every frame verified; 1xx/2xx name the failed
 //! check.
 //!
@@ -187,6 +188,14 @@ impl Body {
         self.rel32(Target::Symbol(name.into()));
     }
 
+    fn lea_import(&mut self, reg: u8, dll: &str, name: &str) {
+        self.bytes(&[0x48, 0x8D, 0x05 | reg << 3]);
+        self.rel32(Target::Import {
+            dll: dll.into(),
+            name: name.into(),
+        });
+    }
+
     fn lea_rip(&mut self, reg: u8, name: &str) {
         // 48 8D /r with reg in ModRM.reg and RIP-relative rm = 0x05 | reg<<3.
         self.bytes(&[0x48, 0x8D, 0x05 | reg << 3]);
@@ -292,6 +301,9 @@ fn program() -> Program {
     let chain_out = chain.label();
     chain.jmp8(chain_out);
     chain.bind(chain_bottom);
+    // Hand the walker a nonzero r12: its frame counter is callee-saved,
+    // so the walk only passes if the walker zeroes it itself.
+    chain.bytes(&[0x41, 0xBC, 0x5A, 0x5A, 0x5A, 0x5A]); // mov r12d, 0x5A5A5A5A
     chain.call_sym("walker");
     chain.bind(chain_out);
 
@@ -358,6 +370,11 @@ fn program() -> Program {
         section: SectionId::Data,
         offset: 0,
     });
+    symbols.push(Symbol {
+        name: "hexdigits".into(),
+        section: SectionId::RData,
+        offset: 0,
+    });
 
     let object = ObjectFile {
         text: SectionContent {
@@ -365,7 +382,7 @@ fn program() -> Program {
             align: 16,
         },
         rdata: SectionContent {
-            bytes: vec![],
+            bytes: b"0123456789abcdef".to_vec(),
             align: 8,
         },
         data: SectionContent {
@@ -394,7 +411,14 @@ fn program() -> Program {
             }))
             .collect(),
         imports: [
-            ("kernel32.dll".to_string(), vec!["ExitProcess".to_string()]),
+            (
+                "kernel32.dll".to_string(),
+                vec![
+                    "ExitProcess".to_string(),
+                    "GetStdHandle".to_string(),
+                    "WriteFile".to_string(),
+                ],
+            ),
             (
                 "ntdll.dll".to_string(),
                 vec![
@@ -434,13 +458,68 @@ fn walker_body() -> Body {
     const ESTABLISHER: i32 = CTX - 16;
     const EXPECT_BEGIN: i32 = CTX - 24;
     const EXPECT_END: i32 = CTX - 32;
+    const STDOUT: i32 = CTX - 40;
+    const MARK: i32 = CTX - 41;
+    const WRITTEN: i32 = CTX - 48;
+    const HEXBUF: i32 = CTX - 64;
 
     let mut b = Body::new();
+
+    // One byte of trace per step: the test captures stdout, so a crash
+    // inside an ntdll call still shows how far the walk got. Values are
+    // printed as sixteen hex characters so no byte is lost to the pipe.
+    fn write_hex_slot(b: &mut Body, slot: i32, stdout: i32, written: i32, hexbuf: i32) {
+        for i in 0..8 {
+            for (shift, at) in [(4, 2 * i), (0, 2 * i + 1)] {
+                b.bytes(&[0x0F, 0xB6, 0x85]); // movzx eax, byte [rbp+slot+i]
+                b.disp32(slot + i);
+                if shift == 4 {
+                    b.bytes(&[0xC0, 0xE8, 0x04]); // shr al, 4
+                } else {
+                    b.bytes(&[0x24, 0x0F]); // and al, 0x0F
+                }
+                b.lea_rip(1, "hexdigits"); // lea rcx, [rip+hexdigits]
+                b.bytes(&[0x0F, 0xB6, 0x04, 0x01]); // movzx eax, byte [rcx+rax]
+                b.bytes(&[0x88, 0x85]); // mov [rbp+hexbuf+at], al
+                b.disp32(hexbuf + at);
+            }
+        }
+        b.bytes(&[0x50]); // push rax
+        b.bytes(&[0x48, 0x8B, 0x8D]); // mov rcx, [rbp+STDOUT]
+        b.disp32(stdout);
+        b.bytes(&[0x48, 0x8D, 0x95]); // lea rdx, [rbp+hexbuf]
+        b.disp32(hexbuf);
+        b.bytes(&[0x41, 0xB8, 0x10, 0x00, 0x00, 0x00]); // mov r8d, 16
+        b.bytes(&[0x4C, 0x8D, 0x8D]); // lea r9, [rbp+WRITTEN]
+        b.disp32(written);
+        b.bytes(&[0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00]);
+        b.call_iat("kernel32.dll", "WriteFile");
+        b.bytes(&[0x58]); // pop rax
+    }
+
+    fn marker(b: &mut Body, byte: u8, stdout: i32, mark: i32, written: i32) {
+        b.bytes(&[0x50]); // push rax: WriteFile clobbers the volatile regs
+        b.bytes(&[0xC6, 0x85]); // mov byte [rbp+MARK], byte
+        b.disp32(mark);
+        b.bytes(&[byte]);
+        b.bytes(&[0x48, 0x8B, 0x8D]); // mov rcx, [rbp+STDOUT]
+        b.disp32(stdout);
+        b.bytes(&[0x48, 0x8D, 0x95]); // lea rdx, [rbp+MARK]
+        b.disp32(mark);
+        b.bytes(&[0x41, 0xB8, 0x01, 0x00, 0x00, 0x00]); // mov r8d, 1
+        b.bytes(&[0x4C, 0x8D, 0x8D]); // lea r9, [rbp+WRITTEN]
+        b.disp32(written);
+        b.bytes(&[0x48, 0xC7, 0x44, 0x24, 0x20, 0x00, 0x00, 0x00, 0x00]);
+        b.call_iat("kernel32.dll", "WriteFile");
+        b.bytes(&[0x58]); // pop rax
+    }
 
     // Fail blocks, forward-referenced by each check.
     let fail_lookup = b.label();
     let fail_range = b.label();
     let fail_handler = b.label();
+    let fail_rsp = b.label();
+    let fail_rip = b.label();
     let fail_slot = b.label();
     let fail_align = b.label();
     let fail_frame = b.label();
@@ -449,21 +528,54 @@ fn walker_body() -> Body {
     let fail_entry = b.label();
     let done = b.label();
 
+    // r12 counts verified frames. It is callee-saved, so zero it here:
+    // the chain hands the walker a poisoned r12, and no r12 value may be
+    // inherited from the process-start path.
+    b.bytes(&[0x45, 0x31, 0xE4]); // xor r12d, r12d
+
+    // The load base comes from the PEB: gs:[0x60] is the PEB, whose
+    // ImageBaseAddress at +0x10 points at the mapped base.
+    b.bytes(&[0x65, 0x48, 0x8B, 0x04, 0x25, 0x60, 0x00, 0x00, 0x00]); // mov rax, gs:[0x60]
+    b.bytes(&[0x48, 0x8B, 0x40, 0x10]); // mov rax, [rax+0x10]
+    b.bytes(&[0x48, 0x8B, 0x00]); // mov rax, [rax]
+    b.bytes(&[0x48, 0x89, 0x85]); // mov [rbp+IMAGE_BASE], rax
+    b.disp32(IMAGE_BASE);
+    b.bytes(&[0xB9, 0xF5, 0xFF, 0xFF, 0xFF]); // mov ecx, STD_OUTPUT_HANDLE
+    b.call_iat("kernel32.dll", "GetStdHandle");
+    b.bytes(&[0x48, 0x89, 0x85]); // mov [rbp+STDOUT], rax
+    b.disp32(STDOUT);
+    marker(&mut b, b'P', STDOUT, MARK, WRITTEN);
+
+    // The CONTEXT must start zeroed with ContextFlags set, not stack
+    // garbage: RtlCaptureContext stores over it and RtlVirtualUnwind reads
+    // the flags. CONTEXT_FULL | CONTEXT_AMD64 = 0x0010000B at offset 0x30.
+    b.bytes(&[0x48, 0x8D, 0xBD]); // lea rdi, [rbp+CTX]
+    b.disp32(CTX);
+    b.bytes(&[0xB9, 0x9E, 0x00, 0x00, 0x00]); // mov ecx, CONTEXT_SIZE/8
+    b.bytes(&[0x31, 0xC0]); // xor eax, eax
+    b.bytes(&[0xF3, 0x48, 0xAB]); // rep stosq
+    b.bytes(&[0xC7, 0x85]); // mov dword [rbp+CTX+0x30], 0x0010000B
+    b.disp32(CTX + 0x30);
+    b.disp32(0x0010_000B);
+
     // Capture the context, then look up walker's own RUNTIME_FUNCTION and
     // check the captured pc lies inside it.
     b.bytes(&[0x48, 0x8D, 0x8D]); // lea rcx, [rbp+CTX]
     b.disp32(CTX);
     b.call_iat("ntdll.dll", "RtlCaptureContext");
+    marker(&mut b, b'C', STDOUT, MARK, WRITTEN);
 
     b.bytes(&[0x48, 0x8B, 0x9D]); // mov rbx, [rbp+CTX_RIP_AT]
     b.disp32(CTX_RIP_AT);
-    b.bytes(&[0x48, 0x8D, 0x95]); // lea rdx, [rbp+IMAGE_BASE]
+    b.bytes(&[0x48, 0x89, 0xD9]); // mov rcx, rbx
+    b.bytes(&[0x48, 0x8D, 0x95]); // lea rdx, [rbp+IMAGE_BASE]: ImageBase is out
     b.disp32(IMAGE_BASE);
     b.bytes(&[0x4D, 0x31, 0xC0]); // xor r8, r8
     b.call_iat("ntdll.dll", "RtlLookupFunctionEntry");
     b.bytes(&[0x48, 0x85, 0xC0]); // test rax, rax
     b.jcc32(0x84, fail_lookup); // jz
     b.bytes(&[0x49, 0x89, 0xC5]); // mov r13, rax
+    marker(&mut b, b'L', STDOUT, MARK, WRITTEN);
 
     b.bytes(&[0x41, 0x8B, 0x4D, 0x00]); // mov ecx, [r13] (BeginAddress)
     b.bytes(&[0x48, 0x03, 0x8D]); // add rcx, [rbp+IMAGE_BASE]
@@ -473,11 +585,56 @@ fn walker_body() -> Body {
     b.disp32(IMAGE_BASE);
     b.bytes(&[0x48, 0x39, 0xCB]); // cmp rbx, rcx
     b.jcc32(0x82, fail_range); // jb
-    b.bytes(&[0x48, 0x39, 0xD9]); // cmp rcx, rbx
+    b.bytes(&[0x48, 0x39, 0xDA]); // cmp rdx, rbx
     b.jcc32(0x86, fail_range); // jbe (rbx >= end)
+
+    // Raw dump of what the first RtlVirtualUnwind receives: pc, base,
+    // entry, ctx.Rsp, ctx.Rbp. The slots are reused by the loop below.
+    b.bytes(&[0x48, 0x89, 0x9D]); // mov [rbp+EXPECT_BEGIN], rbx
+    b.disp32(EXPECT_BEGIN);
+    write_hex_slot(&mut b, EXPECT_BEGIN, STDOUT, WRITTEN, HEXBUF);
+    write_hex_slot(&mut b, IMAGE_BASE, STDOUT, WRITTEN, HEXBUF);
+    b.bytes(&[0x4C, 0x89, 0xAD]); // mov [rbp+EXPECT_END], r13
+    b.disp32(EXPECT_END);
+    write_hex_slot(&mut b, EXPECT_END, STDOUT, WRITTEN, HEXBUF);
+    write_hex_slot(&mut b, CTX_RSP_AT, STDOUT, WRITTEN, HEXBUF);
+    write_hex_slot(&mut b, CTX + 0xA0, STDOUT, WRITTEN, HEXBUF);
+
+    // The runtime view of the RUNTIME_FUNCTION and its UNWIND_INFO header:
+    // begin/end, the unwind-data address, then the first 8 bytes there.
+    b.bytes(&[0x49, 0x8B, 0x45, 0x00]); // mov rax, [r13] (begin, end)
+    b.bytes(&[0x48, 0x89, 0x85]); // mov [rbp+EXPECT_BEGIN], rax
+    b.disp32(EXPECT_BEGIN);
+    write_hex_slot(&mut b, EXPECT_BEGIN, STDOUT, WRITTEN, HEXBUF);
+    b.bytes(&[0x41, 0x8B, 0x45, 0x08]); // mov eax, [r13+8] (unwind rva)
+    b.bytes(&[0x48, 0x03, 0x85]); // add rax, [rbp+IMAGE_BASE]
+    b.disp32(IMAGE_BASE);
+    b.bytes(&[0x48, 0x89, 0x85]); // mov [rbp+EXPECT_END], rax
+    b.disp32(EXPECT_END);
+    write_hex_slot(&mut b, EXPECT_END, STDOUT, WRITTEN, HEXBUF);
+    b.bytes(&[0x48, 0x8B, 0x8D]); // mov rcx, [rbp+EXPECT_END]
+    b.disp32(EXPECT_END);
+    b.bytes(&[0x48, 0x8B, 0x01]); // mov rax, [rcx]
+    b.bytes(&[0x48, 0x89, 0x85]); // mov [rbp+EXPECT_BEGIN], rax
+    b.disp32(EXPECT_BEGIN);
+    write_hex_slot(&mut b, EXPECT_BEGIN, STDOUT, WRITTEN, HEXBUF);
+
+    // The resolved IAT slots the next calls go through, to prove the
+    // loader really bound them (an unresolved slot points into .idata).
+    b.lea_import(0, "ntdll.dll", "RtlVirtualUnwind"); // lea rax, [rip+slot]
+    b.bytes(&[0x48, 0x8B, 0x00]); // mov rax, [rax]
+    b.bytes(&[0x48, 0x89, 0x85]); // mov [rbp+EXPECT_BEGIN], rax
+    b.disp32(EXPECT_BEGIN);
+    write_hex_slot(&mut b, EXPECT_BEGIN, STDOUT, WRITTEN, HEXBUF);
+    b.lea_import(0, "kernel32.dll", "WriteFile");
+    b.bytes(&[0x48, 0x8B, 0x00]); // mov rax, [rax]
+    b.bytes(&[0x48, 0x89, 0x85]); // mov [rbp+EXPECT_BEGIN], rax
+    b.disp32(EXPECT_BEGIN);
+    write_hex_slot(&mut b, EXPECT_BEGIN, STDOUT, WRITTEN, HEXBUF);
 
     let walk_loop = b.label();
     b.bind(walk_loop);
+    marker(&mut b, b'V', STDOUT, MARK, WRITTEN);
 
     // RtlVirtualUnwind(0, base, pc=rbx, entry=r13, ctx, 0, &frame, 0). The
     // four stack arguments are re-stored every iteration: the call may
@@ -498,20 +655,42 @@ fn walker_body() -> Body {
     b.call_iat("ntdll.dll", "RtlVirtualUnwind");
     b.bytes(&[0x48, 0x85, 0xC0]); // test rax, rax
     b.jcc32(0x85, fail_handler); // jnz: no function here has a handler
+    marker(&mut b, b'U', STDOUT, MARK, WRITTEN);
 
     b.bytes(&[0x48, 0x8B, 0x9D]); // mov rbx, [rbp+CTX_RIP_AT] (return address)
     b.disp32(CTX_RIP_AT);
     b.bytes(&[0x48, 0x8B, 0x8D]); // mov rcx, [rbp+CTX_RSP_AT]
     b.disp32(CTX_RSP_AT);
-    b.bytes(&[0x48, 0x39, 0x19]); // cmp [rcx], rbx
-    b.jcc32(0x85, fail_slot); // jne: the return address is not at rsp
+
+    // Plausibility guards: a poisoned context would fault on the reads
+    // below, so bound the restored rsp near the live stack and the return
+    // address inside .text (this image is far below 0x10000 bytes) and
+    // report the unwind step instead.
+    b.bytes(&[0x48, 0x8D, 0x84, 0x24, 0x00, 0x00, 0xFF, 0xFF]); // lea rax, [rsp-0x10000]
+    b.bytes(&[0x48, 0x39, 0xC1]); // cmp rcx, rax
+    b.jcc32(0x82, fail_rsp); // jb
+    b.bytes(&[0x48, 0x8D, 0x84, 0x24, 0x00, 0x00, 0x10, 0x00]); // lea rax, [rsp+0x100000]
+    b.bytes(&[0x48, 0x39, 0xC1]); // cmp rcx, rax
+    b.jcc32(0x87, fail_rsp); // ja
+    b.bytes(&[0x48, 0x8B, 0x85]); // mov rax, [rbp+IMAGE_BASE]
+    b.disp32(IMAGE_BASE);
+    b.bytes(&[0x48, 0x05, 0x00, 0x10, 0x00, 0x00]); // add rax, 0x1000 (.text rva)
+    b.bytes(&[0x48, 0x39, 0xC3]); // cmp rbx, rax
+    b.jcc32(0x82, fail_rip); // jb
+    b.bytes(&[0x48, 0x05, 0x00, 0xF0, 0x00, 0x00]); // add rax, 0xF000
+    b.bytes(&[0x48, 0x39, 0xD8]); // cmp rax, rbx
+    b.jcc32(0x86, fail_rip); // jbe
+
+    b.bytes(&[0x48, 0x39, 0x59, 0xF8]); // cmp [rcx-8], rbx
+    b.jcc32(0x85, fail_slot); // jne: the return address is not below rsp
     b.bytes(&[0x48, 0xF7, 0xC1, 0x08, 0x00, 0x00, 0x00]); // test rcx, 8
-    b.jcc32(0x84, fail_align); // jz: entry rsp must be 8 (mod 16)
+    b.jcc32(0x85, fail_align); // jnz: the caller's rsp must be 16-aligned
     b.bytes(&[0x48, 0x8B, 0x85]); // mov rax, [rbp+ESTABLISHER]
     b.disp32(ESTABLISHER);
-    b.bytes(&[0x48, 0x8D, 0x51, 0xF8]); // lea rdx, [rcx-8]
+    b.bytes(&[0x48, 0x8D, 0x51, 0xF0]); // lea rdx, [rcx-0x10]
     b.bytes(&[0x48, 0x39, 0xD0]); // cmp rax, rdx
-    b.jcc32(0x85, fail_frame); // jne: frame pointer is rsp-8 after push rbp
+    b.jcc32(0x85, fail_frame); // jne: frame is rsp-0x10 (fp, saved fp, ret)
+    marker(&mut b, b'G', STDOUT, MARK, WRITTEN);
 
     // Expected caller: which = 0 (chain) while r12 < DEPTH, then
     // r12 - DEPTH + 1 selects alloc_large..main in the expectation table.
@@ -534,39 +713,77 @@ fn walker_body() -> Body {
     b.disp32(EXPECT_BEGIN);
     b.bytes(&[0x48, 0x89, 0x8D]); // mov [rbp+EXPECT_END], rcx
     b.disp32(EXPECT_END);
+    marker(&mut b, b'T', STDOUT, MARK, WRITTEN);
+    write_hex_slot(&mut b, EXPECT_BEGIN, STDOUT, WRITTEN, HEXBUF);
+    write_hex_slot(&mut b, EXPECT_END, STDOUT, WRITTEN, HEXBUF);
+    // The dumps call WriteFile, which clobbers the volatile registers:
+    // reload the extent rather than trust rdx/rcx, and derive `which`
+    // from the nonvolatile r12 only after the calls.
+    b.bytes(&[0x48, 0x8B, 0x95]); // mov rdx, [rbp+EXPECT_BEGIN]
+    b.disp32(EXPECT_BEGIN);
+    b.bytes(&[0x48, 0x8B, 0x8D]); // mov rcx, [rbp+EXPECT_END]
+    b.disp32(EXPECT_END);
     b.bytes(&[0x48, 0x39, 0xD3]); // cmp rbx, rdx
     b.jcc32(0x82, fail_expected); // jb
-    b.bytes(&[0x48, 0x39, 0xD9]); // cmp rcx, rbx
-    b.jcc32(0x86, fail_expected); // jbe
+    b.bytes(&[0x48, 0x39, 0xCB]); // cmp rbx, rcx
+    b.jcc32(0x83, fail_expected); // jae (rbx >= end)
 
-    b.bytes(&[0x48, 0x83, 0xF8, 0x04]); // cmp rax, 4
+    b.bytes(&[0x4C, 0x89, 0xE0]); // mov rax, r12
+    b.bytes(&[0x48, 0x2D]); // sub rax, DEPTH-1
+    b.disp32(DEPTH as i32 - 1);
+    b.bytes(&[0x41, 0x81, 0xFC]); // cmp r12d, DEPTH
+    b.disp32(DEPTH as i32);
+    let have_exit = b.label();
+    b.jcc8(0x73, have_exit); // jae
+    b.bytes(&[0x48, 0x31, 0xC0]); // xor rax, rax
+    b.bind(have_exit);
+    b.bytes(&[0x49, 0x89, 0xC3]); // mov r11, rax: `which`
+    b.bytes(&[0x45, 0x83, 0xFB, 0x04]); // cmp r11d, 4
     b.jcc32(0x84, done); // je: main's frame reached and verified
+    marker(&mut b, b'E', STDOUT, MARK, WRITTEN);
 
     // The lookup for the return address must return exactly the expected
     // function's RUNTIME_FUNCTION.
     b.bytes(&[0x48, 0x89, 0xD9]); // mov rcx, rbx
-    b.bytes(&[0x48, 0x8D, 0x95]); // lea rdx, [rbp+IMAGE_BASE]
+    b.bytes(&[0x48, 0x8D, 0x95]); // lea rdx, [rbp+IMAGE_BASE]: ImageBase is out
     b.disp32(IMAGE_BASE);
     b.bytes(&[0x4D, 0x31, 0xC0]); // xor r8, r8
     b.call_iat("ntdll.dll", "RtlLookupFunctionEntry");
-    b.bytes(&[0x48, 0x85, 0xC0]); // test rax, rax
-    b.jcc32(0x84, fail_missing); // jz
-    b.bytes(&[0x44, 0x8B, 0x00]); // mov r8d, [rax]
-    b.bytes(&[0x44, 0x8B, 0x48, 0x04]); // mov r9d, [rax+4]
+    // The trace markers call WriteFile, which clobbers the volatile
+    // registers, so read the entry before printing and keep it in CONTEXT
+    // registers the walk never reads (Rax, Rcx, Rdx).
+    b.bytes(&[0x48, 0x89, 0x85]); // mov [rbp+CTX+0x78], rax (entry pointer)
+    b.disp32(CTX + 0x78);
+    b.bytes(&[0x44, 0x8B, 0x00]); // mov r8d, [rax] (BeginAddress)
+    b.bytes(&[0x44, 0x8B, 0x48, 0x04]); // mov r9d, [rax+4] (EndAddress)
     b.bytes(&[0x48, 0x8B, 0x95]); // mov rdx, [rbp+IMAGE_BASE]
     b.disp32(IMAGE_BASE);
-    b.bytes(&[0x49, 0x01, 0xD0]); // add r8, rdx
-    b.bytes(&[0x49, 0x01, 0xD1]); // add r9, rdx
+    b.bytes(&[0x49, 0x01, 0xD0]); // add r8, rdx (begin abs)
+    b.bytes(&[0x49, 0x01, 0xD1]); // add r9, rdx (end abs)
+    b.bytes(&[0x4C, 0x89, 0x85]); // mov [rbp+CTX+0x80], r8
+    b.disp32(CTX + 0x80);
+    b.bytes(&[0x4C, 0x89, 0x8D]); // mov [rbp+CTX+0x88], r9
+    b.disp32(CTX + 0x88);
+    marker(&mut b, b'K', STDOUT, MARK, WRITTEN);
+    b.bytes(&[0x48, 0x85, 0xC0]); // test rax, rax
+    b.jcc32(0x84, fail_missing); // jz
+    marker(&mut b, b'k', STDOUT, MARK, WRITTEN);
     b.bytes(&[0x48, 0x8B, 0x8D]); // mov rcx, [rbp+EXPECT_BEGIN]
     b.disp32(EXPECT_BEGIN);
+    b.bytes(&[0x4C, 0x8B, 0x85]); // mov r8, [rbp+CTX+0x80] (begin abs)
+    b.disp32(CTX + 0x80);
     b.bytes(&[0x4C, 0x39, 0xC1]); // cmp rcx, r8
     b.jcc32(0x85, fail_entry); // jne
     b.bytes(&[0x48, 0x8B, 0x8D]); // mov rcx, [rbp+EXPECT_END]
     b.disp32(EXPECT_END);
+    b.bytes(&[0x4C, 0x8B, 0x8D]); // mov r9, [rbp+CTX+0x88] (end abs)
+    b.disp32(CTX + 0x88);
     b.bytes(&[0x4C, 0x39, 0xC9]); // cmp rcx, r9
     b.jcc32(0x85, fail_entry); // jne
 
     b.bytes(&[0x49, 0xFF, 0xC4]); // inc r12
+    b.bytes(&[0x48, 0x8B, 0x85]); // mov rax, [rbp+CTX+0x78] (entry)
+    b.disp32(CTX + 0x78);
     b.bytes(&[0x49, 0x89, 0xC5]); // mov r13, rax
     b.jmp32(walk_loop);
 
@@ -575,9 +792,52 @@ fn walker_body() -> Body {
     // shared tail where the caller appends the epilogue and ret.
     let out = b.label();
     b.bind(done);
+    marker(&mut b, b'*', STDOUT, MARK, WRITTEN);
     b.bytes(&[0xB8]); // mov eax, 42
     b.disp32(42);
-    b.jmp8(out);
+    b.jmp32(out);
+
+    // The CONTEXT slots are dead once a check fails: park the failing
+    // registers there and dump the reconstructed frame (return address,
+    // stack pointer, establisher and frame pointer).
+    let dump_frame = |b: &mut Body| {
+        b.bytes(&[0x48, 0x89, 0x9D]); // mov [rbp+CTX_RIP_AT], rbx
+        b.disp32(CTX_RIP_AT);
+        write_hex_slot(b, CTX_RIP_AT, STDOUT, WRITTEN, HEXBUF);
+        write_hex_slot(b, CTX_RSP_AT, STDOUT, WRITTEN, HEXBUF);
+        write_hex_slot(b, ESTABLISHER, STDOUT, WRITTEN, HEXBUF);
+        write_hex_slot(b, CTX + 0xA0, STDOUT, WRITTEN, HEXBUF);
+    };
+
+    // The step-numbered guards encode r12 so the exit code names the
+    // unwind step that produced the implausible context.
+    for (label, code) in [(fail_rsp, 200), (fail_rip, 220)] {
+        b.bind(label);
+        dump_frame(&mut b);
+        b.bytes(&[0xB8]); // mov eax, code
+        b.disp32(code);
+        b.bytes(&[0x44, 0x01, 0xE0]); // add eax, r12d
+        b.jmp32(out);
+    }
+    // The entry mismatch dumps what the lookup was handed and returned:
+    // the pc (rbx) plus the stashed entry pointer and its absolute extent,
+    // captured before the markers. The T dumps earlier in the same
+    // iteration hold the expected extent.
+    b.bind(fail_entry);
+    b.bytes(&[0x48, 0x89, 0x9D]); // mov [rbp+CTX_RIP_AT], rbx (lookup pc)
+    b.disp32(CTX_RIP_AT);
+    write_hex_slot(&mut b, CTX_RIP_AT, STDOUT, WRITTEN, HEXBUF);
+    write_hex_slot(&mut b, CTX + 0x78, STDOUT, WRITTEN, HEXBUF);
+    write_hex_slot(&mut b, CTX + 0x80, STDOUT, WRITTEN, HEXBUF);
+    write_hex_slot(&mut b, CTX + 0x88, STDOUT, WRITTEN, HEXBUF);
+    b.bytes(&[0xB8]); // mov eax, 141
+    b.disp32(141);
+    b.jmp32(out);
+    b.bind(fail_expected);
+    dump_frame(&mut b);
+    b.bytes(&[0xB8]); // mov eax, 140
+    b.disp32(140);
+    b.jmp32(out);
     for (label, code) in [
         (fail_lookup, 101),
         (fail_range, 102),
@@ -585,14 +845,12 @@ fn walker_body() -> Body {
         (fail_slot, 110),
         (fail_align, 111),
         (fail_frame, 112),
-        (fail_expected, 140),
         (fail_missing, 130),
-        (fail_entry, 141),
     ] {
         b.bind(label);
         b.bytes(&[0xB8]); // mov eax, code
         b.disp32(code);
-        b.jmp8(out);
+        b.jmp32(out);
     }
     b.bind(out);
     b
