@@ -1,0 +1,4 @@
+# The runtime DLL ships without vcruntime140.dll (spec section 10.1);
+# only the embeddable's extensions need it.
+[target.x86_64-pc-windows-msvc]
+rustflags = ["-C", "target-feature=+crt-static"]
