@@ -218,6 +218,7 @@ pub fn instr_results(ins: &Instr) -> Vec<Value> {
         | I::GetIter { into, .. }
         | I::Next { into, .. }
         | I::Call { into, .. }
+        | I::CallEx { into, .. }
         | I::CallMethod { into, .. }
         | I::Truth { into, .. }
         | I::Len { into, .. }
@@ -266,6 +267,7 @@ pub fn instr_results(ins: &Instr) -> Vec<Value> {
         | I::StoreGlobal { .. }
         | I::StoreName { .. }
         | I::StoreField { .. }
+        | I::ImportStar { .. }
         | I::Safepoint
         | I::CatchEnd
         | I::PopExcInfo
@@ -405,6 +407,17 @@ fn op_text(pool: &ConstPool, ins: &Instr) -> String {
             ));
             kwargs(&mut s, kwnames);
         }
+        I::CallEx {
+            callee,
+            args,
+            kwargs: kw,
+            ..
+        } => s.push_str(&format!(
+            "callex {}, {}, kwargs {}",
+            val(*callee),
+            val(*args),
+            val(*kw)
+        )),
         I::Truth { value, .. } => s.push_str(&format!("truth {}", val(*value))),
         I::Len { value, .. } => s.push_str(&format!("len {}", val(*value))),
         I::Contains {
@@ -452,6 +465,7 @@ fn op_text(pool: &ConstPool, ins: &Instr) -> String {
             val(*fromlist),
             val(*level)
         )),
+        I::ImportStar { module } => s.push_str(&format!("importstar {}", val(*module))),
         I::MakeFunction {
             func,
             cells,
@@ -463,9 +477,19 @@ fn op_text(pool: &ConstPool, ins: &Instr) -> String {
             vals(cells),
             vals(defaults)
         )),
-        I::MakeClass { desc, bases, .. } => {
-            s.push_str(&format!("makeclass class {}, [{}]", desc.0, vals(bases)))
-        }
+        I::MakeClass {
+            desc,
+            bases,
+            cells,
+            kwds,
+            ..
+        } => s.push_str(&format!(
+            "makeclass class {}, bases [{}], cells ({}), kwds {}",
+            desc.0,
+            vals(bases),
+            vals(cells),
+            val(*kwds)
+        )),
         I::MakeCell { initial, .. } => s.push_str(&format!("makecell {}", opt(*initial))),
         I::LoadCell { cell, .. } => s.push_str(&format!("loadcell {}", val(*cell))),
         I::StoreCell { cell, value } => {

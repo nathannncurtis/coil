@@ -928,6 +928,13 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
                 f(v);
             }
         }
+        I::CallEx {
+            callee, args, kwargs, ..
+        } => {
+            f(callee);
+            f(args);
+            f(kwargs);
+        }
         I::Format { value, spec, .. } => {
             f(value);
             f(spec);
@@ -964,6 +971,7 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
             f(fromlist);
             f(level);
         }
+        I::ImportStar { module } => f(module),
         I::MakeFunction {
             cells, defaults, ..
         } => {
@@ -974,10 +982,19 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
                 f(v);
             }
         }
-        I::MakeClass { bases, .. } => {
+        I::MakeClass {
+            bases,
+            cells,
+            kwds,
+            ..
+        } => {
             for v in bases.iter_mut() {
                 f(v);
             }
+            for v in cells.iter_mut() {
+                f(v);
+            }
+            f(kwds);
         }
         I::MakeCell { initial, .. } => {
             if let Some(v) = initial {

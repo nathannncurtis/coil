@@ -1220,6 +1220,17 @@ fn check_types(
             }
             c.def_boxed(*into)?;
         }
+        I::CallEx {
+            callee,
+            args,
+            kwargs,
+            into,
+        } => {
+            c.use_boxed(*callee)?;
+            c.use_boxed(*args)?;
+            c.use_boxed(*kwargs)?;
+            c.def_boxed(*into)?;
+        }
         I::Truth { value, into } => {
             c.use_boxed(*value)?;
             c.def_exact(*into, b)?;
@@ -1304,6 +1315,7 @@ fn check_types(
             c.use_boxed(*level)?;
             c.def_boxed(*into)?;
         }
+        I::ImportStar { module } => c.use_boxed(*module)?,
         I::MakeFunction {
             cells,
             defaults,
@@ -1318,10 +1330,20 @@ fn check_types(
             }
             c.def_boxed(*into)?;
         }
-        I::MakeClass { bases, into, .. } => {
+        I::MakeClass {
+            bases,
+            cells,
+            kwds,
+            into,
+            ..
+        } => {
             for v in bases.iter() {
                 c.use_boxed(*v)?;
             }
+            for v in cells.iter() {
+                c.use_boxed(*v)?;
+            }
+            c.use_boxed(*kwds)?;
             c.def_boxed(*into)?;
         }
         I::MakeCell { initial, into } => {
