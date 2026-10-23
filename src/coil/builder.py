@@ -11,6 +11,7 @@ import shutil
 import sys
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from coil.cli import detect_os, detect_python_version, get_cache_dir, resolve_entry_points
 from coil.packager import install_dependencies, package_bundled, package_portable, _validate_build_paths
@@ -63,6 +64,8 @@ def build(
     subsystems: dict[str, str] | None = None,
     deps_auto: bool = True,
     extra_files: list[tuple[str, Path]] | None = None,
+    compile: bool = False,
+    compile_config: dict[str, Any] | None = None,
 ) -> list[Path]:
     """Execute the full build pipeline.
 
@@ -91,10 +94,19 @@ def build(
             dependencies. Reflects [build.dependencies].auto in coil.toml.
 
         extra_files: Resolved [build.files] (destination, source) pairs.
+        compile: Compile Python to native machine code (--compile).
+        compile_config: The parsed [compile] table (keep, report, opt,
+            stack); see coil.native.config.
 
     Returns:
         List of paths to created output files/directories.
     """
+    if compile:
+        raise NotImplementedError(
+            "native compilation is not implemented yet; the coilc driver "
+            "lands in g02 (src/coil/native/driver.py)"
+        )
+
     target_os = target_os or detect_os()
     python_version = python_version or detect_python_version()
     name = name or project_dir.name

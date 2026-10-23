@@ -13,6 +13,14 @@ from coil.config import (
     _pad_version,
     _resolve_project_version,
 )
+from coil.native.config import (
+    COMPILE_DEFAULTS,
+    SUPPORTED_PYTHON_VERSIONS,
+    format_stack_size,
+    parse_compile_table,
+    parse_stack_size,
+    require_supported_python,
+)
 
 
 def test_load_config_no_file(tmp_path: Path):
@@ -96,6 +104,180 @@ def test_get_build_config_missing_profile():
         get_build_config(raw, profile="prod")
 
 
+def test_get_build_config_compile_defaults():
+    raw = {"project": {"entry": "app.py", "name": "App"}, "build": {}}
+    config = get_build_config(raw)
+    assert config["compile"] is False
+    assert config["compile_config"] == {
+        "keep": [],
+        "report": True,
+        "opt": "speed",
+        "stack": 16 * 1024 * 1024,
+    }
+
+
+def test_get_build_config_compile_enabled():
+    raw = {
+        "project": {"entry": "app.py", "name": "App"},
+        "build": {"compile": True, "python": "3.13"},
+    }
+    config = get_build_config(raw)
+    assert config["compile"] is True
+
+
+def test_get_build_config_compile_table():
+    raw = {
+        "project": {"entry": "app.py", "name": "App"},
+        "compile": {
+            "keep": ["plugins.*", "myapp.registry:Handler"],
+            "report": False,
+            "opt": "size",
+            "stack": "32MiB",
+        },
+    }
+    config = get_build_config(raw)
+    assert config["compile_config"] == {
+        "keep": ["plugins.*", "myapp.registry:Handler"],
+        "report": False,
+        "opt": "size",
+        "stack": 32 * 1024 * 1024,
+    }
+
+
+def test_get_build_config_compile_partial_table_uses_defaults():
+    raw = {"compile": {"opt": "size"}}
+    config = get_build_config(raw)
+    assert config["compile_config"]["opt"] == "size"
+    assert config["compile_config"]["keep"] == COMPILE_DEFAULTS["keep"]
+    assert config["compile_config"]["report"] is True
+    assert config["compile_config"]["stack"] == COMPILE_DEFAULTS["stack"]
+
+
+def test_get_build_config_compile_profile_flag_override():
+    raw = {
+        "build": {"compile": False},
+        "profile": {"release": {"compile": True}, "dev": {}},
+    }
+    assert get_build_config(raw, profile="release")["compile"] is True
+    assert get_build_config(raw, profile="dev")["compile"] is False
+
+
+def test_get_build_config_compile_profile_table_override():
+    raw = {
+        "compile": {"keep": ["a.*"], "opt": "speed", "stack": "8MiB"},
+        "profile": {"small": {"compile": {"opt": "size", "stack": "4MiB"}}},
+    }
+    config = get_build_config(raw, profile="small")
+    # Overridden keys come from the profile; the rest from [compile].
+    assert config["compile_config"]["opt"] == "size"
+    assert config["compile_config"]["stack"] == 4 * 1024 * 1024
+    assert config["compile_config"]["keep"] == ["a.*"]
+
+
+def test_get_build_config_compile_profile_bad_type():
+    raw = {"profile": {"p": {"compile": "yes"}}}
+    with pytest.raises(ValueError, match=r"\[profile\.p\.compile\] must be a table"):
+        get_build_config(raw, profile="p")
+
+
+def test_get_build_config_compile_flag_bad_type():
+    raw = {"build": {"compile": "true"}}
+    with pytest.raises(ValueError, match=r"\[build\] compile must be a boolean"):
+        get_build_config(raw)
+
+
+def test_compile_table_not_a_table():
+    with pytest.raises(ValueError, match=r"\[compile\] must be a table"):
+        get_build_config({"compile": ["plugins.*"]})
+
+
+@pytest.mark.parametrize("keep", ["plugins.*", [1, 2], "a,b", [None]])
+def test_compile_table_bad_keep(keep):
+    with pytest.raises(ValueError, match=r"\[compile\] keep must be a list of patterns"):
+        get_build_config({"compile": {"keep": keep}})
+
+
+def test_compile_table_bad_report():
+    with pytest.raises(ValueError, match=r"\[compile\] report must be a boolean"):
+        get_build_config({"compile": {"report": "yes"}})
+
+
+def test_compile_table_bad_opt():
+    with pytest.raises(ValueError, match=r'\[compile\] opt must be "speed" or "size"'):
+        get_build_config({"compile": {"opt": "fast"}})
+
+
+def test_compile_table_bad_stack():
+    with pytest.raises(ValueError, match=r'\[compile\] stack must be a size like "16MiB"'):
+        get_build_config({"compile": {"stack": "16 miles"}})
+
+
+def test_compile_table_profile_errors_name_the_profile():
+    raw = {"profile": {"p": {"compile": {"opt": "fast"}}}}
+    with pytest.raises(ValueError, match=r'\[profile\.p\.compile\] opt must be "speed" or "size"'):
+        get_build_config(raw, profile="p")
+
+
+def test_compile_python_not_validated_at_toml_layer():
+    # A CLI --python 3.12/3.13 outranks any toml python (spec 13.1
+    # priority), so get_build_config carries both values through and
+    # the check runs on the merged value in coil.cli.main.
+    config = get_build_config({"build": {"compile": True, "python": "3.11"}})
+    assert config["compile"] is True
+    assert config["python"] == "3.11"
+
+
+def test_compile_python_carries_through_profile_flag():
+    raw = {
+        "build": {"python": "3.11"},
+        "profile": {"native": {"compile": True}},
+    }
+    config = get_build_config(raw, profile="native")
+    assert config["compile"] is True
+    assert config["python"] == "3.11"
+
+
+def test_compile_python_supported_versions_pass():
+    for version in SUPPORTED_PYTHON_VERSIONS:
+        config = get_build_config({"build": {"compile": True, "python": version}})
+        assert config["compile"] is True
+
+
+def test_parse_stack_size_units():
+    assert parse_stack_size("16MiB") == 16 * 1024 * 1024
+    assert parse_stack_size("512KiB") == 512 * 1024
+    assert parse_stack_size("1GiB") == 1024 ** 3
+    assert parse_stack_size("2048B") == 2048
+    assert parse_stack_size("2048b") == 2048
+    assert parse_stack_size("8mib") == 8 * 1024 * 1024
+    assert parse_stack_size(" 16 MiB ") == 16 * 1024 * 1024
+    assert parse_stack_size(1048576) == 1048576
+
+
+@pytest.mark.parametrize("value", ["", "MiB", "1.5MiB", "16 miles", "0", "-5", 0, -5, True, None, 1.5])
+def test_parse_stack_size_rejects(value):
+    with pytest.raises(ValueError, match=r"\[compile\] stack"):
+        parse_stack_size(value)
+
+
+def test_format_stack_size():
+    assert format_stack_size(16 * 1024 * 1024) == "16MiB"
+    assert format_stack_size(1024 ** 3) == "1GiB"
+    assert format_stack_size(1536 * 1024) == "1536KiB"
+    assert format_stack_size(100) == "100B"
+
+
+def test_require_supported_python_lists_versions():
+    with pytest.raises(ValueError) as exc:
+        require_supported_python("3.10", "--python")
+    message = str(exc.value)
+    for version in SUPPORTED_PYTHON_VERSIONS:
+        assert version in message
+    assert "3.10" in message
+    require_supported_python("3.12", "--python")
+    require_supported_python("3.13", "--python")
+
+
 def test_get_build_config_missing_profile_shows_available():
     raw = {
         "project": {"entry": "app.py", "name": "App"},
@@ -145,6 +327,21 @@ def test_generate_toml_commented_profiles():
     assert "profile.release" in toml
     # Should be commented out
     assert "# [profile.dev]" in toml
+
+
+def test_generate_toml_compile_commented_out():
+    toml = generate_toml("main.py", "App")
+    assert "# compile = false" in toml
+    assert "\ncompile = false" not in toml
+
+
+def test_generate_toml_documents_compile_table():
+    toml = generate_toml("main.py", "App")
+    assert "# [compile]" in toml
+    for key in ("keep", "report", "opt", "stack"):
+        assert f"# {key} =" in toml
+    assert '# keep = ["plugins.*"]' in toml
+    assert '# stack = "16MiB"' in toml
 
 
 def test_pad_version_short():
@@ -468,6 +665,52 @@ def test_roundtrip_generate_then_load(tmp_path: Path):
     assert config["python"] == "3.12"
     assert config["icon"] == "test.ico"
     assert config["mode"] == "portable"
+    assert config["compile"] is False
+
+
+def test_compile_settings_roundtrip_from_toml(tmp_path: Path):
+    """Write a compile config by hand, load it, verify the merge."""
+    (tmp_path / "coil.toml").write_text(
+        '[project]\n'
+        'entry = "main.py"\n'
+        'name = "App"\n'
+        '\n'
+        '[build]\n'
+        'compile = true\n'
+        'python = "3.12"\n'
+        '\n'
+        '[compile]\n'
+        'keep = ["plugins.*"]\n'
+        'report = false\n'
+        'opt = "size"\n'
+        'stack = "8MiB"\n'
+        '\n'
+        '[profile.fast]\n'
+        'compile = true\n'
+        '\n'
+        '[profile.small.compile]\n'
+        'opt = "size"\n'
+        'stack = "4MiB"\n'
+    )
+    raw = load_config(tmp_path)
+    assert raw is not None
+
+    config = get_build_config(raw)
+    assert config["compile"] is True
+    assert config["compile_config"] == {
+        "keep": ["plugins.*"],
+        "report": False,
+        "opt": "size",
+        "stack": 8 * 1024 * 1024,
+    }
+
+    fast = get_build_config(raw, profile="fast")
+    assert fast["compile"] is True
+    assert fast["compile_config"]["opt"] == "size"
+
+    small = get_build_config(raw, profile="small")
+    assert small["compile_config"]["stack"] == 4 * 1024 * 1024
+    assert small["compile_config"]["keep"] == ["plugins.*"]
 
 
 def test_subsystem_absent_returns_none():

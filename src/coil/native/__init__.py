@@ -1,1 +1,1 @@
-"""Coil's native compilation: the ABI constants and, later, the coilc driver."""
+"""Coil's native compilation: the ABI constants, the [compile] table and, later, the coilc driver."""
