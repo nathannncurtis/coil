@@ -967,6 +967,8 @@ impl Parser {
         } else {
             end_col
         };
+        // `Py_BuildValue` puts the end line in the SyntaxError's args
+        // unchanged, so the 0 an empty input's ENDMARKER carries stays 0.
         self.error = Some(ParseError {
             kind,
             message,
