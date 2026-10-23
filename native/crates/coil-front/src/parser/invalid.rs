@@ -2655,7 +2655,7 @@ fn invalid_replacement_field_conversion(p: &mut Parser) -> Option<()> {
         p.expect_opt(T::Lbrace)?;
         replacement_field_expr(p)?;
         p.expect(T::Equal);
-        conversion_character(p);
+        conversion_character(p)?;
         Some(())
     })
 }

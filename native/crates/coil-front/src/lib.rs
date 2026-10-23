@@ -5,5 +5,6 @@ mod ast_generated;
 pub mod dump;
 pub mod intern;
 pub mod parser;
+pub mod symtable;
 pub mod tokenizer;
 mod unicode_tables;

@@ -1129,11 +1129,13 @@ impl Tokenizer {
         }
         let upto = self.cur.saturating_sub(self.line_start);
         let prefix = String::from_utf8_lossy(&self.buf[self.line_start..self.line_start + upto]);
+        let column = prefix.chars().count() as i64;
         self.err = Some(SyntaxErr {
             message,
             line: self.lineno,
-            column: prefix.chars().count() as i64,
-            end_column: None,
+            column,
+            // `_syntaxerror_range` with -1: the end column mirrors the start.
+            end_column: Some(column),
         });
         self.done = Done::Error;
         RawToken::ERROR
@@ -1317,7 +1319,7 @@ impl Tokenizer {
                 self.cur = start + consumed;
             }
             let message = if is_printable_char(bad_char) {
-                format!("invalid character {bad_char} (U+{:04X})", bad_char as u32)
+                format!("invalid character '{bad_char}' (U+{:04X})", bad_char as u32)
             } else {
                 format!("invalid non-printable character U+{:04X}", bad_char as u32)
             };
@@ -3414,6 +3416,9 @@ mod tests {
         let cases: &[(&[u8], TokenizeErrorKind, u32, i64)] = &[
             (b"\x001\n", TokenizeErrorKind::TokenError, 1, 0),
             (b"x = (\n1\n", TokenizeErrorKind::TokenError, 2, 0),
+            // An E_EOF from tok_continuation_line keeps the cursor: the
+            // line continuation holds the token open, so inp - buf is 6.
+            (b"x = \\\n", TokenizeErrorKind::TokenError, 1, 6),
             (b"s = 'abc", TokenizeErrorKind::TokenError, 1, 5),
             // _tokenizer_error positions: zero for an E_EOF at a fresh token
             // (the readline buffer reset), inp - buf for a mid-token E_EOF,

@@ -183,29 +183,80 @@ fn split_literal(bytes: &[u8]) -> RawLiteral<'_> {
     }
 }
 
+/// `str(UnicodeDecodeError)` for a strict UTF-8 decode of `bytes`: the
+/// message CPython quotes in `(unicode error)` SyntaxErrors. The position is
+/// an index into `bytes`, so raw literals report it over the whole body and
+/// the escape pass over the failing non-ASCII run.
+fn utf8_decode_error(bytes: &[u8], err: &std::str::Utf8Error) -> String {
+    let start = err.valid_up_to();
+    match err.error_len() {
+        None => {
+            let end = bytes.len() - 1;
+            if end == start {
+                format!(
+                    "'utf-8' codec can't decode byte 0x{:02x} in position {start}: unexpected end of data",
+                    bytes[start]
+                )
+            } else {
+                format!(
+                    "'utf-8' codec can't decode bytes in position {start}-{end}: unexpected end of data"
+                )
+            }
+        }
+        // A valid lead byte with a broken continuation, or a byte that cannot
+        // start a sequence at all — CPython's two continuation failures.
+        Some(_) => {
+            let lead = bytes[start];
+            let reason = if (0xC2..=0xF4).contains(&lead) {
+                "invalid continuation byte"
+            } else {
+                "invalid start byte"
+            };
+            format!("'utf-8' codec can't decode byte 0x{lead:02x} in position {start}: {reason}")
+        }
+    }
+}
+
+/// `str(UnicodeDecodeError)` for an escape failure: `exceptions.c` shows the
+/// offending byte when the span covers exactly one, else the half-open span
+/// with its last index.
+fn unicodeescape_error(s: &[u8], start: usize, end: usize, reason: &str) -> String {
+    if end == start + 1 && start < s.len() {
+        format!(
+            "'unicodeescape' codec can't decode byte 0x{:02x} in position {start}: {reason}",
+            s[start]
+        )
+    } else {
+        format!(
+            "'unicodeescape' codec can't decode bytes in position {start}-{}: {reason}",
+            end - 1
+        )
+    }
+}
+
 /// `_PyPegen_decode_string` for a string constant: raw text is UTF-8,
 /// otherwise the escape preprocessor plus the unicode-escape decoder.
 fn decode_string(p: &mut Parser, raw: bool, s: &[u8]) -> Option<Vec<u32>> {
     if raw {
         return match std::str::from_utf8(s) {
             Ok(text) => Some(text.chars().map(|c| c as u32).collect()),
-            Err(_) => {
-                p.raise_decode_error(
-                    "unicode error",
-                    "'utf-8' codec can't decode bytes".to_string(),
-                );
+            Err(e) => {
+                p.raise_decode_error("unicode error", utf8_decode_error(s, &e));
                 None
             }
         };
     }
-    let preprocessed = escape_preprocess(s);
+    let preprocessed = match escape_preprocess(s) {
+        Ok(preprocessed) => preprocessed,
+        Err(message) => {
+            p.raise_decode_error("unicode error", message);
+            return None;
+        }
+    };
     match decode_unicode_escapes(&preprocessed) {
         Ok(value) => Some(value),
         Err(DecodeError::Unicode(message)) => {
-            p.raise_decode_error(
-                "unicode error",
-                format!("'unicodeescape' codec can't decode bytes: {message}"),
-            );
+            p.raise_decode_error("unicode error", message);
             None
         }
         Err(DecodeError::Value(message)) => {
@@ -217,8 +268,10 @@ fn decode_string(p: &mut Parser, raw: bool, s: &[u8]) -> Option<Vec<u32>> {
 
 /// `decode_unicode_with_escapes`' first pass: everything non-ASCII becomes a
 /// `\U00xxxxxx` escape and a backslash before a non-ASCII byte becomes
-/// `\`, so the escape decoder sees ASCII only.
-fn escape_preprocess(s: &[u8]) -> Vec<u8> {
+/// `\`, so the escape decoder sees ASCII only. A non-ASCII run decodes
+/// strictly, and its failure is the `UnicodeDecodeError` CPython raises
+/// (positions relative to the run).
+fn escape_preprocess(s: &[u8]) -> Result<Vec<u8>, String> {
     let mut out = Vec::with_capacity(s.len());
     let mut i = 0;
     while i < s.len() {
@@ -237,16 +290,20 @@ fn escape_preprocess(s: &[u8]) -> Vec<u8> {
             while i < s.len() && s[i] >= 0x80 {
                 i += 1;
             }
-            let run = String::from_utf8_lossy(&s[start..i]);
-            for c in run.chars() {
-                out.extend_from_slice(format!("\\U{:08x}", c as u32).as_bytes());
+            match std::str::from_utf8(&s[start..i]) {
+                Ok(run) => {
+                    for c in run.chars() {
+                        out.extend_from_slice(format!("\\U{:08x}", c as u32).as_bytes());
+                    }
+                }
+                Err(e) => return Err(utf8_decode_error(&s[start..i], &e)),
             }
         } else {
             out.push(s[i]);
             i += 1;
         }
     }
-    out
+    Ok(out)
 }
 
 fn hex_value(b: u8) -> Option<u32> {
@@ -271,8 +328,16 @@ fn decode_unicode_escapes(s: &[u8]) -> Result<Vec<u32>, DecodeError> {
             out.push(c as u32);
             continue;
         }
+        // The error handler runs with the backslash's index and the scan's
+        // stop as the failure span.
+        let startinpos = i - 1;
         if i >= s.len() {
-            return Err(DecodeError::Unicode("\\ at end of string".to_string()));
+            return Err(DecodeError::Unicode(unicodeescape_error(
+                s,
+                startinpos,
+                s.len(),
+                "\\ at end of string",
+            )));
         }
         let c = s[i];
         i += 1;
@@ -306,49 +371,51 @@ fn decode_unicode_escapes(s: &[u8]) -> Result<Vec<u32>, DecodeError> {
                     b'u' => 4,
                     _ => 8,
                 };
+                let kind = match c {
+                    b'x' => "xXX",
+                    b'u' => "uXXXX",
+                    _ => "UXXXXXXXX",
+                };
+                let message = format!("truncated \\{kind} escape");
                 let mut ch: u32 = 0;
                 for _ in 0..count {
                     if i >= s.len() {
-                        return Err(DecodeError::Unicode(format!(
-                            "truncated \\{} escape",
-                            if c == b'x' {
-                                "xXX"
-                            } else if c == b'u' {
-                                "uXXXX"
-                            } else {
-                                "UXXXXXXXX"
-                            }
+                        return Err(DecodeError::Unicode(unicodeescape_error(
+                            s,
+                            startinpos,
+                            s.len(),
+                            &message,
                         )));
                     }
                     match hex_value(s[i]) {
                         Some(d) => ch = (ch << 4) + d,
                         None => {
-                            return Err(DecodeError::Unicode(format!(
-                                "truncated \\{} escape",
-                                if c == b'x' {
-                                    "xXX"
-                                } else if c == b'u' {
-                                    "uXXXX"
-                                } else {
-                                    "UXXXXXXXX"
-                                }
+                            return Err(DecodeError::Unicode(unicodeescape_error(
+                                s, startinpos, i, &message,
                             )));
                         }
                     }
                     i += 1;
                 }
                 if ch > 0x10FFFF {
-                    return Err(DecodeError::Unicode(
-                        "illegal Unicode character".to_string(),
-                    ));
+                    return Err(DecodeError::Unicode(unicodeescape_error(
+                        s,
+                        startinpos,
+                        i,
+                        "illegal Unicode character",
+                    )));
                 }
                 out.push(ch);
             }
             b'N' => {
+                let mut message = "malformed \\N character escape";
                 if i >= s.len() {
-                    return Err(DecodeError::Unicode(
-                        "malformed \\N character escape".to_string(),
-                    ));
+                    return Err(DecodeError::Unicode(unicodeescape_error(
+                        s,
+                        startinpos,
+                        s.len(),
+                        message,
+                    )));
                 }
                 if s[i] == b'{' {
                     i += 1;
@@ -357,25 +424,28 @@ fn decode_unicode_escapes(s: &[u8]) -> Result<Vec<u32>, DecodeError> {
                         i += 1;
                     }
                     if i >= s.len() {
-                        return Err(DecodeError::Unicode(
-                            "malformed \\N character escape".to_string(),
-                        ));
+                        return Err(DecodeError::Unicode(unicodeescape_error(
+                            s,
+                            startinpos,
+                            s.len(),
+                            message,
+                        )));
                     }
                     let name = &s[start..i];
-                    i += 1;
-                    if !name.is_empty()
-                        && let Some(ch) = lookup_unicode_name(name)
-                    {
-                        out.push(ch);
-                        continue;
+                    if !name.is_empty() {
+                        // A real name consumes the closing brace; an empty
+                        // or unknown one reports at or before it.
+                        i += 1;
+                        if let Some(ch) = lookup_unicode_name(name) {
+                            out.push(ch);
+                            continue;
+                        }
+                        message = "unknown Unicode character name";
                     }
-                    return Err(DecodeError::Unicode(
-                        "unknown Unicode character name".to_string(),
-                    ));
                 }
-                return Err(DecodeError::Unicode(
-                    "malformed \\N character escape".to_string(),
-                ));
+                return Err(DecodeError::Unicode(unicodeescape_error(
+                    s, startinpos, i, message,
+                )));
             }
             _ => {
                 out.push('\\' as u32);
@@ -643,11 +713,8 @@ fn fstring_middle_text(p: &mut Parser) -> Option<Expr> {
     let pos = Pos::from_token(&t);
     let value: Vec<u32> = match std::str::from_utf8(&t.bytes) {
         Ok(text) => text.chars().map(|c| c as u32).collect(),
-        Err(_) => {
-            p.raise_decode_error(
-                "unicode error",
-                "'utf-8' codec can't decode bytes".to_string(),
-            );
+        Err(e) => {
+            p.raise_decode_error("unicode error", utf8_decode_error(&t.bytes, &e));
             return None;
         }
     };
@@ -915,7 +982,7 @@ fn formatted_value(
             p.raise_known_location(
                 Pos::from_expr(&conv.result),
                 format!(
-                    "f-string: invalid conversion character {}: expected 's', 'r', or 'a'",
+                    "f-string: invalid conversion character '{}': expected 's', 'r', or 'a'",
                     utf32_to_string(text)
                 ),
             );

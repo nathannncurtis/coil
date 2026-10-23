@@ -927,7 +927,7 @@ impl Parser {
 
 impl Parser {
     /// `_PyPegen_raise_error_known_location`: byte columns become characters
-    /// through the error line. `None` end columns stay `None`.
+    /// through the error line; sentinel end columns reach the error verbatim.
     fn raise_error_known_location(
         &mut self,
         kind: ExcKind,
@@ -942,22 +942,20 @@ impl Parser {
         }
         let error_line = self.error_line(lineno);
         let offset = byte_to_char(&error_line, col);
-        let end_offset = if end_col >= 0 {
-            Some(byte_to_char(&error_line, end_col))
+        // `_PyPegen_set_syntax_error` converts end columns only when
+        // positive; the sentinel columns reach the SyntaxError verbatim.
+        let end_offset = if end_col > 0 {
+            byte_to_char(&error_line, end_col)
         } else {
-            None
+            end_col
         };
         self.error = Some(ParseError {
             kind,
             message,
             lineno: Some(lineno as i32),
             offset: Some(offset as i32),
-            end_lineno: if end_lineno > 0 {
-                Some(end_lineno as i32)
-            } else {
-                None
-            },
-            end_offset: end_offset.map(|c| c as i32),
+            end_lineno: Some(end_lineno as i32),
+            end_offset: Some(end_offset as i32),
         });
     }
 
@@ -1314,24 +1312,22 @@ fn decode_replace(line: &[u8], encoding: &str) -> Vec<u8> {
         // err_programtext gives up when the codec fails to import.
         None => return Vec::new(),
     };
+    // `PyUnicode_Decode(.., "replace")` decodes the whole line at once:
+    // one U+FFFD per maximal invalid subpart, not per byte.
+    if codec == tok::Codec::Utf8 {
+        return String::from_utf8_lossy(line).to_string().into_bytes();
+    }
     let mut out = String::new();
-    match codec {
-        // `PyUnicode_Decode` consumes the whole buffer: a valid multibyte
-        // sequence is one character, not one replacement per byte.
-        tok::Codec::Utf8 => out.push_str(&String::from_utf8_lossy(line)),
-        _ => {
-            for &b in line {
-                match codec {
-                    tok::Codec::Ascii => {
-                        if b < 128 {
-                            out.push(b as char)
-                        } else {
-                            out.push('\u{FFFD}')
-                        }
-                    }
-                    _ => out.push(tok::decode_byte(codec, b)),
+    for &b in line {
+        match codec {
+            tok::Codec::Ascii => {
+                if b < 128 {
+                    out.push(b as char)
+                } else {
+                    out.push('\u{FFFD}')
                 }
             }
+            _ => out.push(tok::decode_byte(codec, b)),
         }
     }
     out.into_bytes()
@@ -1745,7 +1741,7 @@ mod tests {
                     Some(1),
                     Some(6),
                     Some(1),
-                    None,
+                    Some(-1),
                 ),
             ),
             (
@@ -1756,7 +1752,7 @@ mod tests {
                     Some(1),
                     Some(28),
                     Some(1),
-                    None,
+                    Some(-1),
                 ),
             ),
             (
@@ -1766,7 +1762,7 @@ mod tests {
                     Some(1),
                     Some(10),
                     Some(1),
-                    None,
+                    Some(-1),
                 ),
             ),
             (
@@ -1817,7 +1813,7 @@ mod tests {
                     Some(1),
                     Some(1),
                     Some(1),
-                    None,
+                    Some(-1),
                 ),
             ),
             (
@@ -1828,7 +1824,7 @@ mod tests {
                     Some(1),
                     Some(2),
                     Some(1),
-                    None,
+                    Some(-1),
                 ),
             ),
             (
@@ -1839,7 +1835,7 @@ mod tests {
                     Some(1),
                     Some(1),
                     Some(1),
-                    None,
+                    Some(-1),
                 ),
             ),
             (
@@ -1850,7 +1846,7 @@ mod tests {
                     Some(1),
                     Some(2),
                     Some(1),
-                    None,
+                    Some(-1),
                 ),
             ),
             (
@@ -1861,7 +1857,7 @@ mod tests {
                     Some(1),
                     Some(2),
                     Some(1),
-                    None,
+                    Some(-1),
                 ),
             ),
             (
@@ -1871,7 +1867,7 @@ mod tests {
                     Some(2),
                     Some(5),
                     Some(2),
-                    None,
+                    Some(5),
                 ),
             ),
             (
@@ -2157,6 +2153,117 @@ mod tests {
                 }
             }
             let _unused = parse_module(&source, None);
+        }
+    }
+
+    fn parse_error(source: &str) -> super::ParseError {
+        match parse_module(source.as_bytes(), None) {
+            Err(error) => error,
+            Ok(_) => panic!("expected a parse error"),
+        }
+    }
+
+    #[test]
+    fn unclosed_bracket_error_ranges_the_bracket() {
+        let error = parse_error("x = (\n");
+        assert_eq!(error.kind.name(), "SyntaxError");
+        assert_eq!(error.message, "'(' was never closed");
+        assert_eq!(error.lineno, Some(1));
+        assert_eq!(error.offset, Some(5));
+        assert_eq!(error.end_lineno, Some(1));
+        assert_eq!(error.end_offset, Some(0));
+    }
+
+    #[test]
+    fn sentinel_end_columns_survive_verbatim() {
+        // `_PyPegen_set_syntax_error` keeps non-positive end columns as-is.
+        let error = parse_error("if 1:\n  pass\n pass\n");
+        assert_eq!(error.kind.name(), "IndentationError");
+        assert_eq!(
+            error.message,
+            "unindent does not match any outer indentation level"
+        );
+        assert_eq!(error.lineno, Some(3));
+        assert_eq!(error.offset, Some(6));
+        assert_eq!(error.end_lineno, Some(3));
+        assert_eq!(error.end_offset, Some(-1));
+    }
+
+    #[test]
+    fn fstring_conversion_character_is_quoted() {
+        let error = parse_error("f'{x!z}'\n");
+        assert_eq!(
+            error.message,
+            "f-string: invalid conversion character 'z': expected 's', 'r', or 'a'"
+        );
+        assert_eq!(error.offset, Some(6));
+        assert_eq!(error.end_offset, Some(7));
+    }
+
+    #[test]
+    fn parameter_default_order_error_ranges_the_parameter() {
+        let error = parse_error("def f(a=1, b): pass\n");
+        assert_eq!(
+            error.message,
+            "parameter without a default follows parameter with a default"
+        );
+        assert_eq!(error.lineno, Some(1));
+        assert_eq!(error.offset, Some(12));
+        assert_eq!(error.end_lineno, Some(1));
+        assert_eq!(error.end_offset, Some(13));
+
+        let error = parse_error("f = lambda a=1, b: a\n");
+        assert_eq!(error.offset, Some(17));
+        assert_eq!(error.end_offset, Some(18));
+    }
+
+    #[test]
+    fn generic_invalid_syntax_ranges_the_last_token() {
+        // The EOF ENDMARKER carries -1 columns; RAISE_SYNTAX_ERROR_KNOWN_
+        // LOCATION's shift turns them into zeros instead of the cursor.
+        let error = parse_error("@x\n");
+        assert_eq!(error.message, "invalid syntax");
+        assert_eq!(error.lineno, Some(1));
+        assert_eq!(error.offset, Some(0));
+        assert_eq!(error.end_lineno, Some(1));
+        assert_eq!(error.end_offset, Some(0));
+    }
+
+    #[test]
+    fn escape_decode_errors_report_their_spans() {
+        let cases = [
+            (
+                "x = '\\N{NOPE}'\n",
+                "bytes in position 0-7: unknown Unicode character name",
+            ),
+            (
+                "x = 'ab\\N{NOPE}'\n",
+                "bytes in position 2-9: unknown Unicode character name",
+            ),
+            (
+                "x = '\\u12'\n",
+                "bytes in position 0-3: truncated \\uXXXX escape",
+            ),
+            (
+                "x = '\\xz'\n",
+                "bytes in position 0-1: truncated \\xXX escape",
+            ),
+            (
+                "x = 'a\\N{}'\n",
+                "bytes in position 1-3: malformed \\N character escape",
+            ),
+            (
+                "x = '\\U00110000'\n",
+                "bytes in position 0-9: illegal Unicode character",
+            ),
+        ];
+        for (source, tail) in cases {
+            let error = parse_error(source);
+            assert_eq!(
+                error.message,
+                format!("(unicode error) 'unicodeescape' codec can't decode {tail}"),
+                "{source:?}"
+            );
         }
     }
 }
