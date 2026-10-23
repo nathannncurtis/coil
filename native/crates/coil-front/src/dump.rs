@@ -1605,6 +1605,56 @@ impl Writer<'_> {
 /// CPython's `repr` for an f64: the shortest digits that round-trip, fixed
 /// notation while the decimal point sits at -3..16, otherwise `d.ddde±dd`
 /// with a signed two-digit exponent; "inf", "-inf" and "nan" verbatim.
+/// Scientific-notation digits of a finite non-negative value: (digits, exponent).
+fn scientific(text: &str) -> (String, i32) {
+    let (mantissa, exponent) = text.split_at(text.find('e').unwrap());
+    let digits = mantissa.chars().filter(|&c| c != '.').collect();
+    (digits, exponent[1..].parse().unwrap())
+}
+
+/// The digits Python's repr uses and the position of the decimal point: the
+/// shortest count that round-trips, correctly rounded with ties to even.
+/// Rust's `{:e}` gives the right count but breaks exact decimal ties upwards
+/// (`185262743923125.125` -> `...13`, Python `...12`), so the digits are
+/// re-rounded from the exact expansion.
+fn shortest_digits(value: f64) -> (String, i32) {
+    let n = scientific(&format!("{value:e}")).0.len();
+    // 767 significant digits hold any f64 exactly. Its exponent can be one
+    // below the shortest form's (1e23 is 9.99...e22); rounding carries it back.
+    let (exact, exponent) = scientific(&format!("{value:.767e}"));
+    let (head, tail) = exact.split_at(n);
+    let tail = tail.trim_end_matches('0');
+    let round_up = match tail.as_bytes().first() {
+        None => false,
+        Some(b'5') if tail.len() == 1 => (head.as_bytes()[n - 1] - b'0') % 2 == 1,
+        Some(&d) => d >= b'5',
+    };
+    let mut digits = head.as_bytes().to_vec();
+    let mut exponent = exponent;
+    if round_up {
+        let mut i = n;
+        loop {
+            if i == 0 {
+                digits.insert(0, b'1');
+                digits.pop();
+                exponent += 1;
+                break;
+            }
+            i -= 1;
+            if digits[i] == b'9' {
+                digits[i] = b'0';
+            } else {
+                digits[i] += 1;
+                break;
+            }
+        }
+    }
+    let digits = String::from_utf8(digits).unwrap();
+    let trimmed = digits.trim_end_matches('0');
+    let digits = if trimmed.is_empty() { "0" } else { trimmed };
+    (digits.to_string(), exponent + 1)
+}
+
 fn python_repr_f64(value: f64) -> String {
     if value.is_nan() {
         return "nan".to_string();
@@ -1616,17 +1666,8 @@ fn python_repr_f64(value: f64) -> String {
             "inf".to_string()
         };
     }
-    // `{:e}` yields the shortest digits as [-]d[.ddd]e<exp>; digits[0] is the
-    // first significant digit, so the decimal point sits at exp + 1.
-    let scientific = format!("{value:e}");
-    let (negative, rest) = match scientific.strip_prefix('-') {
-        Some(rest) => (true, rest),
-        None => (false, scientific.as_str()),
-    };
-    let e_at = rest.find('e').unwrap();
-    let (mantissa, exponent) = rest.split_at(e_at);
-    let digits: String = mantissa.chars().filter(|&c| c != '.').collect();
-    let decimal_point: i32 = exponent[1..].parse::<i32>().unwrap() + 1;
+    let negative = value.is_sign_negative();
+    let (digits, decimal_point) = shortest_digits(value.abs());
     let mut out = String::new();
     if negative {
         out.push('-');
@@ -2437,9 +2478,20 @@ mod tests {
             (f64::INFINITY, "inf"),
             (f64::NEG_INFINITY, "-inf"),
             (f64::NAN, "nan"),
+            // The exact expansion is 9.99...e22; rounding carries the exponent.
+            (1e23, "1e+23"),
         ];
         for &(value, expected) in cases {
             assert_eq!(super::python_repr_f64(value), expected);
+        }
+        // Exact decimal ties round half to even. Parsed from text: as literals
+        // clippy would shorten them to look like different numbers.
+        for (text, expected) in [
+            ("-185262743923125.125", "-185262743923125.12"),
+            ("211947665204525.125", "211947665204525.12"),
+            ("-718075613223142.25", "-718075613223142.2"),
+        ] {
+            assert_eq!(super::python_repr_f64(text.parse().unwrap()), expected);
         }
     }
 }
