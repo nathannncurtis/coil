@@ -1597,7 +1597,7 @@ impl Builder<'_> {
         if future_annotations {
             self.enter_block(self.names.annotation, BlockKind::Annotation, def_loc)?;
         }
-        for arg in a.posonlyargs.iter().chain(&a.args).chain(&a.kwonlyargs) {
+        for arg in a.posonlyargs.iter().chain(&a.args) {
             if let Some(annotation) = &arg.annotation {
                 self.visit_expr(annotation)?;
             }
@@ -1611,6 +1611,11 @@ impl Builder<'_> {
             && let Some(annotation) = &kwarg.annotation
         {
             self.visit_expr(annotation)?;
+        }
+        for arg in &a.kwonlyargs {
+            if let Some(annotation) = &arg.annotation {
+                self.visit_expr(annotation)?;
+            }
         }
         if future_annotations {
             self.exit_block()?;
@@ -1676,17 +1681,20 @@ impl Builder<'_> {
         }
         if self.stes[self.cur()].comprehension != ComprehensionKind::None {
             // Inside a comprehension body, so find the right target scope.
-            self.extend_namedexpr_scope(target, loc)?;
+            self.extend_namedexpr_scope(target)?;
         }
         self.visit_expr(value)?;
         self.visit_expr(target)
     }
 
-    fn extend_namedexpr_scope(&mut self, target: &Expr, loc: Loc) -> Result<(), SymtableError> {
+    fn extend_namedexpr_scope(&mut self, target: &Expr) -> Result<(), SymtableError> {
         let target_name = match target {
             Expr::Name { id, .. } => *id,
             _ => unreachable!("named expression target is a Name"),
         };
+        // CPython passes the target Name here, so every error and directive
+        // ranges over the target, not the whole NamedExpr.
+        let loc = expr_loc(target);
         // Find the nearest adequate scope, walking the stack in reverse.
         for index in (0..self.stack.len()).rev() {
             let ste = self.stack[index];
@@ -2643,6 +2651,50 @@ mod tests {
             build(source),
             r#"{"name":"top","type":"module","lineno":0,"is_optimized":false,"is_nested":false,"symbols":{"f":["is_assigned","is_global","is_local","is_namespace"]},"children":[{"name":"f","type":"type parameter","lineno":1,"is_optimized":false,"is_nested":false,"symbols":{".defaults":["is_local","is_parameter"],"T":["is_assigned","is_local","is_namespace","is_referenced"],"Ts":["is_assigned","is_local"],"U":["is_assigned","is_local","is_referenced"]},"children":[{"name":"T","type":"TypeVar bound","lineno":1,"is_optimized":false,"is_nested":true,"symbols":{"int":["is_global","is_referenced"]},"children":[]},{"name":"f","type":"function","lineno":1,"is_optimized":true,"is_nested":true,"symbols":{"U":["is_free","is_referenced"],"v":["is_annotated","is_assigned","is_local","is_referenced"],"x":["is_local","is_parameter","is_referenced"]},"children":[]}]}]}"#
         );
+    }
+
+    #[test]
+    fn named_expression_errors_range_the_target() {
+        let error = build_error("x = [(j := 1) for j in range(3) if (j := 2)]\n");
+        assert_eq!(
+            error.message,
+            "assignment expression cannot rebind comprehension iteration variable 'j'"
+        );
+        assert_eq!(error.lineno, Some(1));
+        assert_eq!(error.offset, Some(37));
+        assert_eq!(error.end_lineno, Some(1));
+        assert_eq!(error.end_offset, Some(38));
+
+        let error = build_error("class x:\n    [(e := f) for f in rng]\n");
+        assert_eq!(
+            error.message,
+            "assignment expression within a comprehension cannot be used in a class body"
+        );
+        assert_eq!(error.lineno, Some(2));
+        assert_eq!(error.offset, Some(7));
+        assert_eq!(error.end_lineno, Some(2));
+        assert_eq!(error.end_offset, Some(8));
+    }
+
+    #[test]
+    fn annotation_visit_order_reports_vararg_and_kwarg_first() {
+        let error = build_error(
+            "from __future__ import annotations\ndef f(*args: await x, y: await z): pass\n",
+        );
+        assert_eq!(
+            error.message,
+            "await expression cannot be used within an annotation"
+        );
+        assert_eq!(error.lineno, Some(2));
+        assert_eq!(error.offset, Some(14));
+        assert_eq!(error.end_lineno, Some(2));
+        assert_eq!(error.end_offset, Some(21));
+
+        let error = build_error(
+            "from __future__ import annotations\ndef f(*, y: await z, **kw: await w): pass\n",
+        );
+        assert_eq!(error.offset, Some(28));
+        assert_eq!(error.end_offset, Some(35));
     }
 
     #[test]
