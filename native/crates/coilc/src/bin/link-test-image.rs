@@ -6,7 +6,10 @@
 //! and the `Abs64`-fixed `.data` pointer still dereferenced correctly, 43
 //! when it still sits at the preferred base (where the statically written
 //! pointer is the right one). A missing or wrong base-relocation table
-//! crashes under ASLR instead of exiting 42. Bytes are written out by
+//! crashes under ASLR instead of exiting 42. The preferred-base flag is
+//! one patchable immediate, so a test copy mapped at 0x140000000 can exit
+//! 42 as the acceptance text specifies while the unpatched image's 42
+//! still proves a rebase happened. Bytes are written out by
 //! hand: no encoder is involved. One `key=value` fact per line describes
 //! the layout so the tests can assert exact addresses. `--no-constants`
 //! drops `.rdata` and everything referring to it, leaving an image whose
@@ -38,7 +41,7 @@ fn main() -> ExitCode {
         }
     }
 
-    let obj = test_object(subsystem, no_constants);
+    let (obj, flag_offset) = test_object(subsystem, no_constants);
     let linked = match pe::link_image(&obj) {
         Ok(linked) => linked,
         Err(error) => {
@@ -74,6 +77,7 @@ fn main() -> ExitCode {
         ("reloc_size", linked.layout.reloc_vsize),
         ("size_of_image", linked.layout.size_of_image),
         ("bss_size", obj.bss.size),
+        ("flag_offset", flag_offset),
     ];
     let mut names = vec![
         "text_cont",
@@ -148,7 +152,7 @@ fn align_200(value: u32) -> u32 {
 ///
 /// `user32.dll` and `GetCurrentProcessId` are imported but unused: they
 /// exercise multi-DLL descriptors and multi-entry IAT arrays.
-fn test_object(subsystem: Subsystem, no_constants: bool) -> ObjectFile {
+fn test_object(subsystem: Subsystem, no_constants: bool) -> (ObjectFile, u32) {
     let mut text: Vec<u8> = Vec::new();
     text.extend_from_slice(&[0x48, 0x83, 0xEC, 0x28]);
     text.push(0xE9);
@@ -187,6 +191,10 @@ fn test_object(subsystem: Subsystem, no_constants: bool) -> ObjectFile {
     text.extend_from_slice(&[0x48, 0xB9]);
     text.extend_from_slice(&pe::IMAGE_BASE.to_le_bytes());
     text.extend_from_slice(&[0x48, 0x39, 0xC8]);
+    // The imm32 low byte of `mov r8d, 1`; the default-base test patches it
+    // to 0 so its run at the preferred base exits 42 like the acceptance
+    // text specifies.
+    let flag_offset = text.len() as u32 + 2;
     text.extend_from_slice(&[0x41, 0xB8, 0x01, 0x00, 0x00, 0x00]);
     let jne_next = text.len() as u32 + 2;
     let jmp_next = jne_next + 2;
@@ -325,7 +333,7 @@ fn test_object(subsystem: Subsystem, no_constants: bool) -> ObjectFile {
         });
     }
 
-    ObjectFile {
+    let obj = ObjectFile {
         text: SectionContent {
             bytes: text,
             align: 16,
@@ -356,5 +364,6 @@ fn test_object(subsystem: Subsystem, no_constants: bool) -> ObjectFile {
         entry: "entry".into(),
         subsystem,
         stack_reserve: None,
-    }
+    };
+    (obj, flag_offset)
 }

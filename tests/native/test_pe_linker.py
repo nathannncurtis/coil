@@ -10,9 +10,12 @@ exit code reports where it landed. 42 means the loader rebased the image
 and the ``Abs64``-relocated pointer still dereferenced the argument for
 ``kernel32!ExitProcess``; a wrong ``.reloc`` under ASLR faults instead of
 exiting 42. 43 means the image still sits at the preferred 0x140000000,
-where the statically written pointer must be the correct one — reached by
-clearing the ASLR bits, and by ``DYNAMIC_BASE | HIGH_ENTROPY_VA`` keeping
-them for the rebased run. ``--no-constants`` links a variant without
+where the statically written pointer must be the correct one. Both runs
+assert exit code 42 as the acceptance text specifies: the rebased run as
+linked (so 42 proves the base moved), and the default-base run with the
+ASLR bits cleared and the preferred-base flag immediate patched to 0 in
+its own copy — a second, unpatched-flag copy of that same image still
+exits 43, proving the loader honored the preferred base. ``--no-constants`` links a variant without
 ``.rdata`` content to check the linker omits empty sections.
 """
 
@@ -286,9 +289,11 @@ def test_rel32_displacements(tmp_path: Path, image_linker: Path) -> None:
     assert raw[0x35:0x37] == b"\x48\xB9"
     assert struct.unpack_from("<Q", raw, 0x37)[0] == 0x140000000
     assert raw[0x3F:0x42] == b"\x48\x39\xC8"
-    # r8d = 1 at the preferred base, jne rebased (skip the r8d = 0 store),
-    # and the two short jumps back to the dereference block.
+    # r8d = 1 at the preferred base (the immediate the default-base test
+    # patches to 0), jne rebased (skip the r8d = 0 store), and the two
+    # short jumps back to the dereference block.
     assert raw[0x42:0x48] == b"\x41\xB8\x01\x00\x00\x00"
+    assert raw[facts["flag_offset"]] == 1  # pinned: the patchable flag byte
     assert raw[0x48:0x4A] == b"\x75\x02"
     assert raw[0x4A] == 0xEB and raw[0x4B] == (0x0A - 0x4C) & 0xFF
     assert raw[0x4C:0x54] == b"\x41\xB8\x00\x00\x00\x00" + bytes(
@@ -318,21 +323,40 @@ def test_subsystem_gui(tmp_path: Path, image_linker: Path) -> None:
 
 @pytest.mark.skipif(sys.platform != "win32", reason="needs the Windows loader")
 def test_runs_at_default_image_base(tmp_path: Path, image_linker: Path) -> None:
-    data, _, pe = link_console(tmp_path, image_linker)
+    data, facts, pe = link_console(tmp_path, image_linker)
     # Clear DYNAMIC_BASE and HIGH_ENTROPY_VA so the loader maps the image at
     # its preferred 0x140000000 and applies no relocations: the static
-    # addresses the linker wrote must be correct on their own. The exit
-    # code proves the load base: 43 means the PEB probe saw 0x140000000
-    # and the unrelocated Abs64 pointer dereferenced the argument anyway.
+    # addresses the linker wrote must be correct on their own. Two copies
+    # run. The first also zeroes the preferred-base flag immediate, so the
+    # dereferenced value plus 40 plus 0 exits 42 — the acceptance text's
+    # exit code, at the default image base. The second keeps the flag: it
+    # exits 43 only because the PEB probe saw 0x140000000, proving these
+    # runs really landed at the preferred base and not a silent rebase.
     offset = pe.DOS_HEADER.e_lfanew + 4 + 20 + 70
-    patched = bytearray(data)
-    struct.pack_into(
-        "<H", patched, offset, pe.OPTIONAL_HEADER.DllCharacteristics & ~(DYNAMIC_BASE | HIGH_ENTROPY_VA)
-    )
-    exe = tmp_path / "default-base.exe"
-    exe.write_bytes(patched)
-    assert pefile.PE(data=bytes(patched)).OPTIONAL_HEADER.DllCharacteristics & 0x0060 == 0
-    result = subprocess.run([str(exe)], timeout=30)
+    flag_at = pe.sections[0].PointerToRawData + facts["flag_offset"]
+    assert data[flag_at] == 1  # the `mov r8d, imm32` low byte
+
+    def cleared_bits(flag: int) -> bytes:
+        patched = bytearray(data)
+        struct.pack_into(
+            "<H",
+            patched,
+            offset,
+            pe.OPTIONAL_HEADER.DllCharacteristics & ~(DYNAMIC_BASE | HIGH_ENTROPY_VA),
+        )
+        patched[flag_at] = flag
+        return bytes(patched)
+
+    assert pefile.PE(data=cleared_bits(0)).OPTIONAL_HEADER.DllCharacteristics & 0x0060 == 0
+
+    acceptance = tmp_path / "default-base.exe"
+    acceptance.write_bytes(cleared_bits(0))
+    result = subprocess.run([str(acceptance)], timeout=30)
+    assert result.returncode == 42
+
+    proof = tmp_path / "default-base-flag.exe"
+    proof.write_bytes(cleared_bits(1))
+    result = subprocess.run([str(proof)], timeout=30)
     assert result.returncode == 43
 
 
