@@ -35,6 +35,10 @@ version = "0.0.0"
 [[package]]
 name = "coil-rt"
 version = "0.0.0"
+dependencies = [
+ "coil-capi-sys",
+ "coil-rt-abi",
+]
 
 [[package]]
 name = "coil-rt-abi"
