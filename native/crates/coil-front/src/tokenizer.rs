@@ -3416,6 +3416,9 @@ mod tests {
         let cases: &[(&[u8], TokenizeErrorKind, u32, i64)] = &[
             (b"\x001\n", TokenizeErrorKind::TokenError, 1, 0),
             (b"x = (\n1\n", TokenizeErrorKind::TokenError, 2, 0),
+            // An E_EOF from tok_continuation_line keeps the cursor: the
+            // line continuation holds the token open, so inp - buf is 6.
+            (b"x = \\\n", TokenizeErrorKind::TokenError, 1, 6),
             (b"s = 'abc", TokenizeErrorKind::TokenError, 1, 5),
             // _tokenizer_error positions: zero for an E_EOF at a fresh token
             // (the readline buffer reset), inp - buf for a mid-token E_EOF,
