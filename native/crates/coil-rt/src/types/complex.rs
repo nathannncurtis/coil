@@ -200,7 +200,7 @@ pub extern "C" fn _Py_c_prod(a: Py_complex, b: Py_complex) -> Py_complex {
 
 /// `_Py_c_quot`, with the `EDOM` the C library sets made explicit: divide
 /// through whichever part of `b` is larger (CACM Algorithm 116).
-fn c_quot(a: Py_complex, b: Py_complex) -> (Py_complex, u8) {
+pub(crate) fn c_quot(a: Py_complex, b: Py_complex) -> (Py_complex, u8) {
     let abs_breal = if b.real < 0.0 { -b.real } else { b.real };
     let abs_bimag = if b.imag < 0.0 { -b.imag } else { b.imag };
     let r = if abs_breal >= abs_bimag {
@@ -334,7 +334,7 @@ fn c_powi(x: Py_complex, n: i64) -> (Py_complex, u8) {
 }
 
 /// `_Py_c_abs`, with the `ERANGE` hypot overflow sets made explicit.
-fn c_abs(z: Py_complex) -> (f64, u8) {
+pub(crate) fn c_abs(z: Py_complex) -> (f64, u8) {
     if !z.real.is_finite() || !z.imag.is_finite() {
         // C99: an infinite part gives infinity even over a NaN part.
         if z.real.is_infinite() {

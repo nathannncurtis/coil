@@ -13,6 +13,7 @@ defaults).
 Output files (under --out, default native/crates/coil-rt/tests/data):
 
   math_module.tsv       math functions, values and exact error messages
+  cmath_module.tsv      cmath functions over the complex protocol
 
 Columns: function name, one column per argument, the result. Composite
 arguments are tuples; the encoding is shared with the Rust reader:
@@ -20,6 +21,7 @@ arguments are tuples; the encoding is shared with the Rust reader:
   i:<decimal>          int
   b:0 | b:1            bool
   f:<16 hex digits>    float as its u64 bit pattern (f:nan for NaN)
+  c:<re>,<im>          complex from two float encodings
   T:<enc>,<enc>,...    tuple of the other encodings
   e:<Type>:<message>   exception with its exact message
   none                 None
@@ -50,6 +52,10 @@ def f64(token):
     return struct.unpack("<d", struct.pack("<Q", int(token, 16)))[0]
 
 
+def fenc(x):
+    return "nan" if isnan(x) else bits(x)
+
+
 def enc(value):
     if value is None:
         return "none"
@@ -58,7 +64,9 @@ def enc(value):
     if isinstance(value, int):
         return f"i:{value}"
     if isinstance(value, float):
-        return "f:nan" if isnan(value) else f"f:{bits(value)}"
+        return f"f:{fenc(value)}"
+    if isinstance(value, complex):
+        return f"c:{fenc(value.real)},{fenc(value.imag)}"
     if isinstance(value, tuple):
         return "T:" + ",".join(enc(item) for item in value)
     raise AssertionError(f"unencodable value {value!r}")
@@ -292,6 +300,89 @@ def rows_sequences():
         )
 
 
+def rows_cmath():
+    import cmath
+    # The Annex G lattice: parts chosen around the branch cuts, the
+    # overflow thresholds (CM_LARGE_DOUBLE and friends) and the
+    # subnormal rescaling paths, times themselves.
+    parts = [
+        "0000000000000000", "8000000000000000", "3FF0000000000000",
+        "BFF0000000000000", "3FE0000000000000", "BFE0000000000000",
+        "4000000000000000", "C000000000000000", "7FF0000000000000",
+        "FFF0000000000000", "7FF8000000000000", "FFF8000000000000",
+        "0000000000000001", "0000000000000002", "8000000000000001",
+        "7FEFFFFFFFFFFFFF", "4341C37937E08000", "4237E48337EA7A50",
+        "557F5FCED603E8E1", "7FEFFFFFFFFFFFFE",
+        "0362659B2DB5B899", "8362659B2DB5B899",
+        "43E1580850953E5B", "C3E1580850953E5B",
+        "6974E718D7D7625A",  # 1e200, above CM_SQRT_LARGE_DOUBLE
+        "16687E92154EF7AC",  # 1e-200
+        "00005C0AB9347ED7",  # 5e-310, subnormal
+        # Each magnitude above with its sign flipped.
+        "BFF0000000000000", "BFE0000000000000", "C000000000000000",
+        "E974E718D7D7625A", "96687E92154EF7AC", "80005C0AB9347ED7",
+        "C341C37937E08000", "D57F5FCED603E8E1",
+    ]
+    zs = [complex(f64(re), f64(im)) for re in parts for im in parts]
+    one_arg = [
+        "acos", "acosh", "asin", "asinh", "atan", "atanh", "cos",
+        "cosh", "exp", "isfinite", "isinf", "isnan", "log10", "phase",
+        "polar", "sin", "sinh", "sqrt", "tan", "tanh",
+    ]
+    for name in one_arg:
+        fn = getattr(cmath, name)
+        for z in zs:
+            yield (name, enc(z), encode(lambda fn=fn, z=z: fn(z)))
+    # log with and without a base.
+    for z in zs[::2]:
+        yield ("log", enc(z), encode(lambda z=z: cmath.log(z)))
+        for base in [zs[1], zs[3], zs[8], zs[10], zs[5], complex(2.0, 1.0)]:
+            yield (
+                "log", enc(z), enc(base),
+                encode(lambda z=z, base=base: cmath.log(z, base)),
+            )
+    # rect takes two doubles.
+    for re in parts:
+        for im in parts[::4]:
+            yield (
+                "rect", f"f:{re}", f"f:{im}",
+                encode(lambda re=re, im=im: cmath.rect(f64(re), f64(im))),
+            )
+    # isclose over pairs of lattice points.
+    for a in zs[::29]:
+        for b in zs[7::29]:
+            yield (
+                "isclose", enc(a), enc(b),
+                encode(lambda a=a, b=b: cmath.isclose(a, b)),
+            )
+    # The complex protocol accepts ints, bools and floats.
+    for x in [0, 1, -1, 2, True, False, 2**100, 1.5, -0.0]:
+        yield ("acos", enc(x), encode(lambda x=x: cmath.acos(x)))
+        yield ("phase", enc(x), encode(lambda x=x: cmath.phase(x)))
+    # Argument-count and type error shapes for the calling conventions.
+    shapes = [
+        ("acos", ()), ("acos", (1j, 2j)), ("sqrt", ()),
+        ("log", ()), ("log", (1j, 2j, 3j)), ("rect", ()),
+        ("rect", (1.0,)), ("rect", (1.0, 2.0, 3.0)),
+        ("isclose", (1j,)), ("isclose", (1j, 2j, 3j)),
+        ("phase", (None,)), ("polar", (None,)),
+    ]
+    for name, args in shapes:
+        fn = getattr(cmath, name)
+        yield (
+            name, *(enc(a) for a in args),
+            encode(lambda fn=fn, a=args: fn(*a), drop_prefix=f"cmath.{name}()"),
+        )
+
+
+def gen_cmath(out):
+    path = out / "cmath_module.tsv"
+    with open(path, "w") as f:
+        for row in rows_cmath():
+            print("\t".join(row), file=f)
+    print(f"wrote {path}")
+
+
 def gen_math(out):
     path = out / "math_module.tsv"
     with open(path, "w") as f:
@@ -316,6 +407,7 @@ def main():
     args = parser.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     gen_math(args.out)
+    gen_cmath(args.out)
 
 
 if __name__ == "__main__":
