@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["crates/coil-front", "crates/coil-ir", "crates/coil-rt", "crates/coil-rt-abi"]
+members = ["crates/coil-capi-sys", "crates/coil-front", "crates/coil-ir", "crates/coil-rt", "crates/coil-rt-abi"]
 
 [workspace.package]
 edition = "2024"

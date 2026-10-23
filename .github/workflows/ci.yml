@@ -53,6 +53,7 @@ jobs:
               - 'src/coil/native/**'
               - 'tools/gen_abi.py'
               - 'tools/gen_ast.py'
+              - 'tools/gen_capi.py'
               - 'tools/fetch_cpython_src.py'
               - 'tools/layout_oracle.c'
               - 'tools/layout_oracle.py'
@@ -224,6 +225,11 @@ jobs:
       - name: coil-rt-abi constants match the pinned CPython headers
         if: runner.os == 'Windows'
         run: python tools/layout_oracle.py --check
+      - name: Export lists match the pinned 3.12.10 runtime
+        if: runner.os == 'Windows'
+        run: |
+          python -m pip install pefile==2024.8.26
+          python tools/gen_capi.py --check
       - name: Install the pinned Rust toolchain
         working-directory: native
         run: rustup show
