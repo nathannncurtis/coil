@@ -4,6 +4,7 @@ pub mod ast;
 mod ast_generated;
 pub mod dump;
 pub mod intern;
+pub mod lower;
 pub mod parser;
 pub mod symtable;
 pub mod tokenizer;
