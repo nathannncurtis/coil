@@ -18,8 +18,8 @@ use coil_ir::verify;
 
 use crate::ast::Constant;
 use crate::ast_generated::{
-    Alias, Arguments, Boolop, Cmpop, Comprehension, Excepthandler, Expr, Keyword, Operator,
-    Pattern, Stmt, TypeParam, Unaryop,
+    Alias, Arguments, Boolop, Cmpop, Comprehension, Excepthandler, Expr, Keyword, MatchCase,
+    Operator, Pattern, Stmt, TypeParam, Unaryop, Withitem,
 };
 use crate::intern::{Interner, Sym as FSym};
 use crate::symtable::{self, SymbolTable};
@@ -40,10 +40,6 @@ pub enum LowerKind {
     Yield,
     YieldFrom,
     Await,
-    Try,
-    TryStar,
-    With,
-    Match,
     AsyncFunction,
     AsyncFor,
     AsyncWith,
@@ -57,10 +53,6 @@ impl LowerKind {
             LowerKind::Yield => "yield",
             LowerKind::YieldFrom => "yield from",
             LowerKind::Await => "await",
-            LowerKind::Try => "try",
-            LowerKind::TryStar => "except*",
-            LowerKind::With => "with",
-            LowerKind::Match => "match",
             LowerKind::AsyncFunction => "async function",
             LowerKind::AsyncFor => "async for",
             LowerKind::AsyncWith => "async with",
@@ -374,6 +366,338 @@ fn expr_pos(e: &Expr) -> Pos {
         | Expr::Slice {
             lineno, col_offset, ..
         } => pos_of(*lineno, *col_offset),
+    }
+}
+
+fn pattern_pos(p: &Pattern) -> Pos {
+    match p {
+        Pattern::MatchValue {
+            lineno, col_offset, ..
+        }
+        | Pattern::MatchSingleton {
+            lineno, col_offset, ..
+        }
+        | Pattern::MatchSequence {
+            lineno, col_offset, ..
+        }
+        | Pattern::MatchMapping {
+            lineno, col_offset, ..
+        }
+        | Pattern::MatchClass {
+            lineno, col_offset, ..
+        }
+        | Pattern::MatchStar {
+            lineno, col_offset, ..
+        }
+        | Pattern::MatchAs {
+            lineno, col_offset, ..
+        }
+        | Pattern::MatchOr {
+            lineno, col_offset, ..
+        } => pos_of(*lineno, *col_offset),
+    }
+}
+
+/// The names a statement list writes, as the variable map keys them:
+/// region-exit restores skip these for code that certainly ran to its end.
+/// The walk only feeds that approximation, so an over-approximation is
+/// harmless (one restore fewer) while a missed binding is not.
+fn collect_name_writes(f: &FnLower, body: &[Stmt], out: &mut Vec<String>) {
+    for st in body {
+        collect_stmt_writes(f, st, out);
+    }
+}
+
+fn collect_expr_writes(f: &FnLower, e: &Expr, out: &mut Vec<String>) {
+    match e {
+        Expr::NamedExpr { target, value, .. } => {
+            if let Expr::Name { id, .. } = &**target {
+                push_name(out, &f.text(*id));
+            }
+            collect_expr_writes(f, value, out);
+        }
+        Expr::BoolOp { values, .. } => values.iter().for_each(|v| collect_expr_writes(f, v, out)),
+        Expr::BinOp { left, right, .. } => {
+            collect_expr_writes(f, left, out);
+            collect_expr_writes(f, right, out);
+        }
+        Expr::UnaryOp { operand, .. } => collect_expr_writes(f, operand, out),
+        Expr::Lambda { args, .. } => {
+            args.defaults
+                .iter()
+                .for_each(|d| collect_expr_writes(f, d, out));
+            args.kw_defaults
+                .iter()
+                .flatten()
+                .for_each(|d| collect_expr_writes(f, d, out));
+        }
+        Expr::IfExp {
+            test, body, orelse, ..
+        } => {
+            collect_expr_writes(f, test, out);
+            collect_expr_writes(f, body, out);
+            collect_expr_writes(f, orelse, out);
+        }
+        Expr::Dict { keys, values, .. } => {
+            keys.iter()
+                .flatten()
+                .for_each(|k| collect_expr_writes(f, k, out));
+            values.iter().for_each(|v| collect_expr_writes(f, v, out));
+        }
+        Expr::Set { elts, .. } | Expr::Tuple { elts, .. } | Expr::List { elts, .. } => {
+            elts.iter().for_each(|v| collect_expr_writes(f, v, out))
+        }
+        Expr::ListComp { .. }
+        | Expr::SetComp { .. }
+        | Expr::DictComp { .. }
+        | Expr::GeneratorExp { .. } => {}
+        Expr::Await { value, .. } => collect_expr_writes(f, value, out),
+        Expr::Yield { value, .. } => {
+            if let Some(v) = value {
+                collect_expr_writes(f, v, out);
+            }
+        }
+        Expr::YieldFrom { value, .. } => collect_expr_writes(f, value, out),
+        Expr::Compare {
+            left, comparators, ..
+        } => {
+            collect_expr_writes(f, left, out);
+            comparators
+                .iter()
+                .for_each(|c| collect_expr_writes(f, c, out));
+        }
+        Expr::Call {
+            func,
+            args,
+            keywords,
+            ..
+        } => {
+            collect_expr_writes(f, func, out);
+            args.iter().for_each(|a| collect_expr_writes(f, a, out));
+            keywords
+                .iter()
+                .for_each(|k| collect_expr_writes(f, &k.value, out));
+        }
+        Expr::FormattedValue { value, .. } => collect_expr_writes(f, value, out),
+        Expr::JoinedStr { values, .. } => {
+            values.iter().for_each(|v| collect_expr_writes(f, v, out))
+        }
+        Expr::Constant { .. } | Expr::Name { .. } => {}
+        Expr::Attribute { value, .. } => collect_expr_writes(f, value, out),
+        Expr::Subscript { value, slice, .. } => {
+            collect_expr_writes(f, value, out);
+            collect_expr_writes(f, slice, out);
+        }
+        Expr::Starred { value, .. } => collect_expr_writes(f, value, out),
+        Expr::Slice {
+            lower, upper, step, ..
+        } => {
+            if let Some(l) = lower {
+                collect_expr_writes(f, l, out);
+            }
+            if let Some(u) = upper {
+                collect_expr_writes(f, u, out);
+            }
+            if let Some(s) = step {
+                collect_expr_writes(f, s, out);
+            }
+        }
+    }
+}
+
+fn collect_stmt_writes(f: &FnLower, s: &Stmt, out: &mut Vec<String>) {
+    match s {
+        Stmt::Assign { targets, value, .. } => {
+            collect_expr_writes(f, value, out);
+            for t in targets {
+                collect_target_writes(f, t, out);
+            }
+        }
+        Stmt::AugAssign { target, value, .. } => {
+            collect_expr_writes(f, value, out);
+            collect_target_writes(f, target, out);
+        }
+        Stmt::AnnAssign {
+            target,
+            value,
+            annotation,
+            ..
+        } => {
+            collect_expr_writes(f, annotation, out);
+            if let Some(v) = value {
+                collect_expr_writes(f, v, out);
+            }
+            collect_target_writes(f, target, out);
+        }
+        Stmt::Delete { targets, .. } => {
+            for t in targets {
+                collect_target_writes(f, t, out);
+            }
+        }
+        Stmt::For {
+            target, iter, body, ..
+        } => {
+            collect_expr_writes(f, iter, out);
+            collect_target_writes(f, target, out);
+            collect_name_writes(f, body, out);
+        }
+        Stmt::With { items, body, .. } => {
+            for it in items {
+                collect_expr_writes(f, &it.context_expr, out);
+                if let Some(v) = &it.optional_vars {
+                    collect_target_writes(f, v, out);
+                }
+            }
+            collect_name_writes(f, body, out);
+        }
+        Stmt::Import { names, .. } => {
+            for a in names {
+                match &a.asname {
+                    Some(n) => push_name(out, &f.text(*n)),
+                    None => push_name(out, f.text(a.name).split('.').next().unwrap_or("")),
+                }
+            }
+        }
+        Stmt::ImportFrom { names, .. } => {
+            for a in names {
+                match &a.asname {
+                    Some(n) => push_name(out, &f.text(*n)),
+                    None => push_name(out, &f.text(a.name)),
+                }
+            }
+        }
+        Stmt::Try {
+            body,
+            handlers,
+            orelse,
+            finalbody,
+            ..
+        }
+        | Stmt::TryStar {
+            body,
+            handlers,
+            orelse,
+            finalbody,
+            ..
+        } => {
+            collect_name_writes(f, body, out);
+            for h in handlers {
+                let Excepthandler::ExceptHandler {
+                    r#type,
+                    name,
+                    body: hbody,
+                    ..
+                } = h;
+                if let Some(t) = r#type {
+                    collect_expr_writes(f, t, out);
+                }
+                if let Some(n) = name {
+                    push_name(out, &f.text(*n));
+                }
+                collect_name_writes(f, hbody, out);
+            }
+            collect_name_writes(f, orelse, out);
+            collect_name_writes(f, finalbody, out);
+        }
+        Stmt::Match { subject, cases, .. } => {
+            collect_expr_writes(f, subject, out);
+            for c in cases {
+                if let Some(g) = &c.guard {
+                    collect_expr_writes(f, g, out);
+                }
+                collect_pattern_writes(f, &c.pattern, out);
+                collect_name_writes(f, &c.body, out);
+            }
+        }
+        Stmt::If {
+            test, body, orelse, ..
+        }
+        | Stmt::While {
+            test, body, orelse, ..
+        } => {
+            collect_expr_writes(f, test, out);
+            collect_name_writes(f, body, out);
+            collect_name_writes(f, orelse, out);
+        }
+        Stmt::Return { value: Some(v), .. } => collect_expr_writes(f, v, out),
+        Stmt::Raise { exc, cause, .. } => {
+            if let Some(v) = exc {
+                collect_expr_writes(f, v, out);
+            }
+            if let Some(v) = cause {
+                collect_expr_writes(f, v, out);
+            }
+        }
+        Stmt::Assert { test, msg, .. } => {
+            collect_expr_writes(f, test, out);
+            if let Some(m) = msg {
+                collect_expr_writes(f, m, out);
+            }
+        }
+        Stmt::Expr { value, .. } => collect_expr_writes(f, value, out),
+        _ => {}
+    }
+}
+
+fn collect_target_writes(f: &FnLower, t: &Expr, out: &mut Vec<String>) {
+    match t {
+        Expr::Name { id, .. } => push_name(out, &f.text(*id)),
+        Expr::Tuple { elts, .. } | Expr::List { elts, .. } => {
+            for e in elts {
+                collect_target_writes(f, e, out);
+            }
+        }
+        Expr::Starred { value, .. } => collect_target_writes(f, value, out),
+        _ => {}
+    }
+}
+
+fn collect_pattern_writes(f: &FnLower, p: &Pattern, out: &mut Vec<String>) {
+    match p {
+        Pattern::MatchStar { name: Some(n), .. } => push_name(out, &f.text(*n)),
+        Pattern::MatchAs {
+            pattern: Some(inner),
+            name: Some(n),
+            ..
+        } => {
+            push_name(out, &f.text(*n));
+            collect_pattern_writes(f, inner, out);
+        }
+        Pattern::MatchAs { name: Some(n), .. } => push_name(out, &f.text(*n)),
+        Pattern::MatchMapping {
+            patterns,
+            rest: Some(r),
+            ..
+        } => {
+            push_name(out, &f.text(*r));
+            for p in patterns {
+                collect_pattern_writes(f, p, out);
+            }
+        }
+        Pattern::MatchSequence { patterns, .. } | Pattern::MatchOr { patterns, .. } => {
+            for p in patterns {
+                collect_pattern_writes(f, p, out);
+            }
+        }
+        Pattern::MatchClass {
+            patterns,
+            kwd_patterns,
+            ..
+        } => {
+            for p in patterns {
+                collect_pattern_writes(f, p, out);
+            }
+            for p in kwd_patterns {
+                collect_pattern_writes(f, p, out);
+            }
+        }
+        _ => {}
+    }
+}
+
+fn push_name(out: &mut Vec<String>, n: &str) {
+    if !out.iter().any(|x| x == n) {
+        out.push(n.to_string());
     }
 }
 
@@ -884,12 +1208,15 @@ impl<'a> Lowerer<'a> {
             private,
             mangled,
             cells,
-            loops: Vec::new(),
+            handlers: Vec::new(),
+            unwinds: Vec::new(),
+            subst: Vec::new(),
             class_cell: None,
             classdict_cell: None,
             methods: Vec::new(),
             join_count: 0,
             n_argcount: params.positional.len(),
+            finally_count: 0,
             terminated: false,
             pending: VecDeque::new(),
         }
@@ -917,6 +1244,48 @@ fn mangle_name(private: &str, name: &str) -> String {
     format!("_{stripped}{name}")
 }
 
+/// A region a `break`, `continue` or `return` crosses on its way out, in
+/// order from innermost out (CPython's fblock stack). Each variant names the
+/// action unwinding needs, mirroring `compiler_unwind_fblock`.
+enum Unwind {
+    Loop {
+        end: BlockId,
+        head: BlockId,
+    },
+    /// A protected body (`try` body, `except*` body region) with nothing to
+    /// undo.
+    Handler,
+    /// An `except`/`except*` handler body: restore the `exc_info` stack and
+    /// delete the bound name on the way out.
+    HandlerCleanup {
+        name: Option<FSym>,
+    },
+    /// A `with` body: call `exit(mgr, None, None, None)` on the way out.
+    With {
+        mgr: Value,
+        exit: Value,
+    },
+    /// A `try` body guarded by `finally`: store the reason in `var` and jump
+    /// `entry`, abandoning the unwinding to the finally's dispatch.
+    Finally {
+        var: Sym,
+        entry: BlockId,
+        seq: usize,
+        break_sent: bool,
+        continue_sent: bool,
+    },
+    /// An `except*` handler body: `break`/`continue`/`return` cannot leave it.
+    StarHandler,
+}
+
+/// The number of positional sub-patterns a class accepts, for the arity
+/// error: fixed for the match-self builtins, `__match_args__`'s length
+/// otherwise.
+enum Arity {
+    Static(usize),
+    Runtime(Value),
+}
+
 /// One function body under construction.
 struct FnLower<'a, 'b> {
     low: &'b mut Lowerer<'a>,
@@ -934,7 +1303,17 @@ struct FnLower<'a, 'b> {
     private: Option<String>,
     mangled: Option<HashSet<String>>,
     cells: HashMap<String, Value>,
-    loops: Vec<(BlockId, BlockId)>,
+    /// The exception handler of the region being lowered; every block
+    /// created while it is pushed carries it (a may-raise instruction
+    /// anywhere in a `try` body must reach the body's landing).
+    handlers: Vec<BlockId>,
+    unwinds: Vec<Unwind>,
+    /// Values standing in for fast-local names while an `except` type
+    /// expression is lowered inside its landing: the landing is reachable
+    /// only over exception edges, so it must read the value the variable
+    /// held before the protected body, not a definition the body may or may
+    /// not have reached (the builder merges end-of-block definitions there).
+    subst: Vec<(String, Value)>,
     class_cell: Option<Value>,
     classdict_cell: Option<Value>,
     methods: Vec<(Sym, FnId)>,
@@ -942,6 +1321,7 @@ struct FnLower<'a, 'b> {
     /// CPython's `u_argcount`: positional (pos-only then normal)
     /// parameters, the pool zero-arg `super()` rewrites against.
     n_argcount: usize,
+    finally_count: usize,
     terminated: bool,
 }
 
@@ -950,6 +1330,15 @@ impl<'a, 'b> FnLower<'a, 'b> {
         let id = self.b.push(instr)?;
         self.b.record_line(id, pos.line, pos.col)?;
         Ok(id)
+    }
+
+    /// A new block under the current region's exception handler.
+    fn new_block(&mut self) -> Result<BlockId, LowerError> {
+        let block = self.b.new_block();
+        if let Some(&h) = self.handlers.last() {
+            self.b.set_handler(block, Some(h))?;
+        }
+        Ok(block)
     }
 
     fn fresh_top(&mut self) -> Value {
@@ -1171,7 +1560,19 @@ impl<'a, 'b> FnLower<'a, 'b> {
         if raw == "__debug__" && self.flags_for(mangled).is_none() {
             return self.const_val(Const::Bool(self.low.optimize == 0), pos);
         }
-        let flags = self.flags_for(mangled).unwrap_or(0);
+        // A name the symtable never saw is an implicit global: exception
+        // tuples and pattern helpers load builtins the source never names.
+        let flags = match self.flags_for(mangled) {
+            Some(flags) => flags,
+            None if self.kind.uses_name_ops() => {
+                let name = self.pool(mangled);
+                return self.value_of(pos, |into| Instr::LoadName { name, into });
+            }
+            None => {
+                let name = self.pool(mangled);
+                return self.value_of(pos, |into| Instr::LoadGlobal { name, into });
+            }
+        };
         match scope_of(flags) {
             symtable::GLOBAL_EXPLICIT => {
                 let name = self.pool(mangled);
@@ -1190,6 +1591,14 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 self.value_of(pos, |into| Instr::LoadName { name, into })
             }
             _ => {
+                if let Some(&v) = self
+                    .subst
+                    .iter()
+                    .find(|(n, _)| n == mangled)
+                    .map(|(_, v)| v)
+                {
+                    return Ok(v);
+                }
                 let sym = self.pool(mangled);
                 let at = self
                     .b
@@ -1464,11 +1873,14 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 ..
             } => self.lower_type_alias(name, type_params, value, stmt_pos(s)),
             Stmt::Return { value, .. } => {
+                if self.terminated {
+                    return Ok(());
+                }
                 let v = match value {
                     Some(e) => self.expr(e)?,
                     None => self.none()?,
                 };
-                self.ret(v)
+                self.unwind_and_return(v, stmt_pos(s))
             }
             Stmt::Delete { targets, .. } => {
                 for t in targets {
@@ -1533,8 +1945,8 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 }
                 let pos = stmt_pos(s);
                 let ok = self.truth_of(test)?;
-                let pass = self.b.new_block();
-                let fail = self.b.new_block();
+                let pass = self.new_block()?;
+                let fail = self.new_block()?;
                 self.branch(ok, pass, fail)?;
                 self.terminated = false;
                 self.b.switch_to(fail)?;
@@ -1585,31 +1997,37 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 Ok(())
             }
             Stmt::Break { .. } => {
-                let Some(&(_, end)) = self.loops.last() else {
-                    return Err(LowerError::UnexpectedAst {
-                        what: "break outside a loop",
-                        line: stmt_pos(s).line,
-                    });
-                };
-                self.jump(end)
+                if self.terminated {
+                    return Ok(());
+                }
+                self.unwind_to_loop(false, stmt_pos(s))
             }
             Stmt::Continue { .. } => {
-                let Some(&(head, _)) = self.loops.last() else {
-                    return Err(LowerError::UnexpectedAst {
-                        what: "continue outside a loop",
-                        line: stmt_pos(s).line,
-                    });
-                };
-                self.jump(head)
+                if self.terminated {
+                    return Ok(());
+                }
+                self.unwind_to_loop(true, stmt_pos(s))
             }
             Stmt::Global { .. } | Stmt::Nonlocal { .. } | Stmt::Pass { .. } => Ok(()),
             Stmt::AsyncFunctionDef { .. } => Err(LowerError::Unsupported(LowerKind::AsyncFunction)),
             Stmt::AsyncFor { .. } => Err(LowerError::Unsupported(LowerKind::AsyncFor)),
             Stmt::AsyncWith { .. } => Err(LowerError::Unsupported(LowerKind::AsyncWith)),
-            Stmt::With { .. } => Err(LowerError::Unsupported(LowerKind::With)),
-            Stmt::Try { .. } => Err(LowerError::Unsupported(LowerKind::Try)),
-            Stmt::TryStar { .. } => Err(LowerError::Unsupported(LowerKind::TryStar)),
-            Stmt::Match { .. } => Err(LowerError::Unsupported(LowerKind::Match)),
+            Stmt::With { items, body, .. } => self.lower_with(items, body, stmt_pos(s)),
+            Stmt::Try {
+                body,
+                handlers,
+                orelse,
+                finalbody,
+                ..
+            } => self.lower_try(body, handlers, orelse, finalbody, false, stmt_pos(s)),
+            Stmt::TryStar {
+                body,
+                handlers,
+                orelse,
+                finalbody,
+                ..
+            } => self.lower_try(body, handlers, orelse, finalbody, true, stmt_pos(s)),
+            Stmt::Match { subject, cases, .. } => self.lower_match(subject, cases),
         }
     }
 
@@ -1907,9 +2325,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
 
     fn lower_if(&mut self, test: &Expr, body: &[Stmt], orelse: &[Stmt]) -> Result<(), LowerError> {
         let cond = self.truth_of(test)?;
-        let then_blk = self.b.new_block();
-        let else_blk = self.b.new_block();
-        let end = self.b.new_block();
+        let then_blk = self.new_block()?;
+        let else_blk = self.new_block()?;
+        let end = self.new_block()?;
         self.branch(cond, then_blk, else_blk)?;
         self.terminated = false;
         self.b.switch_to(then_blk)?;
@@ -1931,20 +2349,20 @@ impl<'a, 'b> FnLower<'a, 'b> {
         orelse: &[Stmt],
         _pos: Pos,
     ) -> Result<(), LowerError> {
-        let head = self.b.new_block();
+        let head = self.new_block()?;
         self.jump(head)?;
         self.terminated = false;
         self.b.switch_to(head)?;
         let cond = self.truth_of(test)?;
-        let body_blk = self.b.new_block();
-        let else_blk = self.b.new_block();
-        let end = self.b.new_block();
+        let body_blk = self.new_block()?;
+        let else_blk = self.new_block()?;
+        let end = self.new_block()?;
         self.branch(cond, body_blk, else_blk)?;
         self.terminated = false;
         self.b.switch_to(body_blk)?;
-        self.loops.push((end, head));
+        self.unwinds.push(Unwind::Loop { end, head });
         self.lower_body(body)?;
-        self.loops.pop();
+        self.unwinds.pop();
         self.jump(head)?;
         self.terminated = false;
         self.b.switch_to(else_blk)?;
@@ -1971,10 +2389,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
             into,
         })?;
         let types = self.build_tuple(vec![stop_cls], pos)?;
-        let head = self.b.new_block();
-        let catch = self.b.new_block();
-        let body_blk = self.b.new_block();
-        let end = self.b.new_block();
+        let head = self.new_block()?;
+        let catch = self.new_block()?;
+        let body_blk = self.new_block()?;
+        let end = self.new_block()?;
         self.jump(head)?;
         self.terminated = false;
         self.b.switch_to(head)?;
@@ -1987,9 +2405,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.terminated = false;
         self.b.switch_to(body_blk)?;
         self.assign_target(target, next, pos)?;
-        self.loops.push((end, head));
+        self.unwinds.push(Unwind::Loop { end, head });
         self.lower_body(body)?;
-        self.loops.pop();
+        self.unwinds.pop();
         self.jump(head)?;
         self.terminated = false;
         self.b.switch_to(catch)?;
@@ -2003,8 +2421,8 @@ impl<'a, 'b> FnLower<'a, 'b> {
             },
             pos,
         )?;
-        let clean = self.b.new_block();
-        let reraise_blk = self.b.new_block();
+        let clean = self.new_block()?;
+        let reraise_blk = self.new_block()?;
         self.branch(matched, clean, reraise_blk)?;
         self.terminated = false;
         self.b.switch_to(reraise_blk)?;
@@ -2017,7 +2435,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         if orelse.is_empty() {
             self.jump(end)?;
         } else {
-            let else_blk = self.b.new_block();
+            let else_blk = self.new_block()?;
             self.jump(else_blk)?;
             self.terminated = false;
             self.b.switch_to(else_blk)?;
@@ -2026,6 +2444,1526 @@ impl<'a, 'b> FnLower<'a, 'b> {
         }
         self.terminated = false;
         self.b.switch_to(end)?;
+        Ok(())
+    }
+
+    // ---- try / with / match ------------------------------------------
+
+    /// The exception types an `except` clause tests: a syntactic tuple is
+    /// flattened into the operand tuple, anything else is wrapped in a
+    /// one-tuple (CPython's exc_match accepts nested tuples at runtime).
+    fn except_types(&mut self, ty: &Expr, pos: Pos) -> Result<Value, LowerError> {
+        match ty {
+            Expr::Tuple { elts, .. } => {
+                let mut items = Vec::with_capacity(elts.len());
+                for e in elts {
+                    items.push(self.expr(e)?);
+                }
+                self.build_tuple(items, pos)
+            }
+            other => {
+                let v = self.expr(other)?;
+                self.build_tuple(vec![v], pos)
+            }
+        }
+    }
+
+    fn base_exception_tuple(&mut self, pos: Pos) -> Result<Value, LowerError> {
+        let be = self.load_plain_name("BaseException", pos)?;
+        self.build_tuple(vec![be], pos)
+    }
+
+    /// Snapshot the fast locals the `except` type expressions read, before
+    /// the protected body. The landing is reachable only over exception
+    /// edges, where the builder merges end-of-block definitions: a name the
+    /// body assigns would read a definition the raising instruction may not
+    /// have produced, which the verifier rejects. The snapshot is the value
+    /// the IR model offers there (the spill before the may-raise site).
+    /// The fast locals as of the region entry: the values the region's
+    /// landing code must read instead of walking back over exception edges,
+    /// where the builder merges end-of-block definitions the verifier's
+    /// spill model does not carry (a write after a block's first may-raise
+    /// never crosses its exception edge).
+    fn region_locals(&mut self) -> Result<Vec<(String, Value)>, LowerError> {
+        let mut out = Vec::new();
+        if self.kind.uses_name_ops() {
+            return Ok(out);
+        }
+        let mut names: Vec<(String, i64)> = self
+            .sym_map
+            .iter()
+            .filter(|&(_, &flags)| scope_of(flags) == symtable::LOCAL)
+            .map(|(n, &f)| (n.clone(), f))
+            .collect();
+        names.sort_unstable_by(|a, b| a.0.cmp(&b.0));
+        for (name, _) in names {
+            let v = match self.subst.iter().find(|(n, _)| *n == name) {
+                Some((_, v)) => *v,
+                None => {
+                    let sym = self.pool(&name);
+                    let at = self
+                        .b
+                        .current_block()
+                        .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+                    self.b.read_variable(sym, at).map_err(LowerError::Build)?
+                }
+            };
+            out.push((name, v));
+        }
+        Ok(out)
+    }
+
+    /// Write the entry-time values back, so a later read joins against them
+    /// instead of walking into the region's landing. `keep` names variables
+    /// the just-lowered code certainly wrote, whose values survive.
+    fn restore_locals(
+        &mut self,
+        snaps: &[(String, Value)],
+        keep: &dyn Fn(&str) -> bool,
+    ) -> Result<(), LowerError> {
+        for (name, v) in snaps {
+            if keep(name) {
+                continue;
+            }
+            let sym = self.pool(name);
+            self.write_var_at_current(sym, *v)?;
+        }
+        Ok(())
+    }
+
+    /// Restore the `exc_info` stack and delete the bound name when control
+    /// leaves an `except` handler body (CPython's HANDLER_CLEANUP unwind).
+    fn unwind_handler_cleanup(&mut self, name: Option<FSym>, pos: Pos) -> Result<(), LowerError> {
+        self.emit(Instr::PopExcInfo, pos)?;
+        if let Some(nm) = name {
+            let v = self.none()?;
+            self.store_name_value(nm, v, pos)?;
+            self.del_name(nm, pos)?;
+        }
+        Ok(())
+    }
+
+    /// The `exit(mgr, None, None, None)` call a `with` item needs when
+    /// control leaves it by `break`, `continue` or `return`, in a block
+    /// outside the item's own handler (CPython pops the block first).
+    /// The handler in effect once every frame in `self.unwinds[depth..]` has
+    /// been exited. Unwinding a `with` calls `__exit__` from outside the
+    /// with's own region: if that call raises, the exception belongs to the
+    /// enclosing handler, not the with's landing, which would call `__exit__`
+    /// a second time.
+    fn handler_outside(&self, depth: usize) -> Option<BlockId> {
+        let mut live = self.handlers.len();
+        for frame in &self.unwinds[depth..] {
+            match frame {
+                Unwind::Loop { .. } | Unwind::HandlerCleanup { .. } => {}
+                Unwind::Handler
+                | Unwind::With { .. }
+                | Unwind::Finally { .. }
+                | Unwind::StarHandler => live -= 1,
+            }
+        }
+        if live == 0 {
+            None
+        } else {
+            Some(self.handlers[live - 1])
+        }
+    }
+
+    fn unwind_with_exit(
+        &mut self,
+        mgr: Value,
+        exit_m: Value,
+        handler: Option<BlockId>,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let exit_blk = self.b.new_block();
+        if let Some(h) = handler {
+            self.b.set_handler(exit_blk, Some(h))?;
+        }
+        self.jump(exit_blk)?;
+        self.terminated = false;
+        self.b.switch_to(exit_blk)?;
+        let none_v = self.none()?;
+        self.call(exit_m, vec![mgr, none_v, none_v, none_v], Vec::new(), pos)?;
+        Ok(())
+    }
+
+    fn finally_sentinel(&mut self, seq: usize, keep_going: bool) -> Result<Value, LowerError> {
+        let name = if keep_going {
+            format!(".continue{seq}")
+        } else {
+            format!(".break{seq}")
+        };
+        let sym = self.pool(&name);
+        let idx = self.low.consts.const_idx(Const::Str(sym));
+        self.value_of(pos_of(0, 0), move |into| Instr::Const { idx, into })
+    }
+
+    /// Unwind the region stack the way `break` (or `continue`) does: act on
+    /// each region crossed until the loop, then jump its exit block. The
+    /// stack itself is left alone; the statements after the jump are dead.
+    fn unwind_to_loop(&mut self, keep_going: bool, pos: Pos) -> Result<(), LowerError> {
+        // First pass: mark every crossed finally that its dispatch will see
+        // this sentinel, before anything is emitted.
+        let mut depth = self.unwinds.len();
+        while depth > 0 {
+            depth -= 1;
+            match &mut self.unwinds[depth] {
+                Unwind::Loop { .. } => break,
+                Unwind::StarHandler => {
+                    return Err(LowerError::UnexpectedAst {
+                        what: "'break'/'continue' cannot appear in an except* block",
+                        line: pos.line,
+                    });
+                }
+                Unwind::Finally {
+                    break_sent,
+                    continue_sent,
+                    ..
+                } => {
+                    if keep_going {
+                        *continue_sent = true;
+                    } else {
+                        *break_sent = true;
+                    }
+                }
+                Unwind::Handler | Unwind::HandlerCleanup { .. } | Unwind::With { .. } => {}
+            }
+        }
+        // Second pass: emit the unwinding.
+        let mut depth = self.unwinds.len();
+        while depth > 0 {
+            depth -= 1;
+            match self.unwinds[depth] {
+                Unwind::Loop { end, head } => {
+                    let to = if keep_going { head } else { end };
+                    self.jump(to)?;
+                    return Ok(());
+                }
+                Unwind::Handler => {}
+                Unwind::HandlerCleanup { name } => {
+                    self.unwind_handler_cleanup(name, pos)?;
+                }
+                Unwind::With { mgr, exit } => {
+                    let handler = self.handler_outside(depth);
+                    self.unwind_with_exit(mgr, exit, handler, pos)?;
+                }
+                Unwind::Finally {
+                    var, entry, seq, ..
+                } => {
+                    // The sentinel const is re-emitted per site: one shared
+                    // definition could not dominate every break. The pool
+                    // dedups the string, so identity still holds.
+                    let reason = self.finally_sentinel(seq, keep_going)?;
+                    let write_blk = self.new_block()?;
+                    self.jump(write_blk)?;
+                    self.terminated = false;
+                    self.b.switch_to(write_blk)?;
+                    self.write_var_at_current(var, reason)?;
+                    self.jump(entry)?;
+                    return Ok(());
+                }
+                Unwind::StarHandler => unreachable!("the first pass rejected it"),
+            }
+        }
+        Err(LowerError::UnexpectedAst {
+            what: "'break'/'continue' outside a loop",
+            line: pos.line,
+        })
+    }
+
+    /// Unwind every region the way `return` does, then return `value`.
+    fn unwind_and_return(&mut self, value: Value, pos: Pos) -> Result<(), LowerError> {
+        let mut depth = self.unwinds.len();
+        while depth > 0 {
+            depth -= 1;
+            match self.unwinds[depth] {
+                Unwind::Loop { .. } | Unwind::Handler => {}
+                Unwind::HandlerCleanup { name } => {
+                    self.unwind_handler_cleanup(name, pos)?;
+                }
+                Unwind::With { mgr, exit } => {
+                    let handler = self.handler_outside(depth);
+                    self.unwind_with_exit(mgr, exit, handler, pos)?;
+                }
+                Unwind::Finally { var, entry, .. } => {
+                    // The value rides to the dispatch in a one-tuple so an
+                    // exception in flight (also in the slot) stays
+                    // distinguishable from it. The write goes in a fresh
+                    // block without may-raise instructions: written next to
+                    // the value's computation it would ride the exception
+                    // edge into the landing's phis.
+                    let write_blk = self.new_block()?;
+                    self.jump(write_blk)?;
+                    self.terminated = false;
+                    self.b.switch_to(write_blk)?;
+                    let reason = self.build_tuple(vec![value], pos)?;
+                    self.write_var_at_current(var, reason)?;
+                    self.jump(entry)?;
+                    return Ok(());
+                }
+                Unwind::StarHandler => {
+                    return Err(LowerError::UnexpectedAst {
+                        what: "'return' cannot appear in an except* block",
+                        line: pos.line,
+                    });
+                }
+            }
+        }
+        self.ret(value)
+    }
+
+    fn lower_try(
+        &mut self,
+        body: &[Stmt],
+        handlers: &[Excepthandler],
+        orelse: &[Stmt],
+        finalbody: &[Stmt],
+        star: bool,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        if finalbody.is_empty() {
+            return if star {
+                self.lower_try_star(body, handlers, orelse, pos)
+            } else {
+                self.lower_try_except(body, handlers, orelse, pos)
+            };
+        }
+        // try/finally: one reason slot; the finally body is lowered once and
+        // a dispatch on the reason continues the control flow that crossed
+        // it (CPython instead inlines the body at every exit).
+        let snaps = self.region_locals()?;
+        let reason_var = self.fresh_join_var_named("finally");
+        let slot = self.b.fresh(Type::None);
+        self.emit(Instr::FinallyEnter { into: slot }, pos)?;
+        self.write_var_at_current(reason_var, slot)?;
+        let seq = self.finally_count;
+        self.finally_count += 1;
+        let landing = self.new_block()?;
+        let entry = self.new_block()?;
+        self.handlers.push(landing);
+        self.unwinds.push(Unwind::Finally {
+            var: reason_var,
+            entry,
+            seq,
+            break_sent: false,
+            continue_sent: false,
+        });
+        if handlers.is_empty() {
+            self.lower_body(body)?;
+        } else if star {
+            self.lower_try_star(body, handlers, orelse, pos)?;
+        } else {
+            self.lower_try_except(body, handlers, orelse, pos)?;
+        }
+        let (break_sent, continue_sent) = match self.unwinds.pop() {
+            Some(Unwind::Finally {
+                break_sent,
+                continue_sent,
+                ..
+            }) => (break_sent, continue_sent),
+            _ => unreachable!("pushed above"),
+        };
+        self.handlers.pop();
+        if !self.terminated {
+            self.jump(entry)?;
+        }
+        self.terminated = false;
+        self.b.switch_to(entry)?;
+        // The finally frame is gone: a break, continue or return inside the
+        // finalbody unwinds outwards directly, abandoning the reason. The
+        // finalbody reads the entry-time locals: a read walking back over
+        // the body's exception edges would merge definitions the spill model
+        // does not carry (the approximation matches the except handlers').
+        let saved_subst = std::mem::take(&mut self.subst);
+        self.subst = snaps.clone();
+        self.lower_body(finalbody)?;
+        self.subst = saved_subst;
+        // The landing: the in-flight exception rides the same slot, and the
+        // finalbody runs with it current, as CPython's pushed exc_info. The
+        // locals drop to their entry-time values: FinallyExit re-raises on
+        // this path, so nothing downstream consumes them, and the reset stops
+        // reads after the statement from merging the body's post-raise
+        // definitions over the exception edges. Fill it before the dispatch:
+        // a finalbody that itself raises, returns or breaks abandons the
+        // reason, but the landing stays the target of the body's exception
+        // edges and must terminate.
+        let after_final = self
+            .b
+            .current_block()
+            .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+        let finalbody_terminated = self.terminated;
+        self.terminated = false;
+        self.b.switch_to(landing)?;
+        let exc = self.value_of(pos, |into| Instr::PushExcInfo { into })?;
+        self.write_var_at_current(reason_var, exc)?;
+        self.restore_locals(&snaps, &|_| false)?;
+        self.jump(entry)?;
+        self.terminated = false;
+        self.b.switch_to(after_final)?;
+        if finalbody_terminated {
+            self.terminated = true;
+            return Ok(());
+        }
+        let reason = self.read_var_at_current(reason_var)?;
+        self.emit(Instr::FinallyExit { reason }, pos)?;
+        // Dispatch: None continues past the statement, the sentinels resume
+        // the break/continue that crossed, anything else is the wrapped
+        // return value.
+        let normal = self.new_block()?;
+        let none_v = self.none()?;
+        let is_none = self.unboxed_bool(pos, move |into| Instr::Compare {
+            op: CmpOp::Is,
+            lhs: reason,
+            rhs: none_v,
+            into,
+        })?;
+        let sent_blk = self.new_block()?;
+        self.branch(is_none, normal, sent_blk)?;
+        self.terminated = false;
+        self.b.switch_to(sent_blk)?;
+        let brk_arm = if break_sent {
+            Some(self.new_block()?)
+        } else {
+            None
+        };
+        let cont_arm = if continue_sent {
+            Some(self.new_block()?)
+        } else {
+            None
+        };
+        // With no sentinel to test the fallthrough handles the wrapped
+        // return directly.
+        let ret_arm = match (brk_arm, cont_arm) {
+            (Some(_), _) | (None, Some(_)) => Some(self.new_block()?),
+            (None, None) => None,
+        };
+        if break_sent {
+            let arm = brk_arm.expect("created above");
+            let next = match cont_arm {
+                Some(_) => self.new_block()?,
+                None => ret_arm.expect("created above"),
+            };
+            let b = self.finally_sentinel(seq, false)?;
+            let c = self.unboxed_bool(pos, move |into| Instr::Compare {
+                op: CmpOp::Is,
+                lhs: reason,
+                rhs: b,
+                into,
+            })?;
+            self.branch(c, arm, next)?;
+            self.terminated = false;
+            self.b.switch_to(next)?;
+        }
+        if continue_sent {
+            let arm = cont_arm.expect("created above");
+            let next = ret_arm.expect("created above");
+            let cv = self.finally_sentinel(seq, true)?;
+            let c = self.unboxed_bool(pos, move |into| Instr::Compare {
+                op: CmpOp::Is,
+                lhs: reason,
+                rhs: cv,
+                into,
+            })?;
+            self.branch(c, arm, next)?;
+            self.terminated = false;
+            self.b.switch_to(next)?;
+        }
+        let value = self.b.fresh(Type::Top);
+        self.emit(
+            Instr::Unpack {
+                src: reason,
+                n: 1,
+                star: None,
+                into: Box::from([value]),
+            },
+            pos,
+        )?;
+        self.unwind_and_return(value, pos)?;
+        if let Some(arm) = brk_arm {
+            self.terminated = false;
+            self.b.switch_to(arm)?;
+            self.unwind_to_loop(false, pos)?;
+        }
+        if let Some(arm) = cont_arm {
+            self.terminated = false;
+            self.b.switch_to(arm)?;
+            self.unwind_to_loop(true, pos)?;
+        }
+        self.terminated = false;
+        self.b.switch_to(normal)?;
+        Ok(())
+    }
+
+    fn lower_try_except(
+        &mut self,
+        body: &[Stmt],
+        handlers: &[Excepthandler],
+        orelse: &[Stmt],
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let landing = self.new_block()?;
+        let snaps = self.region_locals()?;
+        self.handlers.push(landing);
+        self.unwinds.push(Unwind::Handler);
+        self.lower_body(body)?;
+        self.unwinds.pop();
+        self.handlers.pop();
+        // The orelse runs outside the protected region, as in CPython.
+        if self.terminated && !orelse.is_empty() {
+            let dead = self.new_block()?;
+            self.terminated = false;
+            self.b.switch_to(dead)?;
+        }
+        self.lower_body(orelse)?;
+        let end = self.new_block()?;
+        if !self.terminated {
+            self.jump(end)?;
+        }
+        self.terminated = false;
+        self.b.switch_to(landing)?;
+        let exc0 = self.value_of(pos, |into| Instr::PushExcInfo { into })?;
+        // Reads at the landing already use the entry-time values (the subst
+        // window below); writing them here keeps later reads that walk back
+        // over the region's exception edges from merging the body's
+        // post-raise definitions.
+        self.restore_locals(&snaps, &|_| false)?;
+        let saved_subst = std::mem::take(&mut self.subst);
+        self.subst = snaps.clone();
+        for h in handlers {
+            let Excepthandler::ExceptHandler {
+                r#type,
+                name,
+                body: hbody,
+                ..
+            } = h;
+            let mut hwrites = Vec::new();
+            collect_name_writes(self, hbody, &mut hwrites);
+            // A bare `except:` is a match against BaseException, exactly as
+            // CPython's unconditional CHECK_EXC_MATCH behaves.
+            let types = match r#type {
+                Some(t) => self.except_types(t, pos)?,
+                None => self.base_exception_tuple(pos)?,
+            };
+            let matched = self.b.fresh(Type::Bool);
+            let exc = self.b.fresh(Type::Top);
+            self.emit(
+                Instr::CatchBegin {
+                    types,
+                    matched,
+                    exc,
+                },
+                pos,
+            )?;
+            let hbody_blk = self.new_block()?;
+            let next_blk = self.new_block()?;
+            self.branch(matched, hbody_blk, next_blk)?;
+            self.terminated = false;
+            self.b.switch_to(hbody_blk)?;
+            if let Some(nm) = name {
+                self.store_name_value(*nm, exc0, pos)?;
+            }
+            // The handler body's own exceptions and unwinding restore the
+            // exc_info stack and delete the bound name on their way out.
+            self.unwinds.push(Unwind::HandlerCleanup { name: *name });
+            self.lower_body(hbody)?;
+            self.unwinds.pop();
+            if !self.terminated {
+                self.emit(Instr::CatchEnd, pos)?;
+                if let Some(nm) = name {
+                    let v = self.none()?;
+                    self.store_name_value(*nm, v, pos)?;
+                    self.del_name(*nm, pos)?;
+                }
+                self.emit(Instr::PopExcInfo, pos)?;
+                // The handler ran to its end: what it wrote survives, the
+                // rest falls back to the entry-time values so later reads
+                // need not walk back over the region's exception edges.
+                self.restore_locals(&snaps, &|n| hwrites.iter().any(|w| w == n))?;
+                self.jump(end)?;
+            }
+            self.terminated = false;
+            self.b.switch_to(next_blk)?;
+        }
+        self.subst = saved_subst;
+        // No handler matched: restore the exc_info stack and re-raise.
+        self.emit(Instr::PopExcInfo, pos)?;
+        let at = self
+            .b
+            .current_block()
+            .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+        self.b.set_term(at, Terminator::Reraise)?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(end)?;
+        Ok(())
+    }
+
+    fn lower_try_star(
+        &mut self,
+        body: &[Stmt],
+        handlers: &[Excepthandler],
+        orelse: &[Stmt],
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let landing = self.new_block()?;
+        let snaps = self.region_locals()?;
+        self.handlers.push(landing);
+        self.unwinds.push(Unwind::Handler);
+        self.lower_body(body)?;
+        self.unwinds.pop();
+        self.handlers.pop();
+        if self.terminated && !orelse.is_empty() {
+            let dead = self.new_block()?;
+            self.terminated = false;
+            self.b.switch_to(dead)?;
+        }
+        self.lower_body(orelse)?;
+        let end = self.new_block()?;
+        if !self.terminated {
+            self.jump(end)?;
+        }
+        self.terminated = false;
+        self.b.switch_to(landing)?;
+        // The original exception and the outcome list, defined before any
+        // may-raise instruction: the exception edges out of this block can
+        // read them.
+        let orig = self.value_of(pos, |into| Instr::PushExcInfo { into })?;
+        let res = self.build_list(Vec::new(), pos)?;
+        let rest_var = self.fresh_join_var_named("egrest");
+        self.write_var_at_current(rest_var, orig)?;
+        self.restore_locals(&snaps, &|_| false)?;
+        let saved_subst = std::mem::take(&mut self.subst);
+        self.subst = snaps.clone();
+        for h in handlers {
+            let Excepthandler::ExceptHandler {
+                r#type,
+                name,
+                body: hbody,
+                ..
+            } = h;
+            let Some(ty) = r#type else {
+                return Err(LowerError::UnexpectedAst {
+                    what: "except* without a type",
+                    line: pos.line,
+                });
+            };
+            let mut hwrites = Vec::new();
+            collect_name_writes(self, hbody, &mut hwrites);
+            let cur_rest = self.read_var_at_current(rest_var)?;
+            let types = self.except_types(ty, pos)?;
+            let matched = self.b.fresh(Type::Bool);
+            let m = self.b.fresh(Type::Top);
+            let rest = self.b.fresh(Type::Top);
+            self.emit(
+                Instr::CatchStarBegin {
+                    src: cur_rest,
+                    types,
+                    matched,
+                    exc: m,
+                    rest,
+                },
+                pos,
+            )?;
+            // Whichever way the handler ends, the next one splits the rest.
+            self.write_var_at_current(rest_var, rest)?;
+            let hcatch = self.new_block()?;
+            let hbody_blk = self.new_block()?;
+            let next_blk = self.new_block()?;
+            self.branch(matched, hbody_blk, next_blk)?;
+            self.terminated = false;
+            self.b.switch_to(hbody_blk)?;
+            if let Some(nm) = name {
+                self.store_name_value(*nm, m, pos)?;
+            }
+            // break, continue and return cannot leave an except* block.
+            self.handlers.push(hcatch);
+            self.unwinds.push(Unwind::StarHandler);
+            self.lower_body(hbody)?;
+            self.unwinds.pop();
+            self.handlers.pop();
+            if !self.terminated {
+                self.emit(Instr::CatchEnd, pos)?;
+                if let Some(nm) = name {
+                    let v = self.none()?;
+                    self.store_name_value(*nm, v, pos)?;
+                    self.del_name(*nm, pos)?;
+                }
+                self.restore_locals(&snaps, &|n| hwrites.iter().any(|w| w == n))?;
+                self.jump(next_blk)?;
+            }
+            self.terminated = false;
+            self.b.switch_to(hcatch)?;
+            // An exception raised in the handler body joins the outcome
+            // list; the remaining handlers still run against the rest.
+            let e2 = self.b.fresh(Type::Top);
+            {
+                let types = self.base_exception_tuple(pos)?;
+                let m2 = self.b.fresh(Type::Bool);
+                self.emit(
+                    Instr::CatchBegin {
+                        types,
+                        matched: m2,
+                        exc: e2,
+                    },
+                    pos,
+                )?;
+            }
+            if let Some(nm) = name {
+                let v = self.none()?;
+                self.store_name_value(*nm, v, pos)?;
+                self.del_name(*nm, pos)?;
+            }
+            let append = self.method(&res, "append", pos)?;
+            self.call(append, vec![e2], Vec::new(), pos)?;
+            self.emit(Instr::CatchEnd, pos)?;
+            // The handler body raised somewhere in its run; nothing it wrote
+            // is certain, so everything falls back to the entry-time values.
+            self.restore_locals(&snaps, &|_| false)?;
+            self.jump(next_blk)?;
+            self.terminated = false;
+            self.b.switch_to(next_blk)?;
+        }
+        self.subst = saved_subst;
+        // The unmatched remainder (None when everything was consumed) joins
+        // the list; the combined outcome decides whether anything propagates.
+        let final_rest = self.read_var_at_current(rest_var)?;
+        let append = self.method(&res, "append", pos)?;
+        self.call(append, vec![final_rest], Vec::new(), pos)?;
+        let to_raise = self.value_of(pos, |into| Instr::PrepReraiseStar {
+            orig,
+            excs: res,
+            into,
+        })?;
+        let none_v = self.none()?;
+        let handled = self.unboxed_bool(pos, move |into| Instr::Compare {
+            op: CmpOp::Is,
+            lhs: to_raise,
+            rhs: none_v,
+            into,
+        })?;
+        let pop_blk = self.new_block()?;
+        let reraise_blk = self.new_block()?;
+        self.branch(handled, pop_blk, reraise_blk)?;
+        self.terminated = false;
+        self.b.switch_to(pop_blk)?;
+        self.emit(Instr::PopExcInfo, pos)?;
+        self.restore_locals(&snaps, &|_| false)?;
+        self.jump(end)?;
+        self.terminated = false;
+        self.b.switch_to(reraise_blk)?;
+        self.emit(Instr::PopExcInfo, pos)?;
+        let at = self
+            .b
+            .current_block()
+            .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+        self.b.set_term(
+            at,
+            Terminator::Raise {
+                exc: Some(to_raise),
+                // A re-raise keeps the prepared group's chaining untouched.
+                cause: Some(none_v),
+            },
+        )?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(end)?;
+        Ok(())
+    }
+
+    /// `with` items nest: each item's region encloses the rest, so the inner
+    /// items' exits run first, as in CPython's recursive compiler_with.
+    fn lower_with(
+        &mut self,
+        items: &[Withitem],
+        body: &[Stmt],
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let Some(item) = items.first() else {
+            return self.lower_body(body);
+        };
+        let Withitem {
+            context_expr,
+            optional_vars,
+        } = item;
+        // __exit__ resolves before __enter__ runs, and neither is covered by
+        // this item's handler.
+        let mgr = self.expr(context_expr)?;
+        let exit_m = self.method(&mgr, "__exit__", pos)?;
+        let enter_m = self.method(&mgr, "__enter__", pos)?;
+        let value = self.call(enter_m, vec![mgr], Vec::new(), pos)?;
+        if let Some(vars) = optional_vars {
+            self.assign_target(vars, value, pos)?;
+        }
+        let snaps = self.region_locals()?;
+        let landing = self.new_block()?;
+        self.handlers.push(landing);
+        self.unwinds.push(Unwind::With { mgr, exit: exit_m });
+        self.lower_with(&items[1..], body, pos)?;
+        self.unwinds.pop();
+        self.handlers.pop();
+        let end = self.new_block()?;
+        if !self.terminated {
+            // Normal path: exit(None, None, None) outside the region.
+            let exit_blk = self.new_block()?;
+            self.jump(exit_blk)?;
+            self.terminated = false;
+            self.b.switch_to(exit_blk)?;
+            let none_v = self.none()?;
+            self.call(exit_m, vec![mgr, none_v, none_v, none_v], Vec::new(), pos)?;
+            self.jump(end)?;
+        }
+        self.terminated = false;
+        self.b.switch_to(landing)?;
+        let exc = self.value_of(pos, |into| Instr::PushExcInfo { into })?;
+        let ty = self.call_global("type", vec![exc], pos)?;
+        let tb_sym = self.pool("__traceback__");
+        let tb = self.value_of(pos, move |into| Instr::GetAttr {
+            obj: exc,
+            name: tb_sym,
+            into,
+        })?;
+        let r = self.call(exit_m, vec![mgr, ty, exc, tb], Vec::new(), pos)?;
+        let suppressed = self.unboxed_bool(pos, move |into| Instr::Truth { value: r, into })?;
+        let supp_blk = self.new_block()?;
+        let reraise_blk = self.new_block()?;
+        self.branch(suppressed, supp_blk, reraise_blk)?;
+        self.terminated = false;
+        self.b.switch_to(supp_blk)?;
+        self.emit(Instr::PopExcInfo, pos)?;
+        // The exception left the body at an unknown point, so nothing the
+        // body wrote is certain; fall back to the entry-time values.
+        self.restore_locals(&snaps, &|_| false)?;
+        self.jump(end)?;
+        self.terminated = false;
+        self.b.switch_to(reraise_blk)?;
+        let at = reraise_blk;
+        self.b.set_term(at, Terminator::Reraise)?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(end)?;
+        Ok(())
+    }
+
+    /// Fills `landing` so the exceptions in `types` jump to `fail` and
+    /// anything else re-raises. Returns with the previous block current.
+    fn miss_or_reraise(
+        &mut self,
+        landing: BlockId,
+        types: Value,
+        fail: BlockId,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let back = self
+            .b
+            .current_block()
+            .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+        let back_terminated = self.terminated;
+        self.terminated = false;
+        self.b.switch_to(landing)?;
+        let matched = self.b.fresh(Type::Bool);
+        let exc = self.b.fresh(Type::Top);
+        self.emit(
+            Instr::CatchBegin {
+                types,
+                matched,
+                exc,
+            },
+            pos,
+        )?;
+        let hit = self.new_block()?;
+        let reraise = self.new_block()?;
+        self.branch(matched, hit, reraise)?;
+        self.terminated = false;
+        self.b.switch_to(reraise)?;
+        self.b.set_term(reraise, Terminator::Reraise)?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(hit)?;
+        self.emit(Instr::CatchEnd, pos)?;
+        self.jump(fail)?;
+        self.terminated = back_terminated;
+        self.b.switch_to(back)?;
+        Ok(())
+    }
+
+    /// `getattr(obj, name)` with an AttributeError treated as a jump to
+    /// `miss`. The result continues in a fresh block, so only the attribute
+    /// read itself is covered by `miss`.
+    fn getattr_or_miss(
+        &mut self,
+        obj: Value,
+        name: Sym,
+        miss: BlockId,
+        pos: Pos,
+    ) -> Result<Value, LowerError> {
+        let look = self.new_block()?;
+        self.jump(look)?;
+        self.terminated = false;
+        self.b.switch_to(look)?;
+        self.b.set_handler(look, Some(miss))?;
+        let v = self.value_of(pos, move |into| Instr::GetAttr { obj, name, into })?;
+        let cont = self.new_block()?;
+        self.jump(cont)?;
+        self.terminated = false;
+        self.b.switch_to(cont)?;
+        Ok(v)
+    }
+
+    /// The same, for a runtime-computed attribute name: the `getattr`
+    /// builtin, since GetAttr's name operand is a constant.
+    fn getattr_dyn_or_miss(
+        &mut self,
+        obj: Value,
+        name: Value,
+        miss: BlockId,
+        pos: Pos,
+    ) -> Result<Value, LowerError> {
+        let look = self.new_block()?;
+        self.jump(look)?;
+        self.terminated = false;
+        self.b.switch_to(look)?;
+        self.b.set_handler(look, Some(miss))?;
+        let v = self.call_global("getattr", vec![obj, name], pos)?;
+        let cont = self.new_block()?;
+        self.jump(cont)?;
+        self.terminated = false;
+        self.b.switch_to(cont)?;
+        Ok(v)
+    }
+
+    fn attribute_error_types(&mut self, pos: Pos) -> Result<Value, LowerError> {
+        let ae = self.load_plain_name("AttributeError", pos)?;
+        self.build_tuple(vec![ae], pos)
+    }
+
+    fn key_error_types(&mut self, pos: Pos) -> Result<Value, LowerError> {
+        let ke = self.load_plain_name("KeyError", pos)?;
+        self.build_tuple(vec![ke], pos)
+    }
+
+    /// A `collections.abc` member. `Import("collections.abc", None, 0)`
+    /// returns the top module, so the member needs two attribute reads.
+    fn abc_class(&mut self, name: &str, pos: Pos) -> Result<Value, LowerError> {
+        let mod_sym = self.pool("collections.abc");
+        let none_v = self.none()?;
+        let level = self.const_int(0, pos)?;
+        let m = self.value_of(pos, move |into| Instr::Import {
+            name: mod_sym,
+            fromlist: none_v,
+            level,
+            into,
+        })?;
+        let abc_sym = self.pool("abc");
+        let abc = self.value_of(pos, move |into| Instr::GetAttr {
+            obj: m,
+            name: abc_sym,
+            into,
+        })?;
+        let name_sym = self.pool(name);
+        self.value_of(pos, move |into| Instr::GetAttr {
+            obj: abc,
+            name: name_sym,
+            into,
+        })
+    }
+
+    /// A tuple of the named builtins, built at the use site.
+    fn global_types_tuple(&mut self, names: &[&str], pos: Pos) -> Result<Value, LowerError> {
+        let mut items = Vec::with_capacity(names.len());
+        for n in names {
+            items.push(self.load_plain_name(n, pos)?);
+        }
+        self.build_tuple(items, pos)
+    }
+
+    /// `len(subj) op want` with a constant `want`, as an unboxed Bool.
+    fn len_at_least_or_eq(
+        &mut self,
+        subj: Value,
+        op: CmpOp,
+        want: i32,
+        pos: Pos,
+    ) -> Result<Value, LowerError> {
+        let len = self.len_boxed(subj, pos)?;
+        let rhs = self.const_int(want, pos)?;
+        self.unboxed_bool(pos, move |into| Instr::Compare {
+            op,
+            lhs: len,
+            rhs,
+            into,
+        })
+    }
+
+    fn len_boxed(&mut self, v: Value, pos: Pos) -> Result<Value, LowerError> {
+        let n = self.b.fresh(Type::Int64);
+        self.emit(Instr::Len { value: v, into: n }, pos)?;
+        self.value_of(pos, move |into| Instr::Box {
+            src: n,
+            scalar: Scalar::Int64,
+            into,
+        })
+    }
+
+    fn attr_str(&mut self, obj: Value, attr: &str, pos: Pos) -> Result<Value, LowerError> {
+        let name = self.pool(attr);
+        self.value_of(pos, move |into| Instr::GetAttr { obj, name, into })
+    }
+
+    fn cls_tp_name(&mut self, cls_v: Value, pos: Pos) -> Result<Value, LowerError> {
+        let t = self.call_global("type", vec![cls_v], pos)?;
+        self.attr_str(t, "__name__", pos)
+    }
+
+    fn raise_type_error(&mut self, msg: Value, pos: Pos) -> Result<(), LowerError> {
+        let exc = self.call_global("TypeError", vec![msg], pos)?;
+        let at = self
+            .b
+            .current_block()
+            .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+        self.b.set_term(
+            at,
+            Terminator::Raise {
+                exc: Some(exc),
+                cause: None,
+            },
+        )?;
+        self.terminated = true;
+        Ok(())
+    }
+
+    /// CPython's class-pattern arity error:
+    /// `{name}() accepts {allowed} positional sub-pattern(s) ({given} given)`.
+    fn raise_arity_error(
+        &mut self,
+        cls_v: Value,
+        allowed: Arity,
+        given: usize,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let name = self.cls_tp_name(cls_v, pos)?;
+        let head = self.const_str("() accepts ", pos)?;
+        match allowed {
+            Arity::Static(a) => {
+                let plural = if a == 1 { "" } else { "s" };
+                let mut parts = vec![name, head];
+                parts.push(self.const_str(&a.to_string(), pos)?);
+                parts.push(self.const_str(" positional sub-pattern", pos)?);
+                parts.push(self.const_str(plural, pos)?);
+                parts.push(self.const_str(" (", pos)?);
+                parts.push(self.const_str(&given.to_string(), pos)?);
+                parts.push(self.const_str(" given)", pos)?);
+                let msg = self.build_str(parts, pos)?;
+                self.raise_type_error(msg, pos)
+            }
+            Arity::Runtime(v) => {
+                let allowed_s = self.call_global("str", vec![v], pos)?;
+                let one = self.const_int(1, pos)?;
+                let is_one = self.unboxed_bool(pos, move |into| Instr::Compare {
+                    op: CmpOp::Eq,
+                    lhs: v,
+                    rhs: one,
+                    into,
+                })?;
+                let sing = self.new_block()?;
+                let plur = self.new_block()?;
+                self.branch(is_one, sing, plur)?;
+                for (blk, plural) in [(sing, ""), (plur, "s")] {
+                    self.terminated = false;
+                    self.b.switch_to(blk)?;
+                    let tail = self.const_str(
+                        &format!(" positional sub-pattern{plural} ({given} given)"),
+                        pos,
+                    )?;
+                    let msg = self.build_str(vec![name, head, allowed_s, tail], pos)?;
+                    self.raise_type_error(msg, pos)?;
+                }
+                self.terminated = true;
+                Ok(())
+            }
+        }
+    }
+
+    fn lower_match(&mut self, subject: &Expr, cases: &[MatchCase]) -> Result<(), LowerError> {
+        let subj = self.expr(subject)?;
+        let end = self.new_block()?;
+        let first = self.new_block()?;
+        self.jump(first)?;
+        self.terminated = false;
+        self.b.switch_to(first)?;
+        for case in cases {
+            let MatchCase {
+                pattern,
+                guard,
+                body,
+            } = case;
+            // The fail block is the next case's test block; on it the
+            // captures this case would have bound hold their prior values
+            // (CPython never binds them either).
+            let fail = self.new_block()?;
+            self.lower_pattern(subj, pattern, fail)?;
+            match guard {
+                Some(g) => {
+                    // Bindings from the pattern persist into a failed guard,
+                    // which falls through like a pattern mismatch.
+                    let body_blk = self.new_block()?;
+                    let cond = self.truth_of(g)?;
+                    self.branch(cond, body_blk, fail)?;
+                    self.terminated = false;
+                    self.b.switch_to(body_blk)?;
+                    self.lower_body(body)?;
+                    self.jump(end)?;
+                    self.terminated = false;
+                }
+                None => {
+                    self.lower_body(body)?;
+                    self.jump(end)?;
+                    self.terminated = false;
+                }
+            }
+            self.b.switch_to(fail)?;
+            self.terminated = false;
+        }
+        self.jump(end)?;
+        self.terminated = false;
+        self.b.switch_to(end)?;
+        Ok(())
+    }
+
+    /// Lower one pattern against `subj`: on success the current block
+    /// continues, every failing path leaves for `fail`, and captures are
+    /// stored where they bind (CPython defers the stores to just before the
+    /// guard, with no observable difference).
+    fn lower_pattern(&mut self, subj: Value, p: &Pattern, fail: BlockId) -> Result<(), LowerError> {
+        let pos = pattern_pos(p);
+        match p {
+            Pattern::MatchValue { value, .. } => {
+                let v = self.expr(value)?;
+                let c = self.unboxed_bool(pos, move |into| Instr::Compare {
+                    op: CmpOp::Eq,
+                    lhs: subj,
+                    rhs: v,
+                    into,
+                })?;
+                let ok = self.new_block()?;
+                self.branch(c, ok, fail)?;
+                self.terminated = false;
+                self.b.switch_to(ok)?;
+            }
+            Pattern::MatchSingleton { value, .. } => {
+                let v = self.const_value(value, pos)?;
+                let c = self.unboxed_bool(pos, move |into| Instr::Compare {
+                    op: CmpOp::Is,
+                    lhs: subj,
+                    rhs: v,
+                    into,
+                })?;
+                let ok = self.new_block()?;
+                self.branch(c, ok, fail)?;
+                self.terminated = false;
+                self.b.switch_to(ok)?;
+            }
+            Pattern::MatchSequence { patterns, .. } => {
+                self.lower_sequence_pattern(subj, patterns, fail, pos)?;
+            }
+            Pattern::MatchMapping {
+                keys,
+                patterns,
+                rest,
+                ..
+            } => self.lower_mapping_pattern(subj, keys, patterns, *rest, fail, pos)?,
+            Pattern::MatchClass {
+                cls,
+                patterns,
+                kwd_attrs,
+                kwd_patterns,
+                ..
+            } => {
+                self.lower_class_pattern(subj, cls, patterns, kwd_attrs, kwd_patterns, fail, pos)?
+            }
+            Pattern::MatchStar { name, .. } => {
+                if let Some(nm) = name {
+                    self.store_name_value(*nm, subj, pos)?;
+                }
+            }
+            Pattern::MatchAs { pattern, name, .. } => {
+                if let Some(inner) = pattern {
+                    self.lower_pattern(subj, inner, fail)?;
+                }
+                if let Some(nm) = name {
+                    self.store_name_value(*nm, subj, pos)?;
+                }
+            }
+            Pattern::MatchOr { patterns, .. } => {
+                // Alternatives in order; the first success wins and its
+                // captures are the ones that stay bound.
+                let ok = self.new_block()?;
+                let last = patterns.len().saturating_sub(1);
+                for (i, alt) in patterns.iter().enumerate() {
+                    if i == last {
+                        self.lower_pattern(subj, alt, fail)?;
+                        if !self.terminated {
+                            self.jump(ok)?;
+                        }
+                    } else {
+                        let alt_fail = self.new_block()?;
+                        self.lower_pattern(subj, alt, alt_fail)?;
+                        self.jump(ok)?;
+                        self.terminated = false;
+                        self.b.switch_to(alt_fail)?;
+                    }
+                }
+                self.terminated = false;
+                self.b.switch_to(ok)?;
+            }
+        }
+        Ok(())
+    }
+
+    fn lower_sequence_pattern(
+        &mut self,
+        subj: Value,
+        pats: &[Pattern],
+        fail: BlockId,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        // Py_TPFLAGS_SEQUENCE is set by registration with
+        // collections.abc.Sequence; str, bytes and bytearray never register,
+        // so the flag test is the isinstance pair below.
+        let seq = self.abc_class("Sequence", pos)?;
+        let is_seq = self.call_global("isinstance", vec![subj, seq], pos)?;
+        let t1 = self.unboxed_bool(pos, move |into| Instr::Truth {
+            value: is_seq,
+            into,
+        })?;
+        let notstr_blk = self.new_block()?;
+        self.branch(t1, notstr_blk, fail)?;
+        self.terminated = false;
+        self.b.switch_to(notstr_blk)?;
+        let text_types = self.global_types_tuple(&["str", "bytes", "bytearray"], pos)?;
+        let is_text = self.call_global("isinstance", vec![subj, text_types], pos)?;
+        let t2 = self.unboxed_bool(pos, move |into| Instr::Truth {
+            value: is_text,
+            into,
+        })?;
+        let len_blk = self.new_block()?;
+        self.branch(t2, fail, len_blk)?;
+        self.terminated = false;
+        self.b.switch_to(len_blk)?;
+        let star = pats
+            .iter()
+            .position(|p| matches!(p, Pattern::MatchStar { .. }));
+        let (op, want) = match star {
+            Some(_) => (CmpOp::Ge, pats.len() - 1),
+            None => (CmpOp::Eq, pats.len()),
+        };
+        let len_ok = self.len_at_least_or_eq(subj, op, want as i32, pos)?;
+        let unpack_blk = self.new_block()?;
+        self.branch(len_ok, unpack_blk, fail)?;
+        self.terminated = false;
+        self.b.switch_to(unpack_blk)?;
+        let into: Vec<Value> = pats.iter().map(|_| self.fresh_top()).collect();
+        self.emit(
+            Instr::Unpack {
+                src: subj,
+                n: pats.len() as u32,
+                star: star.map(|i| i as u32),
+                into: into.clone().into(),
+            },
+            pos,
+        )?;
+        for (p, v) in pats.iter().zip(into) {
+            self.lower_pattern(v, p, fail)?;
+        }
+        Ok(())
+    }
+
+    fn lower_mapping_pattern(
+        &mut self,
+        subj: Value,
+        keys: &[Expr],
+        pats: &[Pattern],
+        rest: Option<FSym>,
+        fail: BlockId,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        // Py_TPFLAGS_MAPPING is set by registration with
+        // collections.abc.Mapping.
+        let map = self.abc_class("Mapping", pos)?;
+        let is_map = self.call_global("isinstance", vec![subj, map], pos)?;
+        let t = self.unboxed_bool(pos, move |into| Instr::Truth {
+            value: is_map,
+            into,
+        })?;
+        let after_blk = self.new_block()?;
+        self.branch(t, after_blk, fail)?;
+        self.terminated = false;
+        self.b.switch_to(after_blk)?;
+        if !keys.is_empty() {
+            let len_ok = self.len_at_least_or_eq(subj, CmpOp::Ge, keys.len() as i32, pos)?;
+            let look_blk = self.new_block()?;
+            self.branch(len_ok, look_blk, fail)?;
+            self.terminated = false;
+            self.b.switch_to(look_blk)?;
+        }
+        // A missing key fails the case: CPython's MATCH_KEYS reads with a
+        // sentinel default, so a KeyError from the lookup means missing. The
+        // tuple and the key expressions come before the look blocks so they
+        // dominate the landing.
+        let miss = self.new_block()?;
+        let ke_types = self.key_error_types(pos)?;
+        let mut key_vals = Vec::with_capacity(keys.len());
+        for k in keys {
+            key_vals.push(self.expr(k)?);
+        }
+        let mut vals = Vec::with_capacity(keys.len());
+        for kv in &key_vals {
+            let look = self.new_block()?;
+            self.jump(look)?;
+            self.terminated = false;
+            self.b.switch_to(look)?;
+            self.b.set_handler(look, Some(miss))?;
+            let kv = *kv;
+            vals.push(self.value_of(pos, move |into| Instr::GetItem {
+                obj: subj,
+                key: kv,
+                into,
+            })?);
+            let next = self.new_block()?;
+            self.jump(next)?;
+            self.terminated = false;
+            self.b.switch_to(next)?;
+        }
+        self.miss_or_reraise(miss, ke_types, fail, pos)?;
+        for (p, v) in pats.iter().zip(vals) {
+            self.lower_pattern(v, p, fail)?;
+        }
+        if let Some(r) = rest {
+            let copy = self.call_global("dict", vec![subj], pos)?;
+            for kv in &key_vals {
+                let k = *kv;
+                self.emit(Instr::DelItem { obj: copy, key: k }, pos)?;
+            }
+            self.store_name_value(r, copy, pos)?;
+        }
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
+    fn lower_class_pattern(
+        &mut self,
+        subj: Value,
+        cls: &Expr,
+        pats: &[Pattern],
+        kwd_attrs: &[FSym],
+        kwd_pats: &[Pattern],
+        fail: BlockId,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let cls_v = self.expr(cls)?;
+        let inst = self.call_global("isinstance", vec![subj, cls_v], pos)?;
+        let t = self.unboxed_bool(pos, move |into| Instr::Truth { value: inst, into })?;
+        let inst_blk = self.new_block()?;
+        self.branch(t, inst_blk, fail)?;
+        self.terminated = false;
+        self.b.switch_to(inst_blk)?;
+        let nargs = pats.len();
+        let mut pos_vals: Vec<Value> = Vec::new();
+
+        let cont = if nargs > 0 {
+            // __match_args__ on the class; a missing attribute selects the
+            // match-self path for the builtins CPython flags (inherited by
+            // subclasses), and is an arity TypeError for anything else.
+            let noattr = self.new_block()?;
+            let look = self.new_block()?;
+            self.jump(look)?;
+            self.terminated = false;
+            self.b.switch_to(look)?;
+            self.b.set_handler(look, Some(noattr))?;
+            let ma_sym = self.pool("__match_args__");
+            let ma = self.value_of(pos, move |into| Instr::GetAttr {
+                obj: cls_v,
+                name: ma_sym,
+                into,
+            })?;
+            let found = self.new_block()?;
+            self.jump(found)?;
+            self.terminated = false;
+            self.b.switch_to(found)?;
+
+            // __match_args__ must be exactly a tuple.
+            let ma_type = self.call_global("type", vec![ma], pos)?;
+            let tuple_cls = self.load_plain_name("tuple", pos)?;
+            let is_tuple = self.unboxed_bool(pos, move |into| Instr::Compare {
+                op: CmpOp::Is,
+                lhs: ma_type,
+                rhs: tuple_cls,
+                into,
+            })?;
+            let tuple_ok = self.new_block()?;
+            let not_tuple = self.new_block()?;
+            self.branch(is_tuple, tuple_ok, not_tuple)?;
+            self.terminated = false;
+            self.b.switch_to(not_tuple)?;
+            let cls_name = self.cls_tp_name(cls_v, pos)?;
+            let got_type = self.call_global("type", vec![ma], pos)?;
+            let got = self.attr_str(got_type, "__name__", pos)?;
+            let mid = self.const_str(".__match_args__ must be a tuple (got ", pos)?;
+            let tail = self.const_str(")", pos)?;
+            let msg = self.build_str(vec![cls_name, mid, got, tail], pos)?;
+            self.raise_type_error(msg, pos)?;
+            self.terminated = false;
+            self.b.switch_to(tuple_ok)?;
+
+            // It must hold every positional name the pattern asks for.
+            let len_ok = self.len_at_least_or_eq(ma, CmpOp::Ge, nargs as i32, pos)?;
+            let enough = self.new_block()?;
+            let arity_err = self.new_block()?;
+            self.branch(len_ok, enough, arity_err)?;
+            self.terminated = false;
+            self.b.switch_to(arity_err)?;
+            let nma = self.len_boxed(ma, pos)?;
+            self.raise_arity_error(cls_v, Arity::Runtime(nma), nargs, pos)?;
+            self.terminated = false;
+            self.b.switch_to(enough)?;
+
+            let mut names = Vec::with_capacity(nargs);
+            for i in 0..nargs {
+                let iv = self.const_int(i as i32, pos)?;
+                let key = self.build_tuple(vec![iv], pos)?;
+                names.push(self.value_of(pos, move |into| Instr::GetItem {
+                    obj: ma,
+                    key,
+                    into,
+                })?);
+            }
+
+            // With one positional pattern the __match_args__ path and the
+            // match-self path converge: the extracted attribute or the
+            // subject itself.
+            let pos_join = if nargs == 1 {
+                Some((self.fresh_join_var_named("matchpos"), self.new_block()?))
+            } else {
+                None
+            };
+
+            // A missing subject attribute fails the case; the tuple comes
+            // before the look blocks so it dominates the landing.
+            let attrmiss = self.new_block()?;
+            let ae_types2 = self.attribute_error_types(pos)?;
+            for name in &names {
+                let v = self.getattr_dyn_or_miss(subj, *name, attrmiss, pos)?;
+                match &pos_join {
+                    Some((var, _)) => self.write_var_at_current(*var, v)?,
+                    None => pos_vals.push(v),
+                }
+            }
+            let last = self
+                .b
+                .current_block()
+                .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+            // The extraction path joins the match-self path at `join`.
+            if let Some((_, join)) = &pos_join {
+                self.jump(*join)?;
+            }
+
+            // The noattr landing: only AttributeError from the
+            // __match_args__ lookup itself takes the match-self path.
+            let sentinel = self.new_block()?;
+            self.terminated = false;
+            self.b.switch_to(noattr)?;
+            let ae_types = self.attribute_error_types(pos)?;
+            let matched = self.b.fresh(Type::Bool);
+            let exc = self.b.fresh(Type::Top);
+            self.emit(
+                Instr::CatchBegin {
+                    types: ae_types,
+                    matched,
+                    exc,
+                },
+                pos,
+            )?;
+            let reraise = self.new_block()?;
+            self.branch(matched, sentinel, reraise)?;
+            self.terminated = false;
+            self.b.switch_to(reraise)?;
+            self.b.set_term(reraise, Terminator::Reraise)?;
+            self.terminated = true;
+            self.terminated = false;
+            self.b.switch_to(sentinel)?;
+            self.emit(Instr::CatchEnd, pos)?;
+            let ms = self.global_types_tuple(
+                &[
+                    "int",
+                    "str",
+                    "bytes",
+                    "bytearray",
+                    "float",
+                    "list",
+                    "tuple",
+                    "dict",
+                    "set",
+                    "frozenset",
+                ],
+                pos,
+            )?;
+            let is_sub = self.call_global("issubclass", vec![cls_v, ms], pos)?;
+            let ts = self.unboxed_bool(pos, move |into| Instr::Truth {
+                value: is_sub,
+                into,
+            })?;
+            let ms_blk = self.new_block()?;
+            let tyerr_blk = self.new_block()?;
+            self.branch(ts, ms_blk, tyerr_blk)?;
+            self.terminated = false;
+            self.b.switch_to(tyerr_blk)?;
+            self.raise_arity_error(cls_v, Arity::Static(0), nargs, pos)?;
+            self.terminated = false;
+            self.b.switch_to(ms_blk)?;
+            match &pos_join {
+                Some((var, join)) => {
+                    self.write_var_at_current(*var, subj)?;
+                    self.jump(*join)?;
+                    self.terminated = false;
+                }
+                None => self.raise_arity_error(cls_v, Arity::Static(1), nargs, pos)?,
+            }
+            self.miss_or_reraise(attrmiss, ae_types2, fail, pos)?;
+            match pos_join {
+                Some((var, join)) => {
+                    self.b.switch_to(join)?;
+                    pos_vals.push(self.read_var_at_current(var)?);
+                    join
+                }
+                None => last,
+            }
+        } else {
+            inst_blk
+        };
+        self.terminated = false;
+        self.b.switch_to(cont)?;
+
+        // Keyword attributes: a missing attribute fails the case; the tuple
+        // comes before the look blocks so it dominates the landing.
+        let mut kw_vals = Vec::with_capacity(kwd_attrs.len());
+        if !kwd_attrs.is_empty() {
+            let kwmiss = self.new_block()?;
+            let ae_types3 = self.attribute_error_types(pos)?;
+            for attr in kwd_attrs {
+                let name = self.pool(&self.text(*attr));
+                kw_vals.push(self.getattr_or_miss(subj, name, kwmiss, pos)?);
+            }
+            self.miss_or_reraise(kwmiss, ae_types3, fail, pos)?;
+        }
+
+        // Positional sub-patterns, then keyword sub-patterns.
+        for (p, v) in pats.iter().zip(pos_vals) {
+            self.lower_pattern(v, p, fail)?;
+        }
+        for (p, v) in kwd_pats.iter().zip(kw_vals) {
+            self.lower_pattern(v, p, fail)?;
+        }
         Ok(())
     }
 
@@ -2262,9 +4200,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 test, body, orelse, ..
             } => {
                 let cond = self.truth_of(test)?;
-                let then_blk = self.b.new_block();
-                let else_blk = self.b.new_block();
-                let join = self.b.new_block();
+                let then_blk = self.new_block()?;
+                let else_blk = self.new_block()?;
+                let join = self.new_block()?;
                 let var = self.fresh_join_var();
                 self.branch(cond, then_blk, else_blk)?;
                 self.terminated = false;
@@ -2545,9 +4483,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
         let mut v = self.expr(&values[0])?;
         for e in &values[1..] {
             let t = self.unboxed_bool(pos, move |into| Instr::Truth { value: v, into })?;
-            let rhs_blk = self.b.new_block();
-            let short_blk = self.b.new_block();
-            let join = self.b.new_block();
+            let rhs_blk = self.new_block()?;
+            let short_blk = self.new_block()?;
+            let join = self.new_block()?;
             let var = self.fresh_join_var();
             match op {
                 Boolop::And => self.branch(t, rhs_blk, short_blk)?,
@@ -2604,9 +4542,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
         if ops.len() == 1 {
             return self.box_bool(c0, pos);
         }
-        let rhs_blk = self.b.new_block();
-        let false_blk = self.b.new_block();
-        let join = self.b.new_block();
+        let rhs_blk = self.new_block()?;
+        let false_blk = self.new_block()?;
+        let join = self.new_block()?;
         let var = self.fresh_join_var();
         self.branch(c0, rhs_blk, false_blk)?;
         self.terminated = false;
@@ -2754,6 +4692,11 @@ impl<'a, 'b> FnLower<'a, 'b> {
     fn fresh_join_var(&mut self) -> Sym {
         self.join_count += 1;
         self.pool(&format!(".join{}", self.join_count))
+    }
+
+    fn fresh_join_var_named(&mut self, kind: &str) -> Sym {
+        self.join_count += 1;
+        self.pool(&format!(".{kind}{}", self.join_count))
     }
 
     fn write_var_at_current(&mut self, var: Sym, value: Value) -> Result<(), LowerError> {
@@ -4025,10 +5968,27 @@ fn unsupported_in_stmt(s: &Stmt, future_annotations: bool, name_ops: bool) -> Op
         Stmt::AsyncFunctionDef { .. } => Some(LowerKind::AsyncFunction),
         Stmt::AsyncFor { .. } => Some(LowerKind::AsyncFor),
         Stmt::AsyncWith { .. } => Some(LowerKind::AsyncWith),
-        Stmt::With { .. } => Some(LowerKind::With),
-        Stmt::Try { .. } => Some(LowerKind::Try),
-        Stmt::TryStar { .. } => Some(LowerKind::TryStar),
-        Stmt::Match { .. } => Some(LowerKind::Match),
+        Stmt::With { items, .. } => items.iter().find_map(|it| {
+            unsupported_in_expr(&it.context_expr).or_else(|| {
+                it.optional_vars
+                    .as_deref()
+                    .and_then(unsupported_target_expr)
+            })
+        }),
+        Stmt::Try { handlers, .. } | Stmt::TryStar { handlers, .. } => {
+            handlers.iter().find_map(|h| match h {
+                Excepthandler::ExceptHandler {
+                    r#type: Some(t), ..
+                } => unsupported_in_expr(t),
+                _ => None,
+            })
+        }
+        Stmt::Match { subject, cases, .. } => unsupported_in_expr(subject).or_else(|| {
+            cases.iter().find_map(|c| {
+                unsupported_in_pattern(&c.pattern)
+                    .or_else(|| c.guard.as_deref().and_then(unsupported_in_expr))
+            })
+        }),
         Stmt::FunctionDef {
             args,
             decorator_list,
@@ -4145,6 +6105,36 @@ fn unsupported_target_expr(e: &Expr) -> Option<LowerKind> {
         }),
         Expr::Starred { value, .. } => unsupported_target_expr(value),
         _ => None,
+    }
+}
+
+/// The value expressions a pattern evaluates: the class of a class pattern,
+/// the literals of a mapping pattern's keys, and the value of a value
+/// pattern. Capture names alone are always supported.
+fn unsupported_in_pattern(p: &Pattern) -> Option<LowerKind> {
+    match p {
+        Pattern::MatchValue { value, .. } => unsupported_in_expr(value),
+        Pattern::MatchSingleton { .. } | Pattern::MatchStar { .. } => None,
+        Pattern::MatchSequence { patterns, .. } | Pattern::MatchOr { patterns, .. } => {
+            patterns.iter().find_map(unsupported_in_pattern)
+        }
+        Pattern::MatchMapping { keys, patterns, .. } => keys
+            .iter()
+            .find_map(unsupported_in_expr)
+            .or_else(|| patterns.iter().find_map(unsupported_in_pattern)),
+        Pattern::MatchClass {
+            cls,
+            patterns,
+            kwd_patterns,
+            ..
+        } => unsupported_in_expr(cls)
+            .or_else(|| patterns.iter().find_map(unsupported_in_pattern))
+            .or_else(|| kwd_patterns.iter().find_map(unsupported_in_pattern)),
+        Pattern::MatchAs {
+            pattern: Some(inner),
+            ..
+        } => unsupported_in_pattern(inner),
+        Pattern::MatchAs { pattern: None, .. } => None,
     }
 }
 
