@@ -137,6 +137,24 @@ exception_type!(
     PyExc_NotImplementedError,
     "NotImplementedError"
 );
+exception_type!(
+    /// `IndexError`.
+    _PyExc_IndexError_Type,
+    PyExc_IndexError,
+    "IndexError"
+);
+exception_type!(
+    /// `KeyError`.
+    _PyExc_KeyError_Type,
+    PyExc_KeyError,
+    "KeyError"
+);
+exception_type!(
+    /// `RuntimeError`.
+    _PyExc_RuntimeError_Type,
+    PyExc_RuntimeError,
+    "RuntimeError"
+);
 
 /// The `BaseException` type object for `PyExc_BaseException` and subtype
 /// checks.
@@ -195,6 +213,21 @@ accessor!(
     not_implemented_error,
     PyExc_NotImplementedError
 );
+accessor!(
+    /// The `IndexError` type.
+    index_error,
+    PyExc_IndexError
+);
+accessor!(
+    /// The `KeyError` type.
+    key_error,
+    PyExc_KeyError
+);
+accessor!(
+    /// The `RuntimeError` type.
+    runtime_error,
+    PyExc_RuntimeError
+);
 
 // Internal helpers with `PyTypeObject` returns for init and subtype checks.
 macro_rules! type_accessor {
@@ -212,3 +245,6 @@ type_accessor!(zero_division_error_type, _PyExc_ZeroDivisionError_Type);
 type_accessor!(memory_error_type, _PyExc_MemoryError_Type);
 type_accessor!(system_error_type, _PyExc_SystemError_Type);
 type_accessor!(not_implemented_error_type, _PyExc_NotImplementedError_Type);
+type_accessor!(index_error_type, _PyExc_IndexError_Type);
+type_accessor!(key_error_type, _PyExc_KeyError_Type);
+type_accessor!(runtime_error_type, _PyExc_RuntimeError_Type);
