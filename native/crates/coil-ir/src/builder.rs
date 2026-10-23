@@ -408,7 +408,8 @@ impl FunctionBuilder {
                     // path carrying a definition. Empty phis survive only in
                     // blocks that were unsealed when the read happened and
                     // seal unreachable; the entry, always reachable, errors
-                    // at seal.
+                    // at seal and again at finish, so ignoring the first
+                    // error still yields no function.
                     return Err(Error::UndefinedVariable { var, block: cur });
                 }
                 // No predecessors and not the entry: the block is
@@ -811,6 +812,18 @@ impl FunctionBuilder {
             };
             if !b.sealed {
                 return Err(Error::UnsealedBlock {
+                    block: BlockId(i as u32),
+                });
+            }
+            if BlockId(i as u32) == self.entry
+                && let Some(p) = b.phis.iter().find(|p| p.incomings.is_empty())
+            {
+                // Empty phis survive only in blocks that sealed unreachable;
+                // the entry is always reachable, so one here is the undefined
+                // read that sealing reported. A caller that ignored that
+                // error must not be handed a function anyway.
+                return Err(Error::UndefinedVariable {
+                    var: self.phi_vars[&p.into],
                     block: BlockId(i as u32),
                 });
             }

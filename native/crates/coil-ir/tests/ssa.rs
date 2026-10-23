@@ -1941,6 +1941,64 @@ fn undefined_read_in_unsealed_entry_is_undefined_at_seal() {
 }
 
 #[test]
+fn undefined_read_in_unsealed_entry_cannot_be_finished() {
+    // Sealing reports the read but leaves the entry sealed with the empty
+    // phi in place, and a retried seal returns Ok; finish must still refuse
+    // to hand out a function the verifier would accept.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let early = b.read_variable(U, b.entry()).unwrap();
+    let into = b.fresh(Type::Bottom);
+    b.push(Instr::Copy { src: early, into }).unwrap();
+    b.set_term(b.entry(), Terminator::Return { value: into })
+        .unwrap();
+    match b.seal_block(b.entry()) {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+    b.seal_block(b.entry()).unwrap();
+    match b.finish() {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
+fn dead_block_read_keeps_empty_phi_at_finish() {
+    // A block with no predecessors that is not the entry seals unreachable;
+    // its empty phi is consistent with the empty predecessor list and still
+    // finishes and verifies.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    b.set_term(b.entry(), Terminator::Return { value: v(0) })
+        .unwrap();
+    b.seal_block(b.entry()).unwrap();
+
+    let dead = b.new_block();
+    b.switch_to(dead).unwrap();
+    let u = b.read_variable(U, dead).unwrap();
+    let into = b.fresh(Type::Bottom);
+    b.push(Instr::Copy { src: u, into }).unwrap();
+    b.set_term(dead, Terminator::Return { value: into })
+        .unwrap();
+    b.seal_block(dead).unwrap();
+
+    let f = b.finish().unwrap();
+    assert_eq!(
+        f.blocks[dead.0 as usize].phis,
+        vec![Phi {
+            into: f.blocks[dead.0 as usize].phis[0].into,
+            incomings: Vec::new().into(),
+        }]
+    );
+    assert!(verify::verify_function(&f, &[]).is_ok());
+}
+
+#[test]
 fn late_edge_into_sealed_block_is_rejected() {
     // Sealing fixes a block's predecessor set. B2 is sealed with B1 as its
     // only predecessor, then B3 tries to add itself via a handler edge and a
