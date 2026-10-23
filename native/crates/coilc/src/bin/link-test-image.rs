@@ -90,7 +90,7 @@ fn main() -> ExitCode {
         match symbols.get(name) {
             Some(rva) => facts.push((name, *rva)),
             None => {
-                eprintln!("link-test-image: symbol {name} was defined");
+                eprintln!("link-test-image: symbol {name} was not in the linked layout");
                 return ExitCode::from(1);
             }
         }
@@ -101,7 +101,7 @@ fn main() -> ExitCode {
     {
         Some(rva) => facts.push(("iat_exit_process_rva", *rva)),
         None => {
-            eprintln!("link-test-image: ExitProcess was imported");
+            eprintln!("link-test-image: ExitProcess had no IAT slot in the linked layout");
             return ExitCode::from(1);
         }
     }

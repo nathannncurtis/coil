@@ -617,4 +617,29 @@ mod tests {
         assert_eq!(headers[1], (".data".to_string(), 16, 0x2000, 0));
         assert_no_empty_or_overlapping_sections(&headers);
     }
+
+    #[test]
+    fn layout_exposes_every_symbol_and_import_slot() {
+        // The link-test-image tool's failure diagnostics rely on this: every
+        // symbol the object defines must appear in the linked layout, and
+        // every declared import must have an IAT slot.
+        let obj = object();
+        let linked = link_image(&obj).unwrap();
+        let symbols = linked.layout.symbol_rvas(&obj).unwrap();
+        for symbol in &obj.symbols {
+            assert!(
+                symbols.contains_key(&symbol.name),
+                "{} missing",
+                symbol.name
+            );
+        }
+        for (dll, funcs) in &obj.imports {
+            for name in funcs {
+                assert!(
+                    linked.iat_slots.contains_key(&(dll.clone(), name.clone())),
+                    "{dll}!{name} missing"
+                );
+            }
+        }
+    }
 }
