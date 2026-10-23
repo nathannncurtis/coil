@@ -189,3 +189,13 @@ pub fn try_push_local(class: usize, block: *mut u8) -> bool {
 pub fn current_id() -> u32 {
     CACHE.try_with(|cache| cache.borrow().id).unwrap_or(0)
 }
+
+/// The address of this thread's cache, for the thread state's
+/// `alloc_cache` pointer (spec section 10.2): the collector's
+/// stop-the-world walk reads it, so it is never dereferenced after this
+/// thread's TLS slot has been destroyed. Null while there is no cache.
+pub fn cache_ptr() -> *mut ThreadCache {
+    CACHE
+        .try_with(|cache| cache.as_ptr())
+        .unwrap_or(core::ptr::null_mut())
+}

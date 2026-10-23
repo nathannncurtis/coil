@@ -19,12 +19,12 @@ use coil_capi_sys::{
     PyTypeObject, c_long, c_ulong,
 };
 
-use crate::object::exceptions;
 use crate::object::header;
 use crate::object::singletons;
 use crate::object::typeobject::{
     _Py_TPFLAGS_MATCH_SELF, Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE, zero_type,
 };
+use crate::types::exc as exceptions;
 
 /// Bits per digit (`PyLong_SHIFT`).
 pub const SHIFT: usize = 30;

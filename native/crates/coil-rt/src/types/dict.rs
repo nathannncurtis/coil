@@ -25,10 +25,10 @@ use coil_capi_sys::{
     PyMappingMethods, PyObject, PyTypeObject,
 };
 
-use crate::object::exceptions;
 use crate::object::header;
 use crate::object::lock;
 use crate::object::typeobject::{PyType_GenericAlloc, zero_type};
+use crate::types::exc as exceptions;
 use crate::types::{object_hash, objects_equal};
 
 /// `dict`'s private extra flag (`_Py_TPFLAGS_MATCH_SELF`).

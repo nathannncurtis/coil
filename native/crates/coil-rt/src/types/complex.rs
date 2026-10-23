@@ -17,11 +17,11 @@ use coil_capi_sys::{
     Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DEFAULT, PyNumberMethods, PyObject, PyTypeObject,
 };
 
-use crate::object::exceptions;
 use crate::object::header;
 use crate::object::singletons;
 use crate::object::typeobject::{Py_EQ, Py_NE, chain_is_subtype, zero_type};
 use crate::types::bool_::PyBool_FromLong;
+use crate::types::exc as exceptions;
 use crate::types::float_;
 use crate::types::float_::{
     PY_DTSF_ALT, PY_DTSF_NO_NEG_0, PY_DTSF_SIGN, double_to_string, parse_format_spec,

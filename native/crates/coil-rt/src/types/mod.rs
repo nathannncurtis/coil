@@ -5,6 +5,7 @@
 pub mod bool_;
 pub mod complex;
 pub mod dict;
+pub mod exc;
 pub mod float_;
 pub mod list;
 pub mod long;
@@ -15,7 +16,8 @@ use core::ffi::c_int;
 
 use coil_capi_sys::PyObject;
 
-use crate::object::{exceptions, header, singletons, typeobject};
+use crate::object::{header, singletons, typeobject};
+use crate::types::exc as exceptions;
 
 /// The outcome of a rich comparison through a `tp_richcompare` slot pair:
 /// a decision, a double `NotImplemented`, or a raised exception.

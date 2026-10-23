@@ -20,10 +20,10 @@ use coil_capi_sys::{
     Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DEFAULT, Py_TPFLAGS_HAVE_GC, PyObject, PyTypeObject,
 };
 
-use crate::object::exceptions;
 use crate::object::header;
 use crate::object::lock;
 use crate::object::typeobject::{PyType_GenericAlloc, PyType_IsSubtype, zero_type};
+use crate::types::exc as exceptions;
 use crate::types::{object_hash, objects_equal};
 
 /// The offset of the per-object lock within a set.

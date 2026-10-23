@@ -79,7 +79,7 @@ unsafe extern "C" fn none_new(
     // SAFETY: layout read of the argument tuple.
     if unsafe { crate::util::var_size(args) } > 0 {
         crate::tstate::set_string(
-            super::exceptions::type_error(),
+            crate::types::exc::type_error(),
             b"NoneType takes no arguments",
         );
         return core::ptr::null_mut();

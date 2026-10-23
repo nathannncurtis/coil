@@ -12,8 +12,9 @@ use std::sync::Once;
 use core::ffi::c_int;
 
 use coil_capi_sys::PyObject;
-use python312::object::{exceptions, header, singletons, typeobject};
+use python312::object::{header, singletons, typeobject};
 use python312::tstate;
+use python312::types::exc as exceptions;
 use python312::types::{bool_, complex, float_, long};
 
 static INIT: Once = Once::new();

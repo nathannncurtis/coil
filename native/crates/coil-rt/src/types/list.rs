@@ -12,11 +12,11 @@ use coil_capi_sys::{
     Py_TPFLAGS_SEQUENCE, PyObject, PyTypeObject, PyVarObject,
 };
 
-use crate::object::exceptions;
 use crate::object::header;
 use crate::object::lock;
 use crate::object::typeobject::_Py_TPFLAGS_MATCH_SELF;
 use crate::object::typeobject::{Py_LT, PyType_GenericAlloc, zero_type};
+use crate::types::exc as exceptions;
 use crate::types::{Cmp, rich_compare};
 
 /// CPython 3.12's `PyListObject` with the Coil tail: the var-object

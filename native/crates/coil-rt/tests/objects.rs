@@ -5,7 +5,8 @@
 use std::sync::Once;
 
 use coil_capi_sys::{Py_TPFLAGS_DISALLOW_INSTANTIATION, Py_TPFLAGS_READY, PyTypeObject};
-use python312::object::{exceptions, header, singletons, typeobject};
+use python312::object::{header, singletons, typeobject};
+use python312::types::exc as exceptions;
 use python312::types::{bool_, complex, float_, long};
 
 const INT_TYPE: *mut PyTypeObject = &raw mut long::PyLong_Type;
