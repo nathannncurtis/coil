@@ -1638,6 +1638,387 @@ impl Parser {
 mod tests {
     use super::parse_module;
 
+    /// The reported error: (message, lineno, offset, end_lineno,
+    /// end_offset), with `None` standing in for CPython's `-1` "absent" end.
+    type Expected = (String, Option<i32>, Option<i32>, Option<i32>, Option<i32>);
+
+    fn error_of(source: &[u8]) -> Expected {
+        match parse_module(source, None) {
+            Ok(_) => panic!("expected a syntax error"),
+            Err(e) => (e.message, e.lineno, e.offset, e.end_lineno, e.end_offset),
+        }
+    }
+
+    /// Regressions reported by the review and audit of the error paths, with
+    /// the positions CPython 3.12 reports for the same bytes.
+    #[test]
+    fn reported_errors_match_cpython() {
+        let cases: &[(&str, Expected)] = &[
+            (
+                "plain except after except* keeps the except position",
+                (
+                    "cannot have both 'except' and 'except*' on the same 'try'"
+                        .to_string(),
+                    Some(5),
+                    Some(1),
+                    Some(5),
+                    Some(7),
+                ),
+            ),
+            (
+                "parameter without default follows one with, at the parameter",
+                (
+                    "parameter without a default follows parameter with a default"
+                        .to_string(),
+                    Some(1),
+                    Some(12),
+                    Some(1),
+                    Some(13),
+                ),
+            ),
+            (
+                "same for lambda parameters",
+                (
+                    "parameter without a default follows parameter with a default"
+                        .to_string(),
+                    Some(1),
+                    Some(17),
+                    Some(1),
+                    Some(18),
+                ),
+            ),
+            (
+                "unclosed '(' names the bracket one past its column",
+                (
+                    "'(' was never closed".to_string(),
+                    Some(1),
+                    Some(5),
+                    Some(1),
+                    Some(0),
+                ),
+            ),
+            (
+                "unclosed '['",
+                (
+                    "'[' was never closed".to_string(),
+                    Some(1),
+                    Some(5),
+                    Some(1),
+                    Some(0),
+                ),
+            ),
+            (
+                "unclosed '{'",
+                (
+                    "'{' was never closed".to_string(),
+                    Some(1),
+                    Some(5),
+                    Some(1),
+                    Some(0),
+                ),
+            ),
+            (
+                "unclosed '(' reports its own line, not the last",
+                (
+                    "'(' was never closed".to_string(),
+                    Some(1),
+                    Some(5),
+                    Some(1),
+                    Some(0),
+                ),
+            ),
+            (
+                "unclosed '(' after a multibyte character counts characters",
+                (
+                    "'(' was never closed".to_string(),
+                    Some(1),
+                    Some(2),
+                    Some(1),
+                    Some(0),
+                ),
+            ),
+            (
+                "expected block at EOF keeps the line's end offset",
+                (
+                    "expected an indented block after 'if' statement on line 1"
+                        .to_string(),
+                    Some(1),
+                    Some(6),
+                    Some(1),
+                    None,
+                ),
+            ),
+            (
+                "expected block after def at EOF",
+                (
+                    "expected an indented block after function definition on line 1"
+                        .to_string(),
+                    Some(1),
+                    Some(28),
+                    Some(1),
+                    None,
+                ),
+            ),
+            (
+                "expected except or finally at EOF",
+                (
+                    "expected 'except' or 'finally' block".to_string(),
+                    Some(1),
+                    Some(10),
+                    Some(1),
+                    None,
+                ),
+            ),
+            (
+                "for target literal spans the target",
+                (
+                    "cannot assign to literal".to_string(),
+                    Some(1),
+                    Some(5),
+                    Some(1),
+                    Some(6),
+                ),
+            ),
+            (
+                "for target call spans the target",
+                (
+                    "cannot assign to function call".to_string(),
+                    Some(1),
+                    Some(5),
+                    Some(1),
+                    Some(8),
+                ),
+            ),
+            (
+                "generic error after '[' lands on the keyword",
+                (
+                    "invalid syntax".to_string(),
+                    Some(1),
+                    Some(3),
+                    Some(1),
+                    Some(8),
+                ),
+            ),
+            (
+                "empty argument between commas",
+                (
+                    "invalid syntax".to_string(),
+                    Some(1),
+                    Some(5),
+                    Some(1),
+                    Some(6),
+                ),
+            ),
+            (
+                "decode error at a BOM-like byte counts the line's characters",
+                (
+                    "(unicode error) 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"
+                        .to_string(),
+                    Some(1),
+                    Some(1),
+                    Some(1),
+                    None,
+                ),
+            ),
+            (
+                "decode error offset counts the whole line",
+                (
+                    "(unicode error) 'utf-8' codec can't decode byte 0xff in position 0: invalid start byte"
+                        .to_string(),
+                    Some(1),
+                    Some(2),
+                    Some(1),
+                    None,
+                ),
+            ),
+            (
+                "truncated multibyte at line start",
+                (
+                    "(unicode error) 'utf-8' codec can't decode byte 0xc3 in position 0: unexpected end of data"
+                        .to_string(),
+                    Some(1),
+                    Some(1),
+                    Some(1),
+                    None,
+                ),
+            ),
+            (
+                "truncated multibyte after a bracket",
+                (
+                    "(unicode error) 'utf-8' codec can't decode byte 0xc3 in position 0: unexpected end of data"
+                        .to_string(),
+                    Some(1),
+                    Some(2),
+                    Some(1),
+                    None,
+                ),
+            ),
+            (
+                "truncated multibyte after a full character counts it as one",
+                (
+                    "(unicode error) 'utf-8' codec can't decode byte 0xc3 in position 2: unexpected end of data"
+                        .to_string(),
+                    Some(1),
+                    Some(2),
+                    Some(1),
+                    None,
+                ),
+            ),
+            (
+                "utf-8 cookie leaves the raw bytes to the per-token checks",
+                (
+                    "unterminated string literal (detected at line 2)".to_string(),
+                    Some(2),
+                    Some(5),
+                    Some(2),
+                    None,
+                ),
+            ),
+            (
+                "utf8 alias recodes the buffer and fails at init",
+                (
+                    "'utf8' codec can't decode byte 0xff in position 28: invalid start byte"
+                        .to_string(),
+                    Some(0),
+                    Some(-1),
+                    None,
+                    None,
+                ),
+            ),
+            (
+                "generic error on a synthetic EOF token is at column zero",
+                (
+                    "invalid syntax".to_string(),
+                    Some(1),
+                    Some(0),
+                    Some(1),
+                    Some(0),
+                ),
+            ),
+            (
+                "keyword-safe kwarg lookahead does not fill at EOF",
+                (
+                    "invalid syntax".to_string(),
+                    Some(1),
+                    Some(11),
+                    Some(1),
+                    Some(14),
+                ),
+            ),
+            (
+                "declined invalid rule ends the rule without filling EOF",
+                (
+                    "invalid syntax".to_string(),
+                    Some(1),
+                    Some(29),
+                    Some(1),
+                    Some(30),
+                ),
+            ),
+            (
+                "no ==-hint for a kwarg broken later, plain syntax error",
+                (
+                    "invalid syntax".to_string(),
+                    Some(1),
+                    Some(10),
+                    Some(1),
+                    Some(11),
+                ),
+            ),
+            (
+                "no ==-hint when the break is a trailing bang",
+                (
+                    "invalid syntax".to_string(),
+                    Some(1),
+                    Some(11),
+                    Some(1),
+                    Some(12),
+                ),
+            ),
+            (
+                "==-hint in a group spans the value",
+                (
+                    "invalid syntax. Maybe you meant '==' or ':=' instead of '='?"
+                        .to_string(),
+                    Some(1),
+                    Some(2),
+                    Some(1),
+                    Some(7),
+                ),
+            ),
+            (
+                "==-hint in a list display",
+                (
+                    "invalid syntax. Maybe you meant '==' or ':=' instead of '='?"
+                        .to_string(),
+                    Some(1),
+                    Some(2),
+                    Some(1),
+                    Some(7),
+                ),
+            ),
+            (
+                "==-hint inside call parens spans the value",
+                (
+                    "invalid syntax. Maybe you meant '==' or ':=' instead of '='?"
+                        .to_string(),
+                    Some(1),
+                    Some(4),
+                    Some(1),
+                    Some(9),
+                ),
+            ),
+            (
+                "==-hint for a genexp kwarg spans the equals token",
+                (
+                    "invalid syntax. Maybe you meant '==' or ':=' instead of '='?"
+                        .to_string(),
+                    Some(1),
+                    Some(5),
+                    Some(1),
+                    Some(8),
+                ),
+            ),
+        ];
+        let sources: &[&[u8]] = &[
+            b"try:\n    pass\nexcept* A:\n    pass\nexcept B:\n    pass\n",
+            b"def f(a=1, b):\n    pass\n",
+            b"f = lambda a=1, b: 1\n",
+            b"x = (\n",
+            b"x = [\n",
+            b"x = {\n",
+            b"y = (1,\n  2,\n",
+            b"\xc3\xa9(",
+            b"if x:",
+            b"def f(a, b=1, *args, **kw):",
+            b"try: pass",
+            b"for 1 in x:\n    pass\n",
+            b"for f() in x:\n    pass\n",
+            b"[ class",
+            b"f(1,,2)\n",
+            b"\xff\xfex",
+            b"\xff\xfexy",
+            b"\xc3(",
+            b"(\xc3",
+            b"\xc3\xa9\xc3",
+            b"# -*- coding: utf-8 -*-\nx = \"\xcf\n",
+            b"# -*- coding: utf8 -*-\nx = \"\xff\"\n",
+            b"@_Specia",
+            b"ns.update(def",
+            b"list((x, y) for x in 'abcd' f",
+            b"f(a=1, b=!c)\n",
+            b"f(a=1, b=c!)\n",
+            b"(a = 1)\n",
+            b"[a = 1]\n",
+            b"f((a = 1))\n",
+            b"foo(a = 1 for x in y)\n",
+        ];
+        assert_eq!(cases.len(), sources.len());
+        for ((what, expected), source) in cases.iter().zip(sources) {
+            assert_eq!(&error_of(source), expected, "{what}");
+        }
+    }
+
     /// A deterministic LCG so failures reproduce from the seed alone.
     struct Rng(u64);
 
