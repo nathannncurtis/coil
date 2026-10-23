@@ -1,0 +1,31 @@
+# The one contract between the coil-rt runtime and compiled code (spec
+# section 2): every coil_rt_* entry point with its signature, every
+# runtime struct offset compiled code touches, and the type-descriptor,
+# stack-map and line-table formats the compiler emits and the runtime
+# consumes.
+#
+# tools/gen_abi.py turns this file into
+# native/crates/coil-rt/src/abi_generated.rs and
+# src/coil/native/abi_constants.py; both outputs are checked in and
+# `python tools/gen_abi.py --check` fails when either is stale. Later,
+# coil_rt_init compares the SHA-256 embedded in an executable with the
+# runtime's own and refuses a mismatch; the hash covers this file's
+# content with LF line endings, so it does not move with the checkout.
+
+[meta]
+
+# Bumped when an entry changes in a way its consumers must notice; the
+# runtime and an executable agree when version and hash both match.
+version = 1
+
+# Every coil_rt_* entry point compiled code may call, with its signature.
+[functions]
+
+# Offsets into runtime structs that compiled code reads or writes
+# directly instead of calling an entry point.
+[offsets]
+
+# The binary formats of the tables the compiler emits and the runtime
+# loads: type descriptors (section 8.3), stack maps (section 9.4) and
+# line tables (section 12.1).
+[formats]
