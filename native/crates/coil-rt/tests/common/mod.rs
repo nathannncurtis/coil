@@ -14,6 +14,7 @@ use coil_capi_sys::{PyMethodDef, PyObject};
 use python312::modules::{self, MethodTable};
 use python312::object::{header, singletons, typeobject};
 use python312::tstate;
+use python312::types::bytes;
 use python312::types::exc as exceptions;
 use python312::types::{bool_, complex, float_, long, pycfunction, tuple};
 
@@ -56,6 +57,17 @@ pub fn token(s: &str) -> *mut PyObject {
             singletons::true_()
         } else {
             singletons::false_()
+        };
+    }
+    if let Some(rest) = s.strip_prefix("y:") {
+        let value: Vec<u8> = (0..rest.len())
+            .step_by(2)
+            .map(|i| u8::from_str_radix(&rest[i..i + 2], 16).unwrap())
+            .collect();
+        // SAFETY: the pointer/length pair describes `value`, which the
+        // call copies into the new bytes object.
+        return unsafe {
+            bytes::PyBytes_FromStringAndSize(value.as_ptr().cast(), value.len() as isize)
         };
     }
     if let Some(rest) = s.strip_prefix("f:") {
@@ -107,6 +119,8 @@ pub fn error_text() -> String {
         "ValueError"
     } else if core::ptr::eq(exc, exceptions::overflow_error()) {
         "OverflowError"
+    } else if core::ptr::eq(exc, modules::binascii::error()) {
+        "Error"
     } else {
         "BaseException"
     };
@@ -158,6 +172,17 @@ pub fn encode_ptr(result: *mut PyObject) -> String {
             // SAFETY: the object is an int.
             let text = long::format(result.cast(), 10, false).unwrap();
             return format!("i:{text}");
+        }
+        if core::ptr::eq(ty, &raw mut bytes::PyBytes_Type) {
+            // SAFETY: the object is a bytes value; the string is valid for
+            // its size and the result is only read.
+            let raw = bytes::PyBytes_AsString(result);
+            let size = bytes::PyBytes_Size(result);
+            let text: String = core::slice::from_raw_parts(raw as *const u8, size as usize)
+                .iter()
+                .map(|b| format!("{b:02x}"))
+                .collect();
+            return format!("y:{text}");
         }
         if core::ptr::eq(result, singletons::none()) {
             return "none".to_string();

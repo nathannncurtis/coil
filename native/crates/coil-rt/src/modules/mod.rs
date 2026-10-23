@@ -121,6 +121,39 @@ pub(crate) unsafe fn is_exact_float(op: *const PyObject) -> bool {
     unsafe { header::type_of(op) == &raw mut crate::types::float_::PyFloat_Type }
 }
 
+/// `PyObject_IsTrue`'s protocol: `nb_bool`, then `mp_length`, then
+/// `sq_length`, otherwise true. Returns -1 only when a slot raised.
+///
+/// # Safety
+///
+/// `obj` must be a valid object.
+pub(crate) unsafe fn object_is_true(obj: *mut PyObject) -> core::ffi::c_int {
+    // SAFETY: the header read is within the object.
+    let ty = unsafe { header::type_of(obj) };
+    // SAFETY: the slots, when present, take the object.
+    unsafe {
+        if let Some(table) = (*ty).tp_as_number.as_ref()
+            && let Some(nb_bool) = table.nb_bool
+        {
+            let res = nb_bool(obj);
+            return if res > 0 { 1 } else { res as core::ffi::c_int };
+        }
+        if let Some(table) = (*ty).tp_as_mapping.as_ref()
+            && let Some(mp_length) = table.mp_length
+        {
+            let res = mp_length(obj);
+            return if res > 0 { 1 } else { res as core::ffi::c_int };
+        }
+        if let Some(table) = (*ty).tp_as_sequence.as_ref()
+            && let Some(sq_length) = table.sq_length
+        {
+            let res = sq_length(obj);
+            return if res > 0 { 1 } else { res as core::ffi::c_int };
+        }
+    }
+    1
+}
+
 /// `PyTuple_Check`.
 ///
 /// # Safety
@@ -316,6 +349,28 @@ pub(crate) fn positional_error_kw(name: &str, min: usize, max: usize, given: usi
             format!("{name}() takes {qualifier} {max} positional argument{plural} ({given} given)")
                 .as_bytes(),
         );
+    }
+}
+
+/// `_PyArg_UnpackKeywords`'s two-layer count error for too many
+/// positionals: positional overflow past every parameter (keyword-only
+/// ones included) reports the total, overflow past the
+/// positional-or-keyword parameters reports those.
+pub(crate) fn keywords_arity_error(
+    name: &str,
+    minpos: usize,
+    maxpos: usize,
+    maxargs: usize,
+    given: usize,
+) {
+    if given > maxargs {
+        let plural = if maxargs == 1 { "" } else { "s" };
+        tstate::set_string(
+            exceptions::type_error(),
+            format!("{name}() takes at most {maxargs} argument{plural} ({given} given)").as_bytes(),
+        );
+    } else {
+        positional_error_kw(name, minpos, maxpos, given);
     }
 }
 

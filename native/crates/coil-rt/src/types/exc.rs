@@ -374,6 +374,31 @@ pub(crate) fn exception_group_type() -> *mut PyTypeObject {
     &raw mut _PyExc_ExceptionGroup_Type
 }
 
+/// A static module exception subtype (`PyErr_NewException`'s shape for
+/// a plain base): the base exception behaviour under a module-qualified
+/// name. The module owns readied-ness.
+pub(crate) const fn module_exception_type(
+    tp_name: *const c_char,
+    base: *mut PyTypeObject,
+) -> PyTypeObject {
+    let mut t = zero_type();
+    t.tp_name = tp_name;
+    t.tp_dealloc = Some(base_exception_dealloc);
+    t.tp_flags = Py_TPFLAGS_DEFAULT
+        | Py_TPFLAGS_BASETYPE
+        | Py_TPFLAGS_BASE_EXC_SUBCLASS
+        | Py_TPFLAGS_HAVE_GC;
+    t.tp_traverse = Some(base_exception_traverse);
+    t.tp_clear = Some(base_exception_clear);
+    // As in `exception_types!`: inherited-from-`object` slots are pinned
+    // here rather than left to inheritance.
+    t.tp_init = Some(base_exception_init);
+    t.tp_alloc = Some(typeobject::PyType_GenericAlloc);
+    t.tp_free = Some(crate::alloc::pymem::PyObject_Free);
+    t.tp_base = base;
+    t
+}
+
 /// The static exception subtype list: read-only raw pointers behind a
 /// `Sync` wrapper the macro fills in.
 pub(crate) struct SubtypeList(&'static [*mut PyTypeObject]);

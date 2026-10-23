@@ -1130,6 +1130,9 @@ pub fn init_static_types() -> c_int {
         if types::exc::init_exception_types() < 0 {
             return -1;
         }
+        if crate::modules::binascii::init() < 0 {
+            return -1;
+        }
         for t in types::dict::dict_static_types() {
             if PyType_Ready(t) < 0 {
                 return -1;

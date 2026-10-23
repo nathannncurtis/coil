@@ -30938,5 +30938,6 @@ rect	f:3FF0000000000000	e:TypeError:rect expected 2 arguments, got 1
 rect	f:3FF0000000000000	f:4000000000000000	f:4008000000000000	e:TypeError:rect expected 2 arguments, got 3
 isclose	c:0000000000000000,3FF0000000000000	e:TypeError:isclose() missing required argument 'b' (pos 2)
 isclose	c:0000000000000000,3FF0000000000000	c:0000000000000000,4000000000000000	c:0000000000000000,4008000000000000	e:TypeError:isclose() takes exactly 2 positional arguments (3 given)
+isclose	c:0000000000000000,3FF0000000000000	c:0000000000000000,4000000000000000	c:0000000000000000,4008000000000000	c:0000000000000000,4010000000000000	c:0000000000000000,4014000000000000	e:TypeError:isclose() takes at most 4 arguments (5 given)
 phase	none	e:TypeError:must be real number, not NoneType
 polar	none	e:TypeError:must be real number, not NoneType

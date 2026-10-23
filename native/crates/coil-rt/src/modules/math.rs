@@ -15,8 +15,8 @@ use coil_capi_sys::{
 };
 
 use crate::modules::{
-    self, is_exact_float, is_exact_long, missing_argument_error, number_add, number_index,
-    number_multiply, positional_error, positional_error_kw,
+    self, is_exact_float, is_exact_long, keywords_arity_error, missing_argument_error, number_add,
+    number_index, number_multiply, positional_error,
 };
 use crate::object::singletons;
 use crate::tstate;
@@ -1620,7 +1620,7 @@ unsafe extern "C" fn math_prod(
     kwds: *mut PyObject,
 ) -> *mut PyObject {
     if nargs != 1 {
-        positional_error_kw("prod", 1, 1, nargs as usize);
+        keywords_arity_error("prod", 1, 1, 2, nargs as usize);
         return core::ptr::null_mut();
     }
     // SAFETY: the kwds contract holds when non-null.
@@ -1800,7 +1800,7 @@ unsafe extern "C" fn math_isclose(
     kwds: *mut PyObject,
 ) -> *mut PyObject {
     if nargs > 2 {
-        positional_error_kw("isclose", 2, 2, nargs as usize);
+        keywords_arity_error("isclose", 2, 2, 4, nargs as usize);
         return core::ptr::null_mut();
     }
     // SAFETY: the kwds contract holds when non-null.
@@ -1904,7 +1904,7 @@ unsafe extern "C" fn math_nextafter(
     kwds: *mut PyObject,
 ) -> *mut PyObject {
     if nargs != 2 {
-        positional_error_kw("nextafter", 2, 2, nargs as usize);
+        keywords_arity_error("nextafter", 2, 2, 3, nargs as usize);
         return core::ptr::null_mut();
     }
     // SAFETY: the kwds contract holds when non-null.

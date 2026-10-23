@@ -14,12 +14,14 @@ Output files (under --out, default native/crates/coil-rt/tests/data):
 
   math_module.tsv       math functions, values and exact error messages
   cmath_module.tsv      cmath functions over the complex protocol
+  binascii_module.tsv   binascii codecs and checksums over bytes
 
 Columns: function name, one column per argument, the result. Composite
 arguments are tuples; the encoding is shared with the Rust reader:
 
   i:<decimal>          int
   b:0 | b:1            bool
+  y:<hex>              bytes
   f:<16 hex digits>    float as its u64 bit pattern (f:nan for NaN)
   c:<re>,<im>          complex from two float encodings
   T:<enc>,<enc>,...    tuple of the other encodings
@@ -67,6 +69,8 @@ def enc(value):
         return f"f:{fenc(value)}"
     if isinstance(value, complex):
         return f"c:{fenc(value.real)},{fenc(value.imag)}"
+    if isinstance(value, bytes):
+        return "y:" + value.hex()
     if isinstance(value, tuple):
         return "T:" + ",".join(enc(item) for item in value)
     raise AssertionError(f"unencodable value {value!r}")
@@ -285,7 +289,9 @@ def rows_sequences():
         ("fmod", ()), ("fmod", (1.0,)), ("fmod", (1.0, 2.0, 3.0)),
         ("hypot", ()), ("dist", ((1.0,),)),
         ("prod", ()), ("prod", ((1,), 2)),
+        ("prod", ((1,), 2, 3)),
         ("isclose", (1.0,)), ("isclose", ()),
+        ("isclose", (1.0, 2.0, 3.0, 4.0, 5.0)),
         ("nextafter", (1.0,)), ("nextafter", (1.0, 2.0, 3.0)),
         ("log", ()), ("log", (1.0, 2.0, 3.0)), ("gcd", (1.5,)),
         ("sqrt", ()), ("sqrt", (1.0, 2.0)),
@@ -365,6 +371,7 @@ def rows_cmath():
         ("log", ()), ("log", (1j, 2j, 3j)), ("rect", ()),
         ("rect", (1.0,)), ("rect", (1.0, 2.0, 3.0)),
         ("isclose", (1j,)), ("isclose", (1j, 2j, 3j)),
+        ("isclose", (1j, 2j, 3j, 4j, 5j)),
         ("phase", (None,)), ("polar", (None,)),
     ]
     for name, args in shapes:
@@ -372,6 +379,141 @@ def rows_cmath():
         yield (
             name, *(enc(a) for a in args),
             encode(lambda fn=fn, a=args: fn(*a), drop_prefix=f"cmath.{name}()"),
+        )
+
+
+def rows_binascii():
+    import binascii
+
+    datas = [
+        b"", b"a", b"ab", b"abc", b"abcd", b"hello world", bytes(range(45)),
+        bytes(range(46)), b" spaces  ", b"tab\there", b"\x00\x01\xfe\xff",
+        b"\r\n", b"\n\n", b"line one\r\nline two\r\n", b"\x7f\x80\x81\xff",
+        b"a" * 74, b"b" * 75, b"c" * 100, b"x" * 227, b"y" * 228,
+        b"trailing ", b" lead", b"=3D", b"=e", b"=xy", b"=\n", b"=\r\n",
+        b"=A", b"=41=42", b"=\nrest", b"a=b", b"_under_", b".\n..",
+        b"\r\n.", b" .\r\n", b"quoted = sign", b"=  ", b"=00=ff=0a",
+    ]
+    for name, args in [
+        ("a2b_uu", (data,)) for data in [
+            b"", b"#86)C", b"'A`P``\n", b"&,2<SU4;\n", b" ", b"`", b"a",
+            b"#86)C`", b"#86)C \n", b"#86)Cx\n", b"#", b"#0V%T\n",
+        ]
+    ] + [
+        ("b2a_uu", (data,)) for data in datas[:10]
+    ] + [
+        ("a2b_base64", (data,)) for data in [
+            b"", b"YQ==", b"YWI=", b"YWJj", b"YWJjZA==", b"YQ", b"YQ=",
+            b"Y", b"=", b"==", b"==YQ==", b"=YQ==", b"YQ===", b"YQ==x",
+            b"YQ== \n", b"YWJ j", b"YWJj\nYQ==", b"aGVsbG8gd29ybGQ=",
+            b"!@#$", b"YWJj*", b"  \t\n", b"Zm9vYmFy", b"Zm9v\nYmFy\n",
+            b"PDw/Pz8+Pg==", b"/w==", b"+w==",
+        ]
+    ] + [
+        ("b2a_base64", (data,)) for data in [
+            b"", b"a", b"ab", b"abc", b"abcd", b"abcde",
+            b"hello world", b"\x00\xff\x10", b"a" * 57,
+        ]
+    ] + [
+        ("a2b_hex", (data,)) for data in [
+            b"", b"00", b"0f", b"414243", b"6162632e", b"FF00", b"fF0E",
+            b"0", b"0g", b"zz", b"0 0", b"0\n1",
+        ]
+    ] + [
+        ("b2a_hex", (data,)) for data in datas[:12]
+    ] + [
+        ("hexlify", (datas[3],)),
+    ] + [
+        ("unhexlify", (data,)) for data in [
+            b"", b"00", b"736f6d65206279746573", b"0f1e2d3c", b"0",
+            b"0g", b"10 ff",
+        ]
+    ] + [
+        ("crc_hqx", (data, crc)) for data in [b"", b"check", b"123456789",
+                                              b"The quick brown fox"]
+        for crc in [0, 1, 0xFFFF, 0x1234, 4294967295, 2**32 + 5, 2**100,
+                    -1, True]
+    ] + [
+        ("crc32", (data,)) for data in [b"", b"123456789", b"The quick brown",
+                                        bytes(range(64))]
+    ] + [
+        ("crc32", (data, crc)) for data in [b"123456789", b"IETF"]
+        for crc in [0, 1, 32, 0xFFFFFFFF, 2**32 - 1, 2**64 + 7, 2**100,
+                    -1, -2**32, True]
+    ] + [
+        ("a2b_qp", (data,)) for data in [
+            b"", b"hello", b"=41", b"=4", b"=", b"=\n", b"=\r\n", b"=a",
+            b"=41=42", b"a=\nb", b"a=\r\nb", b"a=\rb", b"==41", b"_a_",
+            b"=XY", b"=z9", b"end=", b"=00", b"=ff", b"=0\n",
+        ]
+    ] + [
+        ("a2b_qp", (data, header))
+        for data in [b"_a_", b"a_b", b"=5F", b"_", b"=20_"]
+        for header in [True, False]
+    ] + [
+        ("b2a_qp", (data,)) for data in [
+            b"", b"hello world", b" ", b"  ", b"\t", b"hello ",
+            b"hello\t", b"foo bar", b"foo=bar", b"foo_bar",
+            b"\x00\x01\x80\xff", b"\xe9\xe8", b"a.\nb", b".\nb", b"..\nb",
+            b"\r\n", b"\n", b"a\r\nb", b"foo\nbar\n", b"x" * 76,
+            b"x" * 77, b"a" * 74 + b" \n", b"q" * 78,
+        ]
+    ] + [
+        ("b2a_qp", (data, quotetabs, istext, header))
+        for data in [
+            b"hello world", b"foo\tbar", b"foo bar", b"foo bar ",
+            b"a\tb\t", b"\xe9 foo", b"foo\nbar", b"foo\r\nbar",
+            b"quoted = and .\n", b"x" * 76 + b" ", b"foo_bar baz",
+        ]
+        for quotetabs in [False, True]
+        for istext in [True, False]
+        for header in [False, True]
+    ] + [
+        # sep and bytes_per_sep are positional-or-keyword.
+        ("b2a_hex", (b"0ffc0ffee", sep, per))
+        for sep in [None, b":", b"-", b"_", b"", b"::", 5]
+        for per in [1, 0, -1, 2, -2, 3, -3, 100, -100]
+    ] + [
+        ("b2a_hex", (b"deadbeef", None, 2**31)),
+        ("b2a_hex", (b"deadbeef", None, -2**31)),
+        ("b2a_hex", (b"deadbeef", None, 2**100)),
+        ("b2a_hex", (b"deadbeef", b":", 1.5)),
+        ("b2a_hex", (b"deadbeef", b":", True)),
+        # A length-1 non-bytes sep hits "sep must be str or bytes." in
+        # CPython; this runtime's only other length-bearing types come
+        # later, so the branch keeps no oracle row.
+        ("b2a_hex", (b"", b":", 2)),
+        ("b2a_hex", (b"a", b":", 1)),
+        ("hexlify", (b"c0ffee", b".", -1)),
+        # Argument-count and type shapes for the calling conventions.
+        ("a2b_uu", ()), ("a2b_uu", (b"#86)C", b"extra")),
+        ("b2a_uu", ()), ("b2a_uu", (b"abc",)), ("b2a_uu", (b"abc", True)),
+        ("b2a_uu", (b"abc", True, 1)),
+        ("a2b_base64", ()), ("a2b_base64", (b"YQ==", b"YQ==")),
+        ("b2a_base64", ()), ("b2a_base64", (b"abc",)),
+        ("b2a_base64", (b"abc", False)),
+        ("b2a_base64", (b"abc", False, 1)),
+        ("a2b_hex", ()), ("a2b_hex", (b"41", b"41")),
+        ("b2a_hex", ()), ("b2a_hex", (b"41",)), ("b2a_hex", (b"41", None)),
+        ("b2a_hex", (b"41", None, 1, 2)),
+        ("unhexlify", ()), ("unhexlify", (b"41", b"41")),
+        ("crc_hqx", ()), ("crc_hqx", (b"check",)),
+        ("crc_hqx", (b"check", 0, 0)), ("crc_hqx", (5, 0)),
+        ("crc_hqx", (b"check", 1.5)), ("crc_hqx", (b"check", None)),
+        ("crc32", ()), ("crc32", (b"", 0, 0)), ("crc32", (5,)),
+        ("crc32", (b"", 1.5)), ("crc32", (b"", None)),
+        ("a2b_qp", ()), ("a2b_qp", (b"=41", True, 1)),
+        ("b2a_qp", ()), ("b2a_qp", (b"a",)),
+        ("b2a_qp", (b"a", True)), ("b2a_qp", (b"a", True, False)),
+        ("b2a_qp", (b"a", True, False, True, None)),
+        # Non-bytes data for the Py_buffer converter family.
+        ("a2b_uu", (5,)), ("a2b_base64", (None,)), ("a2b_hex", (1.5,)),
+        ("b2a_qp", (b"", None)), ("crc32", (True,)),
+    ]:
+        fn = getattr(binascii, name)
+        yield (
+            name, *(enc(a) for a in args),
+            encode(lambda fn=fn, a=args: fn(*a), drop_prefix=f"binascii.{name}()"),
         )
 
 
@@ -396,6 +538,14 @@ def gen_math(out):
     print(f"wrote {path}")
 
 
+def gen_binascii(out):
+    path = out / "binascii_module.tsv"
+    with open(path, "w") as f:
+        for row in rows_binascii():
+            print("\t".join(row), file=f)
+    print(f"wrote {path}")
+
+
 def main():
     import argparse
     from pathlib import Path
@@ -408,6 +558,7 @@ def main():
     args.out.mkdir(parents=True, exist_ok=True)
     gen_math(args.out)
     gen_cmath(args.out)
+    gen_binascii(args.out)
 
 
 if __name__ == "__main__":

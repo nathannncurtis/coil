@@ -12,7 +12,7 @@ use coil_capi_sys::{
     PyCFunction, PyMethodDef, PyObject,
 };
 
-use crate::modules::{self, missing_argument_error, positional_error, positional_error_kw};
+use crate::modules::{self, keywords_arity_error, missing_argument_error, positional_error};
 use crate::object::singletons;
 use crate::tstate;
 use crate::types::complex::{self, Py_complex};
@@ -1569,7 +1569,7 @@ unsafe extern "C" fn cmath_isclose(
     kwds: *mut PyObject,
 ) -> *mut PyObject {
     if nargs > 2 {
-        positional_error_kw("isclose", 2, 2, nargs as usize);
+        keywords_arity_error("isclose", 2, 2, 4, nargs as usize);
         return core::ptr::null_mut();
     }
     // SAFETY: the kwds contract holds when non-null.

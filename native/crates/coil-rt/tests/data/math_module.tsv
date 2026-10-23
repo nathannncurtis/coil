@@ -7979,8 +7979,10 @@ hypot	f:0000000000000000
 dist	T:f:3FF0000000000000	e:TypeError:dist expected 2 arguments, got 1
 prod	e:TypeError:prod() takes exactly 1 positional argument (0 given)
 prod	T:i:1	i:2	e:TypeError:prod() takes exactly 1 positional argument (2 given)
+prod	T:i:1	i:2	i:3	e:TypeError:prod() takes at most 2 arguments (3 given)
 isclose	f:3FF0000000000000	e:TypeError:isclose() missing required argument 'b' (pos 2)
 isclose	e:TypeError:isclose() missing required argument 'a' (pos 1)
+isclose	f:3FF0000000000000	f:4000000000000000	f:4008000000000000	f:4010000000000000	f:4014000000000000	e:TypeError:isclose() takes at most 4 arguments (5 given)
 nextafter	f:3FF0000000000000	e:TypeError:nextafter() takes exactly 2 positional arguments (1 given)
 nextafter	f:3FF0000000000000	f:4000000000000000	f:4008000000000000	e:TypeError:nextafter() takes exactly 2 positional arguments (3 given)
 log	e:TypeError:log expected at least 1 argument, got 0
