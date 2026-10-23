@@ -4,12 +4,16 @@ A small cargo bin target, ``link-test-image``, links a fixed
 hand-assembled program (bytes written in the test binary, no encoder) and
 prints one ``key=value`` layout fact per line. These tests build it, link
 the image and check headers, sections, imports and relocations with
-``pefile``. On Windows the image is also executed: it calls
-``kernel32!ExitProcess(42)`` through the IAT and reads its argument through
-an ``Abs64``-relocated pointer, so a wrong ``.reloc`` crashes instead of
-exiting 42 — once at the default image base (ASLR bits cleared) and once
-forced to rebase (``DYNAMIC_BASE | HIGH_ENTROPY_VA``, so the loader picks a
-random base and applies the base relocations).
+``pefile``. On Windows the image is also executed: it reads its load base
+from the PEB and compares it with the link-time ``IMAGE_BASE``, so its
+exit code reports where it landed. 42 means the loader rebased the image
+and the ``Abs64``-relocated pointer still dereferenced the argument for
+``kernel32!ExitProcess``; a wrong ``.reloc`` under ASLR faults instead of
+exiting 42. 43 means the image still sits at the preferred 0x140000000,
+where the statically written pointer must be the correct one — reached by
+clearing the ASLR bits, and by ``DYNAMIC_BASE | HIGH_ENTROPY_VA`` keeping
+them for the rebased run. ``--no-constants`` links a variant without
+``.rdata`` content to check the linker omits empty sections.
 """
 
 from __future__ import annotations
@@ -257,18 +261,36 @@ def test_rel32_displacements(tmp_path: Path, image_linker: Path) -> None:
     def disp32(at: int) -> int:
         return struct.unpack_from("<i", raw, at)[0]
 
-    # jmp text_cont: rel32 at 0x05, next instruction at 0x09.
+    # jmp probe: rel32 at 0x05, next instruction at 0x09.
     assert raw[0x04] == 0xE9
-    assert disp32(0x05) == facts["text_cont"] - (facts["text_rva"] + 0x09)
+    assert disp32(0x05) == facts["probe"] - (facts["text_rva"] + 0x09)
     # lea rcx, [rip+disp]: rel32 at 0x0D targeting msg + 2 (the addend).
     assert raw[0x0A:0x0D] == b"\x48\x8D\x0D"
     assert disp32(0x0D) == facts["msg"] + 2 - (facts["text_rva"] + 0x11)
     # mov rax, [rip+disp]: rel32 at 0x14 targeting ptr_slot in .data.
     assert raw[0x11:0x14] == b"\x48\x8B\x05"
     assert disp32(0x14) == facts["ptr_slot"] - (facts["text_rva"] + 0x18)
-    # call [rip+disp]: rel32 at 0x1F resolving to the IAT slot.
-    assert raw[0x1D:0x1F] == b"\xFF\x15"
-    assert disp32(0x1F) == facts["iat_exit_process_rva"] - (facts["text_rva"] + 0x23)
+    # mov ecx, [rax]; add ecx, r8d; add ecx, 40 — the exit code is the
+    # dereferenced value plus 40 plus the base-probe flag.
+    assert raw[0x18:0x20] == b"\x8B\x08\x41\x03\xC8\x83\xC1\x28"
+    # call [rip+disp]: rel32 at 0x22 resolving to the IAT slot.
+    assert raw[0x20:0x22] == b"\xFF\x15"
+    assert disp32(0x22) == facts["iat_exit_process_rva"] - (facts["text_rva"] + 0x26)
+    # The base probe: mov rax, gs:[0x60] (the PEB), mov rax, [rax+0x10]
+    # (ImageBaseAddress), movabs rcx, IMAGE_BASE, cmp rax, rcx.
+    assert raw[0x28:0x31] == b"\x65\x48\x8B\x04\x25\x60\x00\x00\x00"
+    assert raw[0x31:0x35] == b"\x48\x8B\x40\x10"
+    assert raw[0x35:0x37] == b"\x48\xB9"
+    assert struct.unpack_from("<Q", raw, 0x37)[0] == 0x140000000
+    assert raw[0x3F:0x42] == b"\x48\x39\xC8"
+    # r8d = 1 at the preferred base, jne rebased (skip the r8d = 0 store),
+    # and the two short jumps back to the dereference block.
+    assert raw[0x42:0x48] == b"\x41\xB8\x01\x00\x00\x00"
+    assert raw[0x48:0x4A] == b"\x75\x02"
+    assert raw[0x4A] == 0xEB and raw[0x4B] == (0x0A - 0x4C) & 0xFF
+    assert raw[0x4C:0x54] == b"\x41\xB8\x00\x00\x00\x00" + bytes(
+        [0xEB, (0x0A - 0x54) & 0xFF]
+    )
 
 
 def test_deterministic_output_and_stamp(tmp_path: Path, image_linker: Path) -> None:
@@ -296,7 +318,9 @@ def test_runs_at_default_image_base(tmp_path: Path, image_linker: Path) -> None:
     data, _, pe = link_console(tmp_path, image_linker)
     # Clear DYNAMIC_BASE and HIGH_ENTROPY_VA so the loader maps the image at
     # its preferred 0x140000000 and applies no relocations: the static
-    # addresses the linker wrote must be correct on their own.
+    # addresses the linker wrote must be correct on their own. The exit
+    # code proves the load base: 43 means the PEB probe saw 0x140000000
+    # and the unrelocated Abs64 pointer dereferenced the argument anyway.
     offset = pe.DOS_HEADER.e_lfanew + 4 + 20 + 70
     patched = bytearray(data)
     struct.pack_into(
@@ -306,7 +330,7 @@ def test_runs_at_default_image_base(tmp_path: Path, image_linker: Path) -> None:
     exe.write_bytes(patched)
     assert pefile.PE(data=bytes(patched)).OPTIONAL_HEADER.DllCharacteristics & 0x0060 == 0
     result = subprocess.run([str(exe)], timeout=30)
-    assert result.returncode == 42
+    assert result.returncode == 43
 
 
 @pytest.mark.skipif(sys.platform != "win32", reason="needs the Windows loader")
@@ -314,10 +338,36 @@ def test_runs_rebased_by_aslr(tmp_path: Path, image_linker: Path) -> None:
     # As linked (DYNAMIC_BASE | HIGH_ENTROPY_VA) the loader picks a random
     # base and must apply the DIR64 fixups; the program dereferences the
     # Abs64'ed pointer before calling ExitProcess, so a wrong .reloc
-    # crashes with 0xC0000005 instead of exiting 42. Two runs land on two
-    # different bases.
+    # crashes with 0xC0000005. The exit code proves the rebase happened:
+    # the program only exits 42 when the PEB probe found a load base other
+    # than 0x140000000 — had the loader kept the preferred base, the same
+    # dereference would exit 43 and this assertion would fail. Two runs
+    # land on two independent random bases.
     for attempt in (1, 2):
         exe = tmp_path / f"rebased-{attempt}.exe"
         link_image(image_linker, exe)
         result = subprocess.run([str(exe)], timeout=30)
         assert result.returncode == 42, f"run {attempt}: {result.returncode}"
+
+
+def test_empty_sections_are_omitted(tmp_path: Path, image_linker: Path) -> None:
+    # The --no-constants variant has no .rdata content and nothing that
+    # could name an .rdata symbol, so the image must not carry a zero-size
+    # .rdata header whose RVA collides with .data's.
+    data, facts = link_image(
+        image_linker, tmp_path / "no-constants.exe", "--no-constants"
+    )
+    pe = pefile.PE(data=data)
+    names = [section.Name.rstrip(b"\0").decode() for section in pe.sections]
+    assert names == [".text", ".data", ".idata", ".reloc"]
+    previous = None
+    for section in pe.sections:
+        assert section.Misc_VirtualSize > 0, section.Name
+        if previous is not None:
+            assert section.VirtualAddress >= (
+                previous.VirtualAddress + previous.Misc_VirtualSize
+            )
+        previous = section
+    # The remaining layout facts still hold: .data takes .rdata's old page.
+    assert facts["data_rva"] == facts["rdata_rva"] == 0x2000
+    assert pe.OPTIONAL_HEADER.DATA_DIRECTORY[1].VirtualAddress == facts["idata_rva"]
