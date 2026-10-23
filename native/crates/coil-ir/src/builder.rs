@@ -229,6 +229,12 @@ impl FunctionBuilder {
             return Ok(self.new_phi(var, block, true));
         }
         let preds = self.predecessors(block);
+        if preds.is_empty() {
+            // Sealed blocks never gain predecessors, so there is no path
+            // carrying a definition. Empty phis survive only in blocks that
+            // were unsealed when the read happened and turned out unreachable.
+            return Err(Error::UndefinedVariable { var, block });
+        }
         if preds.len() == 1 {
             return self.read_variable(var, preds[0]);
         }
@@ -263,7 +269,7 @@ impl FunctionBuilder {
             .find(|p| p.into == phi)
             .expect("phi just created");
         p.incomings = incomings.into();
-        self.retype_phi(block, phi);
+        self.retype_phi_tree(phi);
         self.try_remove_trivial_phi(phi)
     }
 
@@ -289,7 +295,7 @@ impl FunctionBuilder {
                 .find(|p| p.into == phi)
                 .expect("incomplete phi kept");
             p.incomings = incomings.into();
-            self.retype_phi(block, phi);
+            self.retype_phi_tree(phi);
             self.try_remove_trivial_phi(phi)?;
         }
         Ok(())
@@ -355,6 +361,9 @@ impl FunctionBuilder {
         }
         for user in users {
             if self.find_phi_opt(user).is_some() {
+                // The replacement changed the user's incomings; its declared
+                // type must track the new join before the triviality check.
+                self.retype_phi_tree(user);
                 self.try_remove_trivial_phi(user)?;
             }
         }
@@ -401,19 +410,43 @@ impl FunctionBuilder {
     }
 
     /// Set a phi's type to the join of its incoming types.
-    fn retype_phi(&mut self, block: BlockId, phi: Value) {
-        let Some(p) = self.blocks[block.0 as usize]
-            .phis
+    fn retype_phi(&mut self, phi: Value) -> bool {
+        let Some(p) = self
+            .blocks
             .iter()
+            .flat_map(|b| b.phis.iter())
             .find(|p| p.into == phi)
         else {
-            return;
+            return false;
         };
         let mut ty = Type::Bottom;
         for (v, _) in p.incomings.iter() {
             ty = join(ty, &self.types[v.0 as usize]);
         }
+        if self.types[phi.0 as usize] == ty {
+            return false;
+        }
         self.types[phi.0 as usize] = ty;
+        true
+    }
+
+    /// Retype `phi` from its incomings and propagate to every phi that
+    /// (transitively) uses it, so a phi's declared type always equals the
+    /// join of its incomings even when an operand's own type moves later.
+    fn retype_phi_tree(&mut self, phi: Value) {
+        let mut work = vec![phi];
+        while let Some(p) = work.pop() {
+            if !self.retype_phi(p) {
+                continue;
+            }
+            work.extend(
+                self.blocks
+                    .iter()
+                    .flat_map(|b| b.phis.iter())
+                    .filter(|q| q.incomings.iter().any(|(v, _)| *v == p))
+                    .map(|q| q.into),
+            );
+        }
     }
 
     /// Predecessors of `block`: terminator targets and exception edges,

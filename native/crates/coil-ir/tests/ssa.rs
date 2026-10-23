@@ -531,6 +531,116 @@ fn read_before_write_is_undefined() {
 }
 
 #[test]
+fn read_before_write_in_sealed_block_is_undefined() {
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    b.set_term(b.entry(), Terminator::Return { value: v(0) })
+        .unwrap();
+    b.seal_block(b.entry()).unwrap();
+    match b.read_variable(U, b.entry()) {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
+fn phi_types_track_incoming_joins() {
+    // A join phi is filled while one incoming is still an unresolved loop
+    // phi (typed Bottom); the loop phi later merges a BigInt and an Int64.
+    // The join's declared type must follow, or an unboxed IAdd on it would
+    // slip past the verifier.
+    let mut params = one_param();
+    params.positional.push(Sym(4));
+    let mut b = FunctionBuilder::new(Sym(3), params, vec![Type::Top, Type::Int64]).unwrap();
+    let (q, n) = (v(0), v(1));
+
+    let big = b.fresh(Type::BigInt);
+    b.push(Instr::Const {
+        idx: ConstIdx(0),
+        into: big,
+    })
+    .unwrap();
+    b.write_variable(X, b.entry(), big).unwrap();
+    let hdr = b.new_block();
+    let body = b.new_block();
+    let arm2 = b.new_block();
+    let join = b.new_block();
+    let c0 = cond(&mut b, q);
+    b.set_term(
+        b.entry(),
+        Terminator::Branch {
+            cond: c0,
+            then_to: hdr,
+            else_to: arm2,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(hdr).unwrap();
+    let c1 = cond(&mut b, q);
+    b.set_term(
+        hdr,
+        Terminator::Branch {
+            cond: c1,
+            then_to: body,
+            else_to: join,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(body).unwrap();
+    b.read_variable(X, body).unwrap(); // resolves to the loop phi in hdr
+    b.set_term(body, Terminator::Jump { to: hdr }).unwrap();
+
+    b.switch_to(arm2).unwrap();
+    b.write_variable(X, arm2, n).unwrap();
+    b.set_term(arm2, Terminator::Jump { to: join }).unwrap();
+
+    b.switch_to(join).unwrap();
+    let x_join = b.read_variable(X, join).unwrap();
+    let s = b.fresh(Type::Int64);
+    b.push(Instr::IAdd {
+        lhs: x_join,
+        rhs: n,
+        into: s,
+    })
+    .unwrap();
+    b.set_term(join, Terminator::Jump { to: hdr }).unwrap();
+
+    b.seal_block(body).unwrap();
+    b.seal_block(join).unwrap(); // join phi = phi[loop phi, n] while the loop phi is Bottom
+    b.seal_block(arm2).unwrap();
+    b.seal_block(hdr).unwrap(); // loop phi = phi[big, join phi]
+    b.seal_block(b.entry()).unwrap();
+    let f = b.finish().unwrap();
+
+    let p = f.blocks[1].phis[0].into;
+    let join_phi = f.blocks[4].phis[0].into;
+    assert_eq!(
+        f.blocks[4].phis,
+        vec![Phi {
+            into: join_phi,
+            incomings: vec![(p, BlockId(1)), (n, BlockId(3))].into(),
+        }]
+    );
+    assert_eq!(f.types[p.0 as usize], Type::BigInt);
+    assert_eq!(f.types[join_phi.0 as usize], Type::BigInt);
+
+    // The verifier sees the merged BigInt through the phi.
+    match verify::verify_function(&f) {
+        Err(VerifyError::OperandType {
+            value, expected, ..
+        }) => {
+            assert_eq!(value, join_phi);
+            assert_eq!(expected, Type::Int64);
+        }
+        other => panic!("expected operand type error, got {other:?}"),
+    }
+}
+
+#[test]
 fn finish_requires_term_and_seal() {
     let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
     let extra = b.new_block();
@@ -1011,12 +1121,7 @@ fn terminator_targets_real_block() {
     }
 
     let f = func(vec![blk(vec![], vec![], Terminator::Unreachable)], vec![]);
-    assert!(
-        matches!(
-            verify::verify_function(&f),
-            Err(VerifyError::BadEntry { .. })
-        ) || verify::verify_function(&f).is_ok()
-    );
+    verify::verify_function(&f).unwrap();
 }
 
 #[test]
