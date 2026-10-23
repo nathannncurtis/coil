@@ -116,13 +116,18 @@ fn expression_lambdef(p: &mut Parser) -> Option<Expr> {
     lambdef(p)
 }
 
-/// `expression_without_invalid`: the expression alternatives without the
-/// invalid ones, as `invalid_expression` needs to probe past them.
+/// `expression_without_invalid`: the `_without_invalid` suffix makes the
+/// generated C clear `call_invalid_rules` for the whole subtree, not just
+/// omit the invalid alternatives, so nested parses (e.g. a tuple inside the
+/// probed expression) cannot raise either.
 pub(crate) fn expression_without_invalid(p: &mut Parser) -> Option<Expr> {
     if !p.enter_rule() {
         return None;
     }
+    let prev = p.call_invalid_rules;
+    p.call_invalid_rules = false;
     let res = p.alternatives(&[expression_ifexp, expression_disjunction, expression_lambdef]);
+    p.call_invalid_rules = prev;
     p.exit_rule();
     res
 }
@@ -1949,7 +1954,11 @@ pub(crate) fn args(p: &mut Parser) -> Option<Expr> {
 fn args_collect(p: &mut Parser) -> Option<Expr> {
     let m = p.mark;
     let a = p.gather(args_item, comma)?;
-    let b = if p.expect(T::Comma) { kwargs(p) } else { None };
+    // `[',' kwargs]`: a matched comma whose kwargs fails restores the mark.
+    let b = p.attempt(|p| {
+        p.expect_opt(T::Comma)?;
+        kwargs(p)
+    });
     let pos = p.extra(p.pos_at(m))?;
     p.collect_call_seqs(a, b, pos)
 }

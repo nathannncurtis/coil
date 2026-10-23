@@ -1571,12 +1571,13 @@ fn for_stmt(p: &mut Parser) -> Option<Stmt> {
     };
     // Both loop forms cut after 'in': once the iterable has begun, a failed
     // body aborts the rule instead of falling through to the target check.
+    // Each alternative restores its mark on failure, as `p->mark = _mark` does.
     let mut cut = false;
     if res.is_none() && !p.has_error() {
-        res = for_stmt_sync(p, &mut cut, false);
+        res = p.attempt(|p| for_stmt_sync(p, &mut cut, false));
     }
     if res.is_none() && !cut && !p.has_error() {
-        res = for_stmt_sync(p, &mut cut, true);
+        res = p.attempt(|p| for_stmt_sync(p, &mut cut, true));
     }
     if res.is_none() && !cut && !p.has_error() && p.call_invalid_rules {
         invalid::for_target(p);
