@@ -7,9 +7,9 @@
 //! `float`'s spec machinery, as `formatter_unicode.c` does. C errno is
 //! modelled as an explicit flag on the internal arithmetic helpers: CPython
 //! raises `ZeroDivisionError` on `EDOM` and `OverflowError` on `ERANGE`
-//! exactly where those C library calls set it. `tp_repr` and `tp_new` stay
-//! unset until `str` objects and argument parsing exist, and `nb_divmod`
-//! (and the slots CPython also leaves empty) until tuples do.
+//! exactly where those C library calls set it. `tp_new` stays unset
+//! until argument parsing exists, and `nb_divmod` (and the slots CPython
+//! also leaves empty) until tuples do.
 
 use core::ffi::c_int;
 
@@ -693,8 +693,14 @@ pub fn format_value(re: f64, im: f64, spec: &str) -> Option<String> {
 
 // ------------------------------------------------------------ type object
 
+unsafe extern "C" fn complex_repr(self_: *mut PyObject) -> *mut PyObject {
+    // SAFETY: the object is a complex per the slot contract.
+    unsafe { crate::types::unicode::str_from_utf8(&repr_string(self_)) }
+}
+
 const fn complex_type() -> PyTypeObject {
     let mut t = zero_type();
+    t.tp_repr = Some(complex_repr);
     t.tp_name = c"complex".as_ptr();
     t.tp_basicsize = coil_rt_abi::cp312::complex::SIZEOF as isize;
     t.tp_as_number = &raw mut COMPLEX_AS_NUMBER;
@@ -746,8 +752,9 @@ static mut COMPLEX_AS_NUMBER: PyNumberMethods = PyNumberMethods {
     nb_inplace_matrix_multiply: None,
 };
 
-/// The `complex` type object (CPython's `PyComplex_Type`). `tp_repr`, the
-/// `real`/`imag` members and `tp_new` stay unset until `str` objects,
-/// descriptors and argument parsing exist.
+/// The `complex` type object (CPython's `PyComplex_Type`). `tp_str`
+/// stays unset so `str()` falls back to the repr, as in CPython; the
+/// `real`/`imag` members and `tp_new` wait for descriptors and argument
+/// parsing.
 #[unsafe(no_mangle)]
 pub static mut PyComplex_Type: PyTypeObject = complex_type();

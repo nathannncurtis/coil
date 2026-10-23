@@ -8,10 +8,10 @@
 //! round ties to even, and produce the shortest digit string that
 //! round-trips — re-expressed as the digits/decimal-point pair
 //! `format_float_short` consumes. The `__format__` machinery parses and
-//! renders plain strings because `str` objects do not exist yet; the
-//! unicode task rewraps it. `tp_repr` and `tp_new` stay unset for the same
-//! reason, and `nb_divmod` until tuples do. The format-spec parser and the
-//! number rendering it drives are shared with `complex`.
+//! renders plain strings for the same reason. `tp_new` stays unset
+//! until argument parsing exists, and `nb_divmod` until tuples do. The
+//! format-spec parser and the number rendering it drives are shared with
+//! `complex`.
 
 use core::ffi::{c_char, c_int, c_void};
 
@@ -1625,8 +1625,25 @@ pub extern "C" fn PyFloat_GetInfo() -> *mut PyObject {
 
 // ------------------------------------------------------------ type object
 
+unsafe extern "C" fn float_repr(self_: *mut PyObject) -> *mut PyObject {
+    // SAFETY: the object is a float per the slot contract.
+    unsafe {
+        let Some(text) = double_to_string(
+            value(self_),
+            b'r',
+            0,
+            PY_DTSF_ADD_DOT_0,
+            core::ptr::null_mut(),
+        ) else {
+            return core::ptr::null_mut();
+        };
+        crate::types::unicode::str_from_utf8(&text)
+    }
+}
+
 const fn float_type() -> PyTypeObject {
     let mut t = zero_type();
+    t.tp_repr = Some(float_repr);
     t.tp_name = c"float".as_ptr();
     t.tp_basicsize = coil_rt_abi::cp312::float::SIZEOF as isize;
     t.tp_dealloc = Some(float_dealloc);
@@ -1679,8 +1696,9 @@ static mut FLOAT_AS_NUMBER: PyNumberMethods = PyNumberMethods {
     nb_inplace_matrix_multiply: None,
 };
 
-/// The `float` type object (CPython's `PyFloat_Type`). `tp_repr`, the
-/// `real`/`imag` getsets and `tp_new` stay unset until `str` objects,
-/// descriptors and argument parsing exist.
+/// The `float` type object (CPython's `PyFloat_Type`). `tp_str` stays
+/// unset so `str()` falls back to the repr, as in CPython; the
+/// `real`/`imag` getsets and `tp_new` wait for descriptors and argument
+/// parsing.
 #[unsafe(no_mangle)]
 pub static mut PyFloat_Type: PyTypeObject = float_type();

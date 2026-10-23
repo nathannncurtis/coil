@@ -1105,6 +1105,12 @@ pub fn init_static_types() -> c_int {
             types::tuple::tuple_iter_type_ptr(),
             types::list::list_iter_type_ptr(),
             types::set::set_iter_type_ptr(),
+            &raw mut types::unicode::PyUnicode_Type,
+            &raw mut types::unicode::PyUnicodeIter_Type,
+            &raw mut types::bytes::PyBytes_Type,
+            &raw mut types::bytes::PyBytesIter_Type,
+            &raw mut types::bytes::PyByteArray_Type,
+            &raw mut types::bytes::PyByteArrayIter_Type,
         ];
         for t in objects {
             if PyType_Ready(t) < 0 {
