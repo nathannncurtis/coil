@@ -559,6 +559,10 @@ pub enum Instr {
     },
     /// `MakeCell(initial) -> into`: a fresh closure cell.
     MakeCell { initial: Option<Value>, into: Value },
+    /// `LoadClosure(index) -> into`: the `index`-th cell of this function's
+    /// closure, bound by `MakeFunction`/`MakeClass` to the `index`-th `Free`
+    /// local in `locals` order; `LoadCell`/`StoreCell` operate on it.
+    LoadClosure { index: u32, into: Value },
     /// `LoadCell(cell) -> into`: the cell's value; raises `NameError` when
     /// empty.
     LoadCell { cell: Value, into: Value },

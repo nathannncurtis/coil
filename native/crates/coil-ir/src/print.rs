@@ -235,6 +235,7 @@ pub fn instr_results(ins: &Instr) -> Vec<Value> {
         | I::MakeClass { into, .. }
         | I::MakeCell { into, .. }
         | I::LoadCell { into, .. }
+        | I::LoadClosure { into, .. }
         | I::LoadGlobal { into, .. }
         | I::LoadName { into, .. }
         | I::CallDirect { into, .. }
@@ -491,6 +492,7 @@ fn op_text(pool: &ConstPool, ins: &Instr) -> String {
             val(*kwds)
         )),
         I::MakeCell { initial, .. } => s.push_str(&format!("makecell {}", opt(*initial))),
+        I::LoadClosure { index, .. } => s.push_str(&format!("loadclosure {index}")),
         I::LoadCell { cell, .. } => s.push_str(&format!("loadcell {}", val(*cell))),
         I::StoreCell { cell, value } => {
             s.push_str(&format!("storecell {}, {}", val(*cell), val(*value)))

@@ -1051,6 +1051,11 @@ fn instr(w: &mut W, i: &Instr) {
             w.opt(initial, |w, v| w.u32(v.0));
             w.u32(into.0);
         }
+        I::LoadClosure { index, into } => {
+            w.u16(89);
+            w.u32(*index);
+            w.u32(into.0);
+        }
         I::LoadCell { cell, into } => {
             w.u16(56);
             w.u32(cell.0);
@@ -1483,6 +1488,10 @@ fn instr_r(r: &mut R) -> Result<Instr, Error> {
             callee: Value(r.u32()?),
             args: Value(r.u32()?),
             kwargs: Value(r.u32()?),
+            into: Value(r.u32()?),
+        },
+        89 => I::LoadClosure {
+            index: r.u32()?,
             into: Value(r.u32()?),
         },
         53 => I::MakeFunction {

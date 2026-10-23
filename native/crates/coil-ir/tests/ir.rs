@@ -719,6 +719,10 @@ fn sink_instrs() -> Vec<Instr> {
             initial: Some(vv(0)),
             into: vv(1),
         },
+        Instr::LoadClosure {
+            index: 3,
+            into: vv(1),
+        },
         Instr::LoadCell {
             cell: vv(0),
             into: vv(1),
@@ -929,7 +933,7 @@ fn every_instruction_roundtrips() {
 fn may_raise_marks() {
     let instrs = sink_instrs();
     // Every variant appears once; the marks must survive a roundtrip too.
-    assert_eq!(instrs.len(), 87);
+    assert_eq!(instrs.len(), 88);
     assert!(instrs.iter().filter(|i| i.may_raise()).count() > 0);
     assert!(
         Instr::BinOp {
