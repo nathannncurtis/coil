@@ -1031,7 +1031,7 @@ fn slice_or_starred(p: &mut Parser) -> Option<Expr> {
     if let Some(s) = slice(p) {
         return Some(s);
     }
-    star_expression(p)
+    starred_expression(p)
 }
 
 fn slices_tuple(p: &mut Parser) -> Option<Expr> {
