@@ -304,6 +304,16 @@ fn int_conversion_matches_cpython() {
                 }
             }
             "from_double" => encode_ptr(long::PyLong_FromDouble(from_bits(&row[1]))),
+            "as_ul_mask" => {
+                let a = parse_int(&row[1]);
+                // SAFETY: `a` is an int this runtime built.
+                unsafe { long::PyLong_AsUnsignedLongMask(a).to_string() }
+            }
+            "as_ull_mask" => {
+                let a = parse_int(&row[1]);
+                // SAFETY: `a` is an int this runtime built.
+                unsafe { long::PyLong_AsUnsignedLongLongMask(a).to_string() }
+            }
             "as_double" => {
                 let a = parse_int(&row[1]);
                 // SAFETY: `a` is an int this runtime built.

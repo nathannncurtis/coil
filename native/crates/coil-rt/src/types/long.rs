@@ -22,7 +22,9 @@ use coil_capi_sys::{
 use crate::object::exceptions;
 use crate::object::header;
 use crate::object::singletons;
-use crate::object::typeobject::{Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE, zero_type};
+use crate::object::typeobject::{
+    Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE, zero_type,
+};
 
 /// Bits per digit (`PyLong_SHIFT`).
 pub const SHIFT: usize = 30;
@@ -712,7 +714,7 @@ unsafe fn l_mod(v: *const PyLongObject, w: *const PyLongObject) -> Option<*mut P
 ///
 /// `a` must point to a normalized `PyLongObject`.
 unsafe fn lshift1(a: *const PyLongObject, wordshift: usize, remshift: usize) -> *mut PyObject {
-    // SAFETY: digit reads are within the object.
+    // SAFETY: digit reads and writes stay within the two objects.
     unsafe {
         let da = digits(a);
         if wordshift == 0 && is_compact(a) {
@@ -733,12 +735,42 @@ unsafe fn lshift1(a: *const PyLongObject, wordshift: usize, remshift: usize) -> 
                 },
             );
         }
-        let mut z = vec![0u32; wordshift + da.len() + usize::from(remshift != 0)];
-        let carry = mag_lshift(&mut z[wordshift..], da, remshift);
-        if remshift != 0 {
-            z[wordshift + da.len()] = carry;
+        // `long_lshift1` allocates the result object before touching digits:
+        // the digit cap raises OverflowError and the failed allocation a
+        // MemoryError (`_PyLong_New`), where building a magnitude buffer
+        // first would abort the process on the allocation instead.
+        let newsize = wordshift + da.len() + usize::from(remshift != 0);
+        let z = long_alloc(newsize);
+        if z.is_null() {
+            return core::ptr::null_mut();
         }
-        from_mag(sign(a), &z)
+        {
+            let dest = core::slice::from_raw_parts_mut((*z).ob_digit.as_mut_ptr(), newsize);
+            // The `wordshift` low digits are the allocator's zeroes.
+            let carry = mag_lshift(&mut dest[wordshift..wordshift + da.len()], da, remshift);
+            if remshift != 0 {
+                dest[wordshift + da.len()] = carry;
+            }
+        }
+        // `long_normalize` plus `maybe_small_long`: trim high zeroes, then
+        // collapse a small single digit onto the cache. A nonzero value
+        // shifted left stays nonzero. The digits are addressed through the
+        // pointer — `ob_digit` is declared as a one-element array.
+        let sign_a = sign(a);
+        let out_digits = (*z).ob_digit.as_ptr();
+        let mut size = newsize;
+        while size > 0 && *out_digits.add(size - 1) == 0 {
+            size -= 1;
+        }
+        if size == 1 {
+            let value = *out_digits as i64 * sign_a as i64;
+            if (singletons::SMALL_INT_MIN..=singletons::SMALL_INT_MAX).contains(&value) {
+                crate::alloc::free_block(z.cast());
+                return singletons::get_small_int(value);
+            }
+        }
+        (*z).lv_tag = tag_from_sign_and_size(sign_a, size);
+        z.cast()
     }
 }
 
@@ -2021,26 +2053,35 @@ unsafe extern "C" fn long_pow(
     unsafe { pow(v, w, x) }
 }
 
-/// `divmod_shift`: split a nonnegative shift count into digits and bits,
-/// clipping counts no allocation could satisfy the way CPython clips them.
+/// `divmod_shift`: split a nonnegative shift count into whole digits and
+/// leftover bits. A shift whose digit count reaches `isize::MAX/4` clips
+/// there, as in CPython: a right shift of that much is 0 or -1 anyway, and
+/// the left shift's allocation check raises.
 ///
 /// # Safety
 ///
 /// `shiftby` must point to a normalized nonnegative `PyLongObject`.
-unsafe fn divmod_shift(shiftby: *const PyLongObject) -> Option<(usize, usize)> {
+unsafe fn divmod_shift(shiftby: *const PyLongObject) -> (usize, usize) {
     // SAFETY: at most three digits are read.
     unsafe {
-        if digit_count(shiftby) <= 3 {
-            let mut value: u128 = 0;
-            for &d in digits(shiftby).iter().rev() {
-                value = value << SHIFT | d as u128;
-            }
-            if let Ok(total) = isize::try_from(value) {
-                let total = total as usize;
-                return Some((total / SHIFT, total % SHIFT));
-            }
+        let clip = isize::MAX as usize / core::mem::size_of::<u32>();
+        if digit_count(shiftby) > 3 {
+            return (clip, 0);
         }
-        Some((isize::MAX as usize / core::mem::size_of::<u32>(), 0))
+        let mut total: u128 = 0;
+        for &d in digits(shiftby).iter().rev() {
+            total = total << SHIFT | d as u128;
+        }
+        if total <= isize::MAX as u128 {
+            let total = total as usize;
+            return (total / SHIFT, total % SHIFT);
+        }
+        let wordshift = total / SHIFT as u128;
+        if wordshift < clip as u128 {
+            (wordshift as usize, (total % SHIFT as u128) as usize)
+        } else {
+            (clip, 0)
+        }
     }
 }
 
@@ -2057,10 +2098,8 @@ unsafe extern "C" fn long_lshift(a: *mut PyObject, b: *mut PyObject) -> *mut PyO
         if is_zero(a.cast()) {
             return singletons::get_small_int(0);
         }
-        match divmod_shift(b.cast()) {
-            Some((wordshift, remshift)) => lshift1(a.cast(), wordshift, remshift),
-            None => core::ptr::null_mut(),
-        }
+        let (wordshift, remshift) = divmod_shift(b.cast());
+        lshift1(a.cast(), wordshift, remshift)
     }
 }
 
@@ -2077,10 +2116,8 @@ unsafe extern "C" fn long_rshift(a: *mut PyObject, b: *mut PyObject) -> *mut PyO
         if is_zero(a.cast()) {
             return singletons::get_small_int(0);
         }
-        match divmod_shift(b.cast()) {
-            Some((wordshift, remshift)) => rshift1(a.cast(), wordshift, remshift),
-            None => core::ptr::null_mut(),
-        }
+        let (wordshift, remshift) = divmod_shift(b.cast());
+        rshift1(a.cast(), wordshift, remshift)
     }
 }
 
@@ -2677,9 +2714,11 @@ unsafe fn as_mask(vv: *mut PyObject, bits: u32) -> u128 {
         if is_compact(v) {
             return compact_value(v) as u128 & ((1u128 << bits) - 1);
         }
-        // The digits fold modulo 2**bits: shift them in low first.
+        // The digits fold into a 2**bits register, most significant first
+        // the way CPython's loop runs (`_PyLong_AsUnsignedLongMask`); the
+        // per-step mask is the register's bits shifting out.
         let mut x: u128 = 0;
-        for &d in digits(v).iter() {
+        for &d in digits(v).iter().rev() {
             x = x << SHIFT | d as u128;
             x &= (1u128 << bits) - 1;
         }

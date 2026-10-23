@@ -214,6 +214,11 @@ def gen_int_arithmetic():
         for k in SHIFT_BY:
             rows.append(("<<", str(a), k, encode(lambda a=a, k=int(k): a << k)))
             rows.append((">>", str(a), k, encode(lambda a=a, k=int(k): a >> k)))
+    # Left shifts whose result cannot exist: the allocation refuses
+    # (MemoryError) and the digit cap refuses (OverflowError), the two
+    # error paths of CPython's long_lshift.
+    rows.append(("<<", "1", str(10**18), encode(lambda: 1 << 10**18)))
+    rows.append(("<<", "1", str(10**20), encode(lambda: 1 << 10**20)))
     for a in a_core + a_big:
         rows.append(("~", str(a), "", encode(lambda a=a: ~a)))
         rows.append(("neg", str(a), "", encode(lambda a=a: -a)))
@@ -277,6 +282,14 @@ def gen_int_convert():
               "2**1024", "-(2**1024)", "10**400", "1152921504606846977"]:
         v = eval(a)
         rows.append(("as_double", str(v), "", encode(lambda v=v: float(v))))
+    # The truncating mask conversions: `&` on Python ints is the C unsigned
+    # wraparound the mask fold computes, so the expectations are exact for
+    # the runtime's 32-bit c_ulong and for the 64-bit unsigned long long.
+    for a in INT_CORE + INT_BIG + [str(2**62), str(-(2**62)), str(2**64 - 1),
+                                   str(-(2**64)), str(2**64)]:
+        v = int(a)
+        rows.append(("as_ul_mask", a, str(v & 0xFFFFFFFF)))
+        rows.append(("as_ull_mask", a, str(v & 0xFFFFFFFFFFFFFFFF)))
     return rows
 
 
