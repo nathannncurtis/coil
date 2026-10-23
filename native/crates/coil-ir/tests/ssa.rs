@@ -666,15 +666,20 @@ fn phi_types_track_incoming_joins() {
     assert_eq!(f.types[p.0 as usize], Type::BigInt);
     assert_eq!(f.types[join_phi.0 as usize], Type::BigInt);
 
-    // The verifier sees the merged BigInt through the phi.
+    // The verifier rejects the merge itself: the join phi (BigInt) takes the
+    // unboxed Int64 `n` without a Box, before its unboxed use is reached.
     match verify::verify_function(&f, &[]) {
-        Err(VerifyError::OperandType {
-            value, expected, ..
+        Err(VerifyError::PhiBoxingMismatch {
+            value,
+            incoming,
+            found,
+            ..
         }) => {
             assert_eq!(value, join_phi);
-            assert_eq!(expected, Type::Int64);
+            assert_eq!(incoming, n);
+            assert_eq!(found, Type::Int64);
         }
-        other => panic!("expected operand type error, got {other:?}"),
+        other => panic!("expected a phi boxing error, got {other:?}"),
     }
 }
 
@@ -1231,6 +1236,13 @@ fn barrier_matches_operand_type() {
     verify::verify_function(&store(Type::Str, BarrierKind::None), &[]).unwrap();
     verify::verify_function(&store(Type::Ext(TypeRef(Sym(4))), BarrierKind::Ext), &[]).unwrap();
     verify::verify_function(&store(Type::Top, BarrierKind::Dynamic), &[]).unwrap();
+    // Dynamic tests the regime at run time, so it is accepted for any type.
+    verify::verify_function(&store(Type::Str, BarrierKind::Dynamic), &[]).unwrap();
+    verify::verify_function(
+        &store(Type::Ext(TypeRef(Sym(4))), BarrierKind::Dynamic),
+        &[],
+    )
+    .unwrap();
     verify::verify_function(
         &store(
             Type::Union(vec![Type::Str, Type::Ext(TypeRef(Sym(4)))].into()),
@@ -1481,4 +1493,148 @@ fn removed_trivial_phi_is_replaced_in_other_variables() {
     let f = b.finish().unwrap();
     assert!(f.blocks.iter().all(|blk| blk.phis.is_empty()));
     verify::verify_function(&f, &[]).unwrap();
+}
+
+#[test]
+fn phi_must_not_merge_boxed_and_unboxed() {
+    // 0: v0 = const; v1 = truth(v0); branch -> 1, 2
+    // 1: v2 = const (Int64); jump 3     2: jump 3     3: v3 = phi(v2, v0); return v3
+    let f = func(
+        vec![
+            blk(
+                vec![],
+                vec![
+                    Instr::Const {
+                        idx: ConstIdx(0),
+                        into: v(0),
+                    },
+                    Instr::Truth {
+                        value: v(0),
+                        into: v(1),
+                    },
+                ],
+                Terminator::Branch {
+                    cond: v(1),
+                    then_to: BlockId(1),
+                    else_to: BlockId(2),
+                },
+            ),
+            blk(
+                vec![],
+                vec![Instr::Const {
+                    idx: ConstIdx(1),
+                    into: v(2),
+                }],
+                Terminator::Jump { to: BlockId(3) },
+            ),
+            blk(vec![], vec![], Terminator::Jump { to: BlockId(3) }),
+            blk(
+                vec![Phi {
+                    into: v(3),
+                    incomings: vec![(v(2), BlockId(1)), (v(0), BlockId(2))].into(),
+                }],
+                vec![],
+                Terminator::Return { value: v(3) },
+            ),
+        ],
+        vec![Type::Top, Type::Bool, Type::Int64, Type::Top],
+    );
+    match verify::verify_function(&f, &[]) {
+        Err(VerifyError::PhiBoxingMismatch {
+            value,
+            incoming,
+            found,
+            ..
+        }) => {
+            assert_eq!(value, v(3));
+            assert_eq!(incoming, v(2));
+            assert_eq!(found, Type::Int64);
+        }
+        other => panic!("expected a phi boxing error, got {other:?}"),
+    }
+}
+
+/// 0 (handler 2): v0 = const; v1 = truth(v0) [may raise]; v2 = const; jump 1
+/// 1: return v0        2: return `handler_returns`
+fn raising_block(handler_returns: Value) -> Function {
+    let mut f = func(
+        vec![
+            blk(
+                vec![],
+                vec![
+                    Instr::Const {
+                        idx: ConstIdx(0),
+                        into: v(0),
+                    },
+                    Instr::Truth {
+                        value: v(0),
+                        into: v(1),
+                    },
+                    Instr::Const {
+                        idx: ConstIdx(1),
+                        into: v(2),
+                    },
+                ],
+                Terminator::Jump { to: BlockId(1) },
+            ),
+            blk(vec![], vec![], Terminator::Return { value: v(0) }),
+            blk(
+                vec![],
+                vec![],
+                Terminator::Return {
+                    value: handler_returns,
+                },
+            ),
+        ],
+        vec![Type::Top, Type::Bool, Type::Top],
+    );
+    f.blocks[0].handler = Some(BlockId(2));
+    f
+}
+
+#[test]
+fn handler_cannot_use_values_defined_after_a_raise() {
+    // v0 exists before truth() can raise, so the handler may use it.
+    verify::verify_function(&raising_block(v(0)), &[]).unwrap();
+    // v2 is computed only if truth() did not raise.
+    match verify::verify_function(&raising_block(v(2)), &[]) {
+        Err(VerifyError::UsedAfterRaise {
+            block,
+            value,
+            def_block,
+        }) => {
+            assert_eq!(block, BlockId(2));
+            assert_eq!(value, v(2));
+            assert_eq!(def_block, BlockId(0));
+        }
+        other => panic!("expected used-after-raise, got {other:?}"),
+    }
+}
+
+#[test]
+fn unreachable_terminators_are_type_checked() {
+    // Block 1 is unreachable and branches on a Top value, not a Bool.
+    let f = func(
+        vec![
+            blk(
+                vec![],
+                vec![Instr::Const {
+                    idx: ConstIdx(0),
+                    into: v(0),
+                }],
+                Terminator::Return { value: v(0) },
+            ),
+            blk(
+                vec![],
+                vec![],
+                Terminator::Branch {
+                    cond: v(0),
+                    then_to: BlockId(0),
+                    else_to: BlockId(0),
+                },
+            ),
+        ],
+        vec![Type::Top],
+    );
+    assert!(verify::verify_function(&f, &[]).is_err());
 }

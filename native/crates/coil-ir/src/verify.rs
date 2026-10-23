@@ -108,6 +108,22 @@ pub enum Error {
         barrier: BarrierKind,
         found: Type,
     },
+    /// A phi merges an unboxed incoming with a different type (boxed, or
+    /// another unboxed kind); lowering must `Box`/`Unbox` before the merge.
+    PhiBoxingMismatch {
+        block: BlockId,
+        value: Value,
+        incoming: Value,
+        found: Type,
+    },
+    /// A value defined at or after the first may-raise instruction of a block
+    /// is used where only the exception edge to that block's handler leads:
+    /// when the instruction raises, the value was never computed.
+    UsedAfterRaise {
+        block: BlockId,
+        value: Value,
+        def_block: BlockId,
+    },
 }
 
 impl fmt::Display for Error {
@@ -267,6 +283,25 @@ impl fmt::Display for Error {
                 at(*block, *instr),
                 value.0
             ),
+            Error::PhiBoxingMismatch {
+                block,
+                value,
+                incoming,
+                found,
+            } => write!(
+                f,
+                "b{}: phi v{} merges v{} of type {found}, a boxed/unboxed mismatch; box or unbox before the merge",
+                block.0, value.0, incoming.0
+            ),
+            Error::UsedAfterRaise {
+                block,
+                value,
+                def_block,
+            } => write!(
+                f,
+                "b{}: v{} is defined in b{} at or after a may-raise instruction, so it is undefined on the exception edge",
+                block.0, value.0, def_block.0
+            ),
         }
     }
 }
@@ -412,7 +447,34 @@ pub fn verify_function(f: &Function, classes: &[ClassDesc]) -> Result<(), Error>
                                 def_block: *db,
                             });
                         }
+                        // The edge from `from` to its handler leaves at the
+                        // first may-raise instruction, not at the block end.
+                        if from_reachable
+                            && *db == *from
+                            && exception_edge_only(f, *from, block)
+                            && after_first_raise(f, *db, *dpos)
+                        {
+                            return Err(Error::UsedAfterRaise {
+                                block,
+                                value: *v,
+                                def_block: *db,
+                            });
+                        }
                     }
+                }
+                let (pt, it) = (&f.types[p.into.idx()], f.types.get(v.idx()));
+                if let Some(it) = it
+                    && !is_bottom(pt)
+                    && !is_bottom(it)
+                    && (is_unboxed(pt) || is_unboxed(it))
+                    && pt != it
+                {
+                    return Err(Error::PhiBoxingMismatch {
+                        block,
+                        value: p.into,
+                        incoming: *v,
+                        found: it.clone(),
+                    });
                 }
             }
         }
@@ -443,23 +505,31 @@ pub fn verify_function(f: &Function, classes: &[ClassDesc]) -> Result<(), Error>
                                     def_block: *db,
                                 });
                             }
+                            if late_for_handler(f, &dom, *db, *dpos, block) {
+                                return Err(Error::UsedAfterRaise {
+                                    block,
+                                    value: v,
+                                    def_block: *db,
+                                });
+                            }
                         }
                     }
                 }
             }
         }
 
-        // The terminator's operands are used at the block's end.
+        // The terminator's operands are used at the block's end. Types are
+        // checked in unreachable blocks too, as instruction types are.
+        let mut ops = Vec::new();
+        check_term_types(
+            f,
+            classes,
+            block,
+            InstrId(offset[bi] + b.instrs.len() as u32),
+            &b.term,
+            &mut ops,
+        )?;
         if reachable {
-            let mut ops = Vec::new();
-            check_term_types(
-                f,
-                classes,
-                block,
-                InstrId(offset[bi] + b.instrs.len() as u32),
-                &b.term,
-                &mut ops,
-            )?;
             for v in ops {
                 match defs.get(&v.0) {
                     None => {
@@ -476,6 +546,13 @@ pub fn verify_function(f: &Function, classes: &[ClassDesc]) -> Result<(), Error>
                             return Err(Error::OperandNotDominated {
                                 block,
                                 instr: InstrId(offset[bi] + b.instrs.len() as u32),
+                                value: v,
+                                def_block: *db,
+                            });
+                        }
+                        if late_for_handler(f, &dom, *db, *dpos, block) {
+                            return Err(Error::UsedAfterRaise {
+                                block,
                                 value: v,
                                 def_block: *db,
                             });
@@ -509,6 +586,44 @@ fn def_dominates_use(
         };
     }
     dom.dominates(def_block, block)
+}
+
+/// Whether the definition at instruction `dpos` of `block` comes at or after
+/// the block's first may-raise instruction (phis, `None`, come before it).
+fn after_first_raise(f: &Function, block: BlockId, dpos: Option<u32>) -> bool {
+    let Some(d) = dpos else { return false };
+    f.blocks[block.0 as usize]
+        .instrs
+        .iter()
+        .position(Instr::may_raise)
+        .is_some_and(|first| d as usize >= first)
+}
+
+/// Whether `to` is reached from `from` only through `from`'s exception edge.
+fn exception_edge_only(f: &Function, from: BlockId, to: BlockId) -> bool {
+    let b = &f.blocks[from.0 as usize];
+    b.handler == Some(to) && !term_targets(&b.term).contains(&to)
+}
+
+/// Whether a value defined in `def_block` after its first may-raise
+/// instruction is used in `block`, which every path reaches through
+/// `def_block`'s handler and only over the exception edge.
+fn late_for_handler(
+    f: &Function,
+    dom: &Dominators,
+    def_block: BlockId,
+    dpos: Option<u32>,
+    block: BlockId,
+) -> bool {
+    let Some(h) = f.blocks[def_block.0 as usize].handler else {
+        return false;
+    };
+    def_block != block
+        && exception_edge_only(f, def_block, h)
+        && dom.dominates(h, block)
+        // Inside the handler's own region the value can also arrive normally.
+        && !dom.dominates(h, def_block)
+        && after_first_raise(f, def_block, dpos)
 }
 
 fn term_targets(t: &Terminator) -> Vec<BlockId> {
@@ -899,7 +1014,9 @@ impl Chk<'_> {
 
     fn barrier(&mut self, v: Value, barrier: BarrierKind) -> Result<(), Error> {
         let t = self.f.types[v.idx()].clone();
-        if regime(self.classes, &t) != barrier {
+        // `Dynamic` tests the regime at run time, so it is correct for any
+        // stored type; the others must match it exactly.
+        if barrier != BarrierKind::Dynamic && regime(self.classes, &t) != barrier {
             return Err(Error::BarrierMismatch {
                 block: self.block,
                 instr: self.id,
