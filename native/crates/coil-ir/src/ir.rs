@@ -466,6 +466,15 @@ pub enum Instr {
         kwnames: Box<[(Sym, Value)]>,
         into: Value,
     },
+    /// `CallEx(callee, args, kwargs) -> into`: call with a runtime argument
+    /// list (CPython's `CALL_FUNCTION_EX`). `args` is the positional
+    /// argument tuple; `kwargs` is a dict or the `None` constant.
+    CallEx {
+        callee: Value,
+        args: Value,
+        kwargs: Value,
+        into: Value,
+    },
     /// `CallMethod(name, recv, args, kwnames) -> into`: `recv.name(...)` with
     /// one lookup.
     CallMethod {
@@ -527,6 +536,9 @@ pub enum Instr {
         level: Value,
         into: Value,
     },
+    /// `ImportStar(module)`: bind every exported name of `module` in the
+    /// current namespace (`from module import *`).
+    ImportStar { module: Value },
     /// `MakeFunction(func, cells, defaults) -> into`: a function object.
     MakeFunction {
         func: FnId,
@@ -534,15 +546,23 @@ pub enum Instr {
         defaults: Box<[Value]>,
         into: Value,
     },
-    /// `MakeClass(desc, bases) -> into`: run the class body of `desc` and
-    /// create the class.
+    /// `MakeClass(desc, bases, cells, kwds) -> into`: run the class body of
+    /// `desc` and create the class. `bases` and `kwds` (a dict or the `None`
+    /// constant) are the `__build_class__` arguments; `cells` closes the
+    /// class body function over its free variables.
     MakeClass {
         desc: ClassId,
         bases: Box<[Value]>,
+        cells: Box<[Value]>,
+        kwds: Value,
         into: Value,
     },
     /// `MakeCell(initial) -> into`: a fresh closure cell.
     MakeCell { initial: Option<Value>, into: Value },
+    /// `LoadClosure(index) -> into`: the `index`-th cell of this function's
+    /// closure, bound by `MakeFunction`/`MakeClass` to the `index`-th `Free`
+    /// local in `locals` order; `LoadCell`/`StoreCell` operate on it.
+    LoadClosure { index: u32, into: Value },
     /// `LoadCell(cell) -> into`: the cell's value; raises `NameError` when
     /// empty.
     LoadCell { cell: Value, into: Value },
@@ -710,6 +730,7 @@ impl Instr {
                 | I::GetIter { .. }
                 | I::Next { .. }
                 | I::Call { .. }
+                | I::CallEx { .. }
                 | I::CallMethod { .. }
                 | I::Truth { .. }
                 | I::Len { .. }
@@ -719,6 +740,7 @@ impl Instr {
                 | I::BuildSet { .. }
                 | I::Unpack { .. }
                 | I::Import { .. }
+                | I::ImportStar { .. }
                 | I::MakeClass { .. }
                 | I::LoadCell { .. }
                 | I::LoadGlobal { .. }

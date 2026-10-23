@@ -1004,6 +1004,22 @@ fn instr(w: &mut W, i: &Instr) {
             w.u32(level.0);
             w.u32(into.0);
         }
+        I::ImportStar { module } => {
+            w.u16(87);
+            w.u32(module.0);
+        }
+        I::CallEx {
+            callee,
+            args,
+            kwargs,
+            into,
+        } => {
+            w.u16(88);
+            w.u32(callee.0);
+            w.u32(args.0);
+            w.u32(kwargs.0);
+            w.u32(into.0);
+        }
         I::MakeFunction {
             func,
             cells,
@@ -1016,15 +1032,28 @@ fn instr(w: &mut W, i: &Instr) {
             w.seq(defaults, |w, v| w.u32(v.0));
             w.u32(into.0);
         }
-        I::MakeClass { desc, bases, into } => {
+        I::MakeClass {
+            desc,
+            bases,
+            cells,
+            kwds,
+            into,
+        } => {
             w.u16(54);
             w.u32(desc.0);
             w.seq(bases, |w, v| w.u32(v.0));
+            w.seq(cells, |w, v| w.u32(v.0));
+            w.u32(kwds.0);
             w.u32(into.0);
         }
         I::MakeCell { initial, into } => {
             w.u16(55);
             w.opt(initial, |w, v| w.u32(v.0));
+            w.u32(into.0);
+        }
+        I::LoadClosure { index, into } => {
+            w.u16(89);
+            w.u32(*index);
             w.u32(into.0);
         }
         I::LoadCell { cell, into } => {
@@ -1452,6 +1481,19 @@ fn instr_r(r: &mut R) -> Result<Instr, Error> {
             level: Value(r.u32()?),
             into: Value(r.u32()?),
         },
+        87 => I::ImportStar {
+            module: Value(r.u32()?),
+        },
+        88 => I::CallEx {
+            callee: Value(r.u32()?),
+            args: Value(r.u32()?),
+            kwargs: Value(r.u32()?),
+            into: Value(r.u32()?),
+        },
+        89 => I::LoadClosure {
+            index: r.u32()?,
+            into: Value(r.u32()?),
+        },
         53 => I::MakeFunction {
             func: FnId(r.u32()?),
             cells: r.seq(|r| Ok(Value(r.u32()?)))?.into(),
@@ -1461,6 +1503,8 @@ fn instr_r(r: &mut R) -> Result<Instr, Error> {
         54 => I::MakeClass {
             desc: ClassId(r.u32()?),
             bases: r.seq(|r| Ok(Value(r.u32()?)))?.into(),
+            cells: r.seq(|r| Ok(Value(r.u32()?)))?.into(),
+            kwds: Value(r.u32()?),
             into: Value(r.u32()?),
         },
         55 => I::MakeCell {

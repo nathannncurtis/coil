@@ -27,6 +27,9 @@ dependencies = [
 [[package]]
 name = "coil-front"
 version = "0.0.0"
+dependencies = [
+ "coil-ir",
+]
 
 [[package]]
 name = "coil-ir"

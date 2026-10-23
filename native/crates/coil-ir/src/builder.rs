@@ -12,6 +12,7 @@ use std::fmt;
 
 use crate::ir::{Block, FnFlags, Function, Instr, LocalMeta, Params, Phi, Terminator};
 use crate::print::instr_results;
+use crate::types::ConstIdx;
 use crate::types::{BlockId, InstrId, Sym, Type, Value};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -42,6 +43,9 @@ pub enum Error {
         var: Sym,
         block: BlockId,
     },
+    /// A read reached an unreachable block, whose reads resolve to the None
+    /// constant, but the lowering never supplied the constant's index.
+    MissingNoneConst,
     /// Sealing fixes a block's predecessor set, so no edge may be added to
     /// or removed from a block that is already sealed.
     EdgeIntoSealed {
@@ -69,6 +73,9 @@ impl fmt::Display for Error {
                     "variable {} read but never written before block {}",
                     var.0, block.0
                 )
+            }
+            Error::MissingNoneConst => {
+                write!(f, "the None constant index was never supplied")
             }
             Error::EdgeIntoSealed { from, to } => {
                 write!(f, "edge from block {} into sealed block {}", from.0, to.0)
@@ -129,7 +136,9 @@ pub struct FunctionBuilder {
     preds: Vec<Vec<BlockId>>,
     defs: Vec<HashMap<Sym, Value>>,
     incomplete: Vec<Vec<(Sym, Value)>>,
+    aliases: Vec<Value>,
     phi_vars: HashMap<Value, Sym>,
+    none_idx: Option<ConstIdx>,
 }
 
 impl FunctionBuilder {
@@ -146,6 +155,7 @@ impl FunctionBuilder {
             defs[0].insert(*name, Value(i as u32));
         }
         let def_site = vec![DefSite::Param; param_types.len()];
+        let aliases = (0..param_types.len() as u32).map(Value).collect::<Vec<_>>();
         Ok(Self {
             qualname,
             params,
@@ -168,7 +178,9 @@ impl FunctionBuilder {
             preds: vec![Vec::new()],
             defs,
             incomplete: vec![Vec::new()],
+            aliases,
             phi_vars: HashMap::new(),
+            none_idx: None,
         })
     }
 
@@ -190,6 +202,12 @@ impl FunctionBuilder {
 
     pub fn add_local(&mut self, local: LocalMeta) {
         self.locals.push(local);
+    }
+
+    /// The index of the None constant, for reads that resolve in
+    /// unreachable blocks. One shared pool indexes constants module-wide.
+    pub fn set_none_const(&mut self, idx: ConstIdx) {
+        self.none_idx = Some(idx);
     }
 
     /// Record the source position of an instruction whose id `push` returned.
@@ -229,7 +247,19 @@ impl FunctionBuilder {
     pub fn fresh(&mut self, ty: Type) -> Value {
         self.types.push(ty);
         self.def_site.push(DefSite::Nowhere);
+        self.aliases.push(Value(self.types.len() as u32 - 1));
         Value(self.types.len() as u32 - 1)
+    }
+
+    /// A removed phi's replacement, followed to a live value: a user's
+    /// cascade can remove the value this phi was just replaced by, so the
+    /// removal's return value must be resolved before it is used as a
+    /// definition.
+    fn resolve(&self, mut v: Value) -> Value {
+        while self.aliases[v.0 as usize] != v {
+            v = self.aliases[v.0 as usize];
+        }
+        v
     }
 
     /// Append an instruction to the current block. The returned id is
@@ -373,11 +403,29 @@ impl FunctionBuilder {
         let value = loop {
             let preds = self.predecessors(cur);
             if preds.is_empty() {
-                // Sealed blocks never gain predecessors, so there is no path
-                // carrying a definition. Empty phis survive only in blocks
-                // that were unsealed when the read happened and seal
-                // unreachable; the entry, always reachable, errors at seal.
-                return Err(Error::UndefinedVariable { var, block: cur });
+                if cur == self.entry {
+                    // Sealed blocks never gain predecessors, so there is no
+                    // path carrying a definition. Empty phis survive only in
+                    // blocks that were unsealed when the read happened and
+                    // seal unreachable; the entry, always reachable, errors
+                    // at seal.
+                    return Err(Error::UndefinedVariable { var, block: cur });
+                }
+                // No predecessors and not the entry: the block is
+                // unreachable, but CPython still compiles its code and the
+                // IR keeps it. A read there has no definition on any path;
+                // give it the None locals start as, so the operand has a
+                // definition that trivially dominates the outgoing edge.
+                let none_idx = self.none_idx.ok_or(Error::MissingNoneConst)?;
+                let into = self.fresh(Type::Top);
+                let saved = self.current.replace(cur);
+                self.push(Instr::Const {
+                    idx: none_idx,
+                    into,
+                })?;
+                self.current = saved;
+                self.defs[cur.0 as usize].insert(var, into);
+                break into;
             }
             if preds.len() > 1 {
                 path.push(cur);
@@ -432,13 +480,15 @@ impl FunctionBuilder {
         for pred in preds {
             incomings.push((self.read_variable(var, pred)?, pred));
         }
-        let blk = &mut self.blocks[block.0 as usize];
-        let p = blk
-            .phis
-            .iter_mut()
-            .find(|p| p.into == phi)
-            .expect("phi just created");
-        p.incomings = incomings.into();
+        {
+            let blk = &mut self.blocks[block.0 as usize];
+            let p = blk
+                .phis
+                .iter_mut()
+                .find(|p| p.into == phi)
+                .expect("phi just created");
+            p.incomings = incomings.into();
+        }
         self.retype_phi_tree(phi);
         self.try_remove_trivial_phi(phi)
     }
@@ -550,6 +600,7 @@ impl FunctionBuilder {
             .filter(|p| p.incomings.iter().any(|(v, _)| *v == phi) && p.into != phi)
             .map(|p| p.into)
             .collect();
+        self.aliases[phi.0 as usize] = same;
         self.replace_all_uses(phi, same);
         self.blocks[block.0 as usize].phis.remove(pos);
         // Later reads must not return the removed phi, whichever variable
@@ -571,7 +622,7 @@ impl FunctionBuilder {
                 self.try_remove_trivial_phi(user)?;
             }
         }
-        Ok(same)
+        Ok(self.resolve(same))
     }
 
     fn find_phi(&self, phi: Value) -> (BlockId, usize) {
@@ -825,6 +876,7 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
         I::Const { .. }
         | I::LoadGlobal { .. }
         | I::LoadName { .. }
+        | I::LoadClosure { .. }
         | I::Safepoint
         | I::CatchEnd
         | I::PopExcInfo
@@ -928,6 +980,16 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
                 f(v);
             }
         }
+        I::CallEx {
+            callee,
+            args,
+            kwargs,
+            ..
+        } => {
+            f(callee);
+            f(args);
+            f(kwargs);
+        }
         I::Format { value, spec, .. } => {
             f(value);
             f(spec);
@@ -964,6 +1026,7 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
             f(fromlist);
             f(level);
         }
+        I::ImportStar { module } => f(module),
         I::MakeFunction {
             cells, defaults, ..
         } => {
@@ -974,10 +1037,16 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
                 f(v);
             }
         }
-        I::MakeClass { bases, .. } => {
+        I::MakeClass {
+            bases, cells, kwds, ..
+        } => {
             for v in bases.iter_mut() {
                 f(v);
             }
+            for v in cells.iter_mut() {
+                f(v);
+            }
+            f(kwds);
         }
         I::MakeCell { initial, .. } => {
             if let Some(v) = initial {

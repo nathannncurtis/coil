@@ -632,6 +632,12 @@ fn sink_instrs() -> Vec<Instr> {
             kwnames: vec![(s, vv(2))].into(),
             into: vv(3),
         },
+        Instr::CallEx {
+            callee: vv(0),
+            args: vv(1),
+            kwargs: vv(2),
+            into: vv(3),
+        },
         Instr::CallMethod {
             name: s,
             recv: vv(0),
@@ -695,6 +701,7 @@ fn sink_instrs() -> Vec<Instr> {
             level: vv(1),
             into: vv(2),
         },
+        Instr::ImportStar { module: vv(0) },
         Instr::MakeFunction {
             func: f,
             cells: vec![vv(0)].into(),
@@ -704,10 +711,16 @@ fn sink_instrs() -> Vec<Instr> {
         Instr::MakeClass {
             desc: cls,
             bases: vec![vv(0)].into(),
+            cells: vec![].into(),
+            kwds: vv(2),
             into: vv(1),
         },
         Instr::MakeCell {
             initial: Some(vv(0)),
+            into: vv(1),
+        },
+        Instr::LoadClosure {
+            index: 3,
             into: vv(1),
         },
         Instr::LoadCell {
@@ -920,7 +933,7 @@ fn every_instruction_roundtrips() {
 fn may_raise_marks() {
     let instrs = sink_instrs();
     // Every variant appears once; the marks must survive a roundtrip too.
-    assert_eq!(instrs.len(), 85);
+    assert_eq!(instrs.len(), 88);
     assert!(instrs.iter().filter(|i| i.may_raise()).count() > 0);
     assert!(
         Instr::BinOp {

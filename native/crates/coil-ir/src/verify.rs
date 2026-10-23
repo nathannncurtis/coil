@@ -10,7 +10,9 @@
 use std::collections::HashMap;
 use std::fmt;
 
-use crate::ir::{BarrierKind, ClassDesc, FnFlags, Function, Instr, Module, Scalar, Terminator};
+use crate::ir::{
+    BarrierKind, ClassDesc, FnFlags, Function, Instr, LocalKind, Module, Scalar, Terminator,
+};
 use crate::print::instr_results;
 use crate::types::{BlockId, InstrId, Type, Value};
 
@@ -31,6 +33,13 @@ pub enum Error {
         block: BlockId,
         instr: InstrId,
         handler: BlockId,
+    },
+    /// A `LoadClosure` index past this function's free locals.
+    ClosureIndex {
+        block: BlockId,
+        instr: InstrId,
+        index: u32,
+        free: usize,
     },
     ValueNotDefined {
         block: BlockId,
@@ -221,6 +230,18 @@ impl fmt::Display for Error {
                 "{}: operand v{} must be {expected}, found {found}",
                 at(*block, *instr),
                 value.0
+            ),
+            Error::ClosureIndex {
+                block,
+                instr,
+                index,
+                free,
+            } => write!(
+                f,
+                "{}: loadclosure {} beyond {} free locals",
+                at(*block, *instr),
+                index,
+                free
             ),
             Error::ResultType {
                 block,
@@ -1220,6 +1241,17 @@ fn check_types(
             }
             c.def_boxed(*into)?;
         }
+        I::CallEx {
+            callee,
+            args,
+            kwargs,
+            into,
+        } => {
+            c.use_boxed(*callee)?;
+            c.use_boxed(*args)?;
+            c.use_boxed(*kwargs)?;
+            c.def_boxed(*into)?;
+        }
         I::Truth { value, into } => {
             c.use_boxed(*value)?;
             c.def_exact(*into, b)?;
@@ -1304,6 +1336,7 @@ fn check_types(
             c.use_boxed(*level)?;
             c.def_boxed(*into)?;
         }
+        I::ImportStar { module } => c.use_boxed(*module)?,
         I::MakeFunction {
             cells,
             defaults,
@@ -1318,15 +1351,41 @@ fn check_types(
             }
             c.def_boxed(*into)?;
         }
-        I::MakeClass { bases, into, .. } => {
+        I::MakeClass {
+            bases,
+            cells,
+            kwds,
+            into,
+            ..
+        } => {
             for v in bases.iter() {
                 c.use_boxed(*v)?;
             }
+            for v in cells.iter() {
+                c.use_boxed(*v)?;
+            }
+            c.use_boxed(*kwds)?;
             c.def_boxed(*into)?;
         }
         I::MakeCell { initial, into } => {
             if let Some(v) = initial {
                 c.use_boxed(*v)?;
+            }
+            c.def_boxed(*into)?;
+        }
+        I::LoadClosure { index, into } => {
+            let free = f
+                .locals
+                .iter()
+                .filter(|m| m.kind == LocalKind::Free)
+                .count();
+            if *index >= free as u32 {
+                return Err(Error::ClosureIndex {
+                    block,
+                    instr: id,
+                    index: *index,
+                    free,
+                });
             }
             c.def_boxed(*into)?;
         }

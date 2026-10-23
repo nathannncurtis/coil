@@ -82,18 +82,40 @@ fn tokens_record(path: &str, bytes: &[u8], out: &mut String) {
 }
 
 fn run(args: &[String]) -> i32 {
-    let mode = match args.first().map(String::as_str) {
-        Some("--tokens") => Mode::Tokens,
-        Some("--ast") => Mode::Ast,
-        Some("--symtable") => Mode::Symtable,
-        _ => {
-            eprintln!("usage: coil-front-dump --tokens|--ast|--symtable FILE...");
+    let mut mode = None;
+    let mut optimize = 0u8;
+    let mut files = Vec::new();
+    let mut rest = args.iter();
+    while let Some(arg) = rest.next() {
+        match arg.as_str() {
+            "--tokens" if mode.is_none() => mode = Some(Mode::Tokens),
+            "--ast" if mode.is_none() => mode = Some(Mode::Ast),
+            "--symtable" if mode.is_none() => mode = Some(Mode::Symtable),
+            "--ir" if mode.is_none() => mode = Some(Mode::Ir),
+            "--optimize" if matches!(mode, Some(Mode::Ir)) => {
+                match rest.next().map(|v| v.parse::<u8>()) {
+                    Some(Ok(level)) if level <= 2 => optimize = level,
+                    _ => {
+                        eprintln!("error: --optimize needs a level in 0..=2");
+                        return 2;
+                    }
+                }
+            }
+            _ => files.push(arg),
+        }
+    }
+    let mode = match mode {
+        Some(mode) => mode,
+        None => {
+            eprintln!(
+                "usage: coil-front-dump --tokens|--ast|--symtable|--ir [--optimize N] FILE..."
+            );
             return 2;
         }
     };
     let mut out = String::new();
     let mut stdout = std::io::stdout().lock();
-    for path in &args[1..] {
+    for path in &files {
         let bytes = match std::fs::read(path) {
             Ok(bytes) => bytes,
             Err(err) => {
@@ -105,6 +127,7 @@ fn run(args: &[String]) -> i32 {
             Mode::Tokens => tokens_record(path, &bytes, &mut out),
             Mode::Ast => ast_record(path, &bytes, &mut out),
             Mode::Symtable => symtable_record(path, &bytes, &mut out),
+            Mode::Ir => ir_record(path, &bytes, optimize, &mut out),
         }
         if stdout.write_all(out.as_bytes()).is_err() {
             return 2;
@@ -204,6 +227,76 @@ fn symtable_record(path: &str, bytes: &[u8], out: &mut String) {
     }
 }
 
+fn ir_record(path: &str, bytes: &[u8], optimize: u8, out: &mut String) {
+    out.push_str("{\"path\":");
+    json_string(out, path);
+    match coil_front::parser::parse_module(bytes, Some(std::path::Path::new(path))) {
+        Ok((module, mut interner)) => {
+            match coil_front::symtable::symtable(&module, &mut interner) {
+                Ok(table) => {
+                    let module_name = std::path::Path::new(path)
+                        .file_stem()
+                        .map_or_else(|| path.to_string(), |s| s.to_string_lossy().into_owned());
+                    let options = coil_front::lower::LowerOptions { optimize };
+                    match coil_front::lower::lower_module(
+                        &module_name,
+                        std::path::PathBuf::from(path),
+                        &module,
+                        bytes,
+                        &interner,
+                        &table,
+                        options,
+                    ) {
+                        Ok(result) => {
+                            out.push_str(&format!(
+                                ",\"ok\":true,\"functions\":{},\"classes\":{},\"unsupported\":[",
+                                result.module.functions.len(),
+                                result.module.classes.len()
+                            ));
+                            for (i, kind) in result.unsupported.iter().enumerate() {
+                                if i > 0 {
+                                    out.push(',');
+                                }
+                                json_string(out, kind.name());
+                            }
+                            out.push_str("],\"ir\":");
+                            json_string(out, &coil_ir::print::print_module(&result.module));
+                            out.push_str("}\n");
+                        }
+                        Err(error) => {
+                            error_record(out, "LowerError", &error.to_string(), &NoPosition);
+                        }
+                    }
+                }
+                Err(error) => {
+                    error_record(out, error.kind.name(), &error.message, &error);
+                }
+            }
+        }
+        Err(error) => {
+            error_record(out, error.kind.name(), &error.message, &error);
+        }
+    }
+}
+
+/// Lowering errors carry no source position.
+struct NoPosition;
+
+impl FrontError for NoPosition {
+    fn lineno(&self) -> Option<i32> {
+        None
+    }
+    fn offset(&self) -> Option<i32> {
+        None
+    }
+    fn end_lineno(&self) -> Option<i32> {
+        None
+    }
+    fn end_offset(&self) -> Option<i32> {
+        None
+    }
+}
+
 fn opt(value: Option<i32>) -> String {
     match value {
         Some(value) => value.to_string(),
@@ -215,6 +308,7 @@ enum Mode {
     Tokens,
     Ast,
     Symtable,
+    Ir,
 }
 
 fn main() {
