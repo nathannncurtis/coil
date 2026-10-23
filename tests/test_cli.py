@@ -16,6 +16,7 @@ from coil.cli import (
     clear_cache,
     show_cache_info,
     _apply_toml_config,
+    main,
 )
 
 
@@ -356,3 +357,262 @@ def test_optimize_flag_invalid():
     parser = create_parser()
     with pytest.raises(SystemExit):
         parser.parse_args(["build", ".", "--optimize", "3"])
+
+
+def test_compile_flag_defaults():
+    parser = create_parser()
+    args = parser.parse_args(["build", "."])
+    assert args.compile is False
+    assert args.keep is None
+    assert args.emit is None
+
+
+def test_compile_flag():
+    parser = create_parser()
+    args = parser.parse_args(["build", ".", "--compile"])
+    assert args.compile is True
+
+
+def test_keep_flag_repeatable():
+    parser = create_parser()
+    args = parser.parse_args(["build", ".", "--keep", "plugins.*", "--keep", "myapp.models.*.to_dict"])
+    assert args.keep == ["plugins.*", "myapp.models.*.to_dict"]
+
+
+@pytest.mark.parametrize("value", ["ir", "asm"])
+def test_emit_flag_accepts(value):
+    parser = create_parser()
+    args = parser.parse_args(["build", ".", "--emit", value])
+    assert args.emit == value
+
+
+def test_emit_flag_rejects_other_values():
+    parser = create_parser()
+    with pytest.raises(SystemExit):
+        parser.parse_args(["build", ".", "--emit", "llvm"])
+
+
+def test_apply_toml_config_compile(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\ncompile = true\npython = "3.12"\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.compile is True
+    assert args.compile_config == {
+        "keep": [],
+        "report": True,
+        "opt": "speed",
+        "stack": 16 * 1024 * 1024,
+    }
+
+
+def test_apply_toml_config_compile_defaults_without_toml(tmp_path: Path):
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.compile is False
+    assert args.compile_config == {}
+
+
+def test_apply_toml_config_compile_table(tmp_path: Path):
+    toml = (
+        '[project]\nentry = "app.py"\n'
+        '[build]\ncompile = true\npython = "3.13"\n'
+        '[compile]\nkeep = ["plugins.*"]\nreport = false\nopt = "size"\nstack = "8MiB"\n'
+    )
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+
+    assert args.compile_config == {
+        "keep": ["plugins.*"],
+        "report": False,
+        "opt": "size",
+        "stack": 8 * 1024 * 1024,
+    }
+
+
+def test_apply_toml_config_compile_profile(tmp_path: Path):
+    toml = (
+        '[project]\nentry = "app.py"\n'
+        '[build]\ncompile = false\npython = "3.12"\n'
+        '[compile]\nopt = "size"\nkeep = ["toml.*"]\n'
+        '[profile.native]\ncompile = true\n'
+        '[profile.small.compile]\nopt = "speed"\nstack = "4MiB"\nkeep = ["small.*"]\n'
+    )
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--profile", "native"])
+    _apply_toml_config(args, tmp_path)
+    assert args.compile is True
+    assert args.compile_config["keep"] == ["toml.*"]
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--profile", "small"])
+    _apply_toml_config(args, tmp_path)
+    # compile stays off from [build]; the profile table still overrides.
+    assert args.compile is False
+    assert args.compile_config["opt"] == "speed"
+    assert args.compile_config["stack"] == 4 * 1024 * 1024
+    assert args.compile_config["keep"] == ["small.*"]
+
+
+def test_apply_toml_config_keep_cli_overrides_toml_and_profile(tmp_path: Path):
+    toml = (
+        '[project]\nentry = "app.py"\n'
+        '[compile]\nkeep = ["toml.*"]\n'
+        '[profile.p]\n[profile.p.compile]\nkeep = ["profile.*"]\n'
+    )
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--profile", "p", "--keep", "cli.*"])
+    _apply_toml_config(args, tmp_path)
+    assert args.compile_config["keep"] == ["cli.*"]
+
+
+def test_apply_toml_config_keep_without_toml_uses_cli(tmp_path: Path):
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--keep", "cli.*"])
+    _apply_toml_config(args, tmp_path)
+    assert args.compile_config == {"keep": ["cli.*"]}
+
+
+def test_apply_toml_config_bad_compile_table(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[compile]\nopt = "fast"\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+
+    with pytest.raises(SystemExit):
+        _apply_toml_config(args, tmp_path)
+
+
+def test_apply_toml_config_compile_bad_python(tmp_path: Path):
+    toml = '[project]\nentry = "app.py"\n[build]\ncompile = true\npython = "3.11"\n'
+    (tmp_path / "coil.toml").write_text(toml)
+
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path)])
+
+    with pytest.raises(SystemExit):
+        _apply_toml_config(args, tmp_path)
+
+
+def _build_project(tmp_path: Path) -> Path:
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "main.py").write_text("print('x')\n")
+    return project
+
+
+def test_compile_requires_windows_os(tmp_path: Path, capsys):
+    project = _build_project(tmp_path)
+    with pytest.raises(SystemExit) as stop:
+        main(["build", str(project), "--compile", "--os", "macos", "--python", "3.12"])
+    assert stop.value.code == 1
+    assert "--compile requires --os windows" in capsys.readouterr().out
+
+
+def test_compile_requires_supported_python(tmp_path: Path, capsys):
+    project = _build_project(tmp_path)
+    with pytest.raises(SystemExit) as stop:
+        main(["build", str(project), "--compile", "--os", "windows", "--python", "3.11"])
+    assert stop.value.code == 1
+    out = capsys.readouterr().out
+    assert "3.12" in out and "3.13" in out
+
+
+def test_compile_accepts_supported_python(tmp_path: Path, capsys):
+    project = _build_project(tmp_path)
+    for version in ("3.12", "3.13"):
+        with pytest.raises(SystemExit) as stop:
+            main(["build", str(project), "--dry-run", "--compile", "--os", "windows", "--python", version])
+        assert stop.value.code == 0
+        assert "Compile:      True" in capsys.readouterr().out
+
+
+def test_compile_python_from_toml_checked(tmp_path: Path, capsys):
+    project = _build_project(tmp_path)
+    (project / "coil.toml").write_text('[build]\ncompile = true\npython = "3.11"\n')
+    with pytest.raises(SystemExit) as stop:
+        main(["build", str(project), "--dry-run"])
+    assert stop.value.code == 1
+    assert "to compile natively" in capsys.readouterr().out
+
+
+def test_dry_run_prints_compile_settings(tmp_path: Path, capsys):
+    project = _build_project(tmp_path)
+    (project / "coil.toml").write_text(
+        '[build]\ncompile = true\npython = "3.12"\n'
+        '[compile]\nkeep = ["plugins.*"]\nopt = "size"\nstack = "8MiB"\nreport = false\n'
+    )
+    with pytest.raises(SystemExit) as stop:
+        main(["build", str(project), "--dry-run", "--emit", "ir"])
+    assert stop.value.code == 0
+    out = capsys.readouterr().out
+    assert "Compile:      True" in out
+    assert "Keep rules:   plugins.*" in out
+    assert "Opt:          size" in out
+    assert "Stack:        8MiB" in out
+    assert "Report:       False" in out
+    assert "Emit:         ir" in out
+
+
+def test_dry_run_prints_cli_compile_settings(tmp_path: Path, capsys):
+    project = _build_project(tmp_path)
+    with pytest.raises(SystemExit) as stop:
+        main([
+            "build", str(project), "--dry-run", "--compile", "--os", "windows",
+            "--python", "3.13", "--keep", "a.*", "--keep", "b.c",
+        ])
+    assert stop.value.code == 0
+    out = capsys.readouterr().out
+    assert "Compile:      True" in out
+    assert "Keep rules:   a.*, b.c" in out
+    assert "Opt:          speed" in out
+    assert "Stack:        16MiB" in out
+    assert "Report:       True" in out
+    assert "Emit:" not in out
+
+
+def test_dry_run_without_compile(tmp_path: Path, capsys):
+    project = _build_project(tmp_path)
+    (project / "coil.toml").write_text('[build]\nos = "windows"\n[compile]\nopt = "size"\n')
+    with pytest.raises(SystemExit) as stop:
+        main(["build", str(project), "--dry-run"])
+    assert stop.value.code == 0
+    out = capsys.readouterr().out
+    assert "Compile:      False" in out
+    assert "Keep rules:" not in out
+
+
+def test_build_with_compile_raises_not_implemented(tmp_path: Path):
+    from coil.builder import build
+
+    project = _build_project(tmp_path)
+    with pytest.raises(NotImplementedError, match="g02"):
+        build(
+            project_dir=project,
+            entry_points=["main.py"],
+            target_os="windows",
+            python_version="3.12",
+            compile=True,
+            compile_config={"keep": ["plugins.*"], "report": True, "opt": "speed", "stack": 16 * 1024 * 1024},
+        )
+
+
+def test_main_build_compile_reports_missing_driver(tmp_path: Path, capsys):
+    project = _build_project(tmp_path)
+    with pytest.raises(SystemExit) as stop:
+        main(["build", str(project), "--compile", "--os", "windows", "--python", "3.12"])
+    assert stop.value.code == 1
+    assert "not implemented" in capsys.readouterr().out

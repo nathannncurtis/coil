@@ -151,6 +151,27 @@ def create_parser() -> argparse.ArgumentParser:
         help="Bytecode optimization level: 0 (none), 1 (strip asserts), 2 (strip asserts + docstrings). Default: 1 for normal builds, 2 for --secure.",
     )
     build_parser.add_argument(
+        "--compile",
+        action="store_true",
+        default=False,
+        help="Compile Python to native machine code. Requires --os windows and Python 3.12 or 3.13.",
+    )
+    build_parser.add_argument(
+        "--keep",
+        type=str,
+        action="append",
+        default=None,
+        metavar="PATTERN",
+        help="With --compile, keep a module, class or function reachable only dynamically (e.g. plugins.*). Can be specified multiple times.",
+    )
+    build_parser.add_argument(
+        "--emit",
+        type=str,
+        choices=["ir", "asm"],
+        default=None,
+        help="With --compile, also emit intermediate representation (ir) or assembly (asm) files.",
+    )
+    build_parser.add_argument(
         "--clear-cache",
         action="store_true",
         default=False,
@@ -450,19 +471,19 @@ def _apply_toml_config(args: argparse.Namespace, project_dir: Path) -> None:
 
     args.build_files = {}
     raw = load_config(project_dir)
-    if raw is None:
-        return
-
-    try:
-        config = get_build_config(raw, profile=args.profile)
-    except ValueError as e:
-        print(f"Error: {e}")
-        sys.exit(1)
+    config = {}
+    if raw is not None:
+        try:
+            config = get_build_config(raw, profile=args.profile)
+        except ValueError as e:
+            print(f"Error: {e}")
+            sys.exit(1)
 
     # Only apply toml values where the CLI didn't explicitly set something.
     # argparse defaults: entry=None, mode="portable", os=None, python=None,
     # gui=False, secure=False, exclude=None, include=None, output="./dist",
-    # name=None, icon=None, verbose=False, clean=False
+    # name=None, icon=None, verbose=False, clean=False, compile=False,
+    # keep=None, emit=None
 
     if args.entry is None and config.get("entry"):
         args.entry = [config["entry"]]
@@ -514,6 +535,15 @@ def _apply_toml_config(args: argparse.Namespace, project_dir: Path) -> None:
 
     if args.include is None and config.get("include"):
         args.include = ",".join(config["include"])
+
+    # compile: [build] compile (or a profile) can enable it; the CLI flag wins
+    if not args.compile and config.get("compile"):
+        args.compile = True
+
+    # [compile] table; CLI --keep rules replace the toml/profile list
+    args.compile_config = dict(config.get("compile_config") or {})
+    if args.keep is not None:
+        args.compile_config["keep"] = list(args.keep)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -597,8 +627,19 @@ def main(argv: list[str] | None = None) -> None:
             )
 
         if target_os != "windows":
-            print(f"Error: {target_os} support is not yet implemented. Only Windows is supported.")
+            if args.compile:
+                print(f"Error: --compile requires --os windows; target OS is {target_os!r}.")
+            else:
+                print(f"Error: {target_os} support is not yet implemented. Only Windows is supported.")
             sys.exit(1)
+
+        if args.compile:
+            from coil.native.config import require_supported_python
+            try:
+                require_supported_python(python_version, "--python")
+            except ValueError as e:
+                print(f"Error: {e}")
+                sys.exit(1)
 
         # Auto-detect icon: if --icon not specified, look for .ico in project dir
         icon = args.icon
@@ -640,6 +681,17 @@ def main(argv: list[str] | None = None) -> None:
             print(f"  GUI:          {args.gui}")
             print(f"  Secure:       {args.secure}")
             print(f"  Optimize:     {optimize}")
+            print(f"  Compile:      {args.compile}")
+            if args.compile:
+                from coil.native.config import COMPILE_DEFAULTS, format_stack_size
+                compile_config = {**COMPILE_DEFAULTS, **args.compile_config}
+                keep = compile_config["keep"]
+                print(f"  Keep rules:   {', '.join(keep) if keep else '(none)'}")
+                print(f"  Opt:          {compile_config['opt']}")
+                print(f"  Stack:        {format_stack_size(compile_config['stack'])}")
+                print(f"  Report:       {compile_config['report']}")
+                if args.emit:
+                    print(f"  Emit:         {args.emit}")
             print(f"  Output:       {args.output}")
             print(f"  Name:         {name}")
             if icon:
@@ -733,6 +785,8 @@ def main(argv: list[str] | None = None) -> None:
                 subsystems=subsystems,
                 deps_auto=deps_auto,
                 extra_files=extra_files,
+                compile=args.compile,
+                compile_config=args.compile_config,
             )
         except Exception as e:
             if args.verbose:
