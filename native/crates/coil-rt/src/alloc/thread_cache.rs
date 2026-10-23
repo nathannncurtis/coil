@@ -1,9 +1,13 @@
 //! Per-thread page caches: the current page and a free-list head for every
 //! size class, owned by the thread state (spec sections 8.6 and 9.1). The
 //! fast path pops the head; refill and page acquisition are calls into
-//! the pool. When `tstate.rs` grows allocation caches (section 10.2) this
-//! moves into `ThreadState`; until then each thread reaches its cache
-//! through the TLS slot below.
+//! the pool. Exhausted or unowned pages with live blocks are not lost:
+//! they sit on the pool's abandoned lists until any cache adopts them.
+//! When `tstate.rs` grows allocation caches (section 10.2) this moves
+//! into `ThreadState`; until then each thread reaches its cache through
+//! the TLS slot below, whose destruction — thread-local destructors
+//! registered before it run after it — must not take allocation and
+//! freeing down with it, so every access tolerates the slot being gone.
 
 use core::sync::atomic::{AtomicU32, Ordering};
 
@@ -62,6 +66,16 @@ impl ThreadCache {
             }
             self.abandon(page, page.base());
         }
+        // Before growing the heap, adopt a page another cache gave up on;
+        // its thread-free list is exactly the free capacity to reuse.
+        if let Some(page) = super::pool::adopt_page(class, self.id) {
+            self.current[class] = Some(page);
+            let stolen = page
+                .thread_free
+                .swap(core::ptr::null_mut(), Ordering::Acquire);
+            self.free[class] = stolen;
+            return self.alloc(class);
+        }
         let Some(page) = super::pool::acquire_page(class, self.id) else {
             return core::ptr::null_mut();
         };
@@ -83,21 +97,20 @@ impl ThreadCache {
         self.free[class] = block;
     }
 
-    /// Give up ownership of an exhausted `page` (its local list is empty
-    /// by construction) and let a fully free page go idle.
+    /// Give up ownership of `page` (its local list is empty by
+    /// construction): a fully free page goes idle, anything else joins
+    /// the abandoned pages for another cache to adopt.
     fn abandon(&mut self, page: &'static PageHeader, base: usize) {
         debug_assert_eq!(page.current_for.load(Ordering::Acquire), self.id);
         page.current_for.store(0, Ordering::Release);
-        if page.used.load(Ordering::Acquire) == 0 {
-            super::pool::recycle_page(page, base);
-        }
+        super::pool::release_page(page, base);
     }
 
-    /// Release every current page at thread death so the pool can recycle
-    /// fully free pages.
+    /// Release every current page at thread death: fully free pages go
+    /// idle, the rest are abandoned for other caches to adopt.
     fn release_all(&mut self) {
         for class in 0..NUM_CLASSES {
-            let Some(page) = self.current[class] else {
+            let Some(page) = self.current[class].take() else {
                 continue;
             };
             let base = page.base();
@@ -110,11 +123,7 @@ impl ThreadCache {
                 block = next;
             }
             self.free[class] = core::ptr::null_mut();
-            page.current_for.store(0, Ordering::Release);
-            if page.used.load(Ordering::Acquire) == 0 {
-                super::pool::recycle_page(page, base);
-            }
-            self.current[class] = None;
+            self.abandon(page, base);
         }
     }
 }
@@ -129,12 +138,54 @@ thread_local! {
     static CACHE: RefCell<ThreadCache> = RefCell::new(ThreadCache::new());
 }
 
-/// Run `f` with this thread's cache.
-pub fn with<R>(f: impl FnOnce(&mut ThreadCache) -> R) -> R {
-    CACHE.with(|cache| f(&mut cache.borrow_mut()))
+/// Pop a block of `class` through this thread's cache. After the thread's
+/// TLS slot has been destroyed the request is served without a cache.
+/// The block's `used` count is raised here. Null means out of memory.
+pub fn alloc(class: usize) -> *mut u8 {
+    match CACHE.try_with(|cache| cache.borrow_mut().alloc(class)) {
+        Ok(block) => {
+            if !block.is_null() {
+                super::page::header_of(block)
+                    .used
+                    .fetch_add(1, Ordering::Relaxed);
+            }
+            block
+        }
+        Err(_) => alloc_without_cache(class),
+    }
 }
 
-/// This thread's cache id; 0 before the cache exists.
+/// Serve one allocation once this thread's cache is gone (a destructor
+/// registered before the cache may still allocate): take an unowned page
+/// — adopting an abandoned one if possible — pop a single block from its
+/// thread-free list, and park the page again so the rest stays reachable.
+/// The pool lock per allocation only ever runs on this teardown path.
+fn alloc_without_cache(class: usize) -> *mut u8 {
+    let Some(page) =
+        super::pool::adopt_page(class, 0).or_else(|| super::pool::acquire_page(class, 0))
+    else {
+        return core::ptr::null_mut();
+    };
+    let block = super::free::pop_thread_free(page);
+    if !block.is_null() {
+        page.used.fetch_add(1, Ordering::Relaxed);
+    }
+    super::pool::release_page(page, page.base());
+    block
+}
+
+/// Owner-local free push. Returns false when this thread's cache is gone
+/// (its TLS slot already destroyed), in which case the caller must use
+/// the page's thread-free list.
+pub fn try_push_local(class: usize, block: *mut u8) -> bool {
+    CACHE
+        .try_with(|cache| cache.borrow_mut().push_local(class, block))
+        .is_ok()
+}
+
+/// This thread's cache id; 0 while there is none — including after its
+/// TLS slot is destroyed, which routes owner-local frees to the pages'
+/// thread-free lists.
 pub fn current_id() -> u32 {
-    CACHE.with(|cache| cache.borrow().id)
+    CACHE.try_with(|cache| cache.borrow().id).unwrap_or(0)
 }

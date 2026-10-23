@@ -244,6 +244,97 @@ fn memory_is_reused_after_free() {
 }
 
 #[test]
+fn allocation_survives_thread_cache_teardown() {
+    static OUTCOME: AtomicUsize = AtomicUsize::new(0);
+    // Registered before the allocator's TLS slot on the worker thread, so
+    // its destructor runs after the cache is destroyed: it must still be
+    // able to allocate on and free from the GC heap.
+    thread_local! {
+        static LATE: LateUser = const { LateUser };
+    }
+    struct LateUser;
+    impl Drop for LateUser {
+        fn drop(&mut self) {
+            let obj = alloc_object(64);
+            if obj.is_null() {
+                OUTCOME.store(1, Ordering::SeqCst);
+                return;
+            }
+            // SAFETY: the block was just allocated and holds 64 bytes.
+            unsafe {
+                *obj = 0x5a;
+            }
+            // SAFETY: the byte written above is ours to read back.
+            let intact = unsafe { *obj } == 0x5a;
+            let freed = free(obj);
+            OUTCOME.store(if intact && freed { 2 } else { 3 }, Ordering::SeqCst);
+        }
+    }
+    std::thread::spawn(|| {
+        LATE.with(|_| ()); // register LATE before the allocator's slot
+        let warm = alloc_object(32); // creates this thread's cache
+        assert!(!warm.is_null());
+        assert!(free(warm));
+    })
+    .join()
+    .unwrap();
+    assert_eq!(
+        OUTCOME.load(Ordering::SeqCst),
+        2,
+        "allocation must survive destruction of the thread-cache TLS slot"
+    );
+}
+
+#[test]
+fn abandoned_pages_are_readopted() {
+    let _guard = LARGE_RUN_LOCK.lock().unwrap();
+    // Class 2048: exactly 28 blocks per page, and — under the lock — no
+    // other test uses this class.
+    const SIZE: usize = 2_000;
+    const PER_PAGE: usize = 28;
+    let mut batch = Vec::new();
+    for _ in 0..4 * PER_PAGE {
+        let ptr = alloc_object(SIZE);
+        assert!(!ptr.is_null());
+        batch.push(ptr);
+    }
+    let pages: std::collections::HashSet<usize> = batch
+        .iter()
+        .map(|&ptr| page_of(ptr as usize).unwrap().base())
+        .collect();
+    assert_eq!(pages.len(), 4, "four pages for 112 blocks");
+    // The first three pages were abandoned full as the cache refilled.
+    // Free all but one block per page: those blocks park on the abandoned
+    // pages' thread-free lists.
+    for (i, &ptr) in batch.iter().enumerate() {
+        if i % PER_PAGE != 0 {
+            assert!(free(ptr));
+        }
+    }
+    // The freed capacity — on the current page and on the abandoned ones —
+    // must serve these allocations; any fresh page means abandoned pages
+    // are never readopted and survivor-heavy churn grows the heap.
+    let mut second = Vec::new();
+    for _ in 0..3 * PER_PAGE {
+        let ptr = alloc_object(SIZE);
+        assert!(!ptr.is_null());
+        assert!(
+            pages.contains(&page_of(ptr as usize).unwrap().base()),
+            "fresh page served while abandoned pages held free blocks"
+        );
+        second.push(ptr);
+    }
+    for ptr in second {
+        assert!(free(ptr));
+    }
+    for (i, &ptr) in batch.iter().enumerate() {
+        if i % PER_PAGE == 0 {
+            assert!(free(ptr));
+        }
+    }
+}
+
+#[test]
 fn realloc_moves_and_preserves() {
     let ptr = alloc_block(64);
     for i in 0..64 {

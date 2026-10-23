@@ -14,7 +14,6 @@ pub mod sys;
 pub mod thread_cache;
 
 use core::ptr;
-use core::sync::atomic::Ordering;
 
 pub use free::free_block;
 pub use page::{GRANULE, PageHeader};
@@ -65,12 +64,11 @@ pub fn alloc_counted(size: usize) -> *mut u8 {
         return unsafe { block.add(PREHEADER) };
     }
     let class = size_class::class_of(total);
-    let block = thread_cache::with(|cache| cache.alloc(class));
+    let block = thread_cache::alloc(class);
     if block.is_null() {
         return block;
     }
     let header = page::header_of(block);
-    header.used.fetch_add(1, Ordering::Relaxed);
     // SAFETY: the block was just popped and is exclusively ours.
     unsafe { ptr::write_bytes(block, 0, header.block_size()) };
     let base = header.base();
@@ -86,12 +84,11 @@ pub fn alloc_counted(size: usize) -> *mut u8 {
 /// class (a call when it is empty), zero the block, set its bits.
 fn alloc_small(size: usize, is_object: bool) -> *mut u8 {
     let class = size_class::class_of(size);
-    let block = thread_cache::with(|cache| cache.alloc(class));
+    let block = thread_cache::alloc(class);
     if block.is_null() {
         return block;
     }
     let header = page::header_of(block);
-    header.used.fetch_add(1, Ordering::Relaxed);
     // SAFETY: the block was just popped and is exclusively ours.
     unsafe { ptr::write_bytes(block, 0, header.block_size()) };
     let base = header.base();

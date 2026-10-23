@@ -27,6 +27,28 @@ pub(super) fn push_thread_free(page: &PageHeader, block: *mut u8) {
     }
 }
 
+/// Pop one block from `page`'s cross-thread free list (Treiber pop);
+/// null when the list is empty.
+pub(super) fn pop_thread_free(page: &PageHeader) -> *mut u8 {
+    let mut head = page.thread_free.load(Ordering::Relaxed);
+    loop {
+        if head.is_null() {
+            return core::ptr::null_mut();
+        }
+        // SAFETY: free-list blocks are linked through their first word.
+        let next = unsafe { (head as *mut *mut u8).read() };
+        match page.thread_free.compare_exchange_weak(
+            head,
+            next,
+            Ordering::Acquire,
+            Ordering::Relaxed,
+        ) {
+            Ok(_) => return head,
+            Err(observed) => head = observed,
+        }
+    }
+}
+
 /// Free the block at `ptr`, whatever regime or kind it is. Returns true
 /// when `ptr` addressed a live GC-heap allocation (an object address for
 /// counted-regime blocks, the block address otherwise).
@@ -72,9 +94,14 @@ pub unsafe fn free_block(ptr: *mut u8) -> bool {
     }
     page.clear_object_bits(g0, granules);
     let owner = page.current_for.load(Ordering::Acquire);
-    if owner != 0 && owner == thread_cache::current_id() {
-        thread_cache::with(|cache| cache.push_local(page.class as usize, block as *mut u8));
+    if owner != 0
+        && owner == thread_cache::current_id()
+        && thread_cache::try_push_local(page.class as usize, block as *mut u8)
+    {
+        // Owner-local free: the block joins the cache's local list.
     } else {
+        // Another thread's page, or this thread's cache is already
+        // destroyed: the block rides the page's thread-free list.
         push_thread_free(page, block as *mut u8);
     }
     // The Release decrement publishes the bit clears and the list push.

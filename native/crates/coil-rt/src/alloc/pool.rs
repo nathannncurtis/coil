@@ -25,6 +25,10 @@ struct Pool {
     segments: Vec<SegEntry>,
     /// Fully free pages, reusable for their class only.
     idle: [Vec<usize>; NUM_CLASSES],
+    /// Active pages with no owner: their live blocks keep them out of the
+    /// idle list and their free blocks are parked on the page's
+    /// thread-free list, waiting for a cache to adopt them.
+    abandoned: [Vec<usize>; NUM_CLASSES],
 }
 
 static POOL: OnceLock<Mutex<Pool>> = OnceLock::new();
@@ -34,6 +38,7 @@ fn pool() -> MutexGuard<'static, Pool> {
         Mutex::new(Pool {
             segments: Vec::new(),
             idle: [(); NUM_CLASSES].map(|()| Vec::new()),
+            abandoned: [(); NUM_CLASSES].map(|()| Vec::new()),
         })
     })
     .lock()
@@ -119,8 +124,9 @@ fn commit_small_page(
 }
 
 /// Move a fully free, unowned page back to the idle list. Called when a
-/// page stops being owned, or a free drops `used` to zero; rechecks the
-/// conditions under the lock. `header` must be the page at `base`.
+/// free drops `used` to zero; rechecks the conditions under the lock and
+/// delists the page if it was abandoned. `header` must be the page at
+/// `base`.
 pub fn recycle_page(header: &'static PageHeader, base: usize) {
     let mut pool = pool();
     if header.state() != STATE_ACTIVE
@@ -130,7 +136,54 @@ pub fn recycle_page(header: &'static PageHeader, base: usize) {
         return;
     }
     header.set_state(STATE_IDLE);
-    pool.idle[header.class as usize].push(base);
+    let class = header.class as usize;
+    pool.abandoned[class].retain(|&listed| listed != base);
+    pool.idle[class].push(base);
+}
+
+/// A page stops being owned; the caller has just stored `current_for` 0.
+/// Fully free pages go idle for their class; pages with anything left
+/// (live blocks, or free blocks parked on the thread-free list) join the
+/// abandoned list so another thread's cache can adopt them instead of
+/// growing the heap. `header` must be the page at `base`.
+pub fn release_page(header: &'static PageHeader, base: usize) {
+    let mut pool = pool();
+    if header.state() != STATE_ACTIVE || header.current_for.load(Ordering::Acquire) != 0 {
+        // Recycled or re-adopted while we were releasing; not ours to
+        // place.
+        return;
+    }
+    let class = header.class as usize;
+    if header.used.load(Ordering::Acquire) == 0 {
+        header.set_state(STATE_IDLE);
+        pool.idle[class].push(base);
+    } else {
+        pool.abandoned[class].push(base);
+    }
+}
+
+/// Take an abandoned page of `class` for `owner`: an active, unowned
+/// page whose free blocks sit on its thread-free list, ready to be
+/// drained. Pages with an empty thread-free list (nothing to serve yet)
+/// stay listed for a later refill.
+pub fn adopt_page(class: usize, owner: u32) -> Option<&'static PageHeader> {
+    let mut pool = pool();
+    let list = &mut pool.abandoned[class];
+    let mut index = 0;
+    while index < list.len() {
+        let base = list[index];
+        let header = PageHeader::header_at(base);
+        if header.state() == STATE_ACTIVE
+            && header.current_for.load(Ordering::Acquire) == 0
+            && !header.thread_free.load(Ordering::Relaxed).is_null()
+        {
+            list.remove(index);
+            header.current_for.store(owner, Ordering::Release);
+            return Some(header);
+        }
+        index += 1;
+    }
+    None
 }
 
 /// Allocate a large object: a run of pages, first fit over the free-run
