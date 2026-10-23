@@ -1780,3 +1780,106 @@ fn unreachable_terminators_are_type_checked() {
     );
     assert!(verify::verify_function(&f, &[]).is_err());
 }
+
+#[test]
+fn walk_honors_write_in_unsealed_predecessor() {
+    // E -> B -> C with X written in B. A read of X from sealed C walks into
+    // unsealed B and must see the write, not a fresh phi that clobbers it.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let blk_b = b.new_block();
+    let blk_c = b.new_block();
+    b.set_term(b.entry(), Terminator::Jump { to: blk_b })
+        .unwrap();
+
+    b.switch_to(blk_b).unwrap();
+    let v1 = konst(&mut b, 7);
+    b.write_variable(X, blk_b, v1).unwrap();
+    b.set_term(blk_b, Terminator::Jump { to: blk_c }).unwrap();
+
+    b.switch_to(blk_c).unwrap();
+    b.seal_block(blk_c).unwrap();
+    assert_eq!(b.read_variable(X, blk_c).unwrap(), v1);
+    assert_eq!(b.read_variable(X, blk_b).unwrap(), v1);
+    b.set_term(blk_c, Terminator::Return { value: v1 }).unwrap();
+
+    b.seal_block(blk_b).unwrap();
+    b.seal_block(b.entry()).unwrap();
+    let f = b.finish().unwrap();
+    assert!(f.blocks.iter().all(|blk| blk.phis.is_empty()));
+    assert_eq!(
+        f.blocks[blk_c.0 as usize].term,
+        Terminator::Return { value: v1 }
+    );
+    assert!(verify::verify_function(&f, &[]).is_ok());
+}
+
+#[test]
+fn undefined_read_in_unsealed_entry_is_undefined_at_seal() {
+    // The entry has no predecessors and is always reachable, so a phi left
+    // empty there by an early read can never gain a definition.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let early = b.read_variable(U, b.entry()).unwrap();
+    let into = b.fresh(Type::Bottom);
+    b.push(Instr::Copy { src: early, into }).unwrap();
+    b.set_term(b.entry(), Terminator::Return { value: into })
+        .unwrap();
+    match b.seal_block(b.entry()) {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, U);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
+fn late_edge_into_sealed_block_is_rejected() {
+    // Sealing fixes a block's predecessor set. B2 is sealed with B1 as its
+    // only predecessor, then B3 tries to add itself via a handler edge and a
+    // terminator edge; both must fail without changing the graph.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let p = v(0);
+    let b1 = b.new_block();
+    let b2 = b.new_block();
+    let b3 = b.new_block();
+    let v1 = konst(&mut b, 1);
+    b.write_variable(X, b.entry(), v1).unwrap();
+    b.set_term(b.entry(), Terminator::Jump { to: b1 }).unwrap();
+    b.seal_block(b.entry()).unwrap();
+
+    b.switch_to(b1).unwrap();
+    b.set_term(b1, Terminator::Jump { to: b2 }).unwrap();
+    b.seal_block(b1).unwrap();
+
+    b.switch_to(b2).unwrap();
+    b.set_term(b2, Terminator::Return { value: p }).unwrap();
+    b.seal_block(b2).unwrap();
+    assert_eq!(b.read_variable(X, b2).unwrap(), v1);
+
+    b.switch_to(b3).unwrap();
+    let v2 = konst(&mut b, 2);
+    b.write_variable(X, b3, v2).unwrap();
+    match b.set_handler(b3, Some(b2)) {
+        Err(BuildError::EdgeIntoSealed { from, to }) => {
+            assert_eq!(from, b3);
+            assert_eq!(to, b2);
+        }
+        other => panic!("expected edge into sealed block, got {other:?}"),
+    }
+    match b.set_term(b3, Terminator::Jump { to: b2 }) {
+        Err(BuildError::EdgeIntoSealed { from, to }) => {
+            assert_eq!(from, b3);
+            assert_eq!(to, b2);
+        }
+        other => panic!("expected edge into sealed block, got {other:?}"),
+    }
+
+    // The rejected calls left the builder usable: B3 terminates elsewhere
+    // and the sealed read of X still sees v1.
+    b.set_term(b3, Terminator::Return { value: v2 }).unwrap();
+    b.seal_block(b3).unwrap();
+    assert_eq!(b.read_variable(X, b2).unwrap(), v1);
+    let f = b.finish().unwrap();
+    assert!(f.blocks[b2.0 as usize].phis.is_empty());
+    assert!(verify::verify_function(&f, &[]).is_ok());
+}

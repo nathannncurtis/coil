@@ -42,6 +42,12 @@ pub enum Error {
         var: Sym,
         block: BlockId,
     },
+    /// Sealing fixes a block's predecessor set, so no edge may be added to
+    /// or removed from a block that is already sealed.
+    EdgeIntoSealed {
+        from: BlockId,
+        to: BlockId,
+    },
 }
 
 impl fmt::Display for Error {
@@ -63,6 +69,9 @@ impl fmt::Display for Error {
                     "variable {} read but never written before block {}",
                     var.0, block.0
                 )
+            }
+            Error::EdgeIntoSealed { from, to } => {
+                write!(f, "edge from block {} into sealed block {}", from.0, to.0)
             }
         }
     }
@@ -248,6 +257,19 @@ impl FunctionBuilder {
     /// is unsealed; edges into sealed blocks must not change.
     pub fn set_term(&mut self, block: BlockId, term: Terminator) -> Result<(), Error> {
         self.check_block(block)?;
+        let mut old_targets = self.blocks[block.0 as usize]
+            .term
+            .as_ref()
+            .map(term_targets)
+            .unwrap_or_default();
+        if let Some(h) = self.blocks[block.0 as usize].handler {
+            old_targets.push(h);
+        }
+        let mut new_targets = term_targets(&term);
+        if let Some(h) = self.blocks[block.0 as usize].handler {
+            new_targets.push(h);
+        }
+        self.check_sealed_edges(block, &old_targets, &new_targets)?;
         let old = self.blocks[block.0 as usize].term.take();
         if let Some(old) = &old {
             for t in term_targets(old) {
@@ -262,19 +284,58 @@ impl FunctionBuilder {
     }
 
     /// Set the exception handler of `block`, adding the exception edge to
-    /// the handler's predecessors.
+    /// the handler's predecessors. Overwriting is allowed while the block is
+    /// unsealed; edges into sealed blocks must not change.
     pub fn set_handler(&mut self, block: BlockId, handler: Option<BlockId>) -> Result<(), Error> {
         self.check_block(block)?;
         if let Some(h) = handler {
             self.check_block(h)?;
         }
-        if let Some(old) = self.blocks[block.0 as usize].handler {
+        let old_handler = self.blocks[block.0 as usize].handler;
+        let mut old_targets = old_handler.map(|h| vec![h]).unwrap_or_default();
+        if let Some(t) = &self.blocks[block.0 as usize].term {
+            old_targets.extend(term_targets(t));
+        }
+        let mut new_targets = handler.map(|h| vec![h]).unwrap_or_default();
+        if let Some(t) = &self.blocks[block.0 as usize].term {
+            new_targets.extend(term_targets(t));
+        }
+        self.check_sealed_edges(block, &old_targets, &new_targets)?;
+        if let Some(old) = old_handler {
             self.remove_edge(block, old);
         }
         if let Some(h) = handler {
             self.add_edge(block, h);
         }
         self.blocks[block.0 as usize].handler = handler;
+        Ok(())
+    }
+
+    /// Reject edge changes into already-sealed blocks, which would make
+    /// phis and memoized reads stale. Checks net presence, so an edge kept
+    /// through the other slot (terminator or handler) is not a change.
+    fn check_sealed_edges(
+        &self,
+        from: BlockId,
+        old: &[BlockId],
+        new: &[BlockId],
+    ) -> Result<(), Error> {
+        for t in new {
+            if (t.0 as usize) < self.blocks.len()
+                && self.blocks[t.0 as usize].sealed
+                && !old.contains(t)
+            {
+                return Err(Error::EdgeIntoSealed { from, to: *t });
+            }
+        }
+        for t in old {
+            if (t.0 as usize) < self.blocks.len()
+                && self.blocks[t.0 as usize].sealed
+                && !new.contains(t)
+            {
+                return Err(Error::EdgeIntoSealed { from, to: *t });
+            }
+        }
         Ok(())
     }
 
@@ -314,8 +375,8 @@ impl FunctionBuilder {
             if preds.is_empty() {
                 // Sealed blocks never gain predecessors, so there is no path
                 // carrying a definition. Empty phis survive only in blocks
-                // that were unsealed when the read happened and turned out
-                // unreachable.
+                // that were unsealed when the read happened and seal
+                // unreachable; the entry, always reachable, errors at seal.
                 return Err(Error::UndefinedVariable { var, block: cur });
             }
             if preds.len() > 1 {
@@ -328,13 +389,16 @@ impl FunctionBuilder {
                 return Err(Error::UndefinedVariable { var, block: p });
             }
             path.push(cur);
+            // The paper consults the def map at every level of the walk, so
+            // a write in an unsealed predecessor is read back instead of
+            // being clobbered by an incomplete phi.
+            if let Some(&v) = self.defs[p.0 as usize].get(&var) {
+                break v;
+            }
             if !self.blocks[p.0 as usize].sealed {
                 break self.new_phi(var, p, true);
             }
             seen[p.0 as usize] = true;
-            if let Some(&v) = self.defs[p.0 as usize].get(&var) {
-                break v;
-            }
             cur = p;
         };
         for b in path {
@@ -391,6 +455,12 @@ impl FunctionBuilder {
         self.blocks[block.0 as usize].sealed = true;
         for (var, phi) in incomplete {
             let preds = self.predecessors(block);
+            if preds.is_empty() && block == self.entry {
+                // The entry is always reachable and nothing can ever reach it
+                // from outside, so an empty phi here means the read saw a
+                // variable defined on no path.
+                return Err(Error::UndefinedVariable { var, block });
+            }
             let mut incomings = Vec::with_capacity(preds.len());
             for pred in preds {
                 incomings.push((self.read_variable(var, pred)?, pred));
