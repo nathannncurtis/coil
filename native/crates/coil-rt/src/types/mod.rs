@@ -8,6 +8,7 @@ pub mod dict;
 pub mod float_;
 pub mod list;
 pub mod long;
+pub mod set;
 pub mod tuple;
 
 use core::ffi::c_int;
