@@ -705,11 +705,7 @@ fn mov_forms() {
     // r/m (load) and m/r (store): full memory sample at 64 bits, a subset at
     // the other sizes.
     for size in all_sizes() {
-        let sample: &[Mem] = if size == OpSize::S64 {
-            &mems
-        } else {
-            &mems[..8]
-        };
+        let sample: &[Mem] = &mems;
         for reg in Gpr::ALL {
             for mem in sample.iter().copied() {
                 let mut e = Encoder::new();
@@ -847,11 +843,7 @@ fn movzx_movsx_movsxd_forms() {
                     cases += check(instr, &e.finish().unwrap().code);
                 }
             }
-            let sample: &[Mem] = if dst_size == OpSize::S64 {
-                &mems
-            } else {
-                &mems[..8]
-            };
+            let sample: &[Mem] = &mems;
             for dst in Gpr::ALL {
                 for mem in sample.iter().copied() {
                     let mut e = Encoder::new();
@@ -895,11 +887,7 @@ fn lea_forms() {
     let mut cases = 0;
     let mems = mem_operands();
     for size in [OpSize::S16, OpSize::S32, OpSize::S64] {
-        let sample: &[Mem] = if size == OpSize::S64 {
-            &mems
-        } else {
-            &mems[..8]
-        };
+        let sample: &[Mem] = &mems;
         let code = match size {
             OpSize::S16 => Code::Lea_r16_m,
             OpSize::S32 => Code::Lea_r32_m,
@@ -939,7 +927,7 @@ fn alu_forms() {
         for size in all_sizes() {
             let si = size as usize;
             for dst in Gpr::ALL {
-                for src in Gpr::ALL.iter().step_by(4) {
+                for src in Gpr::ALL.iter() {
                     let mut e = Encoder::new();
                     e.alu_rr(op, size, dst, *src);
                     let instr =
@@ -952,11 +940,7 @@ fn alu_forms() {
         // r/m and m/r over the memory sample.
         for size in all_sizes() {
             let si = size as usize;
-            let sample: &[Mem] = if size == OpSize::S64 {
-                &mems
-            } else {
-                &mems[..4]
-            };
+            let sample: &[Mem] = &mems;
             for reg in Gpr::ALL {
                 for mem in sample.iter().copied() {
                     let mut e = Encoder::new();
@@ -993,7 +977,7 @@ fn alu_forms() {
                     vec![0x80, -0x81, 0x7FFF_FFFF, -0x8000_0000],
                 ),
             };
-            for reg in Gpr::ALL.iter().step_by(2) {
+            for reg in Gpr::ALL.iter() {
                 for imm in imm8s.iter().copied() {
                     let mut e = Encoder::new();
                     e.alu_reg_imm(op, size, *reg, imm).unwrap();
@@ -1009,8 +993,7 @@ fn alu_forms() {
                     cases += check(instr, &e.finish().unwrap().code);
                 }
             }
-            let mems5 = [mems[0], mems[3], mems[7], mems[82], mems[100]];
-            for mem in mems5 {
+            for mem in mems.iter().copied() {
                 for imm in imm8s.iter().copied() {
                     let mut e = Encoder::new();
                     e.alu_mem_imm(op, size, mem, imm).unwrap();
@@ -1051,18 +1034,14 @@ fn test_forms() {
             OpSize::S64 => Code::Test_rm64_r64,
         };
         for a in Gpr::ALL {
-            for b in Gpr::ALL.iter().step_by(4) {
+            for b in Gpr::ALL.iter() {
                 let mut e = Encoder::new();
                 e.test_rr(size, a, *b);
                 let instr = Instruction::with2(code_rr, gs(size, a), gs(size, *b)).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        let sample: &[Mem] = if size == OpSize::S64 {
-            &mems
-        } else {
-            &mems[..8]
-        };
+        let sample: &[Mem] = &mems;
         for reg in Gpr::ALL {
             for mem in sample.iter().copied() {
                 let mut e = Encoder::new();
@@ -1084,7 +1063,7 @@ fn test_forms() {
             OpSize::S16 => &[0, 1, 0x7F, -0x80, 0x7FFF, -0x8000],
             OpSize::S32 | OpSize::S64 => &[0, 1, 0x7F, -0x80, 0x7FFF_FFFF, -0x8000_0000],
         };
-        for reg in Gpr::ALL.iter().step_by(2) {
+        for reg in Gpr::ALL.iter() {
             for imm in imms.iter().copied() {
                 let mut e = Encoder::new();
                 e.test_reg_imm(size, *reg, imm).unwrap();
@@ -1092,8 +1071,7 @@ fn test_forms() {
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        let mems5 = [mems[0], mems[4], mems[9], mems[83], mems[101]];
-        for mem in mems5 {
+        for mem in mems.iter().copied() {
             for imm in imms.iter().copied() {
                 let mut e = Encoder::new();
                 e.test_mem_imm(size, mem, imm).unwrap();
@@ -1118,18 +1096,14 @@ fn imul_forms() {
             _ => Code::Imul_r64_rm64,
         };
         for dst in Gpr::ALL {
-            for src in Gpr::ALL.iter().step_by(4) {
+            for src in Gpr::ALL.iter() {
                 let mut e = Encoder::new();
                 e.imul_rr(size, dst, *src).unwrap();
                 let instr = Instruction::with2(code_rr, gs(size, dst), gs(size, *src)).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        let sample: &[Mem] = if size == OpSize::S64 {
-            &mems
-        } else {
-            &mems[..8]
-        };
+        let sample: &[Mem] = &mems;
         for dst in Gpr::ALL {
             for mem in sample.iter().copied() {
                 let mut e = Encoder::new();
@@ -1146,7 +1120,7 @@ fn imul_forms() {
             _ => &[0x80, -0x81, 0x7FFF_FFFF, -0x8000_0000],
         };
         for dst in Gpr::ALL {
-            for src in Gpr::ALL.iter().step_by(3) {
+            for src in Gpr::ALL.iter() {
                 for imm in imm8s {
                     let code = match size {
                         OpSize::S16 => Code::Imul_r16_rm16_imm8,
@@ -1190,11 +1164,7 @@ fn unary_forms() {
                 let instr = Instruction::with1(group3_code(op, size), gs(size, reg)).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
-            let sample: &[Mem] = if size == OpSize::S64 {
-                &mems
-            } else {
-                &mems[..8]
-            };
+            let sample: &[Mem] = &mems;
             for mem in sample.iter().copied() {
                 let mut e = Encoder::new();
                 group3_emit(&mut e, op, size, Loc::Mem(mem)).unwrap();
@@ -1231,11 +1201,7 @@ fn shift_and_bt_forms() {
                     Instruction::with2(shift_code(op, size, false), gs(size, reg), 3u32).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
-            let sample: &[Mem] = if size == OpSize::S64 {
-                &mems
-            } else {
-                &mems[..4]
-            };
+            let sample: &[Mem] = &mems;
             for mem in sample.iter().copied() {
                 let mut e = Encoder::new();
                 e.shift_cl(op, size, Loc::Mem(mem)).unwrap();
@@ -1271,7 +1237,7 @@ fn shift_and_bt_forms() {
             _ => Code::Bt_rm64_imm8,
         };
         for dst in Gpr::ALL {
-            for src in Gpr::ALL.iter().step_by(2) {
+            for src in Gpr::ALL.iter() {
                 let mut e = Encoder::new();
                 e.bt_rr(size, dst, *src).unwrap();
                 let instr = Instruction::with2(code_rr, gs(size, dst), gs(size, *src)).unwrap();
@@ -1282,7 +1248,7 @@ fn shift_and_bt_forms() {
             let instr = Instruction::with2(code_imm, gs(size, dst), 5u32).unwrap();
             cases += check(instr, &e.finish().unwrap().code);
         }
-        for mem in [mems[0], mems[10], mems[50], mems[90], mems[104]] {
+        for mem in mems.iter().copied() {
             let mut e = Encoder::new();
             e.bt_rm(size, mem, Gpr::R11).unwrap();
             cases += check_with(
@@ -1324,15 +1290,15 @@ fn setcc_cmovcc_forms() {
     for cc in ALL_CONDS {
         for size in word_sizes() {
             let code = CMOV[cc as usize][size as usize - 1];
-            for dst in Gpr::ALL.iter().step_by(2) {
-                for src in Gpr::ALL.iter().step_by(3) {
+            for dst in Gpr::ALL.iter() {
+                for src in Gpr::ALL.iter() {
                     let mut e = Encoder::new();
                     e.cmovcc(cc, size, *dst, Loc::Reg(*src)).unwrap();
                     let instr = Instruction::with2(code, gs(size, *dst), gs(size, *src)).unwrap();
                     cases += check(instr, &e.finish().unwrap().code);
                 }
             }
-            for mem in [&mems[0], &mems[6], &mems[60], &mems[105]] {
+            for mem in mems.iter() {
                 let mut e = Encoder::new();
                 e.cmovcc(cc, size, Gpr::R9, Loc::Mem(*mem)).unwrap();
                 cases += check_with(
@@ -1469,18 +1435,14 @@ fn call_ret_push_pop_xchg_forms() {
             OpSize::S64 => Code::Xchg_rm64_r64,
         };
         for a in Gpr::ALL {
-            for b in Gpr::ALL.iter().step_by(4) {
+            for b in Gpr::ALL.iter() {
                 let mut e = Encoder::new();
                 e.xchg(size, Loc::Reg(a), *b).unwrap();
                 let instr = Instruction::with2(code, gs(size, a), gs(size, *b)).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        let sample: &[Mem] = if size == OpSize::S64 {
-            &mems
-        } else {
-            &mems[..4]
-        };
+        let sample: &[Mem] = &mems;
         for mem in sample.iter().copied() {
             let mut e = Encoder::new();
             e.xchg(size, Loc::Mem(mem), Gpr::R10).unwrap();
@@ -1510,13 +1472,9 @@ fn lock_cmpxchg_xadd_forms() {
             OpSize::S32 => Code::Xadd_rm32_r32,
             OpSize::S64 => Code::Xadd_rm64_r64,
         };
-        let sample: &[Mem] = if size == OpSize::S64 {
-            &mems
-        } else {
-            &mems[..8]
-        };
+        let sample: &[Mem] = &mems;
         for src in Gpr::ALL {
-            for mem in sample.iter().copied().take(24) {
+            for mem in sample.iter().copied() {
                 let mut e = Encoder::new();
                 e.lock_cmpxchg(size, mem, src).unwrap();
                 cases += check_with(
@@ -1643,7 +1601,7 @@ fn sse_forms() {
         }
     }
     for r in Xmm::ALL {
-        for mem in mems.iter().copied().take(32) {
+        for mem in mems.iter().copied() {
             let mut e = Encoder::new();
             e.movsd_rm(r, mem).unwrap();
             cases += check_with(
@@ -1676,15 +1634,15 @@ fn sse_forms() {
     // Scalar arithmetic.
     for op in [SdOp::Adds, SdOp::Mul, SdOp::Subs, SdOp::Div, SdOp::Sqrt] {
         for dst in Xmm::ALL {
-            for src in Xmm::ALL.iter().step_by(2) {
+            for src in Xmm::ALL.iter() {
                 let mut e = Encoder::new();
                 e.sd_rr(op, dst, *src);
                 let instr = Instruction::with2(sd_code(op), x(dst), x(*src)).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        for dst in Xmm::ALL.iter().step_by(2) {
-            for mem in [&mems[0], &mems[8], &mems[40], &mems[90]] {
+        for dst in Xmm::ALL.iter() {
+            for mem in mems.iter() {
                 let mut e = Encoder::new();
                 e.sd_rm(op, *dst, *mem).unwrap();
                 cases += check_with(
@@ -1701,14 +1659,14 @@ fn sse_forms() {
             SdCmpOp::Comis => Code::Comisd_xmm_xmmm64,
         };
         for dst in Xmm::ALL {
-            for src in Xmm::ALL.iter().step_by(3) {
+            for src in Xmm::ALL.iter() {
                 let mut e = Encoder::new();
                 e.sd_cmp(op, dst, XmmLoc::Xmm(*src)).unwrap();
                 let instr = Instruction::with2(code, x(dst), x(*src)).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        for mem in [&mems[1], &mems[20], &mems[95]] {
+        for mem in mems.iter() {
             let mut e = Encoder::new();
             e.sd_cmp(op, Xmm::Xmm3, XmmLoc::Mem(*mem)).unwrap();
             cases += check_with(
@@ -1736,14 +1694,14 @@ fn sse_forms() {
             }
         }
         for dst in Gpr::ALL {
-            for src in Xmm::ALL.iter().step_by(2) {
+            for src in Xmm::ALL.iter() {
                 let mut e = Encoder::new();
                 e.cvttsd2si(dst, size, XmmLoc::Xmm(*src)).unwrap();
                 let instr = Instruction::with2(t_code, gs(size, dst), x(*src)).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        for mem in [&mems[2], &mems[30], &mems[100]] {
+        for mem in mems.iter() {
             let mut e = Encoder::new();
             e.cvtsi2sd(Xmm::Xmm5, size, Loc::Mem(*mem)).unwrap();
             cases += check_with(
@@ -1766,14 +1724,14 @@ fn sse_forms() {
             PdOp::Xor => Code::Xorpd_xmm_xmmm128,
         };
         for dst in Xmm::ALL {
-            for src in Xmm::ALL.iter().step_by(4) {
+            for src in Xmm::ALL.iter() {
                 let mut e = Encoder::new();
                 e.pd_rr(op, dst, XmmLoc::Xmm(*src)).unwrap();
                 let instr = Instruction::with2(code, x(dst), x(*src)).unwrap();
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        for mem in [&mems[3], &mems[45], &mems[110]] {
+        for mem in mems.iter() {
             let mut e = Encoder::new();
             e.pd_rr(op, Xmm::Xmm7, XmmLoc::Mem(*mem)).unwrap();
             cases += check_with(
@@ -1784,7 +1742,7 @@ fn sse_forms() {
     }
     for mode in [0u8, 4, 8, 12] {
         for dst in Xmm::ALL {
-            for src in Xmm::ALL.iter().step_by(5) {
+            for src in Xmm::ALL.iter() {
                 let mut e = Encoder::new();
                 e.roundsd(dst, XmmLoc::Xmm(*src), mode).unwrap();
                 let instr = Instruction::with3(
@@ -1797,7 +1755,7 @@ fn sse_forms() {
                 cases += check(instr, &e.finish().unwrap().code);
             }
         }
-        for mem in [&mems[4], &mems[50], &mems[120]] {
+        for mem in mems.iter() {
             let mut e = Encoder::new();
             e.roundsd(Xmm::Xmm0, XmmLoc::Mem(*mem), mode).unwrap();
             cases += check_with(
