@@ -14,12 +14,12 @@ use coil_capi_sys::{
     Py_TPFLAGS_SEQUENCE, Py_TPFLAGS_TUPLE_SUBCLASS, PyObject, PyTypeObject, PyVarObject,
 };
 
-use crate::object::exceptions;
 use crate::object::header;
 use crate::object::singletons;
 use crate::object::typeobject::{
     Py_EQ, Py_GE, Py_GT, Py_LE, Py_LT, Py_NE, PyType_GenericAlloc, zero_type,
 };
+use crate::types::exc as exceptions;
 use crate::types::{Cmp, object_hash, objects_equal, rich_compare};
 
 /// `tuple`'s private extra flag (`_Py_TPFLAGS_MATCH_SELF`).

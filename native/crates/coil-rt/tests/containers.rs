@@ -9,8 +9,9 @@ use std::sync::Once;
 use std::sync::atomic::{AtomicU8, Ordering};
 
 use coil_capi_sys::{PyObject, PyTypeObject};
-use python312::object::{exceptions, header, typeobject};
+use python312::object::{header, typeobject};
 use python312::tstate;
+use python312::types::exc as exceptions;
 use python312::types::{dict, float_, list, long, set, tuple};
 
 const TUPLE_TYPE: *mut PyTypeObject = &raw mut tuple::PyTuple_Type;

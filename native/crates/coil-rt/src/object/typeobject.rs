@@ -20,9 +20,9 @@ use coil_capi_sys::{
     Py_TPFLAGS_TYPE_SUBCLASS, PyMemberDef, PyObject, PyTypeObject, freefunc, hashfunc, visitproc,
 };
 
-use super::exceptions;
 use super::header;
 use crate::types;
+use crate::types::exc as exceptions;
 use crate::util;
 
 /// Rich-comparison opcodes (object.h); macros in C, so not in
@@ -217,6 +217,32 @@ pub unsafe fn c3_linearization(
     Ok([type_].into_iter().chain(merged).collect())
 }
 
+/// Register `t`'s MRO over `bases`, overriding the single-`tp_base` chain
+/// `type_ready` computed. For static types whose real bases are multiple
+/// until tuple objects exist to fill `tp_bases`: the exception hierarchy's
+/// `ExceptionGroup` (section 8.2). False on a C3 conflict, with the
+/// exception set.
+///
+/// # Safety
+///
+/// `t` must be a readied type and every entry of `bases` a readied type.
+pub unsafe fn register_mro(t: *mut PyTypeObject, bases: &[*mut PyTypeObject]) -> bool {
+    // SAFETY: the bases were readied before this call.
+    match unsafe { c3_linearization(t, bases) } {
+        Ok(mro) => {
+            mro_table()
+                .lock()
+                .expect("mro table poisoned")
+                .insert(t as usize, mro.iter().map(|a| *a as usize).collect());
+            true
+        }
+        Err(message) => {
+            crate::tstate::set_string(exceptions::type_error(), message.as_bytes());
+            false
+        }
+    }
+}
+
 /// Pointer-derived default hash (pyhash.c's `_PyHashPointer`): rotate right
 /// by 4 so the zero low bits of aligned pointers do not collide, with -1
 /// mapped to -2.
@@ -383,7 +409,7 @@ pub unsafe extern "C" fn PyType_GenericAlloc(
     block.cast()
 }
 
-unsafe extern "C" fn type_traverse(
+pub(crate) unsafe extern "C" fn type_traverse(
     object: *mut PyObject,
     visit: visitproc,
     arg: *mut c_void,
@@ -1016,17 +1042,6 @@ pub fn init_static_types() -> c_int {
             super::singletons::none_type(),
             super::singletons::ellipsis_type(),
             super::singletons::not_implemented_type(),
-            exceptions::base_exception_type(),
-            exceptions::type_error_type(),
-            exceptions::value_error_type(),
-            exceptions::overflow_error_type(),
-            exceptions::zero_division_error_type(),
-            exceptions::memory_error_type(),
-            exceptions::system_error_type(),
-            exceptions::not_implemented_error_type(),
-            exceptions::index_error_type(),
-            exceptions::key_error_type(),
-            exceptions::runtime_error_type(),
             &raw mut types::tuple::PyTuple_Type,
             &raw mut types::list::PyList_Type,
             &raw mut types::dict::PyDict_Type,
@@ -1040,6 +1055,9 @@ pub fn init_static_types() -> c_int {
             if PyType_Ready(t) < 0 {
                 return -1;
             }
+        }
+        if types::exc::init_exception_types() < 0 {
+            return -1;
         }
         for t in types::dict::dict_static_types() {
             if PyType_Ready(t) < 0 {
