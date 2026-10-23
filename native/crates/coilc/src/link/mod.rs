@@ -1,8 +1,9 @@
 //! The linker: object files into a PE32+ executable with `.text .rdata .data
 //! .pdata .xdata .reloc .rsrc .idata` sections (spec sections 2 and 13.3).
 //! This task covers the core: `.text/.rdata/.data/.bss` input, imports,
-//! relocations and the PE writer; `.pdata`/`.xdata` and `.rsrc` are separate
-//! tasks and their data-directory entries stay empty for now.
+//! relocations and the PE writer; `.pdata`/`.xdata` is a separate task and
+//! its data-directory entry stays empty for now, while `.rsrc` is filled
+//! from `rsrc.rs` when resources are given.
 
 pub mod imports;
 pub mod objfile;
@@ -13,6 +14,8 @@ pub mod pdata;
 pub mod rsrc;
 
 use std::fmt;
+
+use self::rsrc::RsrcError;
 
 /// Everything the linker rejects: bad input geometry, unknown names, or a
 /// relocation that does not fit. The message names the offending item.
@@ -58,6 +61,8 @@ pub enum LinkError {
     },
     NameHasNul(&'static str),
     LayoutOverflow,
+    /// The resource inputs could not be built into a `.rsrc` section.
+    Rsrc(RsrcError),
 }
 
 impl fmt::Display for LinkError {
@@ -115,6 +120,7 @@ impl fmt::Display for LinkError {
             }
             LinkError::NameHasNul(what) => write!(f, "{what} contains a NUL byte"),
             LinkError::LayoutOverflow => write!(f, "image layout arithmetic overflowed"),
+            LinkError::Rsrc(error) => write!(f, "resources: {error}"),
         }
     }
 }

@@ -1,10 +1,10 @@
 //! The PE32+ writer: DOS stub, NT headers, optional header, section table
 //! and data directories for `IMAGE_FILE_MACHINE_AMD64` (spec sections 2
-//! and 13.3). The exception (`.pdata`/`.xdata`) and resource (`.rsrc`)
-//! data-directory entries are left empty on purpose: `link/pdata.rs` and
-//! `link/rsrc.rs` own them and are separate tasks. `python3_forwarder`
-//! writes the `python3.dll` stable-ABI forwarder on the same header
-//! layout (spec section 10.1).
+//! and 13.3). The exception (`.pdata`/`.xdata`) data-directory entry is
+//! left empty on purpose: `link/pdata.rs` owns it and is a separate task.
+//! `.rsrc` is built by `link/rsrc.rs` whenever resources are given, and
+//! `python3_forwarder` writes the `python3.dll` stable-ABI forwarder on
+//! the same header layout (spec section 10.1).
 
 use std::collections::BTreeMap;
 
@@ -14,6 +14,7 @@ use super::LinkError;
 use super::imports;
 use super::objfile::{ObjectFile, Place, SectionId, Subsystem};
 use super::reloc::{self, SectionBytes};
+use super::rsrc;
 
 /// Preferred load address; ASLR moves the image and `.reloc` restores the
 /// absolute addresses.
@@ -59,6 +60,7 @@ const PE_OFFSET: usize = 0x80;
 
 /// Data-directory indices, for the entries this writer fills.
 const DIRECTORY_IMPORT: usize = 1;
+const DIRECTORY_RESOURCE: usize = 2;
 const DIRECTORY_BASERELOC: usize = 5;
 const DIRECTORY_IAT: usize = 12;
 
@@ -88,6 +90,10 @@ pub struct Layout {
     pub iat_directory: (u32, u32),
     pub reloc_rva: u32,
     pub reloc_vsize: u32,
+    /// Where `.rsrc` starts; the section exists only when `rsrc_vsize`
+    /// is nonzero.
+    pub rsrc_rva: u32,
+    pub rsrc_vsize: u32,
     pub size_of_image: u32,
     pub size_of_headers: u32,
 }
@@ -136,6 +142,23 @@ pub fn link(obj: &ObjectFile) -> Result<Vec<u8>, LinkError> {
 
 /// As [`link`], keeping the layout and import facts for inspection.
 pub fn link_image(obj: &ObjectFile) -> Result<LinkOutput, LinkError> {
+    link_inner(obj, None)
+}
+
+/// As [`link_image`], with a `.rsrc` section carrying the given resources
+/// (spec section 13.3). An all-`None` [`rsrc::Resources`] behaves like
+/// [`link_image`].
+pub fn link_with_resources(
+    obj: &ObjectFile,
+    resources: &rsrc::Resources<'_>,
+) -> Result<LinkOutput, LinkError> {
+    link_inner(obj, Some(resources))
+}
+
+fn link_inner(
+    obj: &ObjectFile,
+    resources: Option<&rsrc::Resources<'_>>,
+) -> Result<LinkOutput, LinkError> {
     obj.validate()?;
 
     let text_rva = SECTION_ALIGNMENT;
@@ -176,6 +199,8 @@ pub fn link_image(obj: &ObjectFile) -> Result<LinkOutput, LinkError> {
         iat_directory: (0, 0),
         reloc_rva,
         reloc_vsize: 0,
+        rsrc_rva: 0,
+        rsrc_vsize: 0,
         size_of_image: 0,
         size_of_headers: 0,
     };
@@ -187,7 +212,13 @@ pub fn link_image(obj: &ObjectFile) -> Result<LinkOutput, LinkError> {
     let dir64 = reloc::apply(obj, &layout, &import_table, &mut sections)?;
     let reloc_bytes = reloc::base_relocation_table(&dir64);
     layout.reloc_vsize = reloc_bytes.len() as u32;
-    layout.size_of_image = align_up(reloc_rva + layout.reloc_vsize, SECTION_ALIGNMENT)?;
+    layout.rsrc_rva = align_up(reloc_rva + layout.reloc_vsize, SECTION_ALIGNMENT)?;
+    let rsrc_bytes = match resources {
+        Some(resources) => rsrc::build(resources, layout.rsrc_rva).map_err(LinkError::Rsrc)?,
+        None => Vec::new(),
+    };
+    layout.rsrc_vsize = rsrc_bytes.len() as u32;
+    layout.size_of_image = align_up(layout.rsrc_rva + layout.rsrc_vsize, SECTION_ALIGNMENT)?;
 
     // Empty sections are omitted rather than emitted with zero size and an
     // RVA that would collide with the next section's; `.text` always has
@@ -237,6 +268,14 @@ pub fn link_image(obj: &ObjectFile) -> Result<LinkOutput, LinkError> {
                 | IMAGE_SCN_MEM_READ,
             vsize: layout.reloc_vsize,
             raw: reloc_bytes,
+        });
+    }
+    if !rsrc_bytes.is_empty() {
+        table.push(SectionOut {
+            name: ".rsrc",
+            characteristics: IMAGE_SCN_CNT_INITIALIZED_DATA | IMAGE_SCN_MEM_READ,
+            vsize: layout.rsrc_vsize,
+            raw: rsrc_bytes,
         });
     }
 
@@ -535,7 +574,8 @@ fn section_rva(layout: &Layout, name: &str) -> u32 {
         ".data" => layout.data_rva,
         ".idata" => layout.idata_rva,
         ".reloc" => layout.reloc_rva,
-        _ => unreachable!("the writer only places the five known sections"),
+        ".rsrc" => layout.rsrc_rva,
+        _ => unreachable!("the writer only places the six known sections"),
     }
 }
 
@@ -556,7 +596,7 @@ fn optional_header(
     };
     let size_of_code = raw_of(".text");
     let size_of_initialized_data =
-        raw_of(".rdata") + raw_of(".data") + raw_of(".idata") + raw_of(".reloc");
+        raw_of(".rdata") + raw_of(".data") + raw_of(".idata") + raw_of(".reloc") + raw_of(".rsrc");
 
     let mut oh: Vec<u8> = Vec::with_capacity(SIZE_OF_OPTIONAL_HEADER as usize);
     push_u16(&mut oh, OPTIONAL_HEADER_MAGIC_PE32PLUS);
@@ -606,10 +646,16 @@ fn optional_header(
         (layout.reloc_rva, layout.reloc_vsize)
     };
     for index in 0..NUMBER_OF_RVA_AND_SIZES as usize {
-        // The exception and resource directories stay empty; `pdata.rs`
-        // and `rsrc.rs` own them.
+        // The exception directory stays empty; `pdata.rs` owns it.
         let (rva, size) = match index {
             DIRECTORY_IMPORT => import,
+            DIRECTORY_RESOURCE => {
+                if layout.rsrc_vsize == 0 {
+                    (0, 0)
+                } else {
+                    (layout.rsrc_rva, layout.rsrc_vsize)
+                }
+            }
             DIRECTORY_BASERELOC => base_reloc,
             DIRECTORY_IAT => layout.iat_directory,
             _ => (0, 0),
@@ -655,7 +701,7 @@ fn align_up(value: u32, align: u32) -> Result<u32, LinkError> {
 
 #[cfg(test)]
 mod tests {
-    use super::{IMAGE_BASE, link, link_image, python3_forwarder};
+    use super::{IMAGE_BASE, link, link_image, link_with_resources, python3_forwarder, rsrc};
     use crate::link::LinkError;
     use crate::link::objfile::{
         BssSpec, ObjectFile, Place, Reloc, SectionContent, SectionId, Subsystem, Symbol, Target,
@@ -1051,6 +1097,66 @@ mod tests {
     }
 
     #[test]
+    fn resources_fill_the_resource_directory() {
+        // A minimal one-image .ico.
+        let mut icon = Vec::new();
+        icon.extend_from_slice(&0u16.to_le_bytes());
+        icon.extend_from_slice(&1u16.to_le_bytes());
+        icon.extend_from_slice(&1u16.to_le_bytes());
+        let image = [0x77u8; 16];
+        icon.extend_from_slice(&[16, 16, 0, 0]);
+        icon.extend_from_slice(&1u16.to_le_bytes()); // planes
+        icon.extend_from_slice(&32u16.to_le_bytes()); // bits per pixel
+        icon.extend_from_slice(&(image.len() as u32).to_le_bytes());
+        icon.extend_from_slice(&22u32.to_le_bytes()); // 6-byte header + entry
+        icon.extend_from_slice(&image);
+
+        let version = rsrc::VersionInfo {
+            product_name: "Coil Demo".into(),
+            ..Default::default()
+        };
+        let manifest = b"<assembly />";
+        let resources = rsrc::Resources {
+            icon: Some(&icon),
+            version: Some(&version),
+            manifest: Some(manifest),
+        };
+        let linked = link_with_resources(&object(), &resources).unwrap();
+
+        // .rsrc comes last and the resource data directory names it.
+        let headers = section_headers(&linked.image);
+        let (name, vsize, rva, _) = headers.last().unwrap();
+        assert_eq!(name, ".rsrc");
+        assert_eq!(*vsize, linked.layout.rsrc_vsize);
+        assert_eq!(*rva, linked.layout.rsrc_rva);
+        let (_, _, reloc_rva, _) = headers[headers.len() - 2];
+        assert_eq!(reloc_rva, linked.layout.reloc_rva);
+        assert!(linked.layout.rsrc_rva >= reloc_rva + linked.layout.reloc_vsize);
+
+        // Resource directory entry (index 2) at optional-header offset
+        // 112 + 16.
+        let at = 0x98 + 112 + 16;
+        let directory_rva = u32::from_le_bytes(linked.image[at..at + 4].try_into().unwrap());
+        let directory_size = u32::from_le_bytes(linked.image[at + 4..at + 8].try_into().unwrap());
+        assert_eq!(
+            (directory_rva, directory_size),
+            (linked.layout.rsrc_rva, linked.layout.rsrc_vsize)
+        );
+        assert_eq!(
+            linked.layout.size_of_image,
+            (linked.layout.rsrc_rva + linked.layout.rsrc_vsize).next_multiple_of(0x1000)
+        );
+
+        // The manifest bytes really landed in the section.
+        assert!(
+            linked
+                .image
+                .windows(manifest.len())
+                .any(|window| window == manifest)
+        );
+    }
+
+    #[test]
     fn the_checked_in_export_list_builds_the_forwarder() {
         // The writer's real input: the checked-in `python3-exports.txt`, one
         // `name func|data` line per export. The kind column is irrelevant
@@ -1066,5 +1172,15 @@ mod tests {
         let dir = |at: u32| u32_at(&image, offset_of(&image, dir_rva) + at as usize);
         assert_eq!(dir(20), 867); // NumberOfFunctions
         assert_eq!(dir(24), 867); // NumberOfNames
+    }
+
+    #[test]
+    fn resources_without_content_change_nothing() {
+        let resources = rsrc::Resources::default();
+        let plain = link_image(&object()).unwrap();
+        let empty = link_with_resources(&object(), &resources).unwrap();
+        assert_eq!(plain.image, empty.image);
+        assert_eq!(plain.layout.rsrc_vsize, 0);
+        assert_eq!(empty.layout.rsrc_vsize, 0);
     }
 }
