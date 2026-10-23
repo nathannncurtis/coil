@@ -584,6 +584,53 @@ fn read_in_single_predecessor_cycle_is_undefined() {
 }
 
 #[test]
+fn entry_back_edge_removal_requires_dominating_definition() {
+    // x is written only in a loop body whose terminator jumps back to the
+    // entry: reading x in the entry has no definition on the first pass,
+    // and the trivial phi must not silently adopt the body's value.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let p = v(0);
+    let body = b.new_block();
+    let exit = b.new_block();
+    let x = b.read_variable(X, b.entry()).unwrap();
+    let c0 = cond(&mut b, p);
+    let use_x = b.fresh(Type::Top);
+    b.push(Instr::Copy {
+        src: x,
+        into: use_x,
+    })
+    .unwrap();
+    b.set_term(
+        b.entry(),
+        Terminator::Branch {
+            cond: c0,
+            then_to: body,
+            else_to: exit,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(body).unwrap();
+    let v_body = konst(&mut b, 0);
+    b.write_variable(X, body, v_body).unwrap();
+    b.set_term(body, Terminator::Jump { to: b.entry() })
+        .unwrap();
+
+    b.switch_to(exit).unwrap();
+    b.set_term(exit, Terminator::Return { value: p }).unwrap();
+
+    b.seal_block(body).unwrap();
+    b.seal_block(exit).unwrap();
+    match b.seal_block(b.entry()) {
+        Err(BuildError::UndefinedVariable { var, block }) => {
+            assert_eq!(var, X);
+            assert_eq!(block, BlockId(0));
+        }
+        other => panic!("expected undefined variable, got {other:?}"),
+    }
+}
+
+#[test]
 fn phi_types_track_incoming_joins() {
     // A join phi is filled while one incoming is still an unresolved loop
     // phi (typed Bottom); the loop phi later merges a BigInt and an Int64.
@@ -795,6 +842,50 @@ fn verifier_accepts_valid_function() {
         body: coil_ir::types::FnId(0),
     })
     .unwrap();
+}
+
+#[test]
+fn instruction_ids_follow_block_order() {
+    // Blocks filled out of creation order: the line table must end up keyed
+    // by block-order instruction ids, the id space of `Function`.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let first = b.new_block();
+    let second = b.new_block();
+    b.set_term(b.entry(), Terminator::Jump { to: first })
+        .unwrap();
+
+    b.switch_to(second).unwrap();
+    let a = b.fresh(Type::Top);
+    let second_id = b
+        .push(Instr::Const {
+            idx: ConstIdx(0),
+            into: a,
+        })
+        .unwrap();
+    b.record_line(second_id, 30, 5).unwrap();
+    b.set_term(second, Terminator::Return { value: a }).unwrap();
+
+    b.switch_to(first).unwrap();
+    let c = b.fresh(Type::Top);
+    let first_id = b
+        .push(Instr::Const {
+            idx: ConstIdx(1),
+            into: c,
+        })
+        .unwrap();
+    b.record_line(first_id, 20, 5).unwrap();
+    b.record_line(InstrId(99), 1, 1).unwrap_err(); // not an id `push` returned
+    b.set_term(first, Terminator::Jump { to: second }).unwrap();
+
+    b.seal_all().unwrap();
+    let f = b.finish().unwrap();
+
+    assert_eq!(f.instr_id(BlockId(1), 0), Some(InstrId(0)));
+    assert_eq!(f.instr_id(BlockId(2), 0), Some(InstrId(1)));
+    assert_eq!(f.line_of(InstrId(0)), Some((20, 5)));
+    assert_eq!(f.line_of(InstrId(1)), Some((30, 5)));
+    assert_eq!(f.lines, vec![(InstrId(0), 20, 5), (InstrId(1), 30, 5)]);
+    verify::verify_function(&f, &[]).unwrap();
 }
 
 #[test]
@@ -1380,6 +1471,32 @@ fn values_must_be_defined_once_and_typed() {
     assert!(matches!(
         verify::verify_function(&f, &[]),
         Err(VerifyError::MissingType { value, .. }) if value == v(5)
+    ));
+}
+
+#[test]
+fn parameter_values_cannot_be_redefined() {
+    // v0 is the parameter; an instruction result may not take its value.
+    let f = Function {
+        qualname: Sym(3),
+        params: one_param(),
+        blocks: vec![blk(
+            vec![],
+            vec![Instr::Const {
+                idx: ConstIdx(0),
+                into: v(0),
+            }],
+            Terminator::Return { value: v(0) },
+        )],
+        entry: BlockId(0),
+        locals: vec![],
+        flags: FnFlags(0),
+        types: vec![Type::Top],
+        lines: vec![],
+    };
+    assert!(matches!(
+        verify::verify_function(&f, &[]),
+        Err(VerifyError::ValueDefinedTwice { block: _, instr, value }) if instr == InstrId(0) && value == v(0)
     ));
 }
 

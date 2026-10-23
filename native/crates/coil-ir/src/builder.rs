@@ -11,6 +11,7 @@ use std::collections::HashMap;
 use std::fmt;
 
 use crate::ir::{Block, FnFlags, Function, Instr, LocalMeta, Params, Phi, Terminator};
+use crate::print::instr_results;
 use crate::types::{BlockId, InstrId, Sym, Type, Value};
 
 #[derive(Clone, PartialEq, Eq, Debug)]
@@ -24,6 +25,9 @@ pub enum Error {
     },
     UnknownValue {
         value: Value,
+    },
+    UnknownInstr {
+        instr: InstrId,
     },
     NoCurrentBlock,
     MissingTerminator {
@@ -49,6 +53,7 @@ impl fmt::Display for Error {
             ),
             Error::UnknownBlock { block } => write!(f, "unknown block {}", block.0),
             Error::UnknownValue { value } => write!(f, "unknown value v{}", value.0),
+            Error::UnknownInstr { instr } => write!(f, "unknown instruction {}", instr.0),
             Error::NoCurrentBlock => write!(f, "no current block to emit into"),
             Error::MissingTerminator { block } => write!(f, "block {} has no terminator", block.0),
             Error::UnsealedBlock { block } => write!(f, "block {} is not sealed", block.0),
@@ -73,6 +78,26 @@ struct Blk {
     sealed: bool,
 }
 
+/// Where a value came into being, at emission time: parameters are defined
+/// at the entry by fiat, phis and instruction results carry their block and
+/// the emission counter at their creation. A phi is `incomplete` when a read
+/// in an unsealed block created it; the others are the transient memos of
+/// `read_variable_recursive`, which never outlive the read.
+#[derive(Clone, Copy)]
+enum DefSite {
+    Nowhere,
+    Param,
+    Instr {
+        block: BlockId,
+        at: u32,
+    },
+    Phi {
+        block: BlockId,
+        at: u32,
+        incomplete: bool,
+    },
+}
+
 /// Builds one [`Function`] in SSA form. Parameters are the first values, in
 /// `Params` order, and are the initial definitions of their variables in the
 /// entry block.
@@ -84,9 +109,12 @@ pub struct FunctionBuilder {
     entry: BlockId,
     blocks: Vec<Blk>,
     types: Vec<Type>,
+    def_site: Vec<DefSite>,
     lines: Vec<(InstrId, u32, u32)>,
     current: Option<BlockId>,
     next_instr: u32,
+    /// Emission id of each instruction, per block, parallel to `instrs`.
+    emission: Vec<Vec<u32>>,
     defs: Vec<HashMap<Sym, Value>>,
     incomplete: Vec<Vec<(Sym, Value)>>,
     phi_vars: HashMap<Value, Sym>,
@@ -105,6 +133,7 @@ impl FunctionBuilder {
         for (i, name) in params.names().iter().enumerate() {
             defs[0].insert(*name, Value(i as u32));
         }
+        let def_site = vec![DefSite::Param; param_types.len()];
         Ok(Self {
             qualname,
             params,
@@ -119,9 +148,11 @@ impl FunctionBuilder {
                 sealed: false,
             }],
             types: param_types,
+            def_site,
             lines: Vec::new(),
             current: Some(entry),
             next_instr: 0,
+            emission: vec![Vec::new()],
             defs,
             incomplete: vec![Vec::new()],
             phi_vars: HashMap::new(),
@@ -148,9 +179,15 @@ impl FunctionBuilder {
         self.locals.push(local);
     }
 
-    /// Record the source position of an instruction returned by `push`.
-    pub fn record_line(&mut self, id: InstrId, line: u32, col: u32) {
+    /// Record the source position of an instruction whose id `push` returned.
+    /// Ids are emission-ordered until `finish`, which re-keys the table into
+    /// block order.
+    pub fn record_line(&mut self, id: InstrId, line: u32, col: u32) -> Result<(), Error> {
+        if id.0 >= self.next_instr {
+            return Err(Error::UnknownInstr { instr: id });
+        }
         self.lines.push((id, line, col));
+        Ok(())
     }
 
     /// Append a new unsealed block and return its id.
@@ -164,6 +201,7 @@ impl FunctionBuilder {
         });
         self.defs.push(HashMap::new());
         self.incomplete.push(Vec::new());
+        self.emission.push(Vec::new());
         BlockId(self.blocks.len() as u32 - 1)
     }
 
@@ -176,15 +214,28 @@ impl FunctionBuilder {
     /// Allocate a fresh value of `ty` for an instruction result.
     pub fn fresh(&mut self, ty: Type) -> Value {
         self.types.push(ty);
+        self.def_site.push(DefSite::Nowhere);
         Value(self.types.len() as u32 - 1)
     }
 
-    /// Append an instruction to the current block.
+    /// Append an instruction to the current block. The returned id is
+    /// emission-ordered; `finish` re-keys what `record_line` stored into
+    /// block order, the id space of `Function`.
     pub fn push(&mut self, instr: Instr) -> Result<InstrId, Error> {
         let current = self.current.ok_or(Error::NoCurrentBlock)?;
+        let results = instr_results(&instr);
         self.blocks[current.0 as usize].instrs.push(instr);
         let id = InstrId(self.next_instr);
         self.next_instr += 1;
+        self.emission[current.0 as usize].push(id.0);
+        for r in results {
+            if let Some(site) = self.def_site.get_mut(r.0 as usize) {
+                *site = DefSite::Instr {
+                    block: current,
+                    at: id.0,
+                };
+            }
+        }
         Ok(id)
     }
 
@@ -244,6 +295,11 @@ impl FunctionBuilder {
 
     fn new_phi(&mut self, var: Sym, block: BlockId, incomplete: bool) -> Value {
         let val = self.fresh(Type::Bottom);
+        self.def_site[val.0 as usize] = DefSite::Phi {
+            block,
+            at: self.next_instr,
+            incomplete,
+        };
         self.blocks[block.0 as usize].phis.push(Phi {
             into: val,
             incomings: Vec::new().into(),
@@ -341,6 +397,32 @@ impl FunctionBuilder {
             }
             return Ok(phi);
         };
+        // The replacement must dominate the phi's block, else every use the
+        // rewrite makes of it is invalid: the entry with a back edge is the
+        // visible case, where the operand's definition only runs on the
+        // second pass and the read had nothing on the first. A result in the
+        // phi's own block must also precede the read that created the phi.
+        // Transient memos are exempt: they never outlive the read that made
+        // them, and the phi waiting on that read reports the error itself.
+        let var = self.phi_vars[&phi];
+        if let DefSite::Phi {
+            at: phi_at,
+            incomplete: true,
+            ..
+        } = self.def_site[phi.0 as usize]
+        {
+            match self.def_site.get(same.0 as usize) {
+                Some(DefSite::Instr { block: d, at }) => {
+                    if !self.dominates(*d, block) || (*d == block && *at >= phi_at) {
+                        return Err(Error::UndefinedVariable { var, block });
+                    }
+                }
+                Some(DefSite::Phi { block: d, .. }) if !self.dominates(*d, block) => {
+                    return Err(Error::UndefinedVariable { var, block });
+                }
+                _ => {}
+            }
+        }
         let users: Vec<Value> = self
             .blocks
             .iter()
@@ -489,6 +571,69 @@ impl FunctionBuilder {
         preds
     }
 
+    /// Successors of `block`: terminator targets and exception edges,
+    /// deduplicated.
+    fn successors(&self, block: BlockId) -> Vec<BlockId> {
+        let mut succs: Vec<BlockId> = Vec::new();
+        let add = |to: BlockId, succs: &mut Vec<BlockId>| {
+            if (to.0 as usize) < self.blocks.len() && !succs.contains(&to) {
+                succs.push(to);
+            }
+        };
+        let b = &self.blocks[block.0 as usize];
+        match &b.term {
+            Some(Terminator::Jump { to }) => add(*to, &mut succs),
+            Some(Terminator::Branch {
+                then_to, else_to, ..
+            }) => {
+                add(*then_to, &mut succs);
+                add(*else_to, &mut succs);
+            }
+            Some(Terminator::Switch { cases, default, .. }) => {
+                for (_, to) in cases.iter() {
+                    add(*to, &mut succs);
+                }
+                add(*default, &mut succs);
+            }
+            None
+            | Some(Terminator::Return { .. })
+            | Some(Terminator::Raise { .. })
+            | Some(Terminator::Reraise)
+            | Some(Terminator::Unreachable) => {}
+        }
+        if let Some(h) = b.handler {
+            add(h, &mut succs);
+        }
+        succs
+    }
+
+    /// Whether `d` dominates `b` in the CFG as emitted: `b` is unreachable
+    /// from the entry once `d` is removed. A block nothing reaches is
+    /// dominated by everything, as in the verifier.
+    fn dominates(&self, d: BlockId, b: BlockId) -> bool {
+        if d == b {
+            return true;
+        }
+        let mut seen = vec![false; self.blocks.len()];
+        let mut stack = vec![self.entry];
+        while let Some(cur) = stack.pop() {
+            if cur == d {
+                continue;
+            }
+            let i = cur.0 as usize;
+            if seen[i] {
+                continue;
+            }
+            seen[i] = true;
+            for s in self.successors(cur) {
+                if !seen[s.0 as usize] {
+                    stack.push(s);
+                }
+            }
+        }
+        !seen[b.0 as usize]
+    }
+
     fn check_block(&self, block: BlockId) -> Result<(), Error> {
         if block.0 as usize >= self.blocks.len() {
             return Err(Error::UnknownBlock { block });
@@ -518,6 +663,22 @@ impl FunctionBuilder {
                 handler: b.handler,
             });
         }
+        // `InstrId` numbers instructions across blocks in block order, so the
+        // emission-order ids `push` handed out are translated here, block by
+        // block. `record_line` validated every id against the counter.
+        let mut final_id = vec![0u32; self.next_instr as usize];
+        let mut acc = 0u32;
+        for block in &self.emission {
+            for &e in block {
+                final_id[e as usize] = acc;
+                acc += 1;
+            }
+        }
+        let mut lines = self.lines;
+        for (id, _, _) in &mut lines {
+            id.0 = final_id[id.0 as usize];
+        }
+        lines.sort_unstable_by_key(|&(id, _, _)| id);
         Ok(Function {
             qualname: self.qualname,
             params: self.params,
@@ -526,7 +687,7 @@ impl FunctionBuilder {
             locals: self.locals,
             flags: self.flags,
             types: self.types,
-            lines: self.lines,
+            lines,
         })
     }
 }

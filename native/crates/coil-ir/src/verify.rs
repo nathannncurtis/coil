@@ -347,6 +347,9 @@ pub fn verify_function(f: &Function, classes: &[ClassDesc]) -> Result<(), Error>
             value: Value(f.types.len() as u32),
         });
     }
+    for v in 0..arity {
+        defs.insert(v, (f.entry, None));
+    }
     for (bi, b) in f.blocks.iter().enumerate() {
         let block = BlockId(bi as u32);
         for p in &b.phis {
