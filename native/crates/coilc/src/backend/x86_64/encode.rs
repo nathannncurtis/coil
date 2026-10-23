@@ -39,7 +39,8 @@ pub enum Scale {
 /// With no base and no index the operand is RIP-relative (`disp` as the
 /// disp32, or `label` against a fixup); 64-bit mode has no plain absolute
 /// addressing through this operand, since absolute addresses belong in data
-/// tables with base relocations (spec section 12.2).
+/// tables with base relocations (spec section 12.2). A `label` requires no
+/// base and no index, and `disp` is then an addend on the label's address.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct Mem {
     pub base: Option<Gpr>,
@@ -233,11 +234,15 @@ pub enum EncodeError {
     InvalidSize { what: &'static str, size: OpSize },
     /// `rsp` cannot be an index register (SIB index 100 means "no index").
     InvalidIndex,
+    /// A memory operand's label was combined with a base or index register;
+    /// a label can only be the RIP-relative displacement.
+    LabelWithRegisters,
     /// The label was bound a second time.
     LabelAlreadyBound(Label),
     /// The label was referenced but never bound.
     LabelNotBound(Label),
-    /// A branch displacement exceeds 32 bits: the function is too large.
+    /// A branch or RIP-relative displacement exceeds 32 bits: the function
+    /// (or the addend) is too large.
     BranchOutOfRange(Label),
     /// Padding length outside 1..=9.
     InvalidNopLength(usize),
@@ -253,10 +258,13 @@ impl fmt::Display for EncodeError {
                 write!(f, "{what} does not support {size:?} operands")
             }
             EncodeError::InvalidIndex => write!(f, "rsp cannot be an index register"),
+            EncodeError::LabelWithRegisters => {
+                write!(f, "a label can only be the RIP-relative displacement")
+            }
             EncodeError::LabelAlreadyBound(l) => write!(f, "label {:?} bound twice", l.0),
             EncodeError::LabelNotBound(l) => write!(f, "label {:?} never bound", l.0),
             EncodeError::BranchOutOfRange(l) => {
-                write!(f, "branch to label {:?} exceeds 32-bit displacement", l.0)
+                write!(f, "displacement to label {:?} exceeds 32 bits", l.0)
             }
             EncodeError::InvalidNopLength(n) => write!(f, "nop padding length {n} outside 1..=9"),
         }
@@ -272,6 +280,8 @@ struct Fixup {
     /// Offset of the end of the instruction: the rel32/RIP base.
     next_ip: u32,
     label: Label,
+    /// Addend on the label's address (RIP-relative memory operands only).
+    addend: i32,
 }
 
 enum LabelState {
@@ -350,7 +360,7 @@ impl Encoder {
                 LabelState::Bound(at) => i64::from(at),
                 LabelState::Unbound => unreachable!("checked above"),
             };
-            let disp = i32::try_from(target - i64::from(fix.next_ip))
+            let disp = i32::try_from(target + i64::from(fix.addend) - i64::from(fix.next_ip))
                 .map_err(|_| EncodeError::BranchOutOfRange(fix.label))?;
             let at = fix.at as usize;
             self.buf[at..at + 4].copy_from_slice(&disp.to_le_bytes());
@@ -1192,7 +1202,7 @@ impl Encoder {
         reg_field: u8,
         reg_byte_rex: bool,
         mem: Mem,
-    ) -> Result<Option<(Label, usize)>, EncodeError> {
+    ) -> Result<Option<(Label, usize, i32)>, EncodeError> {
         let enc = mem_encoding(&mem)?;
         let rex = Self::rex_for(size, reg_field >= 8, enc.rex_x, enc.rex_b, reg_byte_rex);
         self.emit_head(legacy, opcodes, rex);
@@ -1205,7 +1215,7 @@ impl Encoder {
             Some(label) => {
                 let at = self.buf.len();
                 self.buf.extend_from_slice(&[0; 4]);
-                Some((label, at))
+                Some((label, at, enc.disp))
             }
             None => {
                 self.push_disp(enc.disp, enc.disp_len);
@@ -1231,12 +1241,13 @@ impl Encoder {
     }
 
     /// Records a RIP-relative fixup once the instruction's end offset is known.
-    fn close_rip(&mut self, fix: Option<(Label, usize)>) {
-        if let Some((label, at)) = fix {
+    fn close_rip(&mut self, fix: Option<(Label, usize, i32)>) {
+        if let Some((label, at, addend)) = fix {
             self.fixups.push(Fixup {
                 at: at as u32,
                 next_ip: self.buf.len() as u32,
                 label,
+                addend,
             });
         }
     }
@@ -1272,6 +1283,7 @@ impl Encoder {
                     at: at as u32,
                     next_ip: self.buf.len() as u32,
                     label,
+                    addend: 0,
                 });
                 Ok(())
             }
@@ -1491,6 +1503,9 @@ fn imul_imm_opcode(size: OpSize, imm: i64) -> Result<(u8, u8), EncodeError> {
 /// `rsp`/`r12` bases need a SIB byte, `rbp`/`r13` bases cannot use `mod=00`,
 /// and no base/index is RIP-relative.
 fn mem_encoding(mem: &Mem) -> Result<MemEnc, EncodeError> {
+    if mem.label.is_some() && (mem.base.is_some() || mem.index.is_some()) {
+        return Err(EncodeError::LabelWithRegisters);
+    }
     if mem.base.is_none() && mem.index.is_none() {
         return Ok(MemEnc {
             mod_bits: 0b00,

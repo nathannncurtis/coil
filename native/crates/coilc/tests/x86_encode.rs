@@ -1876,6 +1876,47 @@ fn labels_fixups_and_relocs() {
         &finished.code[5..],
     );
 
+    // RIP-relative label with an addend on the displacement: lea is 7 bytes
+    // at offset 0 and the label sits at 10, so the disp32 is 10 - 7 + 16.
+    let mut e = Encoder::new();
+    let label = e.create_label();
+    e.lea(
+        OpSize::S64,
+        Gpr::Rax,
+        Mem {
+            base: None,
+            index: None,
+            scale: Scale::X1,
+            disp: 16,
+            label: Some(label),
+        },
+    )
+    .unwrap();
+    e.nop(3).unwrap();
+    e.bind_label(label).unwrap();
+    let finished = e.finish().unwrap();
+    assert_eq!(
+        finished.code,
+        [0x48, 0x8D, 0x05, 0x13, 0x00, 0x00, 0x00, 0x0F, 0x1F, 0x00]
+    );
+    cases += check(
+        Instruction::with2(
+            Code::Lea_r64_m,
+            Register::RAX,
+            MemoryOperand::new(
+                Register::RIP,
+                Register::None,
+                1,
+                26,
+                8,
+                false,
+                Register::None,
+            ),
+        )
+        .unwrap(),
+        &finished.code[..7],
+    );
+
     // movsd with a RIP-relative label operand: the label sits 8 bytes past
     // the end of the 8-byte movsd.
     let mut e = Encoder::new();
@@ -1952,6 +1993,40 @@ fn error_cases() {
             Mem::indexed(Gpr::Rbp, Gpr::Rsp, Scale::X1, 0)
         ),
         Err(EncodeError::InvalidIndex)
+    ));
+    // A label can only be the RIP-relative displacement, never combined with
+    // a base or index register.
+    let mut e = Encoder::new();
+    let label = e.create_label();
+    assert!(matches!(
+        e.mov_rm(
+            OpSize::S64,
+            Gpr::Rax,
+            Mem {
+                base: Some(Gpr::Rax),
+                index: None,
+                scale: Scale::X1,
+                disp: 0,
+                label: Some(label)
+            }
+        ),
+        Err(EncodeError::LabelWithRegisters)
+    ));
+    let mut e = Encoder::new();
+    let label = e.create_label();
+    assert!(matches!(
+        e.mov_rm(
+            OpSize::S64,
+            Gpr::Rax,
+            Mem {
+                base: None,
+                index: Some(Gpr::Rcx),
+                scale: Scale::X8,
+                disp: 8,
+                label: Some(label)
+            }
+        ),
+        Err(EncodeError::LabelWithRegisters)
     ));
     // Sizes a form does not have.
     let mut e = Encoder::new();
