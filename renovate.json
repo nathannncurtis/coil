@@ -1,0 +1,97 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Every pinned version in this repo stays current, one PR a week. Nothing merges itself and nobody is tagged. tests/compat is tracked on purpose: the compatibility matrix should follow the packages' latest releases. Left by hand: the CPython versions and archive hashes in tools/build_launcher.py and the embedded runtimes CI downloads, which are the ABI coil targets.",
+  "extends": [
+    "config:best-practices",
+    ":disableDependencyDashboard",
+    ":semanticCommitsDisabled"
+  ],
+  "schedule": [
+    "* 0-6 * * 1"
+  ],
+  "timezone": "America/Los_Angeles",
+  "prConcurrentLimit": 3,
+  "automerge": false,
+  "assignees": [],
+  "reviewers": [],
+  "labels": [
+    "dependencies"
+  ],
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": [
+      "at any time"
+    ],
+    "labels": [
+      "security"
+    ]
+  },
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": [
+      "* 0-6 1 * *"
+    ]
+  },
+  "packageRules": [
+    {
+      "description": "Workflow Python versions are chosen, not drifting: 3.12 is coil-rt's cp312 target (3.12.10 is the ABI the generated layouts and export lists are checked against), and the 3.9/3.13 matrix is the supported range. Change them by hand with the code.",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchDepNames": [
+        "python"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "One grouped PR for everything that isn't a major version.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "digest",
+        "pin",
+        "pinDigest"
+      ],
+      "groupName": "all non-major"
+    },
+    {
+      "description": "Majors come one per PR, since they may need code changes.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "groupName": null
+    }
+  ],
+  "customManagers": [
+    {
+      "description": "Tools CI downloads from GitHub releases: a `tag=` line, then the URL, then its sha256.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "tag=(?<currentValue>v[0-9][^;\\s]*);[^\\n]*\\s+curl [^\\n]*https://github\\.com/(?<depName>[^/]+/[^/]+)/releases/download/[^\\n]*\\n\\s*echo \"(?<currentDigest>[a-f0-9]{64}) "
+      ],
+      "datasourceTemplate": "github-release-attachments"
+    },
+    {
+      "description": "pip installs pinned in workflows.",
+      "customType": "regex",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "pip install [^\\n]*?(?<depName>[a-z0-9_-]+)==(?<currentValue>[0-9][^\\s\"]*)"
+      ],
+      "datasourceTemplate": "pypi"
+    }
+  ],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/examples/**",
+    "**/__fixtures__/**",
+    "tests/compat/plugins/**"
+  ]
+}
