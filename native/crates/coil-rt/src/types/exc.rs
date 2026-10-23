@@ -672,17 +672,49 @@ pub static mut PyExc_WindowsError: *mut PyObject = &raw mut _PyExc_OSError_Type 
 
 // --------------------------------------------------------- the MemoryError copy
 
+/// The exact `BaseException` instance layout of section 8.2, for the
+/// preallocated instance below: every field access on it — `args`,
+/// `PyException_GetContext` at offset 48, the collector's traverse — must
+/// stay inside the static.
+#[repr(C)]
+struct PreallocatedException {
+    header: PyObject,
+    dict: *mut PyObject,
+    args: *mut PyObject,
+    notes: *mut PyObject,
+    traceback: *mut PyObject,
+    context: *mut PyObject,
+    cause: *mut PyObject,
+    suppress_context: c_char,
+}
+
+const _: () = {
+    assert!(
+        core::mem::size_of::<PreallocatedException>() == coil_rt_abi::cp312::base_exception::SIZEOF
+    );
+};
+
 /// CPython pre-allocates its `MemoryError` instance so `PyErr_NoMemory`
-/// never allocates (`errors.c`); ours is an immortal zeroed instance of the
-/// exact layout, shared by every thread that raises it.
-static mut MEMORY_ERROR_INSTANCE: PyObject = PyObject {
-    ob_refcnt: crate::object::header::IMMORTAL_REFCNT,
-    ob_type: &raw mut _PyExc_MemoryError_Type,
+/// never allocates (`errors.c`); ours is an immortal instance of the exact
+/// layout with every exception field null, shared by every thread that
+/// raises it.
+static mut MEMORY_ERROR_INSTANCE: PreallocatedException = PreallocatedException {
+    header: PyObject {
+        ob_refcnt: crate::object::header::IMMORTAL_REFCNT,
+        ob_type: &raw mut _PyExc_MemoryError_Type,
+    },
+    dict: ptr::null_mut(),
+    args: ptr::null_mut(),
+    notes: ptr::null_mut(),
+    traceback: ptr::null_mut(),
+    context: ptr::null_mut(),
+    cause: ptr::null_mut(),
+    suppress_context: 0,
 };
 
 /// The shared `MemoryError` instance.
 fn memory_error_instance() -> *mut PyObject {
-    &raw mut MEMORY_ERROR_INSTANCE
+    &raw mut MEMORY_ERROR_INSTANCE as *mut PyObject
 }
 
 // ----------------------------------------------------------------------- init
@@ -2098,7 +2130,7 @@ mod tests {
 
     #[test]
     fn no_memory_raises_the_shared_instance() {
-        init();
+        let _serial = init();
         clear();
         assert!(PyErr_NoMemory().is_null());
         assert!(ptr::eq(occurred(), memory_error()));
@@ -2111,6 +2143,21 @@ mod tests {
         // changes nothing.
         let raised = PyErr_GetRaisedException();
         assert!(ptr::eq(raised, memory_error_instance()));
+        // The shared instance runs the exception protocol like any other
+        // instance: the fields the protocol touches — the context at
+        // offset 48 — live inside the preallocated block, which is the
+        // full 8.2 size exactly so these writes cannot run past it.
+        // SAFETY: an instance of a readied exception type.
+        let other = unsafe { create_instance(key_error() as *mut PyTypeObject) };
+        // SAFETY: protocol calls on our own objects; SetContext steals our
+        // single reference on `other` into the field.
+        unsafe {
+            PyException_SetContext(raised, other);
+            let seen = PyException_GetContext(raised);
+            assert!(ptr::eq(seen, other));
+            release_object(seen);
+            PyException_SetContext(raised, ptr::null_mut());
+        }
         // SAFETY: immortals ignore releases.
         unsafe { release_object(raised) };
         clear();
