@@ -4,16 +4,21 @@ Invokes tools/front_oracle.py in-process and a dumper command as a subprocess
 in the same mode over the same file list, compares the JSON Lines records per
 file and reports the first differing location as a JSON pointer (RFC 6901)
 into the file's object. The dumper receives the same mode flag and a batch of
-the expanded file list (``<dumper> --tokens|--ast|--symtable FILE...``) and
+the expanded file list (``<dumper> --tokens|--ast|--snippets FILE...``) and
 must write the same JSON Lines to stdout. Files go in batches small enough for
 Windows' command-line limit, and each batch is compared and dropped before the
 next runs, so memory stays bounded by a batch rather than the whole tree
 (--ast over all of Lib/ is about 400 MB of JSON per side).
 
+--snippets takes one JSON Lines file of source snippets instead of a file
+tree, each line a snippet case in the format front_oracle.py documents for
+its --snippets mode, and the dumper runs once over that file.
+
 Error objects are compared field by field: only ``type`` and ``lineno`` in
 --tokens mode; ``type``, ``lineno`` and ``offset`` in --ast mode; all fields
-in --symtable mode. Two records whose compared fields agree count as
-``both_error``, not as a mismatch.
+in --symtable mode; ``type``, ``msg``, ``lineno``, ``offset``, ``end_lineno``
+and ``end_offset`` in --snippets mode. Two records whose compared fields agree
+count as ``both_error``, not as a mismatch.
 
 Prints ``files``, ``match``, ``mismatch`` and ``both_error`` counts and one
 ``mismatch <path> <pointer>`` line per differing file; exits 1 on any
@@ -37,7 +42,11 @@ DEFAULT_DUMPER = "cargo run --release -q -p coil-front --bin coil-front-dump --"
 # CreateProcess caps a command line at 32,767 characters; leave room for the dumper itself.
 BATCH_CHARS = 24_000
 BATCH_FILES = 64
-ERROR_FIELDS = {"tokens": ("type", "lineno"), "ast": ("type", "lineno", "offset")}
+ERROR_FIELDS = {
+    "tokens": ("type", "lineno"),
+    "ast": ("type", "lineno", "offset"),
+    "snippets": ("type", "msg", "lineno", "offset", "end_lineno", "end_offset"),
+}
 
 
 def split_command(command: str) -> list[str]:
@@ -107,6 +116,14 @@ def first_difference(left: object, right: object, pointer: str = "") -> str | No
 
 
 def compared_part(record: dict, mode: str) -> dict:
+    if mode == "snippets":
+        # Snippets only ever compare the error: a snippet that parses on one
+        # side must not parse on the other, and a clean record carries no
+        # tree to compare (the --ast job covers the AST itself).
+        error = None if record.get("ok", False) else record.get("error")
+        if error is not None:
+            error = {field: error.get(field) for field in ERROR_FIELDS[mode]}
+        return {"path": record.get("path"), "ok": bool(record.get("ok", False)), "error": error}
     if record.get("ok", False):
         return record
     error = record.get("error")
@@ -170,18 +187,29 @@ def diff_batched(mode: str, dumper: str, paths: list[Path], **limits: int) -> di
     return {"counts": counts, "mismatches": mismatches}
 
 
+def snippet_cases(file: Path) -> list[dict]:
+    return [front_oracle.snippet_record(case) for case in front_oracle.snippet_cases(file)]
+
+
 def main(argv: list[str] | None = None) -> int:
     front_oracle.require_python312()
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group(required=True)
     modes.add_argument("--tokens", action="store_const", const="tokens", dest="mode")
     modes.add_argument("--ast", action="store_const", const="ast", dest="mode")
+    modes.add_argument("--snippets", action="store_const", const="snippets", dest="mode")
     modes.add_argument("--symtable", action="store_const", const="symtable", dest="mode")
     parser.add_argument("inputs", nargs="+", metavar="FILE_OR_DIR")
     parser.add_argument("--dumper", default=DEFAULT_DUMPER,
                         help=f"command producing the Rust side's JSON Lines (default: {DEFAULT_DUMPER})")
     args = parser.parse_args(argv)
-    result = diff_batched(args.mode, args.dumper, front_oracle.collect_paths(args.inputs))
+    if args.mode == "snippets":
+        if len(args.inputs) != 1:
+            parser.error("--snippets takes exactly one JSON Lines file")
+        result = diff("snippets", snippet_cases(Path(args.inputs[0])),
+                      run_dumper(args.dumper, "snippets", [Path(args.inputs[0])]))
+    else:
+        result = diff_batched(args.mode, args.dumper, front_oracle.collect_paths(args.inputs))
     for path, detail in result["mismatches"]:
         print(f"mismatch {path} {detail or '(whole object)'}")
     for name in ("files", "match", "mismatch", "both_error"):

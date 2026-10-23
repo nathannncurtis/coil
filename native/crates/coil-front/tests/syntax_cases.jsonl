@@ -1,0 +1,826 @@
+{"id":"test_eof.py:103","src":"\u00e4 = 5\\","encoding":"utf-8","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":7,"end_lineno":1,"end_offset":-1}}
+{"id":"test_eof.py:109","src":"# coding:latin1\n\u00e4 = 5\\","encoding":"latin1","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":2,"offset":7,"end_lineno":2,"end_offset":-1}}
+{"id":"test_eof.py:116","src":"\ufeff\u00e4 = 5\\","encoding":"utf-8","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":7,"end_lineno":1,"end_offset":-1}}
+{"id":"test_eof.py:122","src":"\\","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":2,"end_lineno":1,"end_offset":-1}}
+{"id":"test_eof.py:16","src":"'this is a test                ","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_eof.py:16#1","src":"\"this is a test                ","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_eof.py:24","src":"\u00e4 = '''th\u00ees is \na \ntest","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 3)","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_eof.py:30","src":"\u00e4 = '''th\u00ees is \na \ntest","mode":"eval","encoding":"utf-8","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 3)","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_eof.py:36","src":"\ufeff\u00e4 = '''th\u00ees is \na \ntest","mode":"eval","encoding":"utf-8","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 3)","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_eof.py:42","src":"# coding: latin1\n\u00e4 = '''th\u00ees is \na \ntest","mode":"eval","encoding":"latin1","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 4)","lineno":2,"offset":5,"end_lineno":2,"end_offset":5}}
+{"id":"test_eof.py:90","src":"\"\\Xhh\" \\","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":9,"end_lineno":1,"end_offset":-1}}
+{"id":"test_eof.py:97","src":"\u00e4 = 5\\","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":7,"end_lineno":1,"end_offset":-1}}
+{"id":"test_exceptions.py:166","src":"f'{6 0}'","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":1,"offset":4,"end_lineno":1,"end_offset":7}}
+{"id":"test_exceptions.py:179","src":"print \"old style\"","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'print'. Did you mean print(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":18}}
+{"id":"test_exceptions.py:182","src":"print \"old style\",","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'print'. Did you mean print(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":19}}
+{"id":"test_exceptions.py:185","src":"print f(a+b,c)","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'print'. Did you mean print(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":15}}
+{"id":"test_exceptions.py:188","src":"exec \"old style\"","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'exec'. Did you mean exec(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":17}}
+{"id":"test_exceptions.py:191","src":"exec f(a+b,c)","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'exec'. Did you mean exec(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":14}}
+{"id":"test_exceptions.py:197","src":"print (a+b,c) $ 42","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_exceptions.py:200","src":"exec (a+b,c) $ 42","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_exceptions.py:204","src":"if True:\nprint \"No indent\"","expected":{"type":"IndentationError","msg":"expected an indented block after 'if' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":6}}
+{"id":"test_exceptions.py:207","src":"if True:\n        print()\n\texec \"mixed tabs and spaces\"","expected":{"type":"TabError","msg":"inconsistent use of tabs and spaces in indentation","lineno":3,"offset":1,"end_lineno":3,"end_offset":0}}
+{"id":"test_exceptions.py:228","src":"\"\\\n\"(1 for c in I,\\\n\\","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":2,"offset":2,"end_lineno":2,"end_offset":0}}
+{"id":"test_exceptions.py:232","src":"def fact(x):\n\treturn x!\n","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":10,"end_lineno":2,"end_offset":11}}
+{"id":"test_exceptions.py:233","src":"1 +\n","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_exceptions.py:234","src":"def spam():\n  print(1)\n print(2)","expected":{"type":"IndentationError","msg":"unindent does not match any outer indentation level","lineno":3,"offset":10,"end_lineno":3,"end_offset":-1}}
+{"id":"test_exceptions.py:235","src":"Python = \"Python\" +","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":20,"end_lineno":1,"end_offset":21}}
+{"id":"test_exceptions.py:236","src":"Python = \"\u1e54\u00fd\u0163\u0125\u00f2\u00f1\" +","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":20,"end_lineno":1,"end_offset":21}}
+{"id":"test_exceptions.py:237","src":"# -*- coding: cp1251 -*-\nPython = \"\u041f\u0456\u0442\u043e\u043d\" +","encoding":"cp1251","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":19,"end_lineno":2,"end_offset":20}}
+{"id":"test_exceptions.py:240","src":"x = \"a","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_exceptions.py:241","src":"lambda x: x = 2","expected":{"type":"SyntaxError","msg":"cannot assign to lambda","lineno":1,"offset":1,"end_lineno":1,"end_offset":12}}
+{"id":"test_exceptions.py:242","src":"f{a + b + c}","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":2,"end_lineno":1,"end_offset":3}}
+{"id":"test_exceptions.py:243","src":"[file for str(file) in []\n]","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":11,"end_lineno":1,"end_offset":20}}
+{"id":"test_exceptions.py:244","src":"a = \u00ab hello \u00bb \u00ab world \u00bb","expected":{"type":"SyntaxError","msg":"invalid character '\u00ab' (U+00AB)","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_exceptions.py:245","src":"[\nfile\nfor str(file)\nin\n[]\n]","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":3,"offset":5,"end_lineno":3,"end_offset":14}}
+{"id":"test_exceptions.py:246","src":"[file for\n str(file) in []]","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":2,"offset":2,"end_lineno":2,"end_offset":11}}
+{"id":"test_exceptions.py:247","src":"ages = {'Alice'=22, 'Bob'=23}","expected":{"type":"SyntaxError","msg":"cannot assign to literal here. Maybe you meant '==' instead of '='?","lineno":1,"offset":9,"end_lineno":1,"end_offset":16}}
+{"id":"test_exceptions.py:248","src":"match ...:\n    case {**rest, \"key\": value}:\n        ...","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":19,"end_lineno":2,"end_offset":24}}
+{"id":"test_exceptions.py:249","src":"[a b c d e f]","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":1,"offset":2,"end_lineno":1,"end_offset":5}}
+{"id":"test_exceptions.py:250","src":"for x yfff:","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":7,"end_lineno":1,"end_offset":11}}
+{"id":"test_exceptions.py:251","src":"f(a for a in b, c)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":3,"end_lineno":1,"end_offset":15}}
+{"id":"test_exceptions.py:252","src":"f(a for a in b if a, c)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":3,"end_lineno":1,"end_offset":20}}
+{"id":"test_exceptions.py:253","src":"f(a, b for b in c)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":6,"end_lineno":1,"end_offset":18}}
+{"id":"test_exceptions.py:254","src":"f(a, b for b in c, d)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":6,"end_lineno":1,"end_offset":18}}
+{"id":"test_exceptions.py:261","src":"try:\n  pass\nexcept*:\n  pass","expected":{"type":"SyntaxError","msg":"expected one or more exception types","lineno":3,"offset":8,"end_lineno":3,"end_offset":9}}
+{"id":"test_exceptions.py:262","src":"try:\n  pass\nexcept*:\n  pass\nexcept* ValueError:\n  pass","expected":{"type":"SyntaxError","msg":"expected one or more exception types","lineno":3,"offset":8,"end_lineno":3,"end_offset":9}}
+{"id":"test_exceptions.py:265","src":"(0x+1)","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_exceptions.py:266","src":"x = 0xI","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_exceptions.py:267","src":"0010 + 2","expected":{"type":"SyntaxError","msg":"leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers","lineno":1,"offset":1,"end_lineno":1,"end_offset":3}}
+{"id":"test_exceptions.py:268","src":"x = 32e-+4","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":8,"end_lineno":1,"end_offset":8}}
+{"id":"test_exceptions.py:269","src":"x = 0o9","expected":{"type":"SyntaxError","msg":"invalid digit '9' in octal literal","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_exceptions.py:270","src":"\u03b1 = 0xI","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_exceptions.py:272","src":"# -*- coding: iso8859-7 -*-\n\u03b1 = 0xI","encoding":"iso8859-7","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":2,"offset":6,"end_lineno":2,"end_offset":6}}
+{"id":"test_exceptions.py:274","src":"if 1:\n            def foo():\n                '''\n\n            def bar():\n                pass\n\n            def baz():\n                '''quux'''\n            ","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 10)","lineno":9,"offset":24,"end_lineno":9,"end_offset":24}}
+{"id":"test_exceptions.py:284","src":"pass\npass\npass\n(1+)\npass\npass\npass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":4,"offset":4,"end_lineno":4,"end_offset":5}}
+{"id":"test_exceptions.py:285","src":"(1+)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_exceptions.py:286","src":"[interesting\nfoo()\n","expected":{"type":"SyntaxError","msg":"'[' was never closed","lineno":1,"offset":1,"end_lineno":1,"end_offset":0}}
+{"id":"test_exceptions.py:287","src":"\ufeff#coding: utf8\nprint('\u6211')\n","expected":{"type":"SyntaxError","msg":"encoding problem: utf8 with BOM","lineno":0,"offset":-1,"end_lineno":null,"end_offset":null}}
+{"id":"test_exceptions.py:288","src":"f'''\n            {\n            (123_a)\n            }'''","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":3,"offset":17,"end_lineno":3,"end_offset":17}}
+{"id":"test_exceptions.py:292","src":"f'''\n            {\n            f\"\"\"\n            {\n            (123_a)\n            }\n            \"\"\"\n            }'''","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":5,"offset":17,"end_lineno":5,"end_offset":17}}
+{"id":"test_exceptions.py:300","src":"f\"\"\"\n\n\n            {\n            6\n            0=\"\"\"","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":5,"offset":13,"end_lineno":6,"end_offset":14}}
+{"id":"test_exceptions.py:322","src":"foo(1=2)","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":5,"end_lineno":1,"end_offset":7}}
+{"id":"test_exceptions.py:323","src":"def f():\n  x, y: int","expected":{"type":"SyntaxError","msg":"only single target (not tuple) can be annotated","lineno":2,"offset":3,"end_lineno":2,"end_offset":4}}
+{"id":"test_exceptions.py:324","src":"[*x for x in xs]","expected":{"type":"SyntaxError","msg":"iterable unpacking cannot be used in comprehension","lineno":1,"offset":2,"end_lineno":1,"end_offset":4}}
+{"id":"test_exceptions.py:325","src":"foo(x for x in range(10), 100)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":5,"end_lineno":1,"end_offset":25}}
+{"id":"test_exceptions.py:326","src":"for 1 in []: pass","expected":{"type":"SyntaxError","msg":"cannot assign to literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_exceptions.py:327","src":"(yield i) = 2","expected":{"type":"SyntaxError","msg":"cannot assign to yield expression here. Maybe you meant '==' instead of '='?","lineno":1,"offset":2,"end_lineno":1,"end_offset":9}}
+{"id":"test_exceptions.py:328","src":"def f(*):\n  pass","expected":{"type":"SyntaxError","msg":"named arguments must follow bare *","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:1038","src":"f'\\N'","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-1: malformed \\N character escape","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1038#1","src":"f'\\N '","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-1: malformed \\N character escape","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1038#2","src":"f'\\N  '","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-1: malformed \\N character escape","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:1038#3","src":"f'\\N{'","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-2: malformed \\N character escape","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1038#4","src":"f'\\N{GREEK CAPITAL LETTER DELTA'","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-28: malformed \\N character escape","lineno":1,"offset":32,"end_lineno":1,"end_offset":33}}
+{"id":"test_fstring.py:1038#5","src":"'\\N'","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-1: malformed \\N character escape","lineno":1,"offset":1,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:1038#6","src":"'\\N '","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-1: malformed \\N character escape","lineno":1,"offset":1,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1038#7","src":"'\\N  '","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-1: malformed \\N character escape","lineno":1,"offset":1,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1038#8","src":"'\\N{'","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-2: malformed \\N character escape","lineno":1,"offset":1,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1038#9","src":"'\\N{GREEK CAPITAL LETTER DELTA'","mode":"eval","expected":{"type":"SyntaxError","msg":"(unicode error) 'unicodeescape' codec can't decode bytes in position 0-28: malformed \\N character escape","lineno":1,"offset":1,"end_lineno":1,"end_offset":32}}
+{"id":"test_fstring.py:1070","src":"f'{\n}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '}'","lineno":2,"offset":1,"end_lineno":2,"end_offset":2}}
+{"id":"test_fstring.py:1125","src":"f'{lambda x:x}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: lambda expressions are not allowed without parentheses","lineno":1,"offset":4,"end_lineno":1,"end_offset":13}}
+{"id":"test_fstring.py:1125#1","src":"f'{lambda :x}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: lambda expressions are not allowed without parentheses","lineno":1,"offset":4,"end_lineno":1,"end_offset":12}}
+{"id":"test_fstring.py:1125#2","src":"f'{lambda *arg, :x}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: lambda expressions are not allowed without parentheses","lineno":1,"offset":4,"end_lineno":1,"end_offset":18}}
+{"id":"test_fstring.py:1125#3","src":"f'{1, lambda:x}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: lambda expressions are not allowed without parentheses","lineno":1,"offset":7,"end_lineno":1,"end_offset":14}}
+{"id":"test_fstring.py:1125#4","src":"f'{lambda x:}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: lambda expressions are not allowed without parentheses","lineno":1,"offset":4,"end_lineno":1,"end_offset":13}}
+{"id":"test_fstring.py:1125#5","src":"f'{lambda :}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: lambda expressions are not allowed without parentheses","lineno":1,"offset":4,"end_lineno":1,"end_offset":12}}
+{"id":"test_fstring.py:1140","src":"lambda name_3=f'{name_4}': {name_3}\n1 $ 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":3,"end_lineno":2,"end_offset":4}}
+{"id":"test_fstring.py:1146","src":"f'{+ lambda:None}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:1410","src":"f'{3!'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1410#1","src":"f'{3!s'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1410#2","src":"f'{3!g'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1420","src":"f'{3!}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: missing conversion character","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1420#1","src":"f'{3!:'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: missing conversion character","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1420#2","src":"f'{3!:}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: missing conversion character","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1453","src":"f'{3!ss}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: invalid conversion character 'ss': expected 's', 'r', or 'a'","lineno":1,"offset":6,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:1453#1","src":"f'{3!ss:}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: invalid conversion character 'ss': expected 's', 'r', or 'a'","lineno":1,"offset":6,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:1453#2","src":"f'{3!ss:s}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: invalid conversion character 'ss': expected 's', 'r', or 'a'","lineno":1,"offset":6,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:1464","src":"f'' = 3","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1464#1","src":"f'{0}' = x","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_fstring.py:1464#2","src":"f'{x}' = x","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_fstring.py:1475","src":"del f''","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_fstring.py:1475#1","src":"del '' f''","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_fstring.py:1485","src":"f'{{}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: single '}' is not allowed","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:1485#1","src":"f'{{}}}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: single '}' is not allowed","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1485#2","src":"f'}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: single '}' is not allowed","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_fstring.py:1485#3","src":"f'x}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: single '}' is not allowed","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_fstring.py:1485#4","src":"f'x}x'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: single '}' is not allowed","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_fstring.py:1485#5","src":"f'\\u007b}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: single '}' is not allowed","lineno":1,"offset":9,"end_lineno":1,"end_offset":9}}
+{"id":"test_fstring.py:1485#6","src":"f'{3:}>10}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: single '}' is not allowed","lineno":1,"offset":10,"end_lineno":1,"end_offset":10}}
+{"id":"test_fstring.py:1485#7","src":"f'{3:}}>10}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: single '}' is not allowed","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1501","src":"f'{3'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:1501#10","src":"f'{{{'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1501#11","src":"f'{{}}{'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":8,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:1501#12","src":"f'{'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_fstring.py:1501#13","src":"f'{i='","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1501#2","src":"f'{3:'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}', or format specs","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1501#4","src":"f'{3!s:'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}', or format specs","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_fstring.py:1501#5","src":"f'{3!s:3'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}', or format specs","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_fstring.py:1501#6","src":"f'x{'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:1501#7","src":"f'x{x'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1501#8","src":"f'{x'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:1501#9","src":"f'{3:s'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}', or format specs","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:1522","src":"f'{3:{{>10}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:1740","src":"f'{C=]'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: unmatched ']'","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1789","src":"f'{a $ b}'","expected":{"type":"SyntaxError","msg":"f-string: expecting '=', or '!', or ':', or '}'","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:1818","src":"f'{**a}'","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":4,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:1821","src":"f\"","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated f-string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_fstring.py:1821#1","src":"f'","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated f-string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_fstring.py:1822","src":"f\"\"\"","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted f-string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_fstring.py:1822#1","src":"f'''","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted f-string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_fstring.py:1842","src":"f'{1=}{;'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_fstring.py:1842#1","src":"f'{1=}{+;'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_fstring.py:1842#2","src":"f'{1=}{2}{;'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_fstring.py:1842#3","src":"f'{1=}{3}{;'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_fstring.py:1852","src":"f'{1=}{1;'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '=', or '!', or ':', or '}'","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_fstring.py:1852#1","src":"f'{1=}{1;}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '=', or '!', or ':', or '}'","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_fstring.py:533","src":"f'' b''","mode":"eval","expected":{"type":"SyntaxError","msg":"cannot mix bytes and nonbytes literals","lineno":1,"offset":7,"end_lineno":1,"end_offset":-1}}
+{"id":"test_fstring.py:533#1","src":"b'' f''","mode":"eval","expected":{"type":"SyntaxError","msg":"cannot mix bytes and nonbytes literals","lineno":1,"offset":7,"end_lineno":1,"end_offset":-1}}
+{"id":"test_fstring.py:548","src":"f'{\"x'","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_fstring.py:548#1","src":"f'{\"x}'","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_fstring.py:548#2","src":"f'{(\"x'","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:548#3","src":"f'{(\"x}'","mode":"eval","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:561","src":"f'{((}'","mode":"eval","expected":{"type":"SyntaxError","msg":"closing parenthesis '}' does not match opening parenthesis '('","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:568","src":"f'{a[4)}'","mode":"eval","expected":{"type":"SyntaxError","msg":"closing parenthesis ')' does not match opening parenthesis '['","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:575","src":"f'{a(4]}'","mode":"eval","expected":{"type":"SyntaxError","msg":"closing parenthesis ']' does not match opening parenthesis '('","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:582","src":"f'{a[4}'","mode":"eval","expected":{"type":"SyntaxError","msg":"closing parenthesis '}' does not match opening parenthesis '['","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:589","src":"f'{a(4}'","mode":"eval","expected":{"type":"SyntaxError","msg":"closing parenthesis '}' does not match opening parenthesis '('","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:596","src":"f'{((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((((}'","mode":"eval","expected":{"type":"SyntaxError","msg":"too many nested parentheses","lineno":1,"offset":203,"end_lineno":1,"end_offset":203}}
+{"id":"test_fstring.py:600","src":"f\"{1+2:{1+2:{1+1:{1}}}}\"","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expressions nested too deeply","lineno":1,"offset":17,"end_lineno":1,"end_offset":17}}
+{"id":"test_fstring.py:618","src":"f\"{1 1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:{f\"1:","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":1,"offset":4,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:694","src":"f'{3' f\"}\"","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting '}'","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:708","src":"f'{1#}'","mode":"eval","expected":{"type":"SyntaxError","msg":"'{' was never closed","lineno":1,"offset":3,"end_lineno":1,"end_offset":0}}
+{"id":"test_fstring.py:708#1","src":"f'{#}'","mode":"eval","expected":{"type":"SyntaxError","msg":"'{' was never closed","lineno":1,"offset":3,"end_lineno":1,"end_offset":0}}
+{"id":"test_fstring.py:708#2","src":"f'one: {1#}'","mode":"eval","expected":{"type":"SyntaxError","msg":"'{' was never closed","lineno":1,"offset":8,"end_lineno":1,"end_offset":0}}
+{"id":"test_fstring.py:708#3","src":"f'{1# one} {2 this is a comment still#}'","mode":"eval","expected":{"type":"SyntaxError","msg":"'{' was never closed","lineno":1,"offset":3,"end_lineno":1,"end_offset":0}}
+{"id":"test_fstring.py:718","src":"f'{)#}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: unmatched ')'","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_fstring.py:768","src":"f'''\n{\n# only a comment\n}'''\n","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '}'","lineno":4,"offset":1,"end_lineno":4,"end_offset":2}}
+{"id":"test_fstring.py:829","src":"f'{\"s\"!r{\":10\"}}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting ':' or '}'","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_fstring.py:838","src":"f'{4:{/5}}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:846","src":"f'{\"s\"!{\"r\"}}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: invalid conversion character","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_fstring.py:878","src":"f'{}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '}'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:878#1","src":"f'{ }'f' {} '","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '}'","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:878#2","src":"f'{10:{ }}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '}'","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_fstring.py:878#3","src":"f' { } '","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '}'","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_fstring.py:878#4","src":"f'''{\t\f\r\n}'''","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '}'","lineno":2,"offset":1,"end_lineno":2,"end_offset":2}}
+{"id":"test_fstring.py:892","src":"f'{!r}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:892#1","src":"f'{ !r}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:892#10","src":"f'{ !xr:}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:892#11","src":"f'{ !xr:a}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:892#2","src":"f'{!}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:892#3","src":"f'''{\t\f\r\n!a}'''","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":2,"offset":1,"end_lineno":2,"end_offset":2}}
+{"id":"test_fstring.py:892#4","src":"f'{!'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:892#5","src":"f'{!s:'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:892#6","src":"f'{!x}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:892#7","src":"f'{ !xr}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:892#8","src":"f'{!x:}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:892#9","src":"f'{!x:a}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '!'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:915","src":"f'{:}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before ':'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:915#1","src":"f'{ :!}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before ':'","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:915#2","src":"f'{:2}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before ':'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:915#3","src":"f'''{\t\f\r\n:a}'''","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before ':'","lineno":2,"offset":1,"end_lineno":2,"end_offset":2}}
+{"id":"test_fstring.py:915#4","src":"f'{:'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before ':'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:915#5","src":"F'{[F'{:'}[F'{:'}]]]","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before ':'","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_fstring.py:928","src":"f'{=}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '='","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:928#1","src":"f'{ =}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '='","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:928#2","src":"f'{ =:}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '='","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:928#3","src":"f'{   =!}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '='","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_fstring.py:928#4","src":"f'''{\t\f\r\n=}'''","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '='","lineno":2,"offset":1,"end_lineno":2,"end_offset":2}}
+{"id":"test_fstring.py:928#5","src":"f'{='","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: valid expression required before '='","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:942","src":"f'''{\u00a0}'''","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid non-printable character U+00A0","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_fstring.py:942#1","src":"\u00a0","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid non-printable character U+00A0","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_fstring.py:954","src":"f'{,}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:962","src":"f'{3)+(4}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: unmatched ')'","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:971","src":"f'{.}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_fstring.py:971#1","src":"\nf'{.}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":2,"offset":4,"end_lineno":2,"end_offset":5}}
+{"id":"test_fstring.py:971#2","src":"\n\nf'{.}'","mode":"eval","expected":{"type":"SyntaxError","msg":"f-string: expecting a valid expression after '{'","lineno":3,"offset":4,"end_lineno":3,"end_offset":5}}
+{"id":"test_genexps.py:6","src":"def f(n):\n    return i*i for i in range(n)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":16,"end_lineno":2,"end_offset":19}}
+{"id":"test_genexps.py:6#1","src":"dict(a = i for i in range(10))","expected":{"type":"SyntaxError","msg":"invalid syntax. Maybe you meant '==' or ':=' instead of '='?","lineno":1,"offset":6,"end_lineno":1,"end_offset":9}}
+{"id":"test_genexps.py:6#2","src":"(y for y in (1,2)) = 10","expected":{"type":"SyntaxError","msg":"cannot assign to generator expression","lineno":1,"offset":1,"end_lineno":1,"end_offset":19}}
+{"id":"test_genexps.py:6#3","src":"(y for y in (1,2)) += 10","expected":{"type":"SyntaxError","msg":"'generator expression' is an illegal expression for augmented assignment","lineno":1,"offset":1,"end_lineno":1,"end_offset":19}}
+{"id":"test_grammar.py:1169","src":"def g(): yield from (), 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":23,"end_lineno":1,"end_offset":24}}
+{"id":"test_grammar.py:1170","src":"def g(): x = yield from (), 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":27,"end_lineno":1,"end_offset":28}}
+{"id":"test_grammar.py:1174","src":"def g(): 1, yield 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":13,"end_lineno":1,"end_offset":18}}
+{"id":"test_grammar.py:1175","src":"def g(): 1, yield from ()","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":13,"end_lineno":1,"end_offset":18}}
+{"id":"test_grammar.py:1184","src":"def g(): f(yield 1)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_grammar.py:1185","src":"def g(): f(yield 1, 1)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_grammar.py:1186","src":"def g(): f(yield from ())","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_grammar.py:1187","src":"def g(): f(yield from (), 1)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_grammar.py:1190","src":"yield from","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_grammar.py:124","src":"0x","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:1411","src":"try:\n    pass\nexcept Exception as a.b:\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":3,"offset":22,"end_lineno":3,"end_offset":23}}
+{"id":"test_grammar.py:1412","src":"try:\n    pass\nexcept Exception as a[b]:\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":3,"offset":22,"end_lineno":3,"end_offset":23}}
+{"id":"test_grammar.py:1434","src":"try:\n    pass\nexcept* Exception as a.b:\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":3,"offset":23,"end_lineno":3,"end_offset":24}}
+{"id":"test_grammar.py:1435","src":"try:\n    pass\nexcept* Exception as a[b]:\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":3,"offset":23,"end_lineno":3,"end_offset":24}}
+{"id":"test_grammar.py:1436","src":"try:\n    pass\nexcept*:\n    pass","expected":{"type":"SyntaxError","msg":"expected one or more exception types","lineno":3,"offset":8,"end_lineno":3,"end_offset":9}}
+{"id":"test_grammar.py:1759","src":"[i, s for i in nums for s in strs]","expected":{"type":"SyntaxError","msg":"did you forget parentheses around the comprehension target?","lineno":1,"offset":2,"end_lineno":1,"end_offset":6}}
+{"id":"test_grammar.py:1760","src":"[x if y]","expected":{"type":"SyntaxError","msg":"expected 'else' after 'if' expression","lineno":1,"offset":2,"end_lineno":1,"end_offset":8}}
+{"id":"test_grammar.py:1822","src":"foo(100, x for x in range(10))","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":10,"end_lineno":1,"end_offset":30}}
+{"id":"test_grammar.py:183","src":"0 if 1Else 0","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_grammar.py:189","src":"0_","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#1","src":"42_","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:189#10","src":"0_o5","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#11","src":"0_7","mode":"eval","expected":{"type":"SyntaxError","msg":"leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers","lineno":1,"offset":1,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:189#12","src":"09_99","mode":"eval","expected":{"type":"SyntaxError","msg":"leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers","lineno":1,"offset":1,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#13","src":"4_______2","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#14","src":"0.1__4","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#15","src":"0.1__4j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#16","src":"0b1001__0100","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid binary literal","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_grammar.py:189#17","src":"0xffff__ffff","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_grammar.py:189#18","src":"0x___","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:189#19","src":"0o5__77","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#2","src":"1.4j_","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid imaginary literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#20","src":"1e1__0","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#21","src":"1e1__0j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#22","src":"1_.4","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#23","src":"1_.4j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#24","src":"1._4","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#25","src":"1._4j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#26","src":"._5","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#27","src":"._5j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#28","src":"1.0e+_1","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_grammar.py:189#29","src":"1.0e+_1j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_grammar.py:189#3","src":"0x_","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:189#30","src":"1.4_j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#31","src":"1.4e5_j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_grammar.py:189#32","src":"1_e1","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#33","src":"1.4_e1","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#34","src":"1.4_e1j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#35","src":"1e_1","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_grammar.py:189#36","src":"1.4e_1","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:189#37","src":"1.4e_1j","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:189#38","src":"(1+1.5_j_)","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_grammar.py:189#39","src":"(1+1.5_j)","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_grammar.py:189#4","src":"0b1_","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid binary literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#5","src":"0xf_","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#6","src":"0o5_","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:189#7","src":"0 if 1_Else 1","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
+{"id":"test_grammar.py:189#8","src":"0_b0","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:189#9","src":"0_xf","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:195","src":"0b12","expected":{"type":"SyntaxError","msg":"invalid digit '2' in binary literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:196","src":"0b1_2","expected":{"type":"SyntaxError","msg":"invalid digit '2' in binary literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_grammar.py:197","src":"0b2","expected":{"type":"SyntaxError","msg":"invalid digit '2' in binary literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:198","src":"0b1_","expected":{"type":"SyntaxError","msg":"invalid binary literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:199","src":"0b","expected":{"type":"SyntaxError","msg":"invalid binary literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:200","src":"0o18","expected":{"type":"SyntaxError","msg":"invalid digit '8' in octal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:201","src":"0o1_8","expected":{"type":"SyntaxError","msg":"invalid digit '8' in octal literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_grammar.py:202","src":"0o8","expected":{"type":"SyntaxError","msg":"invalid digit '8' in octal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:203","src":"0o1_","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:204","src":"0o","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:205","src":"0x1_","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:206","src":"0x","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:207","src":"1_","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:208","src":"012","expected":{"type":"SyntaxError","msg":"leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers","lineno":1,"offset":1,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:211","src":"1.2_","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:212","src":"1e2_","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:213","src":"1e+","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:222","src":"0xfand x","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:222#15","src":"0o7spam","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:222#23","src":"0b1spam","expected":{"type":"SyntaxError","msg":"invalid binary literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:222#31","src":"9spam","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_grammar.py:222#33","src":"0or x","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:222#39","src":"0spam","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_grammar.py:222#47","src":"1.spam","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:222#5","src":"x if 0xfelse y","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":9,"end_lineno":1,"end_offset":9}}
+{"id":"test_grammar.py:222#55","src":"1e3spam","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:222#63","src":"1jspam","expected":{"type":"SyntaxError","msg":"invalid imaginary literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:222#7","src":"0xfspam","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:241","src":"0xf\u20447","expected":{"type":"SyntaxError","msg":"invalid character '\u2044' (U+2044)","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:241#1","src":"0o7\u20447","expected":{"type":"SyntaxError","msg":"invalid character '\u2044' (U+2044)","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:241#2","src":"0b1\u20447","expected":{"type":"SyntaxError","msg":"invalid character '\u2044' (U+2044)","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:241#3","src":"9\u20447","expected":{"type":"SyntaxError","msg":"invalid character '\u2044' (U+2044)","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:241#4","src":"0\u20447","expected":{"type":"SyntaxError","msg":"invalid character '\u2044' (U+2044)","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:241#5","src":"1.\u20447","expected":{"type":"SyntaxError","msg":"invalid character '\u2044' (U+2044)","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:241#6","src":"1e3\u20447","expected":{"type":"SyntaxError","msg":"invalid character '\u2044' (U+2044)","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:241#7","src":"1j\u20447","expected":{"type":"SyntaxError","msg":"invalid character '\u2044' (U+2044)","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:298","src":".. .","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:353","src":"def f: int","expected":{"type":"SyntaxError","msg":"expected '('","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_grammar.py:354","src":"x: int: str","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_grammar.py:355","src":"def f():\n    nonlocal x: int\n","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":15,"end_lineno":2,"end_offset":16}}
+{"id":"test_grammar.py:357","src":"def f():\n    global x: int\n","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":13,"end_lineno":2,"end_offset":14}}
+{"id":"test_grammar.py:359","src":"x: int = y = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":13}}
+{"id":"test_grammar.py:360","src":"z = w: int = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_grammar.py:361","src":"x: int = y: int = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_grammar.py:363","src":"[x, 0]: int\n","expected":{"type":"SyntaxError","msg":"only single target (not list) can be annotated","lineno":1,"offset":1,"end_lineno":1,"end_offset":7}}
+{"id":"test_grammar.py:364","src":"f(): int\n","expected":{"type":"SyntaxError","msg":"illegal target for annotation","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:365","src":"(x,): int","expected":{"type":"SyntaxError","msg":"only single target (not tuple) can be annotated","lineno":1,"offset":1,"end_lineno":1,"end_offset":5}}
+{"id":"test_grammar.py:366","src":"def f():\n    (x, y): int = (1, 2)\n","expected":{"type":"SyntaxError","msg":"only single target (not tuple) can be annotated","lineno":2,"offset":5,"end_lineno":2,"end_offset":11}}
+{"id":"test_grammar.py:681","src":"def f(*): pass","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:682","src":"def f(*,): pass","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:683","src":"def f(*, **kwds): pass","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:698","src":"f(*g(1=2))","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":6,"end_lineno":1,"end_offset":8}}
+{"id":"test_grammar.py:699","src":"f(**g(1=2))","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":7,"end_lineno":1,"end_offset":9}}
+{"id":"test_grammar.py:799","src":"lambda (None,): None","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_grammar.py:846","src":"x + 1 = 1","expected":{"type":"SyntaxError","msg":"cannot assign to expression here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":6}}
+{"id":"test_grammar.py:847","src":"a + 1 = b + 2","expected":{"type":"SyntaxError","msg":"cannot assign to expression here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":6}}
+{"id":"test_named_expressions.py:106","src":"[i := 0, j := 1 for i, j in [(1, 2), (3, 4)]]","expected":{"type":"SyntaxError","msg":"did you forget parentheses around the comprehension target?","lineno":1,"offset":2,"end_lineno":1,"end_offset":16}}
+{"id":"test_named_expressions.py:11","src":"x := 0","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":3,"end_lineno":1,"end_offset":5}}
+{"id":"test_named_expressions.py:17","src":"x = y := 0","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":7,"end_lineno":1,"end_offset":9}}
+{"id":"test_named_expressions.py:23","src":"y := f(x)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":3,"end_lineno":1,"end_offset":5}}
+{"id":"test_named_expressions.py:29","src":"y0 = y1 := f(x)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":11}}
+{"id":"test_named_expressions.py:35","src":"((a, b) := (1, 2))","expected":{"type":"SyntaxError","msg":"cannot use assignment expressions with tuple","lineno":1,"offset":2,"end_lineno":1,"end_offset":8}}
+{"id":"test_named_expressions.py:41","src":"def spam(a = b := 42): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":16,"end_lineno":1,"end_offset":18}}
+{"id":"test_named_expressions.py:47","src":"def spam(a: b := 42 = 5): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":15,"end_lineno":1,"end_offset":17}}
+{"id":"test_named_expressions.py:53","src":"spam(a=b := 'c')","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":10,"end_lineno":1,"end_offset":12}}
+{"id":"test_named_expressions.py:59","src":"spam(x = y := f(x))","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":14}}
+{"id":"test_named_expressions.py:66","src":"spam(a=1, b := 2)","expected":{"type":"SyntaxError","msg":"positional argument follows keyword argument","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_named_expressions.py:73","src":"spam(a=1, (b := 2))","expected":{"type":"SyntaxError","msg":"positional argument follows keyword argument","lineno":1,"offset":19,"end_lineno":1,"end_offset":20}}
+{"id":"test_named_expressions.py:86","src":"(x := lambda: y := 1)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":17,"end_lineno":1,"end_offset":19}}
+{"id":"test_named_expressions.py:93","src":"(lambda: x := 1)","expected":{"type":"SyntaxError","msg":"cannot use assignment expressions with lambda","lineno":1,"offset":2,"end_lineno":1,"end_offset":11}}
+{"id":"test_named_expressions.py:99","src":"[i + 1 for i in i := [1,2]]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":19,"end_lineno":1,"end_offset":21}}
+{"id":"test_patma.py:2702","src":"match ...:\n    case 0+0:\n        pass","expected":{"type":"SyntaxError","msg":"imaginary number required in complex literal","lineno":2,"offset":12,"end_lineno":2,"end_offset":13}}
+{"id":"test_patma.py:2709","src":"match ...:\n    case {0+0: _}:\n        pass","expected":{"type":"SyntaxError","msg":"imaginary number required in complex literal","lineno":2,"offset":13,"end_lineno":2,"end_offset":14}}
+{"id":"test_patma.py:2716","src":"match ...:\n    case {**rest, \"key\": value}:\n        pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":19,"end_lineno":2,"end_offset":24}}
+{"id":"test_patma.py:2723","src":"match ...:\n    case {\"first\": first, **rest, \"last\": last}:\n        pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":35,"end_lineno":2,"end_offset":41}}
+{"id":"test_patma.py:2730","src":"match ...:\n    case {**_}:\n        pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":13,"end_lineno":2,"end_offset":14}}
+{"id":"test_patma.py:2737","src":"match ...:\n    case 42 as _:\n        pass","expected":{"type":"SyntaxError","msg":"cannot use '_' as a target","lineno":2,"offset":16,"end_lineno":2,"end_offset":17}}
+{"id":"test_patma.py:2862","src":"match ...:\n    case 0j+0:\n        pass","expected":{"type":"SyntaxError","msg":"real number required in complex literal","lineno":2,"offset":10,"end_lineno":2,"end_offset":12}}
+{"id":"test_patma.py:2869","src":"match ...:\n    case 0j+0j:\n        pass","expected":{"type":"SyntaxError","msg":"real number required in complex literal","lineno":2,"offset":10,"end_lineno":2,"end_offset":12}}
+{"id":"test_patma.py:2876","src":"match ...:\n    case {0j+0: _}:\n        pass","expected":{"type":"SyntaxError","msg":"real number required in complex literal","lineno":2,"offset":11,"end_lineno":2,"end_offset":13}}
+{"id":"test_patma.py:2883","src":"match ...:\n    case {0j+0j: _}:\n        pass","expected":{"type":"SyntaxError","msg":"real number required in complex literal","lineno":2,"offset":11,"end_lineno":2,"end_offset":13}}
+{"id":"test_positional_only_arg.py:236","src":"lambda a, b = 5, /, c: None","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":21,"end_lineno":1,"end_offset":22}}
+{"id":"test_positional_only_arg.py:237","src":"lambda a = 5, b, /, c: None","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_positional_only_arg.py:238","src":"lambda a = 5, b=1, /, c, *, d=2: None","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":23,"end_lineno":1,"end_offset":24}}
+{"id":"test_positional_only_arg.py:239","src":"lambda a = 5, b, /: None","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_positional_only_arg.py:240","src":"lambda a, /, b = 5, c: None","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":21,"end_lineno":1,"end_offset":22}}
+{"id":"test_positional_only_arg.py:241","src":"lambda *args, /: None","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_positional_only_arg.py:242","src":"lambda *args, a, /: None","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":18,"end_lineno":1,"end_offset":19}}
+{"id":"test_positional_only_arg.py:243","src":"lambda **kwargs, /: None","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":18,"end_lineno":1,"end_offset":19}}
+{"id":"test_positional_only_arg.py:244","src":"lambda /, a = 1: None","expected":{"type":"SyntaxError","msg":"at least one argument must precede /","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_positional_only_arg.py:245","src":"lambda /, a: None","expected":{"type":"SyntaxError","msg":"at least one argument must precede /","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_positional_only_arg.py:246","src":"lambda /: None","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_positional_only_arg.py:247","src":"lambda *, a, /: None","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_positional_only_arg.py:248","src":"lambda *, /, a: None","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_positional_only_arg.py:251","src":"lambda a, /, b, /: None","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_positional_only_arg.py:252","src":"lambda a, /, b, /, c: None","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_positional_only_arg.py:253","src":"lambda a, /, b, /, c, *, d: None","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_positional_only_arg.py:254","src":"lambda a, *, b, /, c: None","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_positional_only_arg.py:26","src":"def f(a, b = 5, /, c): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":20,"end_lineno":1,"end_offset":21}}
+{"id":"test_positional_only_arg.py:27","src":"def f(a = 5, b, /, c): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_positional_only_arg.py:28","src":"def f(a = 5, b=1, /, c, *, d=2): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_positional_only_arg.py:29","src":"def f(a = 5, b, /): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_positional_only_arg.py:30","src":"def f(a, /, b = 5, c): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":20,"end_lineno":1,"end_offset":21}}
+{"id":"test_positional_only_arg.py:31","src":"def f(*args, /): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_positional_only_arg.py:32","src":"def f(*args, a, /): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_positional_only_arg.py:33","src":"def f(**kwargs, /): pass","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_positional_only_arg.py:34","src":"def f(/, a = 1): pass","expected":{"type":"SyntaxError","msg":"at least one argument must precede /","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_positional_only_arg.py:35","src":"def f(/, a): pass","expected":{"type":"SyntaxError","msg":"at least one argument must precede /","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_positional_only_arg.py:36","src":"def f(/): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_positional_only_arg.py:37","src":"def f(*, a, /): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_positional_only_arg.py:38","src":"def f(*, /, a): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":10,"end_lineno":1,"end_offset":11}}
+{"id":"test_positional_only_arg.py:41","src":"def f(a, b/2, c): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_positional_only_arg.py:42","src":"def f(a, /, c, /): pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_positional_only_arg.py:43","src":"def f(a, /, c, /, d): pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_positional_only_arg.py:44","src":"def f(a, /, c, /, d, *, e): pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_positional_only_arg.py:45","src":"def f(a, *, c, /, d, e): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_positional_only_arg.py:48","src":"async def f(a, b = 5, /, c): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":26,"end_lineno":1,"end_offset":27}}
+{"id":"test_positional_only_arg.py:49","src":"async def f(a = 5, b, /, c): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":20,"end_lineno":1,"end_offset":21}}
+{"id":"test_positional_only_arg.py:50","src":"async def f(a = 5, b=1, /, c, d=2): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":28,"end_lineno":1,"end_offset":29}}
+{"id":"test_positional_only_arg.py:51","src":"async def f(a = 5, b, /): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":20,"end_lineno":1,"end_offset":21}}
+{"id":"test_positional_only_arg.py:52","src":"async def f(a, /, b = 5, c): pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":26,"end_lineno":1,"end_offset":27}}
+{"id":"test_positional_only_arg.py:53","src":"async def f(*args, /): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":20,"end_lineno":1,"end_offset":21}}
+{"id":"test_positional_only_arg.py:54","src":"async def f(*args, a, /): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":23,"end_lineno":1,"end_offset":24}}
+{"id":"test_positional_only_arg.py:55","src":"async def f(**kwargs, /): pass","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":23,"end_lineno":1,"end_offset":24}}
+{"id":"test_positional_only_arg.py:56","src":"async def f(/, a = 1): pass","expected":{"type":"SyntaxError","msg":"at least one argument must precede /","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_positional_only_arg.py:57","src":"async def f(/, a): pass","expected":{"type":"SyntaxError","msg":"at least one argument must precede /","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_positional_only_arg.py:58","src":"async def f(/): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_positional_only_arg.py:59","src":"async def f(*, a, /): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":19,"end_lineno":1,"end_offset":20}}
+{"id":"test_positional_only_arg.py:60","src":"async def f(*, /, a): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_positional_only_arg.py:63","src":"async def f(a, b/2, c): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_positional_only_arg.py:64","src":"async def f(a, /, c, /): pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_positional_only_arg.py:65","src":"async def f(a, /, c, /, d): pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_positional_only_arg.py:66","src":"async def f(a, /, c, /, d, *, e): pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_positional_only_arg.py:67","src":"async def f(a, *, c, /, d, e): pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_string_literals.py:100","src":" '\\U0' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:101","src":" '\\U00' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:102","src":" '\\U000' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:103","src":" '\\U0000' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:104","src":" '\\U00000' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:105","src":" '\\U000000' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:106","src":" '\\U0000000' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:139","src":"'\\e' $","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_string_literals.py:210","src":" b'\u0081' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:212","src":" b'\u1881' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:214","src":" b'\ud834\udd20' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:217","src":" b'\\x' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:218","src":" b'\\x0' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:278","src":" br'\u0081' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:279","src":" rb'\u0081' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:282","src":" br'\u1881' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:283","src":" rb'\u1881' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:286","src":" br'\ud834\udd20' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:287","src":" rb'\ud834\udd20' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:288","src":" bb'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:289","src":" rr'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:290","src":" brr'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:291","src":" bbr'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:292","src":" rrb'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:293","src":" rbb'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:299","src":" ur'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:300","src":" ru'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:301","src":" bu'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:302","src":" ub'' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:93","src":" '\\x' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:94","src":" '\\x0' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:95","src":" '\\u' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:96","src":" '\\u0' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:97","src":" '\\u00' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:98","src":" '\\u000' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_string_literals.py:99","src":" '\\U' ","mode":"eval","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":1,"offset":1,"end_lineno":1,"end_offset":-1}}
+{"id":"test_syntax.py:0#1","src":"obj.None = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#10","src":"f() = 1","expected":{"type":"SyntaxError","msg":"cannot assign to function call here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_syntax.py:0#100","src":"lambda a=1,/,/,*b,/,c: None","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#101","src":"lambda a,/,a1=1,/,b,c: None","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#102","src":"lambda a,*b,c,/,d,e: None","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#103","src":"lambda a=1,*b,c=3,/,d,e: None","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":19,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:0#104","src":"lambda a=1,/*,b,c: None","expected":{"type":"SyntaxError","msg":"expected comma between / and *","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#105","src":"lambda a,*b=3,c: None","expected":{"type":"SyntaxError","msg":"var-positional argument cannot have default value","lineno":1,"offset":12,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#106","src":"lambda a,**b=3: None","expected":{"type":"SyntaxError","msg":"var-keyword argument cannot have default value","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#107","src":"lambda a, *a, b, **c, d: None","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":23,"end_lineno":1,"end_offset":24}}
+{"id":"test_syntax.py:0#108","src":"lambda a,*a, b, **c, d=4: None","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_syntax.py:0#109","src":"lambda a,*a, b, **c, *d: None","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_syntax.py:0#11","src":"yield = 1","expected":{"type":"SyntaxError","msg":"assignment to yield expression not possible","lineno":1,"offset":1,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#110","src":"lambda a,*a, b, **c, **d: None","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":22,"end_lineno":1,"end_offset":24}}
+{"id":"test_syntax.py:0#111","src":"lambda a=1,/,**b,/,c: None","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":18,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#112","src":"lambda *b,*d: None","expected":{"type":"SyntaxError","msg":"* argument may appear only once","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#113","src":"lambda a,*b,c,*d,*e,c: None","expected":{"type":"SyntaxError","msg":"* argument may appear only once","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#114","src":"lambda a,b,/,c,*b,c,*d,*e,c: None","expected":{"type":"SyntaxError","msg":"* argument may appear only once","lineno":1,"offset":21,"end_lineno":1,"end_offset":22}}
+{"id":"test_syntax.py:0#115","src":"lambda a,b,/,c,*b,c,*d,**e: None","expected":{"type":"SyntaxError","msg":"* argument may appear only once","lineno":1,"offset":21,"end_lineno":1,"end_offset":22}}
+{"id":"test_syntax.py:0#116","src":"lambda a=1,d=,c: None","expected":{"type":"SyntaxError","msg":"expected default value expression","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#117","src":"lambda a,d=,c: None","expected":{"type":"SyntaxError","msg":"expected default value expression","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#118","src":"lambda a,d=3,c: None","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#119","src":"lambda a,/,d=3,c: None","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#12","src":"del f()","expected":{"type":"SyntaxError","msg":"cannot delete function call","lineno":1,"offset":5,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#121","src":"def None(x):\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#122","src":"f(x for x in L, 1)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":3,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#123","src":"f(x for x in L, y=1)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":3,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#124","src":"f(x for x in L, *[])","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":3,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#125","src":"f(x for x in L, **{})","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":3,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#126","src":"f(L, x for x in L)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":6,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#127","src":"f(x for x in L, y for y in L)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":3,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#128","src":"f(x for x in L,)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":3,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#129","src":"class C(x for x in L):\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":11,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#13","src":"a + 1 = 2","expected":{"type":"SyntaxError","msg":"cannot assign to expression here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#130","src":"f(lambda x: x[0] = 3)","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":3,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#131","src":"f(a={x: for x in {}})","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#132","src":"f(x()=2)","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":3,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#133","src":"f(a or b=1)","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":3,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#134","src":"f(x.y=1)","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":3,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#135","src":"f((x)=2)","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":4,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#136","src":"f(True=1)","expected":{"type":"SyntaxError","msg":"cannot assign to True","lineno":1,"offset":3,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#137","src":"f(False=1)","expected":{"type":"SyntaxError","msg":"cannot assign to False","lineno":1,"offset":3,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#138","src":"f(None=1)","expected":{"type":"SyntaxError","msg":"cannot assign to None","lineno":1,"offset":3,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#14","src":"(x for x in x) = 1","expected":{"type":"SyntaxError","msg":"cannot assign to generator expression","lineno":1,"offset":1,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#141","src":"f(a=)","expected":{"type":"SyntaxError","msg":"expected argument value expression","lineno":1,"offset":3,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#142","src":"f(a, b, c=)","expected":{"type":"SyntaxError","msg":"expected argument value expression","lineno":1,"offset":9,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#143","src":"f(a, b, c=, d)","expected":{"type":"SyntaxError","msg":"expected argument value expression","lineno":1,"offset":9,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#144","src":"f(*args=[0])","expected":{"type":"SyntaxError","msg":"cannot assign to iterable argument unpacking","lineno":1,"offset":3,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#145","src":"f(a, b, *args=[0])","expected":{"type":"SyntaxError","msg":"cannot assign to iterable argument unpacking","lineno":1,"offset":9,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#146","src":"f(**kwargs={'a': 1})","expected":{"type":"SyntaxError","msg":"cannot assign to keyword argument unpacking","lineno":1,"offset":3,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:0#147","src":"f(a, b, *args, **kwargs={'a': 1})","expected":{"type":"SyntaxError","msg":"cannot assign to keyword argument unpacking","lineno":1,"offset":16,"end_lineno":1,"end_offset":33}}
+{"id":"test_syntax.py:0#148","src":"(x for x in x) += 1","expected":{"type":"SyntaxError","msg":"'generator expression' is an illegal expression for augmented assignment","lineno":1,"offset":1,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#149","src":"None += 1","expected":{"type":"SyntaxError","msg":"'None' is an illegal expression for augmented assignment","lineno":1,"offset":1,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#15","src":"1 = 1","expected":{"type":"SyntaxError","msg":"cannot assign to literal here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":2}}
+{"id":"test_syntax.py:0#151","src":"f() += 1","expected":{"type":"SyntaxError","msg":"'function call' is an illegal expression for augmented assignment","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_syntax.py:0#16","src":"\"abc\" = 1","expected":{"type":"SyntaxError","msg":"cannot assign to literal here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#164","src":"if 1:\n  x() = 1\nelif 1:\n  pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call here. Maybe you meant '==' instead of '='?","lineno":2,"offset":3,"end_lineno":2,"end_offset":6}}
+{"id":"test_syntax.py:0#165","src":"if 1:\n  pass\nelif 1:\n  x() = 1","expected":{"type":"SyntaxError","msg":"cannot assign to function call here. Maybe you meant '==' instead of '='?","lineno":4,"offset":3,"end_lineno":4,"end_offset":6}}
+{"id":"test_syntax.py:0#166","src":"if 1:\n  x() = 1\nelif 1:\n  pass\nelse:\n  pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call here. Maybe you meant '==' instead of '='?","lineno":2,"offset":3,"end_lineno":2,"end_offset":6}}
+{"id":"test_syntax.py:0#167","src":"if 1:\n  pass\nelif 1:\n  x() = 1\nelse:\n  pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call here. Maybe you meant '==' instead of '='?","lineno":4,"offset":3,"end_lineno":4,"end_offset":6}}
+{"id":"test_syntax.py:0#168","src":"if 1:\n  pass\nelif 1:\n  pass\nelse:\n  x() = 1","expected":{"type":"SyntaxError","msg":"cannot assign to function call here. Maybe you meant '==' instead of '='?","lineno":6,"offset":3,"end_lineno":6,"end_offset":6}}
+{"id":"test_syntax.py:0#169","src":"def f()\n    pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#17","src":"b\"\" = 1","expected":{"type":"SyntaxError","msg":"cannot assign to literal here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_syntax.py:0#170","src":"def f[T]()\n    pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#171","src":"class A\n    pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#172","src":"class A[T]\n    pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#173","src":"class A[T]()\n    pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#174","src":"class R&D:\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#175","src":"if 1\n  pass\nelif 1:\n  pass\nelse:\n  x() = 1","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#176","src":"if 1:\n  pass\nelif 1\n  pass\nelse:\n  x() = 1","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":3,"offset":7,"end_lineno":3,"end_offset":8}}
+{"id":"test_syntax.py:0#177","src":"if 1:\n  pass\nelif 1:\n  pass\nelse\n  x() = 1","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":5,"offset":5,"end_lineno":5,"end_offset":6}}
+{"id":"test_syntax.py:0#178","src":"for x in range(10)\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":19,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:0#179","src":"for x in range 10:\n  pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":16,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#18","src":"... = 1","expected":{"type":"SyntaxError","msg":"cannot assign to ellipsis here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":4}}
+{"id":"test_syntax.py:0#180","src":"while True\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#181","src":"with blech as something\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":24,"end_lineno":1,"end_offset":25}}
+{"id":"test_syntax.py:0#182","src":"with blech\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#183","src":"with blech, block as something\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":31,"end_lineno":1,"end_offset":32}}
+{"id":"test_syntax.py:0#184","src":"with blech, block as something, bluch\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":38,"end_lineno":1,"end_offset":39}}
+{"id":"test_syntax.py:0#185","src":"with (blech as something)\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":26,"end_lineno":1,"end_offset":27}}
+{"id":"test_syntax.py:0#186","src":"with (blech)\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#187","src":"with (blech, block as something)\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":33,"end_lineno":1,"end_offset":34}}
+{"id":"test_syntax.py:0#188","src":"with (blech, block as something, bluch)\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":40,"end_lineno":1,"end_offset":41}}
+{"id":"test_syntax.py:0#189","src":"with block ad something:\n  pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#19","src":"`1` = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":1,"end_lineno":1,"end_offset":2}}
+{"id":"test_syntax.py:0#190","src":"try\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#191","src":"try:\n  pass\nexcept\n  pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":3,"offset":7,"end_lineno":3,"end_offset":8}}
+{"id":"test_syntax.py:0#192","src":"match x\n  case list():\n      pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#193","src":"match x x:\n  case list():\n      pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#194","src":"match x:\n  case list()\n      pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":2,"offset":14,"end_lineno":2,"end_offset":15}}
+{"id":"test_syntax.py:0#195","src":"match x:\n  case [y] if y > 0\n      pass","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":2,"offset":20,"end_lineno":2,"end_offset":21}}
+{"id":"test_syntax.py:0#196","src":"if x = 3:\n   pass","expected":{"type":"SyntaxError","msg":"invalid syntax. Maybe you meant '==' or ':=' instead of '='?","lineno":1,"offset":4,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#197","src":"while x = 3:\n   pass","expected":{"type":"SyntaxError","msg":"invalid syntax. Maybe you meant '==' or ':=' instead of '='?","lineno":1,"offset":7,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#198","src":"if x.a = 3:\n   pass","expected":{"type":"SyntaxError","msg":"cannot assign to attribute here. Maybe you meant '==' instead of '='?","lineno":1,"offset":4,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#199","src":"while x.a = 3:\n   pass","expected":{"type":"SyntaxError","msg":"cannot assign to attribute here. Maybe you meant '==' instead of '='?","lineno":1,"offset":7,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#2","src":"None = 1","expected":{"type":"SyntaxError","msg":"cannot assign to None","lineno":1,"offset":1,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#20","src":"(a, \"b\", c) = (1, 2, 3)","expected":{"type":"SyntaxError","msg":"cannot assign to literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#200","src":"def f:","expected":{"type":"SyntaxError","msg":"expected '('","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#201","src":"async def f:","expected":{"type":"SyntaxError","msg":"expected '('","lineno":1,"offset":12,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#202","src":"def f(x, (y, z), w):\n   pass","expected":{"type":"SyntaxError","msg":"Function parameters cannot be parenthesized","lineno":1,"offset":10,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#203","src":"def f((x, y, z, w)):\n   pass","expected":{"type":"SyntaxError","msg":"Function parameters cannot be parenthesized","lineno":1,"offset":7,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#204","src":"def f(x, (y, z, w)):\n   pass","expected":{"type":"SyntaxError","msg":"Function parameters cannot be parenthesized","lineno":1,"offset":10,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#205","src":"def f((x, y, z), w):\n   pass","expected":{"type":"SyntaxError","msg":"Function parameters cannot be parenthesized","lineno":1,"offset":7,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#206","src":"lambda x, (y, z), w: None","expected":{"type":"SyntaxError","msg":"Lambda expression parameters cannot be parenthesized","lineno":1,"offset":11,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#207","src":"lambda (x, y, z, w): None","expected":{"type":"SyntaxError","msg":"Lambda expression parameters cannot be parenthesized","lineno":1,"offset":8,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:0#208","src":"lambda x, (y, z, w): None","expected":{"type":"SyntaxError","msg":"Lambda expression parameters cannot be parenthesized","lineno":1,"offset":11,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:0#209","src":"lambda (x, y, z), w: None","expected":{"type":"SyntaxError","msg":"Lambda expression parameters cannot be parenthesized","lineno":1,"offset":8,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#21","src":"(a, True, c) = (1, 2, 3)","expected":{"type":"SyntaxError","msg":"cannot assign to True","lineno":1,"offset":5,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#210","src":"try:\n   x = 34","expected":{"type":"SyntaxError","msg":"expected 'except' or 'finally' block","lineno":2,"offset":10,"end_lineno":2,"end_offset":-1}}
+{"id":"test_syntax.py:0#211","src":"try:\n   pass\nexcept TypeError:\n   pass\nexcept* ValueError:\n   pass","expected":{"type":"SyntaxError","msg":"cannot have both 'except' and 'except*' on the same 'try'","lineno":5,"offset":1,"end_lineno":5,"end_offset":8}}
+{"id":"test_syntax.py:0#212","src":"try:\n   pass\nexcept* TypeError:\n   pass\nexcept ValueError:\n   pass","expected":{"type":"SyntaxError","msg":"cannot have both 'except' and 'except*' on the same 'try'","lineno":5,"offset":1,"end_lineno":5,"end_offset":7}}
+{"id":"test_syntax.py:0#213","src":"try:\n   pass\nexcept TypeError:\n   pass\nexcept TypeError:\n   pass\nexcept* ValueError:\n   pass","expected":{"type":"SyntaxError","msg":"cannot have both 'except' and 'except*' on the same 'try'","lineno":7,"offset":1,"end_lineno":7,"end_offset":8}}
+{"id":"test_syntax.py:0#214","src":"try:\n   pass\nexcept* TypeError:\n   pass\nexcept* TypeError:\n   pass\nexcept ValueError:\n   pass","expected":{"type":"SyntaxError","msg":"cannot have both 'except' and 'except*' on the same 'try'","lineno":7,"offset":1,"end_lineno":7,"end_offset":7}}
+{"id":"test_syntax.py:0#215","src":"f(2, 4, x=34); 1 $ 2","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":18,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#216","src":"dict(x=34); x $ y","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#217","src":"dict(x=34, (x for x in range 10), 1); x $ y","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#218","src":"dict(x=34, x=1, y=2); x $ y","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":25,"end_lineno":1,"end_offset":26}}
+{"id":"test_syntax.py:0#219","src":"{1:2, 3:4, 5}","expected":{"type":"SyntaxError","msg":"':' expected after dictionary key","lineno":1,"offset":12,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:0#220","src":"{1:2, 3:4, 5:}","expected":{"type":"SyntaxError","msg":"expression expected after dictionary key and ':'","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#221","src":"{1: *12+1, 23: 1}","expected":{"type":"SyntaxError","msg":"cannot use a starred expression in a dictionary value","lineno":1,"offset":5,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#222","src":"{1: *12+1}","expected":{"type":"SyntaxError","msg":"cannot use a starred expression in a dictionary value","lineno":1,"offset":5,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#223","src":"{1: 23, 1: *12+1}","expected":{"type":"SyntaxError","msg":"cannot use a starred expression in a dictionary value","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#224","src":"{1:}","expected":{"type":"SyntaxError","msg":"expression expected after dictionary key and ':'","lineno":1,"offset":3,"end_lineno":1,"end_offset":4}}
+{"id":"test_syntax.py:0#225","src":"{1} $","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#226","src":"{1: 2, 3: foo(,), 4: 5}","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#227","src":"{1: $, 2: 3}","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#228","src":"while condition:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'while' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#229","src":"for x in range(10):\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'for' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#23","src":"(a, *True, c) = (1, 2, 3)","expected":{"type":"SyntaxError","msg":"cannot assign to True","lineno":1,"offset":6,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#230","src":"for x in range(10):\n    pass\nelse:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'else' statement on line 3","lineno":4,"offset":1,"end_lineno":4,"end_offset":5}}
+{"id":"test_syntax.py:0#231","src":"async for x in range(10):\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'for' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#232","src":"async for x in range(10):\n    pass\nelse:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'else' statement on line 3","lineno":4,"offset":1,"end_lineno":4,"end_offset":5}}
+{"id":"test_syntax.py:0#233","src":"if something:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'if' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#234","src":"if something:\n    pass\nelif something_else:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'elif' statement on line 3","lineno":4,"offset":1,"end_lineno":4,"end_offset":5}}
+{"id":"test_syntax.py:0#235","src":"if something:\n    pass\nelif something_else:\n    pass\nelse:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'else' statement on line 5","lineno":6,"offset":1,"end_lineno":6,"end_offset":5}}
+{"id":"test_syntax.py:0#236","src":"try:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'try' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#237","src":"try:\n    something()\nexcept:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'except' statement on line 3","lineno":4,"offset":1,"end_lineno":4,"end_offset":5}}
+{"id":"test_syntax.py:0#238","src":"try:\n    something()\nexcept A:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'except' statement on line 3","lineno":4,"offset":1,"end_lineno":4,"end_offset":5}}
+{"id":"test_syntax.py:0#239","src":"try:\n    something()\nexcept* A:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'except*' statement on line 3","lineno":4,"offset":1,"end_lineno":4,"end_offset":5}}
+{"id":"test_syntax.py:0#240","src":"try:\n    something()\nexcept A:\n    pass\nfinally:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'finally' statement on line 5","lineno":6,"offset":1,"end_lineno":6,"end_offset":5}}
+{"id":"test_syntax.py:0#241","src":"try:\n    something()\nexcept* A:\n    pass\nfinally:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'finally' statement on line 5","lineno":6,"offset":1,"end_lineno":6,"end_offset":5}}
+{"id":"test_syntax.py:0#242","src":"with A:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'with' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#243","src":"with A as a, B as b:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'with' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#244","src":"with (A as a, B as b):\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'with' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#245","src":"async with A:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'with' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#246","src":"async with A as a, B as b:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'with' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#247","src":"async with (A as a, B as b):\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'with' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#248","src":"def foo(x, /, y, *, z=2):\npass","expected":{"type":"IndentationError","msg":"expected an indented block after function definition on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#249","src":"def foo[T](x, /, y, *, z=2):\npass","expected":{"type":"IndentationError","msg":"expected an indented block after function definition on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#25","src":"[a, b, c + 1] = [1, 2, 3]","expected":{"type":"SyntaxError","msg":"cannot assign to expression","lineno":1,"offset":8,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#250","src":"class Blech(A):\npass","expected":{"type":"IndentationError","msg":"expected an indented block after class definition on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#251","src":"class Blech[T](A):\npass","expected":{"type":"IndentationError","msg":"expected an indented block after class definition on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#252","src":"match something:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'match' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":5}}
+{"id":"test_syntax.py:0#253","src":"match something:\n    case []:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'case' statement on line 2","lineno":3,"offset":0,"end_lineno":3,"end_offset":-1}}
+{"id":"test_syntax.py:0#254","src":"match something:\n    case []:\n        ...\n    case {}:\npass","expected":{"type":"IndentationError","msg":"expected an indented block after 'case' statement on line 4","lineno":5,"offset":0,"end_lineno":5,"end_offset":-1}}
+{"id":"test_syntax.py:0#255","src":"raise X, Y","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#256","src":"raise X, Y, Z","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#257","src":"try:\n  pass\nexcept A, B:\n  pass","expected":{"type":"SyntaxError","msg":"multiple exception types must be parenthesized","lineno":3,"offset":8,"end_lineno":3,"end_offset":12}}
+{"id":"test_syntax.py:0#258","src":"try:\n  pass\nexcept A, B, C:\n  pass","expected":{"type":"SyntaxError","msg":"multiple exception types must be parenthesized","lineno":3,"offset":8,"end_lineno":3,"end_offset":15}}
+{"id":"test_syntax.py:0#259","src":"try:\n  pass\nexcept A, B, C as blech:\n  pass","expected":{"type":"SyntaxError","msg":"multiple exception types must be parenthesized","lineno":3,"offset":8,"end_lineno":3,"end_offset":24}}
+{"id":"test_syntax.py:0#26","src":"[a, b[1], c + 1] = [1, 2, 3]","expected":{"type":"SyntaxError","msg":"cannot assign to expression","lineno":1,"offset":11,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#260","src":"try:\n  pass\nexcept A, B, C as blech:\n  pass\nfinally:\n  pass","expected":{"type":"SyntaxError","msg":"multiple exception types must be parenthesized","lineno":3,"offset":8,"end_lineno":3,"end_offset":24}}
+{"id":"test_syntax.py:0#261","src":"try:\n  pass\nexcept* A, B:\n  pass","expected":{"type":"SyntaxError","msg":"multiple exception types must be parenthesized","lineno":3,"offset":9,"end_lineno":3,"end_offset":13}}
+{"id":"test_syntax.py:0#262","src":"try:\n  pass\nexcept* A, B, C:\n  pass","expected":{"type":"SyntaxError","msg":"multiple exception types must be parenthesized","lineno":3,"offset":9,"end_lineno":3,"end_offset":16}}
+{"id":"test_syntax.py:0#263","src":"try:\n  pass\nexcept* A, B, C as blech:\n  pass","expected":{"type":"SyntaxError","msg":"multiple exception types must be parenthesized","lineno":3,"offset":9,"end_lineno":3,"end_offset":25}}
+{"id":"test_syntax.py:0#264","src":"try:\n  pass\nexcept* A, B, C as blech:\n  pass\nfinally:\n  pass","expected":{"type":"SyntaxError","msg":"multiple exception types must be parenthesized","lineno":3,"offset":9,"end_lineno":3,"end_offset":25}}
+{"id":"test_syntax.py:0#265","src":"try:\n  pass\nexcept* A as a:\n  pass\nexcept*:\n  pass","expected":{"type":"SyntaxError","msg":"expected one or more exception types","lineno":5,"offset":8,"end_lineno":5,"end_offset":9}}
+{"id":"test_syntax.py:0#267","src":"{1, 2, 3} = 42","expected":{"type":"SyntaxError","msg":"cannot assign to set display here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#268","src":"{1: 2, 3: 4} = 42","expected":{"type":"SyntaxError","msg":"cannot assign to dict literal here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#269","src":"f'{x}' = 42","expected":{"type":"SyntaxError","msg":"cannot assign to f-string expression here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#27","src":"[a, b.c.d, c + 1] = [1, 2, 3]","expected":{"type":"SyntaxError","msg":"cannot assign to expression","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#270","src":"f'{x}-{y}' = 42","expected":{"type":"SyntaxError","msg":"cannot assign to f-string expression here. Maybe you meant '==' instead of '='?","lineno":1,"offset":1,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#271","src":"(x, y, z=3, d, e)","expected":{"type":"SyntaxError","msg":"invalid syntax. Maybe you meant '==' or ':=' instead of '='?","lineno":1,"offset":8,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#272","src":"[x, y, z=3, d, e]","expected":{"type":"SyntaxError","msg":"invalid syntax. Maybe you meant '==' or ':=' instead of '='?","lineno":1,"offset":8,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#273","src":"[z=3]","expected":{"type":"SyntaxError","msg":"invalid syntax. Maybe you meant '==' or ':=' instead of '='?","lineno":1,"offset":2,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#274","src":"{x, y, z=3, d, e}","expected":{"type":"SyntaxError","msg":"invalid syntax. Maybe you meant '==' or ':=' instead of '='?","lineno":1,"offset":8,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#275","src":"{z=3}","expected":{"type":"SyntaxError","msg":"invalid syntax. Maybe you meant '==' or ':=' instead of '='?","lineno":1,"offset":2,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#276","src":"from t import x,","expected":{"type":"SyntaxError","msg":"trailing comma not allowed without surrounding parentheses","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#277","src":"from t import x,y,","expected":{"type":"SyntaxError","msg":"trailing comma not allowed without surrounding parentheses","lineno":1,"offset":19,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:0#278","src":"import a from b","expected":{"type":"SyntaxError","msg":"Did you mean to use 'from ... import ...' instead?","lineno":1,"offset":1,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#279","src":"import a.y.z from b.y.z","expected":{"type":"SyntaxError","msg":"Did you mean to use 'from ... import ...' instead?","lineno":1,"offset":1,"end_lineno":1,"end_offset":24}}
+{"id":"test_syntax.py:0#28","src":"a if 1 else b = 1","expected":{"type":"SyntaxError","msg":"cannot assign to conditional expression","lineno":1,"offset":1,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#280","src":"import a from b as bar","expected":{"type":"SyntaxError","msg":"Did you mean to use 'from ... import ...' instead?","lineno":1,"offset":1,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#281","src":"import a.y.z from b.y.z as bar","expected":{"type":"SyntaxError","msg":"Did you mean to use 'from ... import ...' instead?","lineno":1,"offset":1,"end_lineno":1,"end_offset":26}}
+{"id":"test_syntax.py:0#282","src":"import a, b,c from b","expected":{"type":"SyntaxError","msg":"Did you mean to use 'from ... import ...' instead?","lineno":1,"offset":1,"end_lineno":1,"end_offset":21}}
+{"id":"test_syntax.py:0#283","src":"import a.y.z, b.y.z, c.y.z from b.y.z","expected":{"type":"SyntaxError","msg":"Did you mean to use 'from ... import ...' instead?","lineno":1,"offset":1,"end_lineno":1,"end_offset":38}}
+{"id":"test_syntax.py:0#284","src":"import a,b,c from b as bar","expected":{"type":"SyntaxError","msg":"Did you mean to use 'from ... import ...' instead?","lineno":1,"offset":1,"end_lineno":1,"end_offset":22}}
+{"id":"test_syntax.py:0#285","src":"import a.y.z, b.y.z, c.y.z from b.y.z as bar","expected":{"type":"SyntaxError","msg":"Did you mean to use 'from ... import ...' instead?","lineno":1,"offset":1,"end_lineno":1,"end_offset":40}}
+{"id":"test_syntax.py:0#286","src":"from t import x,y, and 3","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":20,"end_lineno":1,"end_offset":23}}
+{"id":"test_syntax.py:0#287","src":"(): int","expected":{"type":"SyntaxError","msg":"only single target (not tuple) can be annotated","lineno":1,"offset":1,"end_lineno":1,"end_offset":3}}
+{"id":"test_syntax.py:0#288","src":"[]: int","expected":{"type":"SyntaxError","msg":"only single target (not list) can be annotated","lineno":1,"offset":1,"end_lineno":1,"end_offset":3}}
+{"id":"test_syntax.py:0#289","src":"(()): int","expected":{"type":"SyntaxError","msg":"only single target (not tuple) can be annotated","lineno":1,"offset":2,"end_lineno":1,"end_offset":4}}
+{"id":"test_syntax.py:0#29","src":"a = 42 if True","expected":{"type":"SyntaxError","msg":"expected 'else' after 'if' expression","lineno":1,"offset":5,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#290","src":"([]): int","expected":{"type":"SyntaxError","msg":"only single target (not list) can be annotated","lineno":1,"offset":2,"end_lineno":1,"end_offset":4}}
+{"id":"test_syntax.py:0#294","src":"with (lambda *:0): pass","expected":{"type":"SyntaxError","msg":"named arguments must follow bare *","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#297","src":"import \u00e4 \u00a3","expected":{"type":"SyntaxError","msg":"invalid character '\u00a3' (U+00A3)","lineno":1,"offset":10,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#298","src":"match ...:\n  case 42 as _:\n    ...","expected":{"type":"SyntaxError","msg":"cannot use '_' as a target","lineno":2,"offset":14,"end_lineno":2,"end_offset":15}}
+{"id":"test_syntax.py:0#299","src":"match ...:\n  case 42 as 1+2+4:\n    ...","expected":{"type":"SyntaxError","msg":"invalid pattern target","lineno":2,"offset":14,"end_lineno":2,"end_offset":19}}
+{"id":"test_syntax.py:0#3","src":"obj.True = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#30","src":"a = (42 if True)","expected":{"type":"SyntaxError","msg":"expected 'else' after 'if' expression","lineno":1,"offset":6,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#300","src":"match ...:\n  case Foo(z=1, y=2, x):\n    ...","expected":{"type":"SyntaxError","msg":"positional patterns follow keyword patterns","lineno":2,"offset":22,"end_lineno":2,"end_offset":23}}
+{"id":"test_syntax.py:0#301","src":"match ...:\n  case Foo(a, z=1, y=2, x):\n    ...","expected":{"type":"SyntaxError","msg":"positional patterns follow keyword patterns","lineno":2,"offset":25,"end_lineno":2,"end_offset":26}}
+{"id":"test_syntax.py:0#302","src":"match ...:\n  case Foo(z=1, x, y=2):\n    ...","expected":{"type":"SyntaxError","msg":"positional patterns follow keyword patterns","lineno":2,"offset":17,"end_lineno":2,"end_offset":18}}
+{"id":"test_syntax.py:0#303","src":"match ...:\n  case C(a=b, c, d=e, f, g=h, i, j=k, ...):\n    ...","expected":{"type":"SyntaxError","msg":"positional patterns follow keyword patterns","lineno":2,"offset":15,"end_lineno":2,"end_offset":16}}
+{"id":"test_syntax.py:0#304","src":"A[:*b]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#305","src":"A[:(*b)]","expected":{"type":"SyntaxError","msg":"cannot use starred expression here","lineno":1,"offset":5,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#306","src":"A[:*b] = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#307","src":"del A[:*b]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#308","src":"A[*b:]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#309","src":"A[(*b):]","expected":{"type":"SyntaxError","msg":"cannot use starred expression here","lineno":1,"offset":4,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#31","src":"a = [1, 42 if True, 4]","expected":{"type":"SyntaxError","msg":"expected 'else' after 'if' expression","lineno":1,"offset":9,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#310","src":"A[*b:] = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#311","src":"del A[*b:]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#312","src":"A[*b:*b]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#313","src":"A[(*b:*b)]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#314","src":"A[*b:*b] = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#315","src":"del A[*b:*b]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#316","src":"A[*(1:2)]","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#317","src":"A[*(1:2)] = 1","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#318","src":"del A[*(1:2)]","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":10,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#319","src":"A[*:]","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#32","src":"if True:\n    print(\"Hello\"\n\nif 2:\n   print(123))","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":4,"offset":5,"end_lineno":4,"end_offset":6}}
+{"id":"test_syntax.py:0#320","src":"A[:*]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#321","src":"A[*]","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#322","src":"A[**]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":3,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#323","src":"A[**b]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":3,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#324","src":"A[**b] = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":3,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#325","src":"del A[**b]","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":7,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#326","src":"def f6(x: *b): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#327","src":"def f7(x: *b = 1): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#328","src":"def f8(**kwargs: *a): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":18,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#329","src":"x: *b","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#33","src":"True = True = 3","expected":{"type":"SyntaxError","msg":"cannot assign to True","lineno":1,"offset":1,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#330","src":"x: *b = 1","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#331","src":"b\"\u0100\"","expected":{"type":"SyntaxError","msg":"bytes can only contain ASCII literal characters","lineno":1,"offset":1,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#332","src":"b\"\u0430\u0431\u0432\u0433\u0434\u0435\"","expected":{"type":"SyntaxError","msg":"bytes can only contain ASCII literal characters","lineno":1,"offset":1,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#333","src":"b\"abc \u044a\u044e\u0449\u044b\u0439\"  # first 3 letters are ascii","expected":{"type":"SyntaxError","msg":"bytes can only contain ASCII literal characters","lineno":1,"offset":1,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#34","src":"x = y = True = z = 3","expected":{"type":"SyntaxError","msg":"cannot assign to True","lineno":1,"offset":9,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#346","src":"f(**x, *y)","expected":{"type":"SyntaxError","msg":"iterable argument unpacking follows keyword argument unpacking","lineno":1,"offset":6,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#347","src":"f(**x, *)","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#348","src":"f(x, *:)","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#349","src":"f(x, *)","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#35","src":"x = y = yield = 1","expected":{"type":"SyntaxError","msg":"assignment to yield expression not possible","lineno":1,"offset":9,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#350","src":"f(x = 5, *)","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#351","src":"f(x = 5, *:)","expected":{"type":"SyntaxError","msg":"Invalid star expression","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#36","src":"a, b += 1, 2","expected":{"type":"SyntaxError","msg":"'tuple' is an illegal expression for augmented assignment","lineno":1,"offset":1,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#37","src":"(a, b) += 1, 2","expected":{"type":"SyntaxError","msg":"'tuple' is an illegal expression for augmented assignment","lineno":1,"offset":1,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#38","src":"[a, b] += 1, 2","expected":{"type":"SyntaxError","msg":"'list' is an illegal expression for augmented assignment","lineno":1,"offset":1,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:0#39","src":"for a() in b: pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":5,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#4","src":"True = 1","expected":{"type":"SyntaxError","msg":"cannot assign to True","lineno":1,"offset":1,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#40","src":"for (a, b()) in b: pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":9,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#41","src":"for [a, b()] in b: pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":9,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#42","src":"for (*a, b, c+1) in b: pass","expected":{"type":"SyntaxError","msg":"cannot assign to expression","lineno":1,"offset":13,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#43","src":"for (x, *(y, z.d())) in b: pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":14,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#44","src":"for a, b() in c: pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":8,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#45","src":"for a, b, (c + 1, d()): pass","expected":{"type":"SyntaxError","msg":"cannot assign to expression","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#46","src":"for i < (): pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":7,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#47","src":"for a, b","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#48","src":"with a as b(): pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":11,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#49","src":"with a as (b, c()): pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":15,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#5","src":"(True := 1)","expected":{"type":"SyntaxError","msg":"cannot use assignment expressions with True","lineno":1,"offset":2,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:0#50","src":"with a as [b, c()]: pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":15,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#51","src":"with a as (*b, c, d+1): pass","expected":{"type":"SyntaxError","msg":"cannot assign to expression","lineno":1,"offset":19,"end_lineno":1,"end_offset":22}}
+{"id":"test_syntax.py:0#52","src":"with a as (x, *(y, z.d())): pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":20,"end_lineno":1,"end_offset":25}}
+{"id":"test_syntax.py:0#53","src":"with a as b, c as d(): pass","expected":{"type":"SyntaxError","msg":"cannot assign to function call","lineno":1,"offset":19,"end_lineno":1,"end_offset":22}}
+{"id":"test_syntax.py:0#54","src":"with a as b","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":1,"offset":12,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#55","src":"p = p =","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#56","src":"[x,y for x,y in range(100)]","expected":{"type":"SyntaxError","msg":"did you forget parentheses around the comprehension target?","lineno":1,"offset":2,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#57","src":"{x,y for x,y in range(100)}","expected":{"type":"SyntaxError","msg":"did you forget parentheses around the comprehension target?","lineno":1,"offset":2,"end_lineno":1,"end_offset":5}}
+{"id":"test_syntax.py:0#58","src":"[1, 2 3]","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":1,"offset":5,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#59","src":"{1, 2 3}","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":1,"offset":5,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#60","src":"{1:2, 2:5 3:12}","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":1,"offset":9,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#61","src":"(1, 2 3)","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":1,"offset":5,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:0#62","src":"match x:\n    y = 3","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":5,"end_lineno":2,"end_offset":6}}
+{"id":"test_syntax.py:0#63","src":"match x:\n    case y:\n       3 $ 3","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":3,"offset":10,"end_lineno":3,"end_offset":11}}
+{"id":"test_syntax.py:0#64","src":"match x:\n    case $:\n       ...","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":10,"end_lineno":2,"end_offset":11}}
+{"id":"test_syntax.py:0#65","src":"match ...:\n    case {**rest, \"key\": value}:\n       ...","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":19,"end_lineno":2,"end_offset":24}}
+{"id":"test_syntax.py:0#66","src":"match ...:\n    case {**_}:\n       ...","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":13,"end_lineno":2,"end_offset":14}}
+{"id":"test_syntax.py:0#67","src":"def f(None=1):\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":7,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:0#68","src":"def f(x, y=1, z):\n    pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#69","src":"def f(x, /, y=1, z):\n    pass","expected":{"type":"SyntaxError","msg":"parameter without a default follows parameter with a default","lineno":1,"offset":18,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#70","src":"def f(x, None):\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":10,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#71","src":"def f(*None):\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":8,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:0#72","src":"def f(**None):\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#73","src":"def foo(/,a,b=,c):\n   pass","expected":{"type":"SyntaxError","msg":"at least one argument must precede /","lineno":1,"offset":9,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:0#74","src":"def foo(a,/,/,b,c):\n   pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#75","src":"def foo(a,/,a1,/,b,c):\n   pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#76","src":"def foo(a=1,/,/,*b,/,c):\n   pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:0#77","src":"def foo(a,/,a1=1,/,b,c):\n   pass","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":18,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#78","src":"def foo(a,*b,c,/,d,e):\n   pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#79","src":"def foo(a=1,*b,c=3,/,d,e):\n   pass","expected":{"type":"SyntaxError","msg":"/ must be ahead of *","lineno":1,"offset":20,"end_lineno":1,"end_offset":21}}
+{"id":"test_syntax.py:0#80","src":"def foo(a,*b=3,c):\n   pass","expected":{"type":"SyntaxError","msg":"var-positional argument cannot have default value","lineno":1,"offset":13,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:0#81","src":"def foo(a,*b: int=,c):\n   pass","expected":{"type":"SyntaxError","msg":"var-positional argument cannot have default value","lineno":1,"offset":18,"end_lineno":1,"end_offset":19}}
+{"id":"test_syntax.py:0#82","src":"def foo(a,**b=3):\n   pass","expected":{"type":"SyntaxError","msg":"var-keyword argument cannot have default value","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#83","src":"def foo(a,**b: int=3):\n   pass","expected":{"type":"SyntaxError","msg":"var-keyword argument cannot have default value","lineno":1,"offset":19,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:0#84","src":"def foo(a,*a, b, **c, d):\n   pass","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":23,"end_lineno":1,"end_offset":24}}
+{"id":"test_syntax.py:0#85","src":"def foo(a,*a, b, **c, d=4):\n   pass","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":23,"end_lineno":1,"end_offset":24}}
+{"id":"test_syntax.py:0#86","src":"def foo(a,*a, b, **c, *d):\n   pass","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":23,"end_lineno":1,"end_offset":24}}
+{"id":"test_syntax.py:0#87","src":"def foo(a,*a, b, **c, **d):\n   pass","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":23,"end_lineno":1,"end_offset":25}}
+{"id":"test_syntax.py:0#88","src":"def foo(a=1,/,**b,/,c):\n   pass","expected":{"type":"SyntaxError","msg":"arguments cannot follow var-keyword argument","lineno":1,"offset":19,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:0#89","src":"def foo(*b,*d):\n   pass","expected":{"type":"SyntaxError","msg":"* argument may appear only once","lineno":1,"offset":12,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#90","src":"def foo(a,*b,c,*d,*e,c):\n   pass","expected":{"type":"SyntaxError","msg":"* argument may appear only once","lineno":1,"offset":16,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:0#91","src":"def foo(a,b,/,c,*b,c,*d,*e,c):\n   pass","expected":{"type":"SyntaxError","msg":"* argument may appear only once","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_syntax.py:0#92","src":"def foo(a,b,/,c,*b,c,*d,**e):\n   pass","expected":{"type":"SyntaxError","msg":"* argument may appear only once","lineno":1,"offset":22,"end_lineno":1,"end_offset":23}}
+{"id":"test_syntax.py:0#93","src":"def foo(a=1,/*,b,c):\n   pass","expected":{"type":"SyntaxError","msg":"expected comma between / and *","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#94","src":"def foo(a=1,d=,c):\n   pass","expected":{"type":"SyntaxError","msg":"expected default value expression","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_syntax.py:0#95","src":"def foo(a,d=,c):\n   pass","expected":{"type":"SyntaxError","msg":"expected default value expression","lineno":1,"offset":12,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#96","src":"def foo(a,d: int=,c):\n   pass","expected":{"type":"SyntaxError","msg":"expected default value expression","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:0#97","src":"lambda /,a,b,c: None","expected":{"type":"SyntaxError","msg":"at least one argument must precede /","lineno":1,"offset":8,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:0#98","src":"lambda a,/,/,b,c: None","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":12,"end_lineno":1,"end_offset":13}}
+{"id":"test_syntax.py:0#99","src":"lambda a,/,a1,/,b,c: None","expected":{"type":"SyntaxError","msg":"/ may appear only once","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_syntax.py:2048","src":"print(end1 + end2 = ' ')","expected":{"type":"SyntaxError","msg":"expression cannot contain assignment, perhaps you meant \"==\"?","lineno":1,"offset":7,"end_lineno":1,"end_offset":20}}
+{"id":"test_syntax.py:2055","src":"f{}","mode":"single","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":2,"end_lineno":1,"end_offset":3}}
+{"id":"test_syntax.py:2061","src":"del (,)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:2062","src":"del 1","expected":{"type":"SyntaxError","msg":"cannot delete literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:2063","src":"del (1, 2)","expected":{"type":"SyntaxError","msg":"cannot delete literal","lineno":1,"offset":6,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:2064","src":"del None","expected":{"type":"SyntaxError","msg":"cannot delete None","lineno":1,"offset":5,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:2065","src":"del *x","expected":{"type":"SyntaxError","msg":"cannot delete starred","lineno":1,"offset":5,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:2066","src":"del (*x)","expected":{"type":"SyntaxError","msg":"cannot use starred expression here","lineno":1,"offset":6,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:2067","src":"del (*x,)","expected":{"type":"SyntaxError","msg":"cannot delete starred","lineno":1,"offset":6,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:2068","src":"del [*x,]","expected":{"type":"SyntaxError","msg":"cannot delete starred","lineno":1,"offset":6,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:2070","src":"del f(a, b)","expected":{"type":"SyntaxError","msg":"cannot delete function call","lineno":1,"offset":5,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:2071","src":"del o.f()","expected":{"type":"SyntaxError","msg":"cannot delete function call","lineno":1,"offset":5,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:2072","src":"del a[0]()","expected":{"type":"SyntaxError","msg":"cannot delete function call","lineno":1,"offset":5,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:2073","src":"del x, f()","expected":{"type":"SyntaxError","msg":"cannot delete function call","lineno":1,"offset":8,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:2074","src":"del f(), x","expected":{"type":"SyntaxError","msg":"cannot delete function call","lineno":1,"offset":5,"end_lineno":1,"end_offset":8}}
+{"id":"test_syntax.py:2075","src":"del [a, b, ((c), (d,), e.f())]","expected":{"type":"SyntaxError","msg":"cannot delete function call","lineno":1,"offset":24,"end_lineno":1,"end_offset":29}}
+{"id":"test_syntax.py:2076","src":"del (a if True else b)","expected":{"type":"SyntaxError","msg":"cannot delete conditional expression","lineno":1,"offset":6,"end_lineno":1,"end_offset":22}}
+{"id":"test_syntax.py:2077","src":"del +a","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":5,"end_lineno":1,"end_offset":7}}
+{"id":"test_syntax.py:2078","src":"del a, +b","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":8,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:2079","src":"del a + b","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":5,"end_lineno":1,"end_offset":10}}
+{"id":"test_syntax.py:2080","src":"del (a + b, c)","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":6,"end_lineno":1,"end_offset":11}}
+{"id":"test_syntax.py:2081","src":"del (c[0], a + b)","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:2082","src":"del a.b.c + 2","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":5,"end_lineno":1,"end_offset":14}}
+{"id":"test_syntax.py:2083","src":"del a.b.c[0] + 2","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":5,"end_lineno":1,"end_offset":17}}
+{"id":"test_syntax.py:2084","src":"del (a, b, (c, d.e.f + 2))","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":16,"end_lineno":1,"end_offset":25}}
+{"id":"test_syntax.py:2085","src":"del [a, b, (c, d.e.f[0] + 2)]","expected":{"type":"SyntaxError","msg":"cannot delete expression","lineno":1,"offset":16,"end_lineno":1,"end_offset":28}}
+{"id":"test_syntax.py:2086","src":"del (a := 5)","expected":{"type":"SyntaxError","msg":"cannot delete named expression","lineno":1,"offset":6,"end_lineno":1,"end_offset":12}}
+{"id":"test_syntax.py:2089","src":"del a += b","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":7,"end_lineno":1,"end_offset":9}}
+{"id":"test_syntax.py:2162","src":"foo()\n bar()\n","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":2,"offset":1,"end_lineno":2,"end_offset":-1}}
+{"id":"test_syntax.py:2166","src":"if 1:\nfoo()","expected":{"type":"IndentationError","msg":"expected an indented block after 'if' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":4}}
+{"id":"test_syntax.py:2170","src":"if 1:\n  foo()\n bar()","expected":{"type":"IndentationError","msg":"unindent does not match any outer indentation level","lineno":3,"offset":7,"end_lineno":3,"end_offset":-1}}
+{"id":"test_syntax.py:2175","src":"int(base=10, '2')","expected":{"type":"SyntaxError","msg":"positional argument follows keyword argument","lineno":1,"offset":17,"end_lineno":1,"end_offset":18}}
+{"id":"test_syntax.py:2179","src":"int(**{'base': 10}, '2')","expected":{"type":"SyntaxError","msg":"positional argument follows keyword argument unpacking","lineno":1,"offset":24,"end_lineno":1,"end_offset":25}}
+{"id":"test_syntax.py:2184","src":"int(**{'base': 10}, *['2'])","expected":{"type":"SyntaxError","msg":"iterable argument unpacking follows keyword argument unpacking","lineno":1,"offset":19,"end_lineno":1,"end_offset":27}}
+{"id":"test_syntax.py:2189","src":"foo(x,    y for y in range(3) for z in range(2) if z    , p)","expected":{"type":"SyntaxError","msg":"Generator expression must be parenthesized","lineno":1,"offset":11,"end_lineno":1,"end_offset":53}}
+{"id":"test_syntax.py:2194","src":"try: pass\nexcept ValueError: pass\nexcept* TypeError: pass","expected":{"type":"SyntaxError","msg":"cannot have both 'except' and 'except*' on the same 'try'","lineno":3,"offset":1,"end_lineno":3,"end_offset":8}}
+{"id":"test_syntax.py:2199","src":"try: pass\nexcept* ValueError: pass\nexcept TypeError: pass","expected":{"type":"SyntaxError","msg":"cannot have both 'except' and 'except*' on the same 'try'","lineno":3,"offset":1,"end_lineno":3,"end_offset":7}}
+{"id":"test_syntax.py:2245","src":"\\\nif x:\n    y = 1\n  \\\n  foo = 1\n        ","expected":{"type":"IndentationError","msg":"unindent does not match any outer indentation level","lineno":5,"offset":10,"end_lineno":5,"end_offset":-1}}
+{"id":"test_syntax.py:2343","src":"\ndef func1():\n    if a != b:\n        raise ValueError\n\ndef func2():\n    try\n        return 1\n    finally:\n        pass\n","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":7,"offset":8,"end_lineno":7,"end_offset":9}}
+{"id":"test_syntax.py:2346","src":"a = 3 \\ 4","expected":{"type":"SyntaxError","msg":"unexpected character after line continuation character","lineno":1,"offset":8,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2349","src":"1,\\#\n2","expected":{"type":"SyntaxError","msg":"unexpected character after line continuation character","lineno":1,"offset":4,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2352","src":"\nfgdfgf\n1,\\#\n2\n","expected":{"type":"SyntaxError","msg":"unexpected character after line continuation character","lineno":3,"offset":4,"end_lineno":3,"end_offset":0}}
+{"id":"test_syntax.py:2359","src":"A.\u018a\\ ","expected":{"type":"SyntaxError","msg":"unexpected character after line continuation character","lineno":1,"offset":5,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2361","src":"A.\u03bc\\\n","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":5,"end_lineno":1,"end_offset":-1}}
+{"id":"test_syntax.py:2366","src":"(1 + 2","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":1,"offset":1,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2366#1","src":"[1 + 2","expected":{"type":"SyntaxError","msg":"'[' was never closed","lineno":1,"offset":1,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2366#2","src":"{1 + 2","expected":{"type":"SyntaxError","msg":"'{' was never closed","lineno":1,"offset":1,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2369","src":"a = ( 1, 2, 3\nb=3","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":1,"offset":5,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2369#1","src":"a = [ 1, 2, 3\nb=3","expected":{"type":"SyntaxError","msg":"'[' was never closed","lineno":1,"offset":5,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2369#2","src":"a = { 1, 2, 3\nb=3","expected":{"type":"SyntaxError","msg":"'{' was never closed","lineno":1,"offset":5,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2372","src":")1 + 2","expected":{"type":"SyntaxError","msg":"unmatched ')'","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2372#1","src":"]1 + 2","expected":{"type":"SyntaxError","msg":"unmatched ']'","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2372#2","src":"}1 + 2","expected":{"type":"SyntaxError","msg":"unmatched '}'","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2381","src":"func(\n    a=[\"unclosed], # Need a quote in this comment: \"\n    b=2,\n)\n","expected":{"type":"SyntaxError","msg":"closing parenthesis ')' does not match opening parenthesis '[' on line 2","lineno":4,"offset":1,"end_lineno":4,"end_offset":1}}
+{"id":"test_syntax.py:2383","src":"match y:\n case e(e=v,v,","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":2,"offset":8,"end_lineno":2,"end_offset":0}}
+{"id":"test_syntax.py:2387","src":"# coding=latin\n(aaaaaaaaaaaaaaaaa\naaaaaaaaaaa\u00b5","encoding":"latin-1","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":2,"offset":1,"end_lineno":2,"end_offset":0}}
+{"id":"test_syntax.py:2391","src":"'blech","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2392","src":"\"blech","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2393","src":"'''blech","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2394","src":"\"\"\"blech","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2397","src":"print\u0017(\"Hello\")","expected":{"type":"SyntaxError","msg":"invalid non-printable character U+0017","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
+{"id":"test_syntax.py:2475","src":"d{{{{{{{{{{{{{{{{{{{{{{{{{```{{{{{{{ef f():y","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":2,"end_lineno":1,"end_offset":3}}
+{"id":"test_type_params.py:1006","src":"def func1[*A: str](): pass","expected":{"type":"SyntaxError","msg":"cannot use bound with TypeVarTuple","lineno":1,"offset":13,"end_lineno":1,"end_offset":18}}
+{"id":"test_type_params.py:1008","src":"def func1[*A: (int, str)](): pass","expected":{"type":"SyntaxError","msg":"cannot use constraints with TypeVarTuple","lineno":1,"offset":13,"end_lineno":1,"end_offset":25}}
+{"id":"test_type_params.py:1010","src":"class X[*A: str]: pass","expected":{"type":"SyntaxError","msg":"cannot use bound with TypeVarTuple","lineno":1,"offset":11,"end_lineno":1,"end_offset":16}}
+{"id":"test_type_params.py:1012","src":"class X[*A: (int, str)]: pass","expected":{"type":"SyntaxError","msg":"cannot use constraints with TypeVarTuple","lineno":1,"offset":11,"end_lineno":1,"end_offset":23}}
+{"id":"test_type_params.py:1014","src":"type X[*A: str] = int","expected":{"type":"SyntaxError","msg":"cannot use bound with TypeVarTuple","lineno":1,"offset":10,"end_lineno":1,"end_offset":15}}
+{"id":"test_type_params.py:1016","src":"type X[*A: (int, str)] = int","expected":{"type":"SyntaxError","msg":"cannot use constraints with TypeVarTuple","lineno":1,"offset":10,"end_lineno":1,"end_offset":22}}
+{"id":"test_type_params.py:1029","src":"def func1[**A: str](): pass","expected":{"type":"SyntaxError","msg":"cannot use bound with ParamSpec","lineno":1,"offset":14,"end_lineno":1,"end_offset":19}}
+{"id":"test_type_params.py:1031","src":"def func1[**A: (int, str)](): pass","expected":{"type":"SyntaxError","msg":"cannot use constraints with ParamSpec","lineno":1,"offset":14,"end_lineno":1,"end_offset":26}}
+{"id":"test_type_params.py:1033","src":"class X[**A: str]: pass","expected":{"type":"SyntaxError","msg":"cannot use bound with ParamSpec","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_type_params.py:1035","src":"class X[**A: (int, str)]: pass","expected":{"type":"SyntaxError","msg":"cannot use constraints with ParamSpec","lineno":1,"offset":12,"end_lineno":1,"end_offset":24}}
+{"id":"test_type_params.py:1037","src":"type X[**A: str] = int","expected":{"type":"SyntaxError","msg":"cannot use bound with ParamSpec","lineno":1,"offset":11,"end_lineno":1,"end_offset":16}}
+{"id":"test_type_params.py:1039","src":"type X[**A: (int, str)] = int","expected":{"type":"SyntaxError","msg":"cannot use constraints with ParamSpec","lineno":1,"offset":11,"end_lineno":1,"end_offset":23}}
+{"id":"test_type_params.py:165","src":"\n            def outer():\n                X = 1\n                def inner[X]():\n                    nonlocal X\n                return X\n            ","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":2,"offset":12,"end_lineno":2,"end_offset":-1}}
+{"id":"test_unicode_identifiers.py:badsyntax_3131.py","src":"# -*- coding: utf-8 -*-\n\u20ac = 2\n","encoding":"utf-8","expected":{"type":"SyntaxError","msg":"invalid character '\u20ac' (U+20AC)","lineno":2,"offset":1,"end_lineno":2,"end_offset":1}}
+{"id":"test_unpack_ex.py:7","src":"[*item for item in l]","expected":{"type":"SyntaxError","msg":"iterable unpacking cannot be used in comprehension","lineno":1,"offset":2,"end_lineno":1,"end_offset":7}}
+{"id":"test_unpack_ex.py:7#1","src":"[*[0, 1] for i in range(10)]","expected":{"type":"SyntaxError","msg":"iterable unpacking cannot be used in comprehension","lineno":1,"offset":2,"end_lineno":1,"end_offset":9}}
+{"id":"test_unpack_ex.py:7#13","src":"(*x),y = 1, 2 # doctest:+ELLIPSIS","expected":{"type":"SyntaxError","msg":"cannot use starred expression here","lineno":1,"offset":2,"end_lineno":1,"end_offset":4}}
+{"id":"test_unpack_ex.py:7#14","src":"(((*x))),y = 1, 2 # doctest:+ELLIPSIS","expected":{"type":"SyntaxError","msg":"cannot use starred expression here","lineno":1,"offset":4,"end_lineno":1,"end_offset":6}}
+{"id":"test_unpack_ex.py:7#15","src":"z,(*x),y = 1, 2, 4 # doctest:+ELLIPSIS","expected":{"type":"SyntaxError","msg":"cannot use starred expression here","lineno":1,"offset":4,"end_lineno":1,"end_offset":6}}
+{"id":"test_unpack_ex.py:7#16","src":"z,(*x) = 1, 2 # doctest:+ELLIPSIS","expected":{"type":"SyntaxError","msg":"cannot use starred expression here","lineno":1,"offset":4,"end_lineno":1,"end_offset":6}}
+{"id":"test_unpack_ex.py:7#17","src":"((*x),y) = 1, 2 # doctest:+ELLIPSIS","expected":{"type":"SyntaxError","msg":"cannot use starred expression here","lineno":1,"offset":3,"end_lineno":1,"end_offset":5}}
+{"id":"test_unpack_ex.py:7#2","src":"[*'a' for i in range(10)]","expected":{"type":"SyntaxError","msg":"iterable unpacking cannot be used in comprehension","lineno":1,"offset":2,"end_lineno":1,"end_offset":6}}
+{"id":"test_unpack_ex.py:7#3","src":"[*[] for i in range(10)]","expected":{"type":"SyntaxError","msg":"iterable unpacking cannot be used in comprehension","lineno":1,"offset":2,"end_lineno":1,"end_offset":5}}
+{"id":"test_unpack_ex.py:7#4","src":"{**{} for a in [1]}","expected":{"type":"SyntaxError","msg":"dict unpacking cannot be used in dict comprehension","lineno":1,"offset":2,"end_lineno":1,"end_offset":4}}
+{"id":"test_unpack_ex.py:7#5","src":"dict(**x for x in [{1:2}])","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":10,"end_lineno":1,"end_offset":13}}

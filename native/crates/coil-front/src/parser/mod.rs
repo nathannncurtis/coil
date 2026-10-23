@@ -435,6 +435,10 @@ pub(crate) struct Parser {
 
     type_ignore_comments: Vec<(u32, Vec<u8>)>,
 
+    /// `p->start_rule == Py_single_input` and its `parsing_started` flag.
+    single_input: bool,
+    parsing_started: bool,
+
     memos: Memos,
 }
 
@@ -444,6 +448,7 @@ impl Parser {
         tok_str: Vec<u8>,
         encoding: Option<String>,
         filename: Option<std::path::PathBuf>,
+        single_input: bool,
     ) -> Self {
         Parser {
             tokenizer,
@@ -459,6 +464,8 @@ impl Parser {
             encoding,
             known_err_token: None,
             type_ignore_comments: Vec::new(),
+            single_input,
+            parsing_started: false,
             memos: Memos::default(),
         }
     }
@@ -475,6 +482,17 @@ impl Parser {
             self.type_ignore_comments
                 .push((token.lineno, token.bytes.to_vec()));
             token = self.tokenizer.next_peg_token();
+        }
+        // Single input: the first ENDMARKER becomes an extra NEWLINE so the
+        // `interactive` rule can close its line; the next pull yields the
+        // real ENDMARKER. An empty input never starts parsing, so its
+        // ENDMARKER stays put.
+        if self.single_input && token.kind == TokenKind::Endmarker && self.parsing_started {
+            token.kind = TokenKind::Newline;
+            self.parsing_started = false;
+            self.tokenizer.imply_dedent();
+        } else {
+            self.parsing_started = true;
         }
         if token.kind == TokenKind::ErrorToken {
             self.tokens.push(token);
@@ -522,6 +540,13 @@ impl Parser {
     /// `expect` as an alternative step: `None` fails the enclosing attempt.
     pub(crate) fn expect_opt(&mut self, kind: TokenKind) -> Option<()> {
         self.expect(kind).then_some(())
+    }
+
+    /// Whether the current token is a plain `NAME`: `_get_keyword_or_name_type`
+    /// gives hard keywords their own token types, so a `NAME` item never
+    /// matches one, and a lookahead resting on one does not peek past it.
+    pub(crate) fn at_plain_name(&mut self) -> bool {
+        self.peek() && self.tok().kind == TokenKind::Name && !is_hard_keyword(&self.tok().bytes)
     }
 
     /// `_PyPegen_expect_token` on a keyword (a `NAME` with the keyword's
@@ -949,6 +974,8 @@ impl Parser {
         } else {
             end_col
         };
+        // `Py_BuildValue` puts the end line in the SyntaxError's args
+        // unchanged, so the 0 an empty input's ENDMARKER carries stays 0.
         self.error = Some(ParseError {
             kind,
             message,
@@ -1087,7 +1114,8 @@ impl Parser {
             return self.raise_decode_error("unicode error", message);
         }
         // A tokenizer `_syntaxerror_range` carries its own character
-        // positions and propagates unchanged.
+        // positions and propagates unchanged; a missing end column follows
+        // the start one.
         if let Some((message, line, column, end_column)) = self.tokenizer.pending_syntax_error() {
             self.error = Some(ParseError {
                 kind: ExcKind::Syntax,
@@ -1095,7 +1123,7 @@ impl Parser {
                 lineno: Some(line as i32),
                 offset: Some(column as i32),
                 end_lineno: Some(line as i32),
-                end_offset: end_column.map(|c| c as i32),
+                end_offset: Some(end_column.unwrap_or(column) as i32),
             });
             return false;
         }
@@ -1516,7 +1544,7 @@ impl Parser {
                         lineno: Some(line as i32),
                         offset: Some(column as i32),
                         end_lineno: Some(line as i32),
-                        end_offset: end_column.map(|c| c as i32),
+                        end_offset: Some(end_column.unwrap_or(column) as i32),
                     });
                 } else if let Some(message) = self.tokenizer.decode_error() {
                     // The raw `UnicodeDecodeError` stays pending.
@@ -1556,9 +1584,18 @@ impl Parser {
             lineno: Some(paren_lineno as i32),
             offset: Some(byte_to_char(&error_line, paren_col + 1) as i32),
             end_lineno: Some(paren_lineno as i32),
+            // The macro's -1 + 1: an end column of 0 passes through raw.
             end_offset: Some(0),
         }
     }
+}
+
+/// The grammar's starting rules.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum StartRule {
+    File,
+    Single,
+    Eval,
 }
 
 /// `_PyPegen_run_parser` over a whole module: parse, and on failure make the
@@ -1570,12 +1607,36 @@ pub fn parse_module(
     source: &[u8],
     filename: Option<&std::path::Path>,
 ) -> Result<(Mod, Interner), ParseError> {
+    run_parse(source, filename, StartRule::File)
+}
+
+/// `_PyPegen_run_parser` with `Py_eval_input`.
+pub fn parse_eval(
+    source: &[u8],
+    filename: Option<&std::path::Path>,
+) -> Result<(Mod, Interner), ParseError> {
+    run_parse(source, filename, StartRule::Eval)
+}
+
+/// `_PyPegen_run_parser` with `Py_single_input`.
+pub fn parse_interactive(
+    source: &[u8],
+    filename: Option<&std::path::Path>,
+) -> Result<(Mod, Interner), ParseError> {
+    run_parse(source, filename, StartRule::Single)
+}
+
+fn run_parse(
+    source: &[u8],
+    filename: Option<&std::path::Path>,
+    start: StartRule,
+) -> Result<(Mod, Interner), ParseError> {
     let source = source.to_vec();
     let filename = filename.map(std::path::PathBuf::from);
     std::thread::Builder::new()
         .stack_size(1 << 29)
         .spawn(move || {
-            let parsed = Parser::parse_module_bytes(&source, filename.as_deref());
+            let parsed = Parser::parse_bytes(&source, filename.as_deref(), start);
             // The interner must outlive the parser thread's stack frame.
             parsed
         })
@@ -1585,20 +1646,43 @@ pub fn parse_module(
 }
 
 impl Parser {
-    fn parse_module_bytes(
+    fn parse_bytes(
         source: &[u8],
         filename: Option<&std::path::Path>,
+        start: StartRule,
     ) -> Result<(Mod, Interner), ParseError> {
-        let parser_source = parser_source(source).map_err(crate::parser::source_error)?;
+        let parser_source =
+            parser_source(source, start == StartRule::File).map_err(crate::parser::source_error)?;
         let mut parser = Parser::new(
             Tokenizer::new(parser_source.lines(), false, false),
             parser_source.tok_str,
             parser_source.encoding,
             filename.map(std::path::PathBuf::from),
+            start == StartRule::Single,
         );
-        let result = statements::file_rule(&mut parser);
-        match result {
+        let start_rule = |p: &mut Parser| match start {
+            StartRule::File => statements::file_rule(p),
+            StartRule::Single => statements::interactive_rule(p),
+            StartRule::Eval => statements::eval_rule(p),
+        };
+        match start_rule(&mut parser) {
             Some(module) => {
+                // `bad_single_statement`: one statement per single input, so
+                // anything but whitespace and comments left over is an error
+                // reported at the last token pulled.
+                if start == StartRule::Single && parser.tokenizer.bad_single_statement() {
+                    parser.raise_syntax_error(
+                        "multiple statements found while compiling a single statement".to_string(),
+                    );
+                    return Err(parser.error.take().unwrap_or(ParseError {
+                        kind: ExcKind::Syntax,
+                        message: "invalid syntax".to_string(),
+                        lineno: None,
+                        offset: None,
+                        end_lineno: None,
+                        end_offset: None,
+                    }));
+                }
                 let interner = std::mem::take(&mut parser.interner);
                 Ok((module, interner))
             }
@@ -1615,7 +1699,7 @@ impl Parser {
                 parser.memos.clear();
                 parser.mark = 0;
                 parser.call_invalid_rules = true;
-                statements::file_rule(&mut parser);
+                start_rule(&mut parser);
                 parser.set_syntax_error(last_token);
                 Err(parser.error.take().unwrap_or(ParseError {
                     kind: ExcKind::Syntax,
@@ -1632,7 +1716,13 @@ impl Parser {
 
 #[cfg(test)]
 mod tests {
+    use super::ExcKind;
+    use super::ParseError;
+    use super::parse_eval;
+    use super::parse_interactive;
     use super::parse_module;
+    use crate::ast_generated::Mod;
+    use crate::intern::Interner;
 
     /// The reported error: (message, lineno, offset, end_lineno,
     /// end_offset), with `None` standing in for CPython's `-1` "absent" end.
@@ -1734,7 +1824,7 @@ mod tests {
                 ),
             ),
             (
-                "expected block at EOF keeps the line's end offset",
+                "expected block at EOF passes the -1 end offset through",
                 (
                     "expected an indented block after 'if' statement on line 1"
                         .to_string(),
@@ -2265,5 +2355,277 @@ mod tests {
                 "{source:?}"
             );
         }
+    }
+    /// CPython 3.12.10's exact SyntaxError for inputs that hit the reviewed
+    /// paths: the generic error's position (the +1 of
+    /// RAISE_ERROR_KNOWN_LOCATION applies to the ENDMARKER's -1/-1), the
+    /// keyword tokens a `NAME` item never matches, the ungated dict
+    /// alternative, the invalid alternatives whose action returns NULL, the
+    /// bare `*` in slices and the tokenizer's non-printable character.
+    #[test]
+    fn syntax_error_positions_match_cpython() {
+        type ParseFn = fn(&[u8], Option<&std::path::Path>) -> Result<(Mod, Interner), ParseError>;
+        type Expectation<'a> = (&'a str, ParseFn, &'a str, ExcKind, i32, i32, i32, i32);
+        let cases: &[Expectation] = &[
+            (
+                "x =",
+                parse_interactive,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "1+",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "1 +",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                0,
+                0,
+                0,
+                0,
+            ),
+            (
+                " ",
+                parse_eval,
+                "unexpected indent",
+                ExcKind::Indentation,
+                1,
+                1,
+                1,
+                -1,
+            ),
+            (
+                "#x",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "\n",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "lambda x:",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "",
+                parse_interactive,
+                "invalid syntax",
+                ExcKind::Syntax,
+                0,
+                0,
+                0,
+                0,
+            ),
+            (
+                "del",
+                parse_interactive,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                0,
+                1,
+                0,
+            ),
+            (
+                "[in",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                4,
+            ),
+            (
+                "(in",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                4,
+            ),
+            (
+                "{in",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                4,
+            ),
+            (
+                "[if",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                4,
+            ),
+            (
+                "[yield",
+                parse_eval,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                7,
+            ),
+            (
+                "{1:2, 3 4}",
+                parse_module,
+                "':' expected after dictionary key",
+                ExcKind::Syntax,
+                1,
+                7,
+                1,
+                0,
+            ),
+            (
+                "x = {1: 2, 3 4}",
+                parse_module,
+                "':' expected after dictionary key",
+                ExcKind::Syntax,
+                1,
+                12,
+                1,
+                0,
+            ),
+            (
+                "{1: 2, 3 4} = 42",
+                parse_module,
+                "':' expected after dictionary key",
+                ExcKind::Syntax,
+                1,
+                8,
+                1,
+                0,
+            ),
+            (
+                "ef foo(a=1,*b,c=3,/,d,e): pass",
+                parse_module,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                4,
+                1,
+                7,
+            ),
+            (
+                "ef f(a = 5, b, /): pass",
+                parse_module,
+                "invalid syntax",
+                ExcKind::Syntax,
+                1,
+                4,
+                1,
+                5,
+            ),
+            (
+                "el A[*(1:2)]",
+                parse_module,
+                "Invalid star expression",
+                ExcKind::Syntax,
+                1,
+                9,
+                1,
+                10,
+            ),
+            (
+                "x = A[*(1:2)]",
+                parse_module,
+                "Invalid star expression",
+                ExcKind::Syntax,
+                1,
+                10,
+                1,
+                11,
+            ),
+            (
+                "print x",
+                parse_module,
+                "Missing parentheses in call to 'print'. Did you mean print(...)?",
+                ExcKind::Syntax,
+                1,
+                1,
+                1,
+                8,
+            ),
+            (
+                "(\u{feff}\u{e4} = 5",
+                parse_module,
+                "invalid non-printable character U+FEFF",
+                ExcKind::Syntax,
+                1,
+                2,
+                1,
+                2,
+            ),
+        ];
+        for &(source, parse, message, kind, lineno, offset, end_lineno, end_offset) in cases {
+            let error = parse(source.as_bytes(), None)
+                .err()
+                .unwrap_or_else(|| panic!("{source:?} parsed successfully, expected {message}"));
+            assert_eq!(error.kind.name(), kind.name(), "{source:?}");
+            assert_eq!(error.message, message, "{source:?}");
+            assert_eq!(error.lineno, Some(lineno), "{source:?}");
+            assert_eq!(error.offset, Some(offset), "{source:?}");
+            assert_eq!(error.end_lineno, Some(end_lineno), "{source:?}");
+            assert_eq!(error.end_offset, Some(end_offset), "{source:?}");
+        }
+    }
+
+    /// The `slices` rule takes `starred_expression`, whose `*` still binds
+    /// in valid positions.
+    #[test]
+    fn starred_slice_still_parses() {
+        assert!(parse_module(b"x = A[*a]", None).is_ok());
+        assert!(parse_module(b"x = A[*a, *b]", None).is_ok());
     }
 }

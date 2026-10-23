@@ -6,11 +6,13 @@ sorted by path). The Rust front end must reproduce this output exactly; this
 module therefore refuses to run on anything but CPython 3.12, the pinned
 target whose grammar the parser implements.
 
-Modes (one required), each taking files or directories, recursing into *.py:
+Modes (one required):
 
   --tokens     tokenize.tokenize over the file's bytes
   --ast        ast.parse(source_bytes, filename, mode="exec")
   --symtable   symtable.symtable(source, filename, "exec")
+  --snippets   ast.parse over the sources of a JSON Lines file, one case per
+               input line, no files on disk (see SNIPPET_FORMAT)
 
 Canonical AST encoding (the Rust side emits exactly this):
 
@@ -38,6 +40,21 @@ listed in sorted name order, children in ``get_children()`` order.
 
 Objects are serialised with json.dumps(..., ensure_ascii=True,
 separators=(",", ":"), sort_keys=False).
+
+SNIPPET_FORMAT: each line of a --snippets file is a JSON object (or a bare
+JSON string standing for {"src": ...}) with
+
+  src        the source text (required)
+  id         the value reported as the record's path (default: line number)
+  mode       compile mode, "exec" (default), "eval" or "single"
+  encoding   when present, src is encoded to bytes with this codec and the
+             bytes are compiled, as tests do with b"..." literals; when
+             absent the text is encoded to UTF-8 bytes, the same input
+             ast.parse receives for str sources
+
+The parser, not the compiler, is the oracle boundary here: ast.parse raises
+exactly the SyntaxErrors of the tokenizer and the PEG parser, so cases whose
+error comes from symtable.c or compile.c compile cleanly and record ok=true.
 """
 
 from __future__ import annotations
@@ -48,6 +65,7 @@ import io
 import json
 import sys
 import tokenize
+import warnings
 from pathlib import Path
 from typing import Iterable
 
@@ -212,6 +230,45 @@ def symtable_record(path: Path) -> dict[str, object]:
     return {"path": str(path), "ok": True, "symtable": encode_table(table)}
 
 
+def snippet_record(case: dict[str, object]) -> dict[str, object]:
+    path = case.get("id")
+    if not isinstance(path, str):
+        path = str(case["line"])
+    try:
+        source = case["src"]
+        if not isinstance(source, str):
+            raise ValueError("src must be a string")
+        mode = case.get("mode", "exec")
+        if mode not in ("exec", "eval", "single"):
+            raise ValueError(f"unsupported compile mode {mode!r}")
+        encoding = case.get("encoding") or "utf-8"
+        data = source.encode(encoding)
+        with warnings.catch_warnings():
+            # A SyntaxWarning under the default filters does not fail the
+            # compile; the corpus checks errors, not warnings.
+            warnings.simplefilter("ignore", SyntaxWarning)
+            tree = ast.parse(data, "<string>", mode)
+    except Exception as exc:
+        return {"path": path, "ok": False, "error": _error_fields(exc)}
+    return {"path": path, "ok": True, "ast": encode_node(tree)}
+
+
+def snippet_cases(file: Path) -> list[dict[str, object]]:
+    cases: list[dict[str, object]] = []
+    for number, line in enumerate(file.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        case = json.loads(line)
+        if isinstance(case, str):
+            case = {"src": case}
+        if not isinstance(case, dict) or "src" not in case:
+            raise SystemExit(f"{file}:{number}: not a snippet object with a src field")
+        case = dict(case)
+        case.setdefault("line", number)
+        cases.append(case)
+    return cases
+
+
 RECORDERS = {"tokens": tokens_record, "ast": ast_record, "symtable": symtable_record}
 
 
@@ -227,9 +284,17 @@ def main(argv: list[str] | None = None) -> int:
     modes.add_argument("--tokens", action="store_const", const="tokens", dest="mode")
     modes.add_argument("--ast", action="store_const", const="ast", dest="mode")
     modes.add_argument("--symtable", action="store_const", const="symtable", dest="mode")
+    modes.add_argument("--snippets", action="store_const", const="snippets", dest="mode")
     parser.add_argument("inputs", nargs="+", metavar="FILE_OR_DIR",
-                        help="Python files, or directories recursed into *.py")
+                        help="Python files, or directories recursed into *.py; "
+                             "with --snippets, one JSON Lines snippet file")
     args = parser.parse_args(argv)
+    if args.mode == "snippets":
+        if len(args.inputs) != 1:
+            parser.error("--snippets takes exactly one JSON Lines file")
+        for case in snippet_cases(Path(args.inputs[0])):
+            print(dumps(snippet_record(case)))
+        return 0
     for path in collect_paths(args.inputs):
         print(dumps(RECORDERS[args.mode](path)))
     return 0

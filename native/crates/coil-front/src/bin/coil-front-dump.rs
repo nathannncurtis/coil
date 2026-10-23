@@ -3,7 +3,9 @@
 
 use std::io::Write;
 
-use coil_front::tokenizer::{Token, TokenKind, exact_token_type, tokenize_module_view};
+use coil_front::tokenizer::{
+    Codec, Token, TokenKind, encode_text, exact_token_type, lookup_codec, tokenize_module_view,
+};
 
 fn json_string(out: &mut String, text: &str) {
     // json.dumps(..., ensure_ascii=True): short escapes for \b \t \n \f \r,
@@ -92,6 +94,9 @@ fn run(args: &[String]) -> i32 {
             "--ast" if mode.is_none() => mode = Some(Mode::Ast),
             "--symtable" if mode.is_none() => mode = Some(Mode::Symtable),
             "--ir" if mode.is_none() => mode = Some(Mode::Ir),
+            "--snippets" if mode.is_none() => {
+                return snippets_run(rest.next().map(String::as_str));
+            }
             "--optimize" if matches!(mode, Some(Mode::Ir)) => {
                 match rest.next().map(|v| v.parse::<u8>()) {
                     Some(Ok(level)) if level <= 2 => optimize = level,
@@ -108,7 +113,7 @@ fn run(args: &[String]) -> i32 {
         Some(mode) => mode,
         None => {
             eprintln!(
-                "usage: coil-front-dump --tokens|--ast|--symtable|--ir [--optimize N] FILE..."
+                "usage: coil-front-dump --tokens|--ast|--symtable|--ir|--snippets [--optimize N] FILE..."
             );
             return 2;
         }
@@ -313,4 +318,323 @@ enum Mode {
 
 fn main() {
     std::process::exit(run(&std::env::args().skip(1).collect::<Vec<_>>()));
+}
+
+// -- snippets mode ------------------------------------------------------------
+
+/// `front_oracle.snippet_record` over a JSON Lines corpus: one source per
+/// line with an optional id, compile mode and encoding.
+fn snippets_run(path: Option<&str>) -> i32 {
+    let path = match path {
+        Some(path) => path,
+        None => {
+            eprintln!("error: --snippets takes exactly one file");
+            return 2;
+        }
+    };
+    let text = match std::fs::read_to_string(path) {
+        Ok(text) => text,
+        Err(err) => {
+            eprintln!("error: {path}: {err}");
+            return 2;
+        }
+    };
+    let mut stdout = std::io::stdout().lock();
+    for (number, line) in text.split('\n').enumerate() {
+        let number = number + 1;
+        if line.trim().is_empty() {
+            continue;
+        }
+        let fields = match json_string_fields(line) {
+            Some(fields) => fields,
+            None => {
+                eprintln!("error: {path}:{number}: not a JSON object");
+                return 2;
+            }
+        };
+        let src = match fields.iter().find(|(key, _)| key == "src") {
+            Some((_, src)) => src.clone(),
+            None => {
+                eprintln!("error: {path}:{number}: not a snippet object with a src field");
+                return 2;
+            }
+        };
+        let path_key = fields
+            .iter()
+            .find(|(key, _)| key == "id")
+            .map(|(_, value)| value.clone())
+            .unwrap_or_else(|| number.to_string());
+        let record = snippet_record(&path_key, &src, &fields);
+        if stdout.write_all(record.as_bytes()).is_err() {
+            return 2;
+        }
+    }
+    0
+}
+
+fn snippet_record(path: &str, src: &str, fields: &[(String, String)]) -> String {
+    let mode = fields
+        .iter()
+        .find(|(key, _)| key == "mode")
+        .map(|(_, value)| value.as_str())
+        .unwrap_or("exec");
+    let encoding = fields
+        .iter()
+        .find(|(key, _)| key == "encoding")
+        .map(|(_, value)| value.as_str())
+        .unwrap_or("utf-8");
+    let codec = match lookup_codec(encoding) {
+        Some(codec) => codec,
+        None => {
+            return named_error_record(
+                path,
+                "LookupError",
+                &format!("unknown encoding: {encoding}"),
+            );
+        }
+    };
+    let bytes = match encode_text(codec, src) {
+        Ok(bytes) => bytes,
+        Err((ch, position)) => {
+            let display = codec_display_name(codec);
+            return named_error_record(
+                path,
+                "UnicodeEncodeError",
+                &format!(
+                    "'{display}' codec can't encode character {} in position {position}: \
+                     ordinal not in range(256)",
+                    char_repr(ch)
+                ),
+            );
+        }
+    };
+    let parsed = match mode {
+        "exec" => coil_front::parser::parse_module(&bytes, Some(std::path::Path::new("<string>"))),
+        "eval" => coil_front::parser::parse_eval(&bytes, Some(std::path::Path::new("<string>"))),
+        "single" => {
+            coil_front::parser::parse_interactive(&bytes, Some(std::path::Path::new("<string>")))
+        }
+        _ => {
+            return named_error_record(
+                path,
+                "ValueError",
+                &format!("unsupported compile mode {mode:?}"),
+            );
+        }
+    };
+    let mut out = String::new();
+    out.push_str("{\"path\":");
+    json_string(&mut out, path);
+    match parsed {
+        Ok((module, interner)) => {
+            out.push_str(",\"ok\":true,\"ast\":");
+            out.push_str(&coil_front::dump::dump_module(&module, &interner));
+            out.push_str("}\n");
+        }
+        Err(error) => {
+            out.push_str(",\"ok\":false,\"error\":{\"type\":\"");
+            out.push_str(error.kind.name());
+            out.push_str("\",\"msg\":");
+            json_string(&mut out, &error.message);
+            out.push_str(&format!(
+                ",\"lineno\":{},\"offset\":{},\"end_lineno\":{},\"end_offset\":{}}}}}\n",
+                opt(error.lineno),
+                opt(error.offset),
+                opt(error.end_lineno),
+                opt(error.end_offset),
+            ));
+        }
+    }
+    out
+}
+
+/// An error record for a non-SyntaxError failure: `str(exc)` with no
+/// positions, like `_error_fields` builds them.
+fn named_error_record(path: &str, kind: &str, message: &str) -> String {
+    let mut out = String::new();
+    out.push_str("{\"path\":");
+    json_string(&mut out, path);
+    out.push_str(",\"ok\":false,\"error\":{\"type\":\"");
+    out.push_str(kind);
+    out.push_str("\",\"msg\":");
+    json_string(&mut out, message);
+    out.push_str(",\"lineno\":null,\"offset\":null,\"end_lineno\":null,\"end_offset\":null}}\n");
+    out
+}
+
+fn codec_display_name(codec: Codec) -> &'static str {
+    match codec {
+        Codec::Utf8 => "utf-8",
+        Codec::Iso8859_1 => "latin-1",
+        Codec::Ascii => "ascii",
+        Codec::Cp1252 => "cp1252",
+        Codec::Iso8859_15 => "iso8859-15",
+        Codec::Cp1251 => "cp1251",
+        Codec::Iso8859_7 => "iso8859-7",
+        Codec::Koi8R => "koi8-r",
+    }
+}
+
+/// `repr` of a single character: printable characters stand for themselves
+/// (`str.isprintable`, keeping the ASCII space), the rest use Python's
+/// `\xXX`, `\uXXXX` and `\UXXXXXXXX` escapes.
+fn char_repr(ch: char) -> String {
+    let printable = !ch.is_control() && (!ch.is_whitespace() || ch == ' ');
+    if printable {
+        return format!("'{ch}'");
+    }
+    let code = ch as u32;
+    if code < 0x100 {
+        format!("'\\x{code:02x}'")
+    } else if code < 0x10000 {
+        format!("'\\u{code:04x}'")
+    } else {
+        format!("'\\U{code:08x}'")
+    }
+}
+
+/// The top-level string-valued fields of a JSON object; other values (the
+/// corpus's `expected` objects, numbers, null) are skipped.
+fn json_string_fields(line: &str) -> Option<Vec<(String, String)>> {
+    let bytes: Vec<char> = line.chars().collect();
+    let mut pos = 0;
+    let mut fields = Vec::new();
+    let skip_space = |pos: &mut usize, bytes: &[char]| {
+        while *pos < bytes.len() && bytes[*pos].is_whitespace() {
+            *pos += 1;
+        }
+    };
+    skip_space(&mut pos, &bytes);
+    if pos >= bytes.len() || bytes[pos] != '{' {
+        return None;
+    }
+    pos += 1;
+    loop {
+        skip_space(&mut pos, &bytes);
+        if pos < bytes.len() && bytes[pos] == '}' {
+            return Some(fields);
+        }
+        let key = parse_json_string(&bytes, &mut pos)?;
+        skip_space(&mut pos, &bytes);
+        if pos >= bytes.len() || bytes[pos] != ':' {
+            return None;
+        }
+        pos += 1;
+        skip_space(&mut pos, &bytes);
+        if pos < bytes.len() && bytes[pos] == '"' {
+            let value = parse_json_string(&bytes, &mut pos)?;
+            fields.push((key, value));
+        } else if !skip_json_value(&bytes, &mut pos) {
+            return None;
+        }
+        skip_space(&mut pos, &bytes);
+        match bytes.get(pos) {
+            Some(',') => pos += 1,
+            Some('}') => return Some(fields),
+            _ => return None,
+        }
+    }
+}
+
+fn parse_json_string(bytes: &[char], pos: &mut usize) -> Option<String> {
+    if *pos >= bytes.len() || bytes[*pos] != '"' {
+        return None;
+    }
+    *pos += 1;
+    let mut out = String::new();
+    loop {
+        let ch = *bytes.get(*pos)?;
+        *pos += 1;
+        match ch {
+            '"' => return Some(out),
+            '\\' => {
+                let escape = *bytes.get(*pos)?;
+                *pos += 1;
+                match escape {
+                    '"' => out.push('"'),
+                    '\\' => out.push('\\'),
+                    '/' => out.push('/'),
+                    'b' => out.push('\u{0008}'),
+                    'f' => out.push('\u{000C}'),
+                    'n' => out.push('\n'),
+                    'r' => out.push('\r'),
+                    't' => out.push('\t'),
+                    'u' => {
+                        let code = parse_hex4(bytes, *pos)?;
+                        *pos += 4;
+                        let code = if (0xD800..0xDC00).contains(&code) {
+                            // A high surrogate must pair with \uDC00..\uDFFF.
+                            if bytes.get(*pos) != Some(&'\\') || bytes.get(*pos + 1) != Some(&'u') {
+                                return None;
+                            }
+                            let low = parse_hex4(bytes, *pos + 2)?;
+                            if !(0xDC00..0xE000).contains(&low) {
+                                return None;
+                            }
+                            *pos += 6;
+                            0x10000 + ((code - 0xD800) << 10) + (low - 0xDC00)
+                        } else if (0xDC00..0xE000).contains(&code) {
+                            return None;
+                        } else {
+                            code
+                        };
+                        out.push(char::from_u32(code)?);
+                    }
+                    _ => return None,
+                }
+            }
+            ch => out.push(ch),
+        }
+    }
+}
+
+fn parse_hex4(bytes: &[char], pos: usize) -> Option<u32> {
+    let mut code = 0;
+    for offset in 0..4 {
+        let digit = bytes.get(pos + offset)?.to_digit(16)?;
+        code = code * 16 + digit;
+    }
+    Some(code)
+}
+
+/// Walk over a non-string JSON value (object, array, number, literal).
+fn skip_json_value(bytes: &[char], pos: &mut usize) -> bool {
+    match bytes.get(*pos) {
+        Some('{') | Some('[') => {
+            let (open, close) = if bytes[*pos] == '{' {
+                ('{', '}')
+            } else {
+                ('[', ']')
+            };
+            let mut depth = 0;
+            while *pos < bytes.len() {
+                match bytes[*pos] {
+                    ch if ch == open => depth += 1,
+                    ch if ch == close => {
+                        depth -= 1;
+                        if depth == 0 {
+                            *pos += 1;
+                            return true;
+                        }
+                    }
+                    '"' => {
+                        if parse_json_string(bytes, pos).is_none() {
+                            return false;
+                        }
+                        continue;
+                    }
+                    _ => {}
+                }
+                *pos += 1;
+            }
+            false
+        }
+        Some(_) => {
+            while *pos < bytes.len() && !matches!(bytes[*pos], ',' | '}' | ']') {
+                *pos += 1;
+            }
+            true
+        }
+        None => false,
+    }
 }

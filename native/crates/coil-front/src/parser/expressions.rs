@@ -1031,7 +1031,7 @@ fn slice_or_starred(p: &mut Parser) -> Option<Expr> {
     if let Some(s) = slice(p) {
         return Some(s);
     }
-    star_expression(p)
+    starred_expression(p)
 }
 
 fn slices_tuple(p: &mut Parser) -> Option<Expr> {
@@ -1639,9 +1639,10 @@ fn dict_pairs(p: &mut Parser) -> Option<Expr> {
 
 fn dict_brace_invalid(p: &mut Parser) -> Option<Expr> {
     p.expect_opt(T::Lbrace)?;
-    if p.call_invalid_rules {
-        invalid::double_starred_kvpairs(p);
-    }
+    // The alternative carries tokens of its own, so the generated code runs
+    // it ungated: it fires in the first pass too, unlike the alternatives
+    // that are a single invalid-rule item.
+    invalid::double_starred_kvpairs(p);
     p.expect_opt(T::Rbrace)?;
     None
 }
@@ -1954,7 +1955,7 @@ pub(crate) fn args(p: &mut Parser) -> Option<Expr> {
 fn args_collect(p: &mut Parser) -> Option<Expr> {
     let m = p.mark;
     let a = p.gather(args_item, comma)?;
-    // `[',' kwargs]`: a matched comma whose kwargs fails restores the mark.
+    // `[',' kwargs]` is one optional: a failed kwargs restores the comma too.
     let b = p.attempt(|p| {
         p.expect_opt(T::Comma)?;
         kwargs(p)

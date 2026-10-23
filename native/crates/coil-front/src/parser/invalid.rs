@@ -327,6 +327,8 @@ fn invalid_legacy_expression_plain(p: &mut Parser) -> Option<()> {
             return None;
         }
         let b = expressions::star_expressions(p)?;
+        // The action raises only for the legacy names; otherwise it returns
+        // NULL, which fails the alternative and restores the mark.
         if check_legacy_stmt(p, &a) {
             let text = utf32_to_string(name_text_id(p, &a));
             p.raise_known_range(
@@ -335,7 +337,7 @@ fn invalid_legacy_expression_plain(p: &mut Parser) -> Option<()> {
                 format!("Missing parentheses in call to '{text}'. Did you mean {text}(...)?"),
             );
         }
-        Some(())
+        None
     })
 }
 
@@ -388,12 +390,15 @@ fn invalid_expression_comma(p: &mut Parser) -> Option<()> {
         }
         let a = expressions::disjunction(p)?;
         let b = expressions::expression_without_invalid(p)?;
+        // The action's NULL returns make the alternative fail: the caller
+        // then restores the mark and tries the next one, so the no-raise
+        // paths must not leave the consumed input behind.
         if check_legacy_stmt(p, &a) {
-            return Some(());
+            return None;
         }
         // A parenthesized context cannot be a missing comma.
         if p.mark.checked_sub(1).is_none_or(|i| p.tok_at(i).level == 0) {
-            return Some(());
+            return None;
         }
         p.raise_known_range(
             expr_pos(&a),
@@ -1155,7 +1160,7 @@ fn invalid_lambda_parameters_parenthesized(p: &mut Parser) -> Option<()> {
         let _ = p.repeat0(expressions::lambda_param_no_default);
         let a = p.mark;
         p.expect_opt(T::Lpar)?;
-        p.repeat1(lambda_param_alt)?;
+        p.gather(lambda_param_alt, comma_sep)?;
         p.expect(T::Comma);
         let b = p.mark;
         p.expect_opt(T::Rpar)?;
@@ -1992,7 +1997,7 @@ fn invalid_as_pattern_target(p: &mut Parser) -> Option<()> {
     p.attempt(|p| {
         patterns::or_pattern(p)?;
         p.expect_keyword_opt("as")?;
-        if p.lookahead(T::Name) {
+        if p.at_plain_name() {
             return None;
         }
         let a = expressions::expression(p)?;
@@ -2746,7 +2751,7 @@ fn invalid_conversion_character_missing(p: &mut Parser) -> Option<()> {
 fn invalid_conversion_character_invalid(p: &mut Parser) -> Option<()> {
     p.attempt(|p| {
         p.expect_opt(T::Exclamation)?;
-        if p.lookahead(T::Name) {
+        if p.at_plain_name() {
             return None;
         }
         p.raise_syntax_error_on_next_token("f-string: invalid conversion character".to_string());

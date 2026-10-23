@@ -297,6 +297,9 @@ jobs:
       - name: Symbol-table differential over the standard library
         working-directory: native
         run: python ../tools/front_diff.py --symtable "$(python ../tools/fetch_cpython_src.py --print-root)/Lib"
+      - name: SyntaxError differential over the extracted corpus
+        working-directory: native
+        run: python ../tools/front_diff.py --snippets crates/coil-front/tests/syntax_cases.jsonl
 
   compat:
     needs: changes
