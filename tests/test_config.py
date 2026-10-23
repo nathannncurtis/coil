@@ -218,42 +218,29 @@ def test_compile_table_profile_errors_name_the_profile():
         get_build_config(raw, profile="p")
 
 
-def test_compile_python_must_be_supported_when_compiling():
-    raw = {"build": {"compile": True, "python": "3.11"}}
-    with pytest.raises(ValueError) as exc:
-        get_build_config(raw)
-    message = str(exc.value)
-    assert "[build] python" in message
-    for version in SUPPORTED_PYTHON_VERSIONS:
-        assert version in message
-    assert "3.11" in message
+def test_compile_python_not_validated_at_toml_layer():
+    # A CLI --python 3.12/3.13 outranks any toml python (spec 13.1
+    # priority), so get_build_config carries both values through and
+    # the check runs on the merged value in coil.cli.main.
+    config = get_build_config({"build": {"compile": True, "python": "3.11"}})
+    assert config["compile"] is True
+    assert config["python"] == "3.11"
+
+
+def test_compile_python_carries_through_profile_flag():
+    raw = {
+        "build": {"python": "3.11"},
+        "profile": {"native": {"compile": True}},
+    }
+    config = get_build_config(raw, profile="native")
+    assert config["compile"] is True
+    assert config["python"] == "3.11"
 
 
 def test_compile_python_supported_versions_pass():
     for version in SUPPORTED_PYTHON_VERSIONS:
         config = get_build_config({"build": {"compile": True, "python": version}})
         assert config["compile"] is True
-
-
-def test_compile_python_unchecked_without_compile():
-    # The bytecode path keeps accepting any version.
-    config = get_build_config({"build": {"compile": False, "python": "3.11"}})
-    assert config["python"] == "3.11"
-
-
-def test_compile_python_unchecked_when_autodetected():
-    # An empty python is resolved and checked against the CLI later.
-    config = get_build_config({"build": {"compile": True}})
-    assert config["python"] == ""
-
-
-def test_compile_python_checked_after_profile_flag():
-    raw = {
-        "build": {"python": "3.11"},
-        "profile": {"native": {"compile": True}},
-    }
-    with pytest.raises(ValueError, match="to compile natively"):
-        get_build_config(raw, profile="native")
 
 
 def test_parse_stack_size_units():

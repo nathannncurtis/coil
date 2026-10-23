@@ -21,7 +21,6 @@ else:
 
 from coil.native.config import (
     parse_compile_table,
-    require_supported_python,
     validate_compile_flag,
 )
 
@@ -293,11 +292,10 @@ def get_build_config(
                 raise ValueError(f"[profile.{profile}.files] must be a table of destination = source")
             config["files"] = prof["files"]
 
-    # Native compilation only impersonates certain ABIs; an explicit
-    # [build] python outside that set cannot be right. An empty python
-    # (auto-detect) is checked against the resolved version in the CLI.
-    if config["compile"] and config["python"]:
-        require_supported_python(config["python"], "[build] python")
+    # The compile/python pairing is deliberately not validated here: a
+    # CLI --python 3.12/3.13 outranks any toml python (priority CLI >
+    # profile > [build]), so the check runs on the merged value in the
+    # CLI (coil.cli.main), not on the toml layer alone.
 
     return config
 

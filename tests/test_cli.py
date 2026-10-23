@@ -496,15 +496,23 @@ def test_apply_toml_config_bad_compile_table(tmp_path: Path):
         _apply_toml_config(args, tmp_path)
 
 
-def test_apply_toml_config_compile_bad_python(tmp_path: Path):
+def test_apply_toml_config_compile_bad_toml_python_carries(tmp_path: Path):
+    # A CLI --python can still override the toml value, so applying the
+    # toml must not error on compile + python = "3.11"; the merged value
+    # is checked later, in main().
     toml = '[project]\nentry = "app.py"\n[build]\ncompile = true\npython = "3.11"\n'
     (tmp_path / "coil.toml").write_text(toml)
 
     parser = create_parser()
     args = parser.parse_args(["build", str(tmp_path)])
+    _apply_toml_config(args, tmp_path)
+    assert args.compile is True
+    assert args.python == "3.11"
 
-    with pytest.raises(SystemExit):
-        _apply_toml_config(args, tmp_path)
+    parser = create_parser()
+    args = parser.parse_args(["build", str(tmp_path), "--python", "3.13"])
+    _apply_toml_config(args, tmp_path)
+    assert args.python == "3.13"
 
 
 def _build_project(tmp_path: Path) -> Path:
@@ -546,7 +554,57 @@ def test_compile_python_from_toml_checked(tmp_path: Path, capsys):
     with pytest.raises(SystemExit) as stop:
         main(["build", str(project), "--dry-run"])
     assert stop.value.code == 1
-    assert "to compile natively" in capsys.readouterr().out
+    out = capsys.readouterr().out
+    assert "to compile natively" in out
+    assert "3.12" in out and "3.13" in out
+
+
+def test_compile_python_cli_overrides_toml(tmp_path: Path, capsys):
+    """CLI > [build]: a CLI --python 3.13 masks a toml python = "3.11"."""
+    project = _build_project(tmp_path)
+    (project / "coil.toml").write_text('[build]\ncompile = true\npython = "3.11"\n')
+    with pytest.raises(SystemExit) as stop:
+        main([
+            "build", str(project), "--dry-run", "--compile", "--os", "windows",
+            "--python", "3.13",
+        ])
+    assert stop.value.code == 0
+    out = capsys.readouterr().out
+    assert "Python:       3.13" in out
+    assert "Compile:      True" in out
+
+
+def test_compile_python_cli_overrides_profile_enabled_compile(tmp_path: Path, capsys):
+    """CLI > profile > [build]: the profile turns compile on, the CLI
+    python masks the [build] python the bytecode path accepts."""
+    project = _build_project(tmp_path)
+    (project / "coil.toml").write_text(
+        '[build]\npython = "3.11"\n[profile.native]\ncompile = true\n'
+    )
+    with pytest.raises(SystemExit) as stop:
+        main([
+            "build", str(project), "--dry-run", "--profile", "native",
+            "--os", "windows", "--python", "3.13",
+        ])
+    assert stop.value.code == 0
+    out = capsys.readouterr().out
+    assert "Python:       3.13" in out
+    assert "Compile:      True" in out
+
+
+def test_compile_profile_python_without_cli_override_errors(tmp_path: Path, capsys):
+    """No CLI tier: profile compile over [build] python = "3.11" errors
+    on the merged value, listing the supported versions."""
+    project = _build_project(tmp_path)
+    (project / "coil.toml").write_text(
+        '[build]\nos = "windows"\npython = "3.11"\n[profile.native]\ncompile = true\n'
+    )
+    with pytest.raises(SystemExit) as stop:
+        main(["build", str(project), "--dry-run", "--profile", "native"])
+    assert stop.value.code == 1
+    out = capsys.readouterr().out
+    assert "to compile natively" in out
+    assert "3.12" in out and "3.13" in out
 
 
 def test_dry_run_prints_compile_settings(tmp_path: Path, capsys):

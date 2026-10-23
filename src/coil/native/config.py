@@ -70,7 +70,10 @@ def validate_compile_flag(value: Any, where: str = "[build] compile") -> bool:
 def require_supported_python(python_version: Any, setting: str) -> None:
     """Raise unless python_version has an impersonated ABI.
 
-    The error lists the supported versions (spec section 13.1).
+    The error lists the supported versions (spec section 13.1). Callers
+    must pass the fully merged version: priority CLI > profile > [build]
+    > defaults means a toml python outside the set is legal whenever a
+    higher tier overrides it.
     """
     if python_version not in SUPPORTED_PYTHON_VERSIONS:
         supported = " or ".join(SUPPORTED_PYTHON_VERSIONS)

@@ -634,6 +634,9 @@ def main(argv: list[str] | None = None) -> None:
             sys.exit(1)
 
         if args.compile:
+            # python_version is the fully merged value (CLI > profile >
+            # [build] > detected), so a CLI --python masks a toml python
+            # outside the supported set instead of erroring on it.
             from coil.native.config import require_supported_python
             try:
                 require_supported_python(python_version, "--python")
