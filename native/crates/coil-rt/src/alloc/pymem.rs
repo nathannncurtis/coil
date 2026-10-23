@@ -7,6 +7,7 @@
 
 use core::ffi::c_void;
 use core::ptr;
+use core::sync::atomic::{AtomicPtr, Ordering};
 
 use std::alloc::{Layout, alloc as sys_alloc, dealloc};
 use std::cell::RefCell;
@@ -230,43 +231,35 @@ pub struct PyMemAllocatorEx {
     pub free: Option<unsafe extern "C" fn(*mut c_void, *mut c_void)>,
 }
 
-// SAFETY: an installed allocator is an inert bundle of function pointers
-// and a context word; sharing it across threads is the API's contract.
-unsafe impl Send for PyMemAllocatorEx {}
+// Overrides are published by `PyMem_SetAllocator` through one atomic
+// pointer per domain, so reading one is a plain acquire load and the
+// `PyMem_*` / `PyObject_*` entry points take no lock (spec section 8.6);
+// a replaced override is never freed, so a reader that already loaded it
+// keeps a valid reference.
+static RAW_OVERRIDE: AtomicPtr<PyMemAllocatorEx> = AtomicPtr::new(ptr::null_mut());
+static MEM_OVERRIDE: AtomicPtr<PyMemAllocatorEx> = AtomicPtr::new(ptr::null_mut());
+static OBJ_OVERRIDE: AtomicPtr<PyMemAllocatorEx> = AtomicPtr::new(ptr::null_mut());
 
-struct DomainAllocators {
-    raw: Option<PyMemAllocatorEx>,
-    mem: Option<PyMemAllocatorEx>,
-    obj: Option<PyMemAllocatorEx>,
-}
-
-static DOMAINS: OnceLock<Mutex<DomainAllocators>> = OnceLock::new();
-
-fn domains() -> MutexGuard<'static, DomainAllocators> {
-    DOMAINS
-        .get_or_init(|| {
-            Mutex::new(DomainAllocators {
-                raw: None,
-                mem: None,
-                obj: None,
-            })
-        })
-        .lock()
-        .expect("allocator domain table poisoned")
-}
-
-/// Run `call` with the override for `domain` when one is installed.
-fn with_override<R>(
-    domain: PyMemAllocatorDomain,
-    call: impl FnOnce(Option<&PyMemAllocatorEx>) -> R,
-) -> R {
-    let guard = domains();
-    call(match domain {
-        PYMEM_DOMAIN_RAW => guard.raw.as_ref(),
-        PYMEM_DOMAIN_MEM => guard.mem.as_ref(),
-        PYMEM_DOMAIN_OBJ => guard.obj.as_ref(),
+fn override_slot(domain: PyMemAllocatorDomain) -> Option<&'static AtomicPtr<PyMemAllocatorEx>> {
+    match domain {
+        PYMEM_DOMAIN_RAW => Some(&RAW_OVERRIDE),
+        PYMEM_DOMAIN_MEM => Some(&MEM_OVERRIDE),
+        PYMEM_DOMAIN_OBJ => Some(&OBJ_OVERRIDE),
         _ => None,
-    })
+    }
+}
+
+/// The allocator installed for `domain`, if any. Lock-free.
+fn override_for(domain: PyMemAllocatorDomain) -> Option<&'static PyMemAllocatorEx> {
+    let slot = override_slot(domain)?;
+    let allocator = slot.load(Ordering::Acquire);
+    if allocator.is_null() {
+        None
+    } else {
+        // SAFETY: published by `PyMem_SetAllocator` from a live value and
+        // never freed, so the reference stays valid for the process.
+        Some(unsafe { &*allocator })
+    }
 }
 
 unsafe fn domain_malloc(domain: PyMemAllocatorDomain, size: usize) -> *mut c_void {
@@ -274,7 +267,7 @@ unsafe fn domain_malloc(domain: PyMemAllocatorDomain, size: usize) -> *mut c_voi
         malloc: Some(malloc),
         ctx,
         ..
-    }) = with_override(domain, |a| a.copied())
+    }) = override_for(domain).copied()
     {
         // SAFETY: the allocator came from `PyMem_SetAllocator`; calling it
         // through its own context is the documented contract.
@@ -293,7 +286,7 @@ unsafe fn domain_calloc(domain: PyMemAllocatorDomain, nelem: usize, elsize: usiz
         calloc: Some(calloc),
         ctx,
         ..
-    }) = with_override(domain, |a| a.copied())
+    }) = override_for(domain).copied()
     {
         // SAFETY: see `domain_malloc`.
         return unsafe { calloc(ctx, nelem, elsize) };
@@ -318,7 +311,7 @@ unsafe fn domain_realloc(
         realloc: Some(realloc),
         ctx,
         ..
-    }) = with_override(domain, |a| a.copied())
+    }) = override_for(domain).copied()
     {
         // SAFETY: see `domain_malloc`.
         return unsafe { realloc(ctx, data, new_size) };
@@ -336,7 +329,7 @@ unsafe fn domain_free(domain: PyMemAllocatorDomain, data: *mut c_void) {
         free: Some(free),
         ctx,
         ..
-    }) = with_override(domain, |a| a.copied())
+    }) = override_for(domain).copied()
     {
         // SAFETY: see `domain_malloc`.
         unsafe { free(ctx, data) };
@@ -470,19 +463,20 @@ pub unsafe extern "C" fn PyMem_SetAllocator(
     domain: PyMemAllocatorDomain,
     allocator: *mut PyMemAllocatorEx,
 ) {
-    let allocator = if allocator.is_null() {
-        None
+    let Some(slot) = override_slot(domain) else {
+        return;
+    };
+    let published = if allocator.is_null() {
+        ptr::null_mut()
     } else {
         // SAFETY: the caller passed a live allocator by reference; copy it.
-        Some(unsafe { ptr::read(allocator) })
+        let allocator = unsafe { ptr::read(allocator) };
+        // The previous override, if any, is intentionally left allocated:
+        // a concurrent reader may still hold a reference, and installing
+        // an allocator is a rare startup-time call.
+        Box::into_raw(Box::new(allocator))
     };
-    let mut guard = domains();
-    match domain {
-        PYMEM_DOMAIN_RAW => guard.raw = allocator,
-        PYMEM_DOMAIN_MEM => guard.mem = allocator,
-        PYMEM_DOMAIN_OBJ => guard.obj = allocator,
-        _ => {}
-    }
+    slot.swap(published, Ordering::Release);
 }
 
 /// See the CPython 3.12 contract for this entry point.
@@ -499,8 +493,9 @@ pub unsafe extern "C" fn PyMem_GetAllocator(
     if allocator.is_null() {
         return;
     }
-    let current =
-        with_override(domain, |a| a.copied()).unwrap_or_else(|| default_allocator(domain));
+    let current = override_for(domain)
+        .copied()
+        .unwrap_or_else(|| default_allocator(domain));
     // SAFETY: the caller passed writable storage for one allocator.
     unsafe { ptr::write(allocator, current) };
 }

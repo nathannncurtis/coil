@@ -1,6 +1,8 @@
 //! Allocator conformance: bitmaps, page-table lookups, large objects,
 //! thread safety and reuse (spec section 9.1, task r04).
 
+use std::sync::atomic::{AtomicUsize, Ordering};
+
 use python312::alloc::{
     self, alloc_block, alloc_counted, alloc_object, contains, object_start, page_of,
 };
@@ -114,15 +116,21 @@ fn counted_objects_carry_a_preheader() {
     assert!(free(ptr));
     assert!(preheader(ptr).is_none());
 
-    // Large counted object.
+    // Large counted object: `object_start` reports the object address,
+    // not the pre-header address, exactly as on small pages.
     let big = alloc_counted(40_000);
     assert!(!big.is_null());
     let header = page_of(big as usize).unwrap();
     assert!(!header.is_small());
     assert!(header.has_prehdr(0));
     assert!(header.is_object(1));
-    assert!(preheader(big).is_some());
+    assert_eq!(object_start(big as usize), Some(big as usize));
+    assert_eq!(object_start(big as usize + 32), Some(big as usize));
+    let pre = preheader(big).expect("counted large object has a pre-header");
+    assert_eq!(pre as usize, big as usize - 16);
     assert!(free(big));
+    assert!(object_start(big as usize).is_none());
+    assert!(preheader(big).is_none());
 }
 
 #[test]
@@ -154,6 +162,19 @@ fn page_table_lookups() {
 #[test]
 fn large_objects() {
     let _guard = LARGE_RUN_LOCK.lock().unwrap();
+    // A multi-page run: lookups on interior pages resolve through the run
+    // head.
+    let run = alloc_object(300_000); // 5 pages
+    assert!(!run.is_null());
+    assert_eq!(
+        object_start(run as usize + 2 * 64 * 1024 + 8),
+        Some(run as usize)
+    );
+    let header = page_of(run as usize + 2 * 64 * 1024).unwrap();
+    assert!(!header.is_small());
+    assert_eq!(header.run_pages, 5);
+    assert!(free(run));
+
     // Just past the last size class.
     for size in [32 * 1024 + 1, 100_000, 5 * 1024 * 1024] {
         let ptr = alloc_object(size);
@@ -170,7 +191,11 @@ fn large_objects() {
         // Interior addresses resolve to the large object start.
         assert_eq!(object_start(ptr as usize + 1000), Some(ptr as usize));
         assert!(free(ptr));
-        assert!(!contains(ptr as usize) || page_of(ptr as usize).is_some());
+        // The run stays committed — address space is held — but no object
+        // claims it any more.
+        assert!(contains(ptr as usize));
+        assert_eq!(object_start(ptr as usize), None);
+        assert_eq!(object_start(ptr as usize + 1000), None);
     }
     // A freed run is reused for a later large object of the same size.
     let a = alloc_object(100_000);
@@ -235,8 +260,13 @@ fn realloc_moves_and_preserves() {
     assert!(free(same));
 }
 
+/// The allocator-override tests install process-wide state for the PyMem
+/// domains, so they must not overlap each other.
+static PYMEM_OVERRIDE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+
 #[test]
 fn pymem_plain_allocator() {
+    let _guard = PYMEM_OVERRIDE_LOCK.lock().unwrap();
     unsafe extern "C" {
         fn PyMem_RawMalloc(size: usize) -> *mut core::ffi::c_void;
         fn PyMem_RawCalloc(nelem: usize, elsize: usize) -> *mut core::ffi::c_void;
@@ -287,6 +317,79 @@ fn foreign_object_table() {
     assert!(alloc::foreign::unregister(foreign));
     assert!(!alloc::foreign::contains(foreign));
     assert!(free(ptr));
+}
+
+#[test]
+fn pymem_set_and_get_allocator() {
+    let _guard = PYMEM_OVERRIDE_LOCK.lock().unwrap();
+    static CALLS: AtomicUsize = AtomicUsize::new(0);
+    unsafe extern "C" {
+        fn PyMem_Malloc(size: usize) -> *mut core::ffi::c_void;
+        fn PyMem_SetAllocator(
+            domain: python312::alloc::pymem::PyMemAllocatorDomain,
+            allocator: *mut python312::alloc::pymem::PyMemAllocatorEx,
+        );
+        fn PyMem_GetAllocator(
+            domain: python312::alloc::pymem::PyMemAllocatorDomain,
+            allocator: *mut python312::alloc::pymem::PyMemAllocatorEx,
+        );
+    }
+    unsafe extern "C" fn counting_malloc(
+        _ctx: *mut core::ffi::c_void,
+        size: usize,
+    ) -> *mut core::ffi::c_void {
+        CALLS.fetch_add(1, Ordering::Relaxed);
+        python312::alloc::pymem::plain_malloc(size).cast()
+    }
+    unsafe extern "C" fn counting_free(_ctx: *mut core::ffi::c_void, p: *mut core::ffi::c_void) {
+        // SAFETY: the pointer came from `plain_malloc` above.
+        unsafe { python312::alloc::pymem::plain_free(p.cast()) };
+    }
+    let mut allocator = python312::alloc::pymem::PyMemAllocatorEx {
+        ctx: core::ptr::null_mut(),
+        malloc: Some(counting_malloc),
+        calloc: None,
+        realloc: None,
+        free: Some(counting_free),
+    };
+    // SAFETY: C entry points driven with well-formed arguments.
+    unsafe {
+        PyMem_SetAllocator(python312::alloc::pymem::PYMEM_DOMAIN_MEM, &mut allocator);
+        let routed = PyMem_Malloc(64);
+        assert!(!routed.is_null());
+        assert_eq!(CALLS.load(Ordering::Relaxed), 1, "override was not routed");
+        let mut observed = python312::alloc::pymem::PyMemAllocatorEx {
+            ctx: core::ptr::null_mut(),
+            malloc: None,
+            calloc: None,
+            realloc: None,
+            free: None,
+        };
+        PyMem_GetAllocator(python312::alloc::pymem::PYMEM_DOMAIN_MEM, &mut observed);
+        let observed_malloc = observed.malloc.expect("installed override is visible");
+        let via_observed = observed_malloc(core::ptr::null_mut(), 64);
+        assert!(!via_observed.is_null());
+        assert_eq!(
+            CALLS.load(Ordering::Relaxed),
+            2,
+            "get returned the override"
+        );
+        // A null allocator resets the domain to the builtin.
+        PyMem_SetAllocator(
+            python312::alloc::pymem::PYMEM_DOMAIN_MEM,
+            core::ptr::null_mut(),
+        );
+        let direct = PyMem_Malloc(64);
+        assert!(!direct.is_null());
+        assert_eq!(
+            CALLS.load(Ordering::Relaxed),
+            2,
+            "reset did not restore the builtin"
+        );
+        python312::alloc::pymem::plain_free(routed.cast());
+        python312::alloc::pymem::plain_free(via_observed.cast());
+        python312::alloc::pymem::plain_free(direct.cast());
+    }
 }
 
 /// Tests that assert exact placement of large runs (first fit over a
