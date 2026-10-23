@@ -115,6 +115,9 @@ pub struct FunctionBuilder {
     next_instr: u32,
     /// Emission id of each instruction, per block, parallel to `instrs`.
     emission: Vec<Vec<u32>>,
+    /// Reverse edges, maintained as terminators and handlers are set: the
+    /// predecessors of each block, deduplicated, in block order.
+    preds: Vec<Vec<BlockId>>,
     defs: Vec<HashMap<Sym, Value>>,
     incomplete: Vec<Vec<(Sym, Value)>>,
     phi_vars: HashMap<Value, Sym>,
@@ -153,6 +156,7 @@ impl FunctionBuilder {
             current: Some(entry),
             next_instr: 0,
             emission: vec![Vec::new()],
+            preds: vec![Vec::new()],
             defs,
             incomplete: vec![Vec::new()],
             phi_vars: HashMap::new(),
@@ -202,6 +206,7 @@ impl FunctionBuilder {
         self.defs.push(HashMap::new());
         self.incomplete.push(Vec::new());
         self.emission.push(Vec::new());
+        self.preds.push(Vec::new());
         BlockId(self.blocks.len() as u32 - 1)
     }
 
@@ -243,6 +248,15 @@ impl FunctionBuilder {
     /// is unsealed; edges into sealed blocks must not change.
     pub fn set_term(&mut self, block: BlockId, term: Terminator) -> Result<(), Error> {
         self.check_block(block)?;
+        let old = self.blocks[block.0 as usize].term.take();
+        if let Some(old) = &old {
+            for t in term_targets(old) {
+                self.remove_edge(block, t);
+            }
+        }
+        for t in term_targets(&term) {
+            self.add_edge(block, t);
+        }
         self.blocks[block.0 as usize].term = Some(term);
         Ok(())
     }
@@ -253,6 +267,12 @@ impl FunctionBuilder {
         self.check_block(block)?;
         if let Some(h) = handler {
             self.check_block(h)?;
+        }
+        if let Some(old) = self.blocks[block.0 as usize].handler {
+            self.remove_edge(block, old);
+        }
+        if let Some(h) = handler {
+            self.add_edge(block, h);
         }
         self.blocks[block.0 as usize].handler = handler;
         Ok(())
@@ -279,18 +299,48 @@ impl FunctionBuilder {
         if !self.blocks[block.0 as usize].sealed {
             return Ok(self.new_phi(var, block, true));
         }
-        let preds = self.predecessors(block);
-        if preds.is_empty() {
-            // Sealed blocks never gain predecessors, so there is no path
-            // carrying a definition. Empty phis survive only in blocks that
-            // were unsealed when the read happened and turned out unreachable.
-            return Err(Error::UndefinedVariable { var, block });
+        // The paper's single-predecessor shortcut, as a loop: a chain of
+        // sealed blocks is followed one link at a time, without a phi and
+        // without recursion, so deep chains neither build phis only to
+        // remove them again nor exhaust the stack. Every block on the way
+        // resolves to the answer, and revisiting one is a cycle of
+        // single-predecessor blocks, on which the variable is never written.
+        let mut path: Vec<BlockId> = Vec::new();
+        let mut seen = vec![false; self.blocks.len()];
+        seen[block.0 as usize] = true;
+        let mut cur = block;
+        let value = loop {
+            let preds = self.predecessors(cur);
+            if preds.is_empty() {
+                // Sealed blocks never gain predecessors, so there is no path
+                // carrying a definition. Empty phis survive only in blocks
+                // that were unsealed when the read happened and turned out
+                // unreachable.
+                return Err(Error::UndefinedVariable { var, block: cur });
+            }
+            if preds.len() > 1 {
+                path.push(cur);
+                let phi = self.new_phi(var, cur, false);
+                break self.add_phi_operands(var, cur, phi)?;
+            }
+            let p = preds[0];
+            if p == cur || seen[p.0 as usize] {
+                return Err(Error::UndefinedVariable { var, block: p });
+            }
+            path.push(cur);
+            if !self.blocks[p.0 as usize].sealed {
+                break self.new_phi(var, p, true);
+            }
+            seen[p.0 as usize] = true;
+            if let Some(&v) = self.defs[p.0 as usize].get(&var) {
+                break v;
+            }
+            cur = p;
+        };
+        for b in path {
+            self.defs[b.0 as usize].insert(var, value);
         }
-        // The phi is also the memo that ends recursion around cycles of
-        // single-predecessor blocks; trivial-phi removal erases it again
-        // when the operand is unique.
-        let phi = self.new_phi(var, block, false);
-        self.add_phi_operands(var, block, phi)
+        Ok(value)
     }
 
     fn new_phi(&mut self, var: Sym, block: BlockId, incomplete: bool) -> Value {
@@ -534,41 +584,28 @@ impl FunctionBuilder {
     }
 
     /// Predecessors of `block`: terminator targets and exception edges,
-    /// deduplicated, in block order.
+    /// deduplicated, in block order. Maintained by `set_term`/`set_handler`.
     fn predecessors(&self, block: BlockId) -> Vec<BlockId> {
-        let mut preds: Vec<BlockId> = Vec::new();
-        let add = |from: BlockId, to: BlockId, preds: &mut Vec<BlockId>| {
-            if to == block && !preds.contains(&from) {
-                preds.push(from);
-            }
+        self.preds[block.0 as usize].clone()
+    }
+
+    fn add_edge(&mut self, from: BlockId, to: BlockId) {
+        let Some(list) = self.preds.get_mut(to.0 as usize) else {
+            return;
         };
-        for (i, b) in self.blocks.iter().enumerate() {
-            let from = BlockId(i as u32);
-            match &b.term {
-                Some(Terminator::Jump { to }) => add(from, *to, &mut preds),
-                Some(Terminator::Branch {
-                    then_to, else_to, ..
-                }) => {
-                    add(from, *then_to, &mut preds);
-                    add(from, *else_to, &mut preds);
-                }
-                Some(Terminator::Switch { cases, default, .. }) => {
-                    for (_, to) in cases.iter() {
-                        add(from, *to, &mut preds);
-                    }
-                    add(from, *default, &mut preds);
-                }
-                None
-                | Some(Terminator::Return { .. })
-                | Some(Terminator::Raise { .. })
-                | Some(Terminator::Reraise)
-                | Some(Terminator::Unreachable) => {}
-            }
-            if let Some(h) = b.handler {
-                add(from, h, &mut preds);
-            }
+        let pos = list.partition_point(|b| b.0 < from.0);
+        if list.get(pos) != Some(&from) {
+            list.insert(pos, from);
         }
-        preds
+    }
+
+    fn remove_edge(&mut self, from: BlockId, to: BlockId) {
+        let Some(list) = self.preds.get_mut(to.0 as usize) else {
+            return;
+        };
+        if let Ok(pos) = list.binary_search_by_key(&from.0, |b| b.0) {
+            list.remove(pos);
+        }
     }
 
     /// Successors of `block`: terminator targets and exception edges,
@@ -689,6 +726,25 @@ impl FunctionBuilder {
             types: self.types,
             lines,
         })
+    }
+}
+
+/// The blocks a terminator targets.
+fn term_targets(t: &Terminator) -> Vec<BlockId> {
+    match t {
+        Terminator::Jump { to } => vec![*to],
+        Terminator::Branch {
+            then_to, else_to, ..
+        } => vec![*then_to, *else_to],
+        Terminator::Switch { cases, default, .. } => {
+            let mut targets: Vec<BlockId> = cases.iter().map(|(_, to)| *to).collect();
+            targets.push(*default);
+            targets
+        }
+        Terminator::Return { .. }
+        | Terminator::Raise { .. }
+        | Terminator::Reraise
+        | Terminator::Unreachable => Vec::new(),
     }
 }
 

@@ -548,6 +548,31 @@ fn read_before_write_in_sealed_block_is_undefined() {
 }
 
 #[test]
+fn long_single_predecessor_chain_reads_iteratively() {
+    // A chain of sealed blocks is followed one link at a time, without a
+    // phi per link and without recursion; walking 4000 links used to
+    // overflow the stack and take quadratic time.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let n = 4000;
+    let mut prev = b.entry();
+    for _ in 0..n {
+        let id = b.new_block();
+        b.set_term(prev, Terminator::Jump { to: id }).unwrap();
+        b.seal_block(id).unwrap();
+        prev = id;
+    }
+    let last = prev;
+    b.seal_block(b.entry()).unwrap();
+    let val = b.read_variable(Sym(0), last).unwrap(); // the parameter
+    assert_eq!(val, v(0));
+    b.set_term(last, Terminator::Return { value: val }).unwrap();
+    let f = b.finish().unwrap();
+    assert_eq!(f.blocks.len(), n + 1);
+    assert!(f.blocks.iter().all(|blk| blk.phis.is_empty()));
+    verify::verify_function(&f, &[]).unwrap();
+}
+
+#[test]
 fn read_in_single_predecessor_cycle_is_undefined() {
     // `while c: pass; return x`: the entry and the body form a cycle of
     // single-predecessor blocks and x is never written.
