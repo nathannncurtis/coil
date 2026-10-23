@@ -1232,7 +1232,20 @@ fn is_printable(c: i32) -> bool {
 
 fn is_printable_char(c: char) -> bool {
     let cp = c as u32;
-    cp >= 0x100 || is_printable(cp as i32)
+    if cp < 0x100 {
+        return is_printable(cp as i32);
+    }
+    !crate::unicode_tables::NON_PRINTABLE
+        .binary_search_by(|&(start, end)| {
+            if cp < start {
+                std::cmp::Ordering::Greater
+            } else if cp > end {
+                std::cmp::Ordering::Less
+            } else {
+                std::cmp::Ordering::Equal
+            }
+        })
+        .is_ok()
 }
 
 fn xid_start(c: char) -> bool {
