@@ -68,8 +68,11 @@ def oracle_constants(build_dir: Path, vcvars: Path | None) -> dict[str, int]:
         raise SystemExit("MSVC cl.exe was not found in the compiler environment")
     obj = build_dir / "layout_oracle.obj"
     exe = build_dir / "layout_oracle.exe"
-    command = [compiler, "/nologo", "/std:c11", f"/I{headers}", str(ORACLE_C),
-               f"/Fo{obj}", f"/Fe{exe}", "/link", "/SUBSYSTEM:CONSOLE"]
+    # Py_NO_ENABLE_SHARED keeps pyconfig.h from nominating python312.lib, which
+    # the extraction does not contain; the probe reads struct definitions only.
+    command = [compiler, "/nologo", "/std:c11", "/MT", "/DPy_NO_ENABLE_SHARED",
+               f"/I{headers}", str(ORACLE_C), f"/Fo{obj}", f"/Fe{exe}",
+               "/link", "/SUBSYSTEM:CONSOLE"]
     subprocess.run(command, cwd=build_dir, env=environment, check=True)
     completed = subprocess.run([str(exe)], check=True, stdout=subprocess.PIPE, text=True)
     constants: dict[str, int] = {}
