@@ -26,11 +26,22 @@ pub const PREHEADER: usize = GRANULE;
 /// Allocate `size` bytes on the GC heap, zeroed, with `is_object` set on
 /// the first granule: a compiled-code object. Null means out of memory.
 pub fn alloc_object(size: usize) -> *mut u8 {
+    // Pacing runs before the block exists: a collection it starts must
+    // not sweep the object being allocated (section 9.5).
+    crate::gc::pacing::on_gc_heap_request(size.max(1));
     let size = size.max(1);
     if size > MAX_SMALL {
-        return pool::alloc_large(size, true);
+        let block = pool::alloc_large(size, true);
+        if !block.is_null() {
+            crate::gc::note_born(block as usize);
+        }
+        return block;
     }
-    alloc_small(size, true)
+    let block = alloc_small(size, true);
+    if !block.is_null() {
+        crate::gc::note_born(block as usize);
+    }
+    block
 }
 
 /// Allocate `size` bytes on the GC heap, zeroed, with `is_object` clear:
@@ -50,6 +61,7 @@ pub fn alloc_block(size: usize) -> *mut u8 {
 /// way `PyObject_GC_New` prepends `PyGC_Head` (spec section 9.3). The
 /// pre-header is zeroed. Null means out of memory.
 pub fn alloc_counted(size: usize) -> *mut u8 {
+    crate::gc::pacing::on_gc_heap_request(size.max(1).saturating_add(PREHEADER));
     let size = size.max(1);
     let Some(total) = size.checked_add(PREHEADER) else {
         return ptr::null_mut();
@@ -63,8 +75,10 @@ pub fn alloc_counted(size: usize) -> *mut u8 {
         header.set_has_prehdr(0);
         header.set_is_object(1);
         header.set_regime(1);
+        let object = unsafe { block.add(PREHEADER) };
+        crate::gc::note_born(object as usize);
         // SAFETY: the run covers `total` bytes starting at the block.
-        return unsafe { block.add(PREHEADER) };
+        return object;
     }
     let class = size_class::class_of(total);
     let block = thread_cache::alloc(class);
@@ -83,7 +97,9 @@ pub fn alloc_counted(size: usize) -> *mut u8 {
     // section 9.3 tests it: 1 = counted (spec section 9.1).
     header.set_regime(g0 + 1);
     // SAFETY: the pre-header sits at the block start.
-    unsafe { block.add(PREHEADER) }
+    let object = unsafe { block.add(PREHEADER) };
+    crate::gc::note_born(object as usize);
+    object
 }
 
 /// The fast small-object path: pop the thread's free-list head for the

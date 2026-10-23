@@ -164,6 +164,24 @@ pub fn release_page(header: &'static PageHeader, base: usize) {
     }
 }
 
+/// The collector's heap snapshot: every committed page that carries its
+/// own header, small pages and large-run heads alike, taken under the
+/// pool lock. Pages committed after the snapshot are not in it; the
+/// objects on them are born marked by the collector's flag, so they
+/// survive its sweep by construction.
+pub fn snapshot_pages() -> Vec<&'static PageHeader> {
+    let pool = pool();
+    let mut pages = Vec::new();
+    for entry in pool.segments.iter() {
+        for page in entry.segment.standalone_committed_pages() {
+            pages.push(PageHeader::header_at(
+                entry.segment.base + page as usize * PAGE_SIZE,
+            ));
+        }
+    }
+    pages
+}
+
 /// Take an abandoned page of `class` for `owner`: an active, unowned
 /// page whose free blocks sit on its thread-free list, ready to be
 /// drained. Pages with an empty thread-free list (nothing to serve yet)

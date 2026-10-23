@@ -70,6 +70,23 @@ impl Segment {
     pub fn clear_run(&self, page: u32) {
         self.run_head[page as usize].store(NO_RUN, Ordering::Release);
     }
+
+    /// Every committed page of the segment that carries its own header:
+    /// small pages and the head page of a large run; interior run pages
+    /// resolve to the head and are skipped. The collector's heap walk.
+    pub fn standalone_committed_pages(&self) -> Vec<u32> {
+        let mut pages = Vec::new();
+        for page in 0..self.page_count {
+            if !self.is_committed(page) {
+                continue;
+            }
+            let offset = self.run_head[page as usize].load(Ordering::Relaxed);
+            if offset == NO_RUN || offset == 0 {
+                pages.push(page);
+            }
+        }
+        pages
+    }
 }
 
 const L2_BITS: u32 = 12;
