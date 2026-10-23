@@ -490,6 +490,8 @@ Yes. The build output is a single `.exe`. On first run, it extracts a cached cop
 
 ## Roadmap
 
+Coil is also building a real native compiler (`coil build --compile`) that turns Python into x86-64 machine code. It's in design and not built yet; everything above is the current bundler.
+
 - macOS .app support
 - Linux ELF binary support
 - ARM64 bootloader for Windows on ARM
