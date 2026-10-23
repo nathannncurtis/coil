@@ -1,0 +1,22 @@
+# format arg result
+no placeholders	i:7	e:TypeError:not all arguments converted during bytes formatting
+	i:7	e:TypeError:not all arguments converted during bytes formatting
+%%	i:7	e:TypeError:not all arguments converted during bytes formatting
+%d	i:7	B:7
+%d	i:-7	B:-7
+%05d	i:-7	B:-0007
+%x	i:255	B:ff
+%#x	i:255	B:0xff
+%o	i:8	B:10
+%s	B:bytes arg	B:bytes arg
+%s	B:	B:
+%10s|	B:hi	B:        hi|
+%.2s	B:hello	B:he
+%c	i:65	B:A
+%c	i:255	B:\xff
+%c	i:256	e:OverflowError:%c arg not in range(256)
+%c	i:-1	e:OverflowError:%c arg not in range(256)
+%z	i:7	e:ValueError:unsupported format character 'z' (0x7a) at index 1
+%d		e:TypeError:%d format: a real number is required, not NoneType
+%	i:7	e:ValueError:incomplete format
+% d	i:7	B: 7

@@ -1,0 +1,13 @@
+# value repr
+	s:b''
+a	s:b'a'
+'	s:b"'"
+"	s:b'"'
+'\x00	s:b"'\\x00"
+"\x00	s:b'"\\x00'
+\x00\x01\xff	s:b'\\x00\\x01\\xff'
+hello world	s:b'hello world'
+\\	s:b'\\\\'
+\t\n\r	s:b'\\t\\n\\r'
+\x7f\x80	s:b'\\x7f\\x80'
+B:\x00\xff a	s:bytearray(b'\\x00\\xff a')

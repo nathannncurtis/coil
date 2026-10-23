@@ -1,0 +1,3355 @@
+# method [args...] input result
+upper		s:
+upper	a	s:A
+upper	abc	s:ABC
+upper	hello world	s:HELLO WORLD
+upper	Hello, World!	s:HELLO, WORLD!
+upper	  spaced  out  	s:  SPACED  OUT  
+upper	\t\ttabs\tand\nnewlines\n	s:\t\tTABS\tAND\nNEWLINES\n
+upper	abcabcabc	s:ABCABCABC
+upper	aaa	s:AAA
+upper	xyz	s:XYZ
+upper	1234567890	s:1234567890
+upper	Ab1	s:AB1
+upper	'quoted' and "double"	s:'QUOTED' AND "DOUBLE"
+upper	back\\slash	s:BACK\\SLASH
+upper	0123456789	s:0123456789
+upper	MiXeD CaSe StRiNg	s:MIXED CASE STRING
+upper	a b	s:A B
+upper	café	s:CAFÉ
+upper	ñ	s:Ñ
+upper	µ	s:Μ
+upper	ÿ	s:Ÿ
+upper	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+upper	abcÿdef	s:ABCŸDEF
+upper	ééé	s:ÉÉÉ
+upper		s:
+upper	😀	s:😀
+upper	a𝐀c	s:A𝐀C
+upper	𐀀	s:𐀀
+upper	􏿿	s:􏿿
+upper	x😀y😀z	s:X😀Y😀Z
+upper	ß	s:SS
+upper	İ	s:İ
+upper	ǅ	s:Ǆ
+upper	ﬃ	s:FFI
+upper	ʼn	s:ʼN
+upper	٣	s:٣
+upper	²	s:²
+upper	Ⅻ	s:Ⅻ
+upper	三	s:三
+upper	 	s: 
+upper	 	s: 
+upper	ᾈ	s:ἈΙ
+upper	á	s:Á
+lower		s:
+lower	a	s:a
+lower	abc	s:abc
+lower	hello world	s:hello world
+lower	Hello, World!	s:hello, world!
+lower	  spaced  out  	s:  spaced  out  
+lower	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+lower	abcabcabc	s:abcabcabc
+lower	aaa	s:aaa
+lower	xyz	s:xyz
+lower	1234567890	s:1234567890
+lower	Ab1	s:ab1
+lower	'quoted' and "double"	s:'quoted' and "double"
+lower	back\\slash	s:back\\slash
+lower	0123456789	s:0123456789
+lower	MiXeD CaSe StRiNg	s:mixed case string
+lower	a b	s:a b
+lower	café	s:café
+lower	ñ	s:ñ
+lower	µ	s:µ
+lower	ÿ	s:ÿ
+lower	ÀÉÎÕÜ	s:àéîõü
+lower	abcÿdef	s:abcÿdef
+lower	ééé	s:ééé
+lower		s:
+lower	😀	s:😀
+lower	a𝐀c	s:a𝐀c
+lower	𐀀	s:𐀀
+lower	􏿿	s:􏿿
+lower	x😀y😀z	s:x😀y😀z
+lower	ß	s:ß
+lower	İ	s:i̇
+lower	ǅ	s:ǆ
+lower	ﬃ	s:ﬃ
+lower	ʼn	s:ʼn
+lower	٣	s:٣
+lower	²	s:²
+lower	Ⅻ	s:ⅻ
+lower	三	s:三
+lower	 	s: 
+lower	 	s: 
+lower	ᾈ	s:ᾀ
+lower	á	s:á
+casefold		s:
+casefold	a	s:a
+casefold	abc	s:abc
+casefold	hello world	s:hello world
+casefold	Hello, World!	s:hello, world!
+casefold	  spaced  out  	s:  spaced  out  
+casefold	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+casefold	abcabcabc	s:abcabcabc
+casefold	aaa	s:aaa
+casefold	xyz	s:xyz
+casefold	1234567890	s:1234567890
+casefold	Ab1	s:ab1
+casefold	'quoted' and "double"	s:'quoted' and "double"
+casefold	back\\slash	s:back\\slash
+casefold	0123456789	s:0123456789
+casefold	MiXeD CaSe StRiNg	s:mixed case string
+casefold	a b	s:a b
+casefold	café	s:café
+casefold	ñ	s:ñ
+casefold	µ	s:μ
+casefold	ÿ	s:ÿ
+casefold	ÀÉÎÕÜ	s:àéîõü
+casefold	abcÿdef	s:abcÿdef
+casefold	ééé	s:ééé
+casefold		s:
+casefold	😀	s:😀
+casefold	a𝐀c	s:a𝐀c
+casefold	𐀀	s:𐀀
+casefold	􏿿	s:􏿿
+casefold	x😀y😀z	s:x😀y😀z
+casefold	ß	s:ss
+casefold	İ	s:i̇
+casefold	ǅ	s:ǆ
+casefold	ﬃ	s:ffi
+casefold	ʼn	s:ʼn
+casefold	٣	s:٣
+casefold	²	s:²
+casefold	Ⅻ	s:ⅻ
+casefold	三	s:三
+casefold	 	s: 
+casefold	 	s: 
+casefold	ᾈ	s:ἀι
+casefold	á	s:á
+title		s:
+title	a	s:A
+title	abc	s:Abc
+title	hello world	s:Hello World
+title	Hello, World!	s:Hello, World!
+title	  spaced  out  	s:  Spaced  Out  
+title	\t\ttabs\tand\nnewlines\n	s:\t\tTabs\tAnd\nNewlines\n
+title	abcabcabc	s:Abcabcabc
+title	aaa	s:Aaa
+title	xyz	s:Xyz
+title	1234567890	s:1234567890
+title	Ab1	s:Ab1
+title	'quoted' and "double"	s:'Quoted' And "Double"
+title	back\\slash	s:Back\\Slash
+title	0123456789	s:0123456789
+title	MiXeD CaSe StRiNg	s:Mixed Case String
+title	a b	s:A B
+title	café	s:Café
+title	ñ	s:Ñ
+title	µ	s:Μ
+title	ÿ	s:Ÿ
+title	ÀÉÎÕÜ	s:Àéîõü
+title	abcÿdef	s:Abcÿdef
+title	ééé	s:Ééé
+title		s:
+title	😀	s:😀
+title	a𝐀c	s:A𝐀c
+title	𐀀	s:𐀀
+title	􏿿	s:􏿿
+title	x😀y😀z	s:X😀Y😀Z
+title	ß	s:Ss
+title	İ	s:İ
+title	ǅ	s:ǅ
+title	ﬃ	s:Ffi
+title	ʼn	s:ʼN
+title	٣	s:٣
+title	²	s:²
+title	Ⅻ	s:Ⅻ
+title	三	s:三
+title	 	s: 
+title	 	s: 
+title	ᾈ	s:ᾈ
+title	á	s:Á
+capitalize		s:
+capitalize	a	s:A
+capitalize	abc	s:Abc
+capitalize	hello world	s:Hello world
+capitalize	Hello, World!	s:Hello, world!
+capitalize	  spaced  out  	s:  spaced  out  
+capitalize	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+capitalize	abcabcabc	s:Abcabcabc
+capitalize	aaa	s:Aaa
+capitalize	xyz	s:Xyz
+capitalize	1234567890	s:1234567890
+capitalize	Ab1	s:Ab1
+capitalize	'quoted' and "double"	s:'quoted' and "double"
+capitalize	back\\slash	s:Back\\slash
+capitalize	0123456789	s:0123456789
+capitalize	MiXeD CaSe StRiNg	s:Mixed case string
+capitalize	a b	s:A b
+capitalize	café	s:Café
+capitalize	ñ	s:Ñ
+capitalize	µ	s:Μ
+capitalize	ÿ	s:Ÿ
+capitalize	ÀÉÎÕÜ	s:Àéîõü
+capitalize	abcÿdef	s:Abcÿdef
+capitalize	ééé	s:Ééé
+capitalize		s:
+capitalize	😀	s:😀
+capitalize	a𝐀c	s:A𝐀c
+capitalize	𐀀	s:𐀀
+capitalize	􏿿	s:􏿿
+capitalize	x😀y😀z	s:X😀y😀z
+capitalize	ß	s:Ss
+capitalize	İ	s:İ
+capitalize	ǅ	s:ǅ
+capitalize	ﬃ	s:Ffi
+capitalize	ʼn	s:ʼn
+capitalize	٣	s:٣
+capitalize	²	s:²
+capitalize	Ⅻ	s:Ⅻ
+capitalize	三	s:三
+capitalize	 	s: 
+capitalize	 	s: 
+capitalize	ᾈ	s:ᾈ
+capitalize	á	s:Á
+swapcase		s:
+swapcase	a	s:A
+swapcase	abc	s:ABC
+swapcase	hello world	s:HELLO WORLD
+swapcase	Hello, World!	s:hELLO, wORLD!
+swapcase	  spaced  out  	s:  SPACED  OUT  
+swapcase	\t\ttabs\tand\nnewlines\n	s:\t\tTABS\tAND\nNEWLINES\n
+swapcase	abcabcabc	s:ABCABCABC
+swapcase	aaa	s:AAA
+swapcase	xyz	s:XYZ
+swapcase	1234567890	s:1234567890
+swapcase	Ab1	s:aB1
+swapcase	'quoted' and "double"	s:'QUOTED' AND "DOUBLE"
+swapcase	back\\slash	s:BACK\\SLASH
+swapcase	0123456789	s:0123456789
+swapcase	MiXeD CaSe StRiNg	s:mIxEd cAsE sTrInG
+swapcase	a b	s:A B
+swapcase	café	s:CAFÉ
+swapcase	ñ	s:Ñ
+swapcase	µ	s:Μ
+swapcase	ÿ	s:Ÿ
+swapcase	ÀÉÎÕÜ	s:àéîõü
+swapcase	abcÿdef	s:ABCŸDEF
+swapcase	ééé	s:ÉÉÉ
+swapcase		s:
+swapcase	😀	s:😀
+swapcase	a𝐀c	s:A𝐀C
+swapcase	𐀀	s:𐀀
+swapcase	􏿿	s:􏿿
+swapcase	x😀y😀z	s:X😀Y😀Z
+swapcase	ß	s:SS
+swapcase	İ	s:i̇
+swapcase	ǅ	s:ǅ
+swapcase	ﬃ	s:FFI
+swapcase	ʼn	s:ʼN
+swapcase	٣	s:٣
+swapcase	²	s:²
+swapcase	Ⅻ	s:ⅻ
+swapcase	三	s:三
+swapcase	 	s: 
+swapcase	 	s: 
+swapcase	ᾈ	s:ᾈ
+swapcase	á	s:Á
+strip			s:
+strip		a	s:a
+strip		abc	s:abc
+strip		hello world	s:hello world
+strip		Hello, World!	s:Hello, World!
+strip		  spaced  out  	s:spaced  out
+strip		\t\ttabs\tand\nnewlines\n	s:tabs\tand\nnewlines
+strip		abcabcabc	s:abcabcabc
+strip		aaa	s:aaa
+strip		xyz	s:xyz
+strip		1234567890	s:1234567890
+strip		Ab1	s:Ab1
+strip		'quoted' and "double"	s:'quoted' and "double"
+strip		back\\slash	s:back\\slash
+strip		0123456789	s:0123456789
+strip		MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+strip		a b	s:a b
+strip		café	s:café
+strip		ñ	s:ñ
+strip		µ	s:µ
+strip		ÿ	s:ÿ
+strip		ÀÉÎÕÜ	s:ÀÉÎÕÜ
+strip		abcÿdef	s:abcÿdef
+strip		ééé	s:ééé
+strip			s:
+strip		😀	s:😀
+strip		a𝐀c	s:a𝐀c
+strip		𐀀	s:𐀀
+strip		􏿿	s:􏿿
+strip		x😀y😀z	s:x😀y😀z
+strip		ß	s:ß
+strip		İ	s:İ
+strip		ǅ	s:ǅ
+strip		ﬃ	s:ﬃ
+strip		ʼn	s:ʼn
+strip		٣	s:٣
+strip		²	s:²
+strip		Ⅻ	s:Ⅻ
+strip		三	s:三
+strip		 	s:
+strip		 	s:
+strip		ᾈ	s:ᾈ
+strip		á	s:á
+strip	ab		s:
+strip	ab	a	s:
+strip	ab	abc	s:c
+strip	ab	hello world	s:hello world
+strip	ab	Hello, World!	s:Hello, World!
+strip	ab	  spaced  out  	s:  spaced  out  
+strip	ab	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+strip	ab	abcabcabc	s:cabcabc
+strip	ab	aaa	s:
+strip	ab	xyz	s:xyz
+strip	ab	1234567890	s:1234567890
+strip	ab	Ab1	s:Ab1
+strip	ab	'quoted' and "double"	s:'quoted' and "double"
+strip	ab	back\\slash	s:ck\\slash
+strip	ab	0123456789	s:0123456789
+strip	ab	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+strip	ab	a b	s: 
+strip	ab	café	s:café
+strip	ab	ñ	s:ñ
+strip	ab	µ	s:µ
+strip	ab	ÿ	s:ÿ
+strip	ab	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+strip	ab	abcÿdef	s:cÿdef
+strip	ab	ééé	s:ééé
+strip	ab		s:
+strip	ab	😀	s:😀
+strip	ab	a𝐀c	s:𝐀c
+strip	ab	𐀀	s:𐀀
+strip	ab	􏿿	s:􏿿
+strip	ab	x😀y😀z	s:x😀y😀z
+strip	ab	ß	s:ß
+strip	ab	İ	s:İ
+strip	ab	ǅ	s:ǅ
+strip	ab	ﬃ	s:ﬃ
+strip	ab	ʼn	s:ʼn
+strip	ab	٣	s:٣
+strip	ab	²	s:²
+strip	ab	Ⅻ	s:Ⅻ
+strip	ab	三	s:三
+strip	ab	 	s: 
+strip	ab	 	s: 
+strip	ab	ᾈ	s:ᾈ
+strip	ab	á	s:́
+lstrip			s:
+lstrip		a	s:a
+lstrip		abc	s:abc
+lstrip		hello world	s:hello world
+lstrip		Hello, World!	s:Hello, World!
+lstrip		  spaced  out  	s:spaced  out  
+lstrip		\t\ttabs\tand\nnewlines\n	s:tabs\tand\nnewlines\n
+lstrip		abcabcabc	s:abcabcabc
+lstrip		aaa	s:aaa
+lstrip		xyz	s:xyz
+lstrip		1234567890	s:1234567890
+lstrip		Ab1	s:Ab1
+lstrip		'quoted' and "double"	s:'quoted' and "double"
+lstrip		back\\slash	s:back\\slash
+lstrip		0123456789	s:0123456789
+lstrip		MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+lstrip		a b	s:a b
+lstrip		café	s:café
+lstrip		ñ	s:ñ
+lstrip		µ	s:µ
+lstrip		ÿ	s:ÿ
+lstrip		ÀÉÎÕÜ	s:ÀÉÎÕÜ
+lstrip		abcÿdef	s:abcÿdef
+lstrip		ééé	s:ééé
+lstrip			s:
+lstrip		😀	s:😀
+lstrip		a𝐀c	s:a𝐀c
+lstrip		𐀀	s:𐀀
+lstrip		􏿿	s:􏿿
+lstrip		x😀y😀z	s:x😀y😀z
+lstrip		ß	s:ß
+lstrip		İ	s:İ
+lstrip		ǅ	s:ǅ
+lstrip		ﬃ	s:ﬃ
+lstrip		ʼn	s:ʼn
+lstrip		٣	s:٣
+lstrip		²	s:²
+lstrip		Ⅻ	s:Ⅻ
+lstrip		三	s:三
+lstrip		 	s:
+lstrip		 	s:
+lstrip		ᾈ	s:ᾈ
+lstrip		á	s:á
+lstrip	ab		s:
+lstrip	ab	a	s:
+lstrip	ab	abc	s:c
+lstrip	ab	hello world	s:hello world
+lstrip	ab	Hello, World!	s:Hello, World!
+lstrip	ab	  spaced  out  	s:  spaced  out  
+lstrip	ab	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+lstrip	ab	abcabcabc	s:cabcabc
+lstrip	ab	aaa	s:
+lstrip	ab	xyz	s:xyz
+lstrip	ab	1234567890	s:1234567890
+lstrip	ab	Ab1	s:Ab1
+lstrip	ab	'quoted' and "double"	s:'quoted' and "double"
+lstrip	ab	back\\slash	s:ck\\slash
+lstrip	ab	0123456789	s:0123456789
+lstrip	ab	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+lstrip	ab	a b	s: b
+lstrip	ab	café	s:café
+lstrip	ab	ñ	s:ñ
+lstrip	ab	µ	s:µ
+lstrip	ab	ÿ	s:ÿ
+lstrip	ab	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+lstrip	ab	abcÿdef	s:cÿdef
+lstrip	ab	ééé	s:ééé
+lstrip	ab		s:
+lstrip	ab	😀	s:😀
+lstrip	ab	a𝐀c	s:𝐀c
+lstrip	ab	𐀀	s:𐀀
+lstrip	ab	􏿿	s:􏿿
+lstrip	ab	x😀y😀z	s:x😀y😀z
+lstrip	ab	ß	s:ß
+lstrip	ab	İ	s:İ
+lstrip	ab	ǅ	s:ǅ
+lstrip	ab	ﬃ	s:ﬃ
+lstrip	ab	ʼn	s:ʼn
+lstrip	ab	٣	s:٣
+lstrip	ab	²	s:²
+lstrip	ab	Ⅻ	s:Ⅻ
+lstrip	ab	三	s:三
+lstrip	ab	 	s: 
+lstrip	ab	 	s: 
+lstrip	ab	ᾈ	s:ᾈ
+lstrip	ab	á	s:́
+rstrip			s:
+rstrip		a	s:a
+rstrip		abc	s:abc
+rstrip		hello world	s:hello world
+rstrip		Hello, World!	s:Hello, World!
+rstrip		  spaced  out  	s:  spaced  out
+rstrip		\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines
+rstrip		abcabcabc	s:abcabcabc
+rstrip		aaa	s:aaa
+rstrip		xyz	s:xyz
+rstrip		1234567890	s:1234567890
+rstrip		Ab1	s:Ab1
+rstrip		'quoted' and "double"	s:'quoted' and "double"
+rstrip		back\\slash	s:back\\slash
+rstrip		0123456789	s:0123456789
+rstrip		MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+rstrip		a b	s:a b
+rstrip		café	s:café
+rstrip		ñ	s:ñ
+rstrip		µ	s:µ
+rstrip		ÿ	s:ÿ
+rstrip		ÀÉÎÕÜ	s:ÀÉÎÕÜ
+rstrip		abcÿdef	s:abcÿdef
+rstrip		ééé	s:ééé
+rstrip			s:
+rstrip		😀	s:😀
+rstrip		a𝐀c	s:a𝐀c
+rstrip		𐀀	s:𐀀
+rstrip		􏿿	s:􏿿
+rstrip		x😀y😀z	s:x😀y😀z
+rstrip		ß	s:ß
+rstrip		İ	s:İ
+rstrip		ǅ	s:ǅ
+rstrip		ﬃ	s:ﬃ
+rstrip		ʼn	s:ʼn
+rstrip		٣	s:٣
+rstrip		²	s:²
+rstrip		Ⅻ	s:Ⅻ
+rstrip		三	s:三
+rstrip		 	s:
+rstrip		 	s:
+rstrip		ᾈ	s:ᾈ
+rstrip		á	s:á
+rstrip	ab		s:
+rstrip	ab	a	s:
+rstrip	ab	abc	s:abc
+rstrip	ab	hello world	s:hello world
+rstrip	ab	Hello, World!	s:Hello, World!
+rstrip	ab	  spaced  out  	s:  spaced  out  
+rstrip	ab	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+rstrip	ab	abcabcabc	s:abcabcabc
+rstrip	ab	aaa	s:
+rstrip	ab	xyz	s:xyz
+rstrip	ab	1234567890	s:1234567890
+rstrip	ab	Ab1	s:Ab1
+rstrip	ab	'quoted' and "double"	s:'quoted' and "double"
+rstrip	ab	back\\slash	s:back\\slash
+rstrip	ab	0123456789	s:0123456789
+rstrip	ab	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+rstrip	ab	a b	s:a 
+rstrip	ab	café	s:café
+rstrip	ab	ñ	s:ñ
+rstrip	ab	µ	s:µ
+rstrip	ab	ÿ	s:ÿ
+rstrip	ab	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+rstrip	ab	abcÿdef	s:abcÿdef
+rstrip	ab	ééé	s:ééé
+rstrip	ab		s:
+rstrip	ab	😀	s:😀
+rstrip	ab	a𝐀c	s:a𝐀c
+rstrip	ab	𐀀	s:𐀀
+rstrip	ab	􏿿	s:􏿿
+rstrip	ab	x😀y😀z	s:x😀y😀z
+rstrip	ab	ß	s:ß
+rstrip	ab	İ	s:İ
+rstrip	ab	ǅ	s:ǅ
+rstrip	ab	ﬃ	s:ﬃ
+rstrip	ab	ʼn	s:ʼn
+rstrip	ab	٣	s:٣
+rstrip	ab	²	s:²
+rstrip	ab	Ⅻ	s:Ⅻ
+rstrip	ab	三	s:三
+rstrip	ab	 	s: 
+rstrip	ab	 	s: 
+rstrip	ab	ᾈ	s:ᾈ
+rstrip	ab	á	s:á
+center	i:7		s:       
+center	i:7	a	s:   a   
+center	i:7	abc	s:  abc  
+center	i:7	hello world	s:hello world
+center	i:7	Hello, World!	s:Hello, World!
+center	i:7	  spaced  out  	s:  spaced  out  
+center	i:7	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+center	i:7	abcabcabc	s:abcabcabc
+center	i:7	aaa	s:  aaa  
+center	i:7	xyz	s:  xyz  
+center	i:7	1234567890	s:1234567890
+center	i:7	Ab1	s:  Ab1  
+center	i:7	'quoted' and "double"	s:'quoted' and "double"
+center	i:7	back\\slash	s:back\\slash
+center	i:7	0123456789	s:0123456789
+center	i:7	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+center	i:7	a b	s:  a b  
+center	i:7	café	s:  café 
+center	i:7	ñ	s:   ñ   
+center	i:7	µ	s:   µ   
+center	i:7	ÿ	s:   ÿ   
+center	i:7	ÀÉÎÕÜ	s: ÀÉÎÕÜ 
+center	i:7	abcÿdef	s:abcÿdef
+center	i:7	ééé	s:  ééé  
+center	i:7		s:     
+center	i:7	😀	s:   😀   
+center	i:7	a𝐀c	s:  a𝐀c  
+center	i:7	𐀀	s:   𐀀   
+center	i:7	􏿿	s:   􏿿   
+center	i:7	x😀y😀z	s: x😀y😀z 
+center	i:7	ß	s:   ß   
+center	i:7	İ	s:   İ   
+center	i:7	ǅ	s:   ǅ   
+center	i:7	ﬃ	s:   ﬃ   
+center	i:7	ʼn	s:   ʼn  
+center	i:7	٣	s:   ٣   
+center	i:7	²	s:   ²   
+center	i:7	Ⅻ	s:   Ⅻ   
+center	i:7	三	s:   三   
+center	i:7	 	s:       
+center	i:7	 	s:       
+center	i:7	ᾈ	s:   ᾈ   
+center	i:7	á	s:   á  
+center	i:7	*		s:*******
+center	i:7	*	a	s:***a***
+center	i:7	*	abc	s:**abc**
+center	i:7	*	hello world	s:hello world
+center	i:7	*	Hello, World!	s:Hello, World!
+center	i:7	*	  spaced  out  	s:  spaced  out  
+center	i:7	*	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+center	i:7	*	abcabcabc	s:abcabcabc
+center	i:7	*	aaa	s:**aaa**
+center	i:7	*	xyz	s:**xyz**
+center	i:7	*	1234567890	s:1234567890
+center	i:7	*	Ab1	s:**Ab1**
+center	i:7	*	'quoted' and "double"	s:'quoted' and "double"
+center	i:7	*	back\\slash	s:back\\slash
+center	i:7	*	0123456789	s:0123456789
+center	i:7	*	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+center	i:7	*	a b	s:**a b**
+center	i:7	*	café	s:**café*
+center	i:7	*	ñ	s:***ñ***
+center	i:7	*	µ	s:***µ***
+center	i:7	*	ÿ	s:***ÿ***
+center	i:7	*	ÀÉÎÕÜ	s:*ÀÉÎÕÜ*
+center	i:7	*	abcÿdef	s:abcÿdef
+center	i:7	*	ééé	s:**ééé**
+center	i:7	*		s:*****
+center	i:7	*	😀	s:***😀***
+center	i:7	*	a𝐀c	s:**a𝐀c**
+center	i:7	*	𐀀	s:***𐀀***
+center	i:7	*	􏿿	s:***􏿿***
+center	i:7	*	x😀y😀z	s:*x😀y😀z*
+center	i:7	*	ß	s:***ß***
+center	i:7	*	İ	s:***İ***
+center	i:7	*	ǅ	s:***ǅ***
+center	i:7	*	ﬃ	s:***ﬃ***
+center	i:7	*	ʼn	s:***ʼn**
+center	i:7	*	٣	s:***٣***
+center	i:7	*	²	s:***²***
+center	i:7	*	Ⅻ	s:***Ⅻ***
+center	i:7	*	三	s:***三***
+center	i:7	*	 	s:*** ***
+center	i:7	*	 	s:*** ***
+center	i:7	*	ᾈ	s:***ᾈ***
+center	i:7	*	á	s:***á**
+center	i:-1		s:
+center	i:-1	a	s:a
+center	i:-1	abc	s:abc
+center	i:-1	hello world	s:hello world
+center	i:-1	Hello, World!	s:Hello, World!
+center	i:-1	  spaced  out  	s:  spaced  out  
+center	i:-1	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+center	i:-1	abcabcabc	s:abcabcabc
+center	i:-1	aaa	s:aaa
+center	i:-1	xyz	s:xyz
+center	i:-1	1234567890	s:1234567890
+center	i:-1	Ab1	s:Ab1
+center	i:-1	'quoted' and "double"	s:'quoted' and "double"
+center	i:-1	back\\slash	s:back\\slash
+center	i:-1	0123456789	s:0123456789
+center	i:-1	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+center	i:-1	a b	s:a b
+center	i:-1	café	s:café
+center	i:-1	ñ	s:ñ
+center	i:-1	µ	s:µ
+center	i:-1	ÿ	s:ÿ
+center	i:-1	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+center	i:-1	abcÿdef	s:abcÿdef
+center	i:-1	ééé	s:ééé
+center	i:-1		s:
+center	i:-1	😀	s:😀
+center	i:-1	a𝐀c	s:a𝐀c
+center	i:-1	𐀀	s:𐀀
+center	i:-1	􏿿	s:􏿿
+center	i:-1	x😀y😀z	s:x😀y😀z
+center	i:-1	ß	s:ß
+center	i:-1	İ	s:İ
+center	i:-1	ǅ	s:ǅ
+center	i:-1	ﬃ	s:ﬃ
+center	i:-1	ʼn	s:ʼn
+center	i:-1	٣	s:٣
+center	i:-1	²	s:²
+center	i:-1	Ⅻ	s:Ⅻ
+center	i:-1	三	s:三
+center	i:-1	 	s: 
+center	i:-1	 	s: 
+center	i:-1	ᾈ	s:ᾈ
+center	i:-1	á	s:á
+center	i:7	**		e:TypeError:The fill character must be exactly one character long
+center	i:7	**	a	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	abc	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	hello world	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	Hello, World!	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	  spaced  out  	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	\t\ttabs\tand\nnewlines\n	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	abcabcabc	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	aaa	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	xyz	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	1234567890	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	Ab1	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	'quoted' and "double"	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	back\\slash	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	0123456789	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	MiXeD CaSe StRiNg	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	a b	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	café	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ñ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	µ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ÿ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ÀÉÎÕÜ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	abcÿdef	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ééé	e:TypeError:The fill character must be exactly one character long
+center	i:7	**		e:TypeError:The fill character must be exactly one character long
+center	i:7	**	😀	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	a𝐀c	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	𐀀	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	􏿿	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	x😀y😀z	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ß	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	İ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ǅ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ﬃ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ʼn	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	٣	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	²	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	Ⅻ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	三	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	 	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	 	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	ᾈ	e:TypeError:The fill character must be exactly one character long
+center	i:7	**	á	e:TypeError:The fill character must be exactly one character long
+ljust	i:7		s:       
+ljust	i:7	a	s:a      
+ljust	i:7	abc	s:abc    
+ljust	i:7	hello world	s:hello world
+ljust	i:7	Hello, World!	s:Hello, World!
+ljust	i:7	  spaced  out  	s:  spaced  out  
+ljust	i:7	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+ljust	i:7	abcabcabc	s:abcabcabc
+ljust	i:7	aaa	s:aaa    
+ljust	i:7	xyz	s:xyz    
+ljust	i:7	1234567890	s:1234567890
+ljust	i:7	Ab1	s:Ab1    
+ljust	i:7	'quoted' and "double"	s:'quoted' and "double"
+ljust	i:7	back\\slash	s:back\\slash
+ljust	i:7	0123456789	s:0123456789
+ljust	i:7	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+ljust	i:7	a b	s:a b    
+ljust	i:7	café	s:café   
+ljust	i:7	ñ	s:ñ      
+ljust	i:7	µ	s:µ      
+ljust	i:7	ÿ	s:ÿ      
+ljust	i:7	ÀÉÎÕÜ	s:ÀÉÎÕÜ  
+ljust	i:7	abcÿdef	s:abcÿdef
+ljust	i:7	ééé	s:ééé    
+ljust	i:7		s:     
+ljust	i:7	😀	s:😀      
+ljust	i:7	a𝐀c	s:a𝐀c    
+ljust	i:7	𐀀	s:𐀀      
+ljust	i:7	􏿿	s:􏿿      
+ljust	i:7	x😀y😀z	s:x😀y😀z  
+ljust	i:7	ß	s:ß      
+ljust	i:7	İ	s:İ      
+ljust	i:7	ǅ	s:ǅ      
+ljust	i:7	ﬃ	s:ﬃ      
+ljust	i:7	ʼn	s:ʼn     
+ljust	i:7	٣	s:٣      
+ljust	i:7	²	s:²      
+ljust	i:7	Ⅻ	s:Ⅻ      
+ljust	i:7	三	s:三      
+ljust	i:7	 	s:       
+ljust	i:7	 	s:       
+ljust	i:7	ᾈ	s:ᾈ      
+ljust	i:7	á	s:á     
+ljust	i:7	*		s:*******
+ljust	i:7	*	a	s:a******
+ljust	i:7	*	abc	s:abc****
+ljust	i:7	*	hello world	s:hello world
+ljust	i:7	*	Hello, World!	s:Hello, World!
+ljust	i:7	*	  spaced  out  	s:  spaced  out  
+ljust	i:7	*	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+ljust	i:7	*	abcabcabc	s:abcabcabc
+ljust	i:7	*	aaa	s:aaa****
+ljust	i:7	*	xyz	s:xyz****
+ljust	i:7	*	1234567890	s:1234567890
+ljust	i:7	*	Ab1	s:Ab1****
+ljust	i:7	*	'quoted' and "double"	s:'quoted' and "double"
+ljust	i:7	*	back\\slash	s:back\\slash
+ljust	i:7	*	0123456789	s:0123456789
+ljust	i:7	*	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+ljust	i:7	*	a b	s:a b****
+ljust	i:7	*	café	s:café***
+ljust	i:7	*	ñ	s:ñ******
+ljust	i:7	*	µ	s:µ******
+ljust	i:7	*	ÿ	s:ÿ******
+ljust	i:7	*	ÀÉÎÕÜ	s:ÀÉÎÕÜ**
+ljust	i:7	*	abcÿdef	s:abcÿdef
+ljust	i:7	*	ééé	s:ééé****
+ljust	i:7	*		s:*****
+ljust	i:7	*	😀	s:😀******
+ljust	i:7	*	a𝐀c	s:a𝐀c****
+ljust	i:7	*	𐀀	s:𐀀******
+ljust	i:7	*	􏿿	s:􏿿******
+ljust	i:7	*	x😀y😀z	s:x😀y😀z**
+ljust	i:7	*	ß	s:ß******
+ljust	i:7	*	İ	s:İ******
+ljust	i:7	*	ǅ	s:ǅ******
+ljust	i:7	*	ﬃ	s:ﬃ******
+ljust	i:7	*	ʼn	s:ʼn*****
+ljust	i:7	*	٣	s:٣******
+ljust	i:7	*	²	s:²******
+ljust	i:7	*	Ⅻ	s:Ⅻ******
+ljust	i:7	*	三	s:三******
+ljust	i:7	*	 	s: ******
+ljust	i:7	*	 	s: ******
+ljust	i:7	*	ᾈ	s:ᾈ******
+ljust	i:7	*	á	s:á*****
+ljust	i:2		s:  
+ljust	i:2	a	s:a 
+ljust	i:2	abc	s:abc
+ljust	i:2	hello world	s:hello world
+ljust	i:2	Hello, World!	s:Hello, World!
+ljust	i:2	  spaced  out  	s:  spaced  out  
+ljust	i:2	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+ljust	i:2	abcabcabc	s:abcabcabc
+ljust	i:2	aaa	s:aaa
+ljust	i:2	xyz	s:xyz
+ljust	i:2	1234567890	s:1234567890
+ljust	i:2	Ab1	s:Ab1
+ljust	i:2	'quoted' and "double"	s:'quoted' and "double"
+ljust	i:2	back\\slash	s:back\\slash
+ljust	i:2	0123456789	s:0123456789
+ljust	i:2	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+ljust	i:2	a b	s:a b
+ljust	i:2	café	s:café
+ljust	i:2	ñ	s:ñ 
+ljust	i:2	µ	s:µ 
+ljust	i:2	ÿ	s:ÿ 
+ljust	i:2	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+ljust	i:2	abcÿdef	s:abcÿdef
+ljust	i:2	ééé	s:ééé
+ljust	i:2		s:
+ljust	i:2	😀	s:😀 
+ljust	i:2	a𝐀c	s:a𝐀c
+ljust	i:2	𐀀	s:𐀀 
+ljust	i:2	􏿿	s:􏿿 
+ljust	i:2	x😀y😀z	s:x😀y😀z
+ljust	i:2	ß	s:ß 
+ljust	i:2	İ	s:İ 
+ljust	i:2	ǅ	s:ǅ 
+ljust	i:2	ﬃ	s:ﬃ 
+ljust	i:2	ʼn	s:ʼn
+ljust	i:2	٣	s:٣ 
+ljust	i:2	²	s:² 
+ljust	i:2	Ⅻ	s:Ⅻ 
+ljust	i:2	三	s:三 
+ljust	i:2	 	s:  
+ljust	i:2	 	s:  
+ljust	i:2	ᾈ	s:ᾈ 
+ljust	i:2	á	s:á
+rjust	i:7		s:       
+rjust	i:7	a	s:      a
+rjust	i:7	abc	s:    abc
+rjust	i:7	hello world	s:hello world
+rjust	i:7	Hello, World!	s:Hello, World!
+rjust	i:7	  spaced  out  	s:  spaced  out  
+rjust	i:7	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+rjust	i:7	abcabcabc	s:abcabcabc
+rjust	i:7	aaa	s:    aaa
+rjust	i:7	xyz	s:    xyz
+rjust	i:7	1234567890	s:1234567890
+rjust	i:7	Ab1	s:    Ab1
+rjust	i:7	'quoted' and "double"	s:'quoted' and "double"
+rjust	i:7	back\\slash	s:back\\slash
+rjust	i:7	0123456789	s:0123456789
+rjust	i:7	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+rjust	i:7	a b	s:    a b
+rjust	i:7	café	s:   café
+rjust	i:7	ñ	s:      ñ
+rjust	i:7	µ	s:      µ
+rjust	i:7	ÿ	s:      ÿ
+rjust	i:7	ÀÉÎÕÜ	s:  ÀÉÎÕÜ
+rjust	i:7	abcÿdef	s:abcÿdef
+rjust	i:7	ééé	s:    ééé
+rjust	i:7		s:     
+rjust	i:7	😀	s:      😀
+rjust	i:7	a𝐀c	s:    a𝐀c
+rjust	i:7	𐀀	s:      𐀀
+rjust	i:7	􏿿	s:      􏿿
+rjust	i:7	x😀y😀z	s:  x😀y😀z
+rjust	i:7	ß	s:      ß
+rjust	i:7	İ	s:      İ
+rjust	i:7	ǅ	s:      ǅ
+rjust	i:7	ﬃ	s:      ﬃ
+rjust	i:7	ʼn	s:     ʼn
+rjust	i:7	٣	s:      ٣
+rjust	i:7	²	s:      ²
+rjust	i:7	Ⅻ	s:      Ⅻ
+rjust	i:7	三	s:      三
+rjust	i:7	 	s:       
+rjust	i:7	 	s:       
+rjust	i:7	ᾈ	s:      ᾈ
+rjust	i:7	á	s:     á
+rjust	i:7	0		s:0000000
+rjust	i:7	0	a	s:000000a
+rjust	i:7	0	abc	s:0000abc
+rjust	i:7	0	hello world	s:hello world
+rjust	i:7	0	Hello, World!	s:Hello, World!
+rjust	i:7	0	  spaced  out  	s:  spaced  out  
+rjust	i:7	0	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+rjust	i:7	0	abcabcabc	s:abcabcabc
+rjust	i:7	0	aaa	s:0000aaa
+rjust	i:7	0	xyz	s:0000xyz
+rjust	i:7	0	1234567890	s:1234567890
+rjust	i:7	0	Ab1	s:0000Ab1
+rjust	i:7	0	'quoted' and "double"	s:'quoted' and "double"
+rjust	i:7	0	back\\slash	s:back\\slash
+rjust	i:7	0	0123456789	s:0123456789
+rjust	i:7	0	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+rjust	i:7	0	a b	s:0000a b
+rjust	i:7	0	café	s:000café
+rjust	i:7	0	ñ	s:000000ñ
+rjust	i:7	0	µ	s:000000µ
+rjust	i:7	0	ÿ	s:000000ÿ
+rjust	i:7	0	ÀÉÎÕÜ	s:00ÀÉÎÕÜ
+rjust	i:7	0	abcÿdef	s:abcÿdef
+rjust	i:7	0	ééé	s:0000ééé
+rjust	i:7	0		s:00000
+rjust	i:7	0	😀	s:000000😀
+rjust	i:7	0	a𝐀c	s:0000a𝐀c
+rjust	i:7	0	𐀀	s:000000𐀀
+rjust	i:7	0	􏿿	s:000000􏿿
+rjust	i:7	0	x😀y😀z	s:00x😀y😀z
+rjust	i:7	0	ß	s:000000ß
+rjust	i:7	0	İ	s:000000İ
+rjust	i:7	0	ǅ	s:000000ǅ
+rjust	i:7	0	ﬃ	s:000000ﬃ
+rjust	i:7	0	ʼn	s:00000ʼn
+rjust	i:7	0	٣	s:000000٣
+rjust	i:7	0	²	s:000000²
+rjust	i:7	0	Ⅻ	s:000000Ⅻ
+rjust	i:7	0	三	s:000000三
+rjust	i:7	0	 	s:000000 
+rjust	i:7	0	 	s:000000 
+rjust	i:7	0	ᾈ	s:000000ᾈ
+rjust	i:7	0	á	s:00000á
+zfill	i:7		s:0000000
+zfill	i:7	a	s:000000a
+zfill	i:7	abc	s:0000abc
+zfill	i:7	hello world	s:hello world
+zfill	i:7	Hello, World!	s:Hello, World!
+zfill	i:7	  spaced  out  	s:  spaced  out  
+zfill	i:7	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+zfill	i:7	abcabcabc	s:abcabcabc
+zfill	i:7	aaa	s:0000aaa
+zfill	i:7	xyz	s:0000xyz
+zfill	i:7	1234567890	s:1234567890
+zfill	i:7	Ab1	s:0000Ab1
+zfill	i:7	'quoted' and "double"	s:'quoted' and "double"
+zfill	i:7	back\\slash	s:back\\slash
+zfill	i:7	0123456789	s:0123456789
+zfill	i:7	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+zfill	i:7	a b	s:0000a b
+zfill	i:7	café	s:000café
+zfill	i:7	ñ	s:000000ñ
+zfill	i:7	µ	s:000000µ
+zfill	i:7	ÿ	s:000000ÿ
+zfill	i:7	ÀÉÎÕÜ	s:00ÀÉÎÕÜ
+zfill	i:7	abcÿdef	s:abcÿdef
+zfill	i:7	ééé	s:0000ééé
+zfill	i:7		s:00000
+zfill	i:7	😀	s:000000😀
+zfill	i:7	a𝐀c	s:0000a𝐀c
+zfill	i:7	𐀀	s:000000𐀀
+zfill	i:7	􏿿	s:000000􏿿
+zfill	i:7	x😀y😀z	s:00x😀y😀z
+zfill	i:7	ß	s:000000ß
+zfill	i:7	İ	s:000000İ
+zfill	i:7	ǅ	s:000000ǅ
+zfill	i:7	ﬃ	s:000000ﬃ
+zfill	i:7	ʼn	s:00000ʼn
+zfill	i:7	٣	s:000000٣
+zfill	i:7	²	s:000000²
+zfill	i:7	Ⅻ	s:000000Ⅻ
+zfill	i:7	三	s:000000三
+zfill	i:7	 	s:000000 
+zfill	i:7	 	s:000000 
+zfill	i:7	ᾈ	s:000000ᾈ
+zfill	i:7	á	s:00000á
+zfill	i:2		s:00
+zfill	i:2	a	s:0a
+zfill	i:2	abc	s:abc
+zfill	i:2	hello world	s:hello world
+zfill	i:2	Hello, World!	s:Hello, World!
+zfill	i:2	  spaced  out  	s:  spaced  out  
+zfill	i:2	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+zfill	i:2	abcabcabc	s:abcabcabc
+zfill	i:2	aaa	s:aaa
+zfill	i:2	xyz	s:xyz
+zfill	i:2	1234567890	s:1234567890
+zfill	i:2	Ab1	s:Ab1
+zfill	i:2	'quoted' and "double"	s:'quoted' and "double"
+zfill	i:2	back\\slash	s:back\\slash
+zfill	i:2	0123456789	s:0123456789
+zfill	i:2	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+zfill	i:2	a b	s:a b
+zfill	i:2	café	s:café
+zfill	i:2	ñ	s:0ñ
+zfill	i:2	µ	s:0µ
+zfill	i:2	ÿ	s:0ÿ
+zfill	i:2	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+zfill	i:2	abcÿdef	s:abcÿdef
+zfill	i:2	ééé	s:ééé
+zfill	i:2		s:
+zfill	i:2	😀	s:0😀
+zfill	i:2	a𝐀c	s:a𝐀c
+zfill	i:2	𐀀	s:0𐀀
+zfill	i:2	􏿿	s:0􏿿
+zfill	i:2	x😀y😀z	s:x😀y😀z
+zfill	i:2	ß	s:0ß
+zfill	i:2	İ	s:0İ
+zfill	i:2	ǅ	s:0ǅ
+zfill	i:2	ﬃ	s:0ﬃ
+zfill	i:2	ʼn	s:ʼn
+zfill	i:2	٣	s:0٣
+zfill	i:2	²	s:0²
+zfill	i:2	Ⅻ	s:0Ⅻ
+zfill	i:2	三	s:0三
+zfill	i:2	 	s:0 
+zfill	i:2	 	s:0 
+zfill	i:2	ᾈ	s:0ᾈ
+zfill	i:2	á	s:á
+zfill	i:-7		s:
+zfill	i:-7	a	s:a
+zfill	i:-7	abc	s:abc
+zfill	i:-7	hello world	s:hello world
+zfill	i:-7	Hello, World!	s:Hello, World!
+zfill	i:-7	  spaced  out  	s:  spaced  out  
+zfill	i:-7	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+zfill	i:-7	abcabcabc	s:abcabcabc
+zfill	i:-7	aaa	s:aaa
+zfill	i:-7	xyz	s:xyz
+zfill	i:-7	1234567890	s:1234567890
+zfill	i:-7	Ab1	s:Ab1
+zfill	i:-7	'quoted' and "double"	s:'quoted' and "double"
+zfill	i:-7	back\\slash	s:back\\slash
+zfill	i:-7	0123456789	s:0123456789
+zfill	i:-7	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+zfill	i:-7	a b	s:a b
+zfill	i:-7	café	s:café
+zfill	i:-7	ñ	s:ñ
+zfill	i:-7	µ	s:µ
+zfill	i:-7	ÿ	s:ÿ
+zfill	i:-7	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+zfill	i:-7	abcÿdef	s:abcÿdef
+zfill	i:-7	ééé	s:ééé
+zfill	i:-7		s:
+zfill	i:-7	😀	s:😀
+zfill	i:-7	a𝐀c	s:a𝐀c
+zfill	i:-7	𐀀	s:𐀀
+zfill	i:-7	􏿿	s:􏿿
+zfill	i:-7	x😀y😀z	s:x😀y😀z
+zfill	i:-7	ß	s:ß
+zfill	i:-7	İ	s:İ
+zfill	i:-7	ǅ	s:ǅ
+zfill	i:-7	ﬃ	s:ﬃ
+zfill	i:-7	ʼn	s:ʼn
+zfill	i:-7	٣	s:٣
+zfill	i:-7	²	s:²
+zfill	i:-7	Ⅻ	s:Ⅻ
+zfill	i:-7	三	s:三
+zfill	i:-7	 	s: 
+zfill	i:-7	 	s: 
+zfill	i:-7	ᾈ	s:ᾈ
+zfill	i:-7	á	s:á
+expandtabs		s:
+expandtabs	a	s:a
+expandtabs	abc	s:abc
+expandtabs	hello world	s:hello world
+expandtabs	Hello, World!	s:Hello, World!
+expandtabs	  spaced  out  	s:  spaced  out  
+expandtabs	\t\ttabs\tand\nnewlines\n	s:                tabs    and\nnewlines\n
+expandtabs	abcabcabc	s:abcabcabc
+expandtabs	aaa	s:aaa
+expandtabs	xyz	s:xyz
+expandtabs	1234567890	s:1234567890
+expandtabs	Ab1	s:Ab1
+expandtabs	'quoted' and "double"	s:'quoted' and "double"
+expandtabs	back\\slash	s:back\\slash
+expandtabs	0123456789	s:0123456789
+expandtabs	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+expandtabs	a b	s:a b
+expandtabs	café	s:café
+expandtabs	ñ	s:ñ
+expandtabs	µ	s:µ
+expandtabs	ÿ	s:ÿ
+expandtabs	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+expandtabs	abcÿdef	s:abcÿdef
+expandtabs	ééé	s:ééé
+expandtabs		s:
+expandtabs	😀	s:😀
+expandtabs	a𝐀c	s:a𝐀c
+expandtabs	𐀀	s:𐀀
+expandtabs	􏿿	s:􏿿
+expandtabs	x😀y😀z	s:x😀y😀z
+expandtabs	ß	s:ß
+expandtabs	İ	s:İ
+expandtabs	ǅ	s:ǅ
+expandtabs	ﬃ	s:ﬃ
+expandtabs	ʼn	s:ʼn
+expandtabs	٣	s:٣
+expandtabs	²	s:²
+expandtabs	Ⅻ	s:Ⅻ
+expandtabs	三	s:三
+expandtabs	 	s: 
+expandtabs	 	s: 
+expandtabs	ᾈ	s:ᾈ
+expandtabs	á	s:á
+expandtabs	i:0		s:
+expandtabs	i:0	a	s:a
+expandtabs	i:0	abc	s:abc
+expandtabs	i:0	hello world	s:hello world
+expandtabs	i:0	Hello, World!	s:Hello, World!
+expandtabs	i:0	  spaced  out  	s:  spaced  out  
+expandtabs	i:0	\t\ttabs\tand\nnewlines\n	s:tabsand\nnewlines\n
+expandtabs	i:0	abcabcabc	s:abcabcabc
+expandtabs	i:0	aaa	s:aaa
+expandtabs	i:0	xyz	s:xyz
+expandtabs	i:0	1234567890	s:1234567890
+expandtabs	i:0	Ab1	s:Ab1
+expandtabs	i:0	'quoted' and "double"	s:'quoted' and "double"
+expandtabs	i:0	back\\slash	s:back\\slash
+expandtabs	i:0	0123456789	s:0123456789
+expandtabs	i:0	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+expandtabs	i:0	a b	s:a b
+expandtabs	i:0	café	s:café
+expandtabs	i:0	ñ	s:ñ
+expandtabs	i:0	µ	s:µ
+expandtabs	i:0	ÿ	s:ÿ
+expandtabs	i:0	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+expandtabs	i:0	abcÿdef	s:abcÿdef
+expandtabs	i:0	ééé	s:ééé
+expandtabs	i:0		s:
+expandtabs	i:0	😀	s:😀
+expandtabs	i:0	a𝐀c	s:a𝐀c
+expandtabs	i:0	𐀀	s:𐀀
+expandtabs	i:0	􏿿	s:􏿿
+expandtabs	i:0	x😀y😀z	s:x😀y😀z
+expandtabs	i:0	ß	s:ß
+expandtabs	i:0	İ	s:İ
+expandtabs	i:0	ǅ	s:ǅ
+expandtabs	i:0	ﬃ	s:ﬃ
+expandtabs	i:0	ʼn	s:ʼn
+expandtabs	i:0	٣	s:٣
+expandtabs	i:0	²	s:²
+expandtabs	i:0	Ⅻ	s:Ⅻ
+expandtabs	i:0	三	s:三
+expandtabs	i:0	 	s: 
+expandtabs	i:0	 	s: 
+expandtabs	i:0	ᾈ	s:ᾈ
+expandtabs	i:0	á	s:á
+expandtabs	i:4		s:
+expandtabs	i:4	a	s:a
+expandtabs	i:4	abc	s:abc
+expandtabs	i:4	hello world	s:hello world
+expandtabs	i:4	Hello, World!	s:Hello, World!
+expandtabs	i:4	  spaced  out  	s:  spaced  out  
+expandtabs	i:4	\t\ttabs\tand\nnewlines\n	s:        tabs    and\nnewlines\n
+expandtabs	i:4	abcabcabc	s:abcabcabc
+expandtabs	i:4	aaa	s:aaa
+expandtabs	i:4	xyz	s:xyz
+expandtabs	i:4	1234567890	s:1234567890
+expandtabs	i:4	Ab1	s:Ab1
+expandtabs	i:4	'quoted' and "double"	s:'quoted' and "double"
+expandtabs	i:4	back\\slash	s:back\\slash
+expandtabs	i:4	0123456789	s:0123456789
+expandtabs	i:4	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+expandtabs	i:4	a b	s:a b
+expandtabs	i:4	café	s:café
+expandtabs	i:4	ñ	s:ñ
+expandtabs	i:4	µ	s:µ
+expandtabs	i:4	ÿ	s:ÿ
+expandtabs	i:4	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+expandtabs	i:4	abcÿdef	s:abcÿdef
+expandtabs	i:4	ééé	s:ééé
+expandtabs	i:4		s:
+expandtabs	i:4	😀	s:😀
+expandtabs	i:4	a𝐀c	s:a𝐀c
+expandtabs	i:4	𐀀	s:𐀀
+expandtabs	i:4	􏿿	s:􏿿
+expandtabs	i:4	x😀y😀z	s:x😀y😀z
+expandtabs	i:4	ß	s:ß
+expandtabs	i:4	İ	s:İ
+expandtabs	i:4	ǅ	s:ǅ
+expandtabs	i:4	ﬃ	s:ﬃ
+expandtabs	i:4	ʼn	s:ʼn
+expandtabs	i:4	٣	s:٣
+expandtabs	i:4	²	s:²
+expandtabs	i:4	Ⅻ	s:Ⅻ
+expandtabs	i:4	三	s:三
+expandtabs	i:4	 	s: 
+expandtabs	i:4	 	s: 
+expandtabs	i:4	ᾈ	s:ᾈ
+expandtabs	i:4	á	s:á
+expandtabs	i:-1		s:
+expandtabs	i:-1	a	s:a
+expandtabs	i:-1	abc	s:abc
+expandtabs	i:-1	hello world	s:hello world
+expandtabs	i:-1	Hello, World!	s:Hello, World!
+expandtabs	i:-1	  spaced  out  	s:  spaced  out  
+expandtabs	i:-1	\t\ttabs\tand\nnewlines\n	s:tabsand\nnewlines\n
+expandtabs	i:-1	abcabcabc	s:abcabcabc
+expandtabs	i:-1	aaa	s:aaa
+expandtabs	i:-1	xyz	s:xyz
+expandtabs	i:-1	1234567890	s:1234567890
+expandtabs	i:-1	Ab1	s:Ab1
+expandtabs	i:-1	'quoted' and "double"	s:'quoted' and "double"
+expandtabs	i:-1	back\\slash	s:back\\slash
+expandtabs	i:-1	0123456789	s:0123456789
+expandtabs	i:-1	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+expandtabs	i:-1	a b	s:a b
+expandtabs	i:-1	café	s:café
+expandtabs	i:-1	ñ	s:ñ
+expandtabs	i:-1	µ	s:µ
+expandtabs	i:-1	ÿ	s:ÿ
+expandtabs	i:-1	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+expandtabs	i:-1	abcÿdef	s:abcÿdef
+expandtabs	i:-1	ééé	s:ééé
+expandtabs	i:-1		s:
+expandtabs	i:-1	😀	s:😀
+expandtabs	i:-1	a𝐀c	s:a𝐀c
+expandtabs	i:-1	𐀀	s:𐀀
+expandtabs	i:-1	􏿿	s:􏿿
+expandtabs	i:-1	x😀y😀z	s:x😀y😀z
+expandtabs	i:-1	ß	s:ß
+expandtabs	i:-1	İ	s:İ
+expandtabs	i:-1	ǅ	s:ǅ
+expandtabs	i:-1	ﬃ	s:ﬃ
+expandtabs	i:-1	ʼn	s:ʼn
+expandtabs	i:-1	٣	s:٣
+expandtabs	i:-1	²	s:²
+expandtabs	i:-1	Ⅻ	s:Ⅻ
+expandtabs	i:-1	三	s:三
+expandtabs	i:-1	 	s: 
+expandtabs	i:-1	 	s: 
+expandtabs	i:-1	ᾈ	s:ᾈ
+expandtabs	i:-1	á	s:á
+count	a	i:0	i:-1		i:0
+count	a	i:0	i:-1	a	i:0
+count	a	i:0	i:-1	abc	i:1
+count	a	i:0	i:-1	hello world	i:0
+count	a	i:0	i:-1	Hello, World!	i:0
+count	a	i:0	i:-1	  spaced  out  	i:1
+count	a	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:2
+count	a	i:0	i:-1	abcabcabc	i:3
+count	a	i:0	i:-1	aaa	i:2
+count	a	i:0	i:-1	xyz	i:0
+count	a	i:0	i:-1	1234567890	i:0
+count	a	i:0	i:-1	Ab1	i:0
+count	a	i:0	i:-1	'quoted' and "double"	i:1
+count	a	i:0	i:-1	back\\slash	i:2
+count	a	i:0	i:-1	0123456789	i:0
+count	a	i:0	i:-1	MiXeD CaSe StRiNg	i:1
+count	a	i:0	i:-1	a b	i:1
+count	a	i:0	i:-1	café	i:1
+count	a	i:0	i:-1	ñ	i:0
+count	a	i:0	i:-1	µ	i:0
+count	a	i:0	i:-1	ÿ	i:0
+count	a	i:0	i:-1	ÀÉÎÕÜ	i:0
+count	a	i:0	i:-1	abcÿdef	i:1
+count	a	i:0	i:-1	ééé	i:0
+count	a	i:0	i:-1		i:0
+count	a	i:0	i:-1	😀	i:0
+count	a	i:0	i:-1	a𝐀c	i:1
+count	a	i:0	i:-1	𐀀	i:0
+count	a	i:0	i:-1	􏿿	i:0
+count	a	i:0	i:-1	x😀y😀z	i:0
+count	a	i:0	i:-1	ß	i:0
+count	a	i:0	i:-1	İ	i:0
+count	a	i:0	i:-1	ǅ	i:0
+count	a	i:0	i:-1	ﬃ	i:0
+count	a	i:0	i:-1	ʼn	i:0
+count	a	i:0	i:-1	٣	i:0
+count	a	i:0	i:-1	²	i:0
+count	a	i:0	i:-1	Ⅻ	i:0
+count	a	i:0	i:-1	三	i:0
+count	a	i:0	i:-1	 	i:0
+count	a	i:0	i:-1	 	i:0
+count	a	i:0	i:-1	ᾈ	i:0
+count	a	i:0	i:-1	á	i:1
+count	ab	i:1	i:6		i:0
+count	ab	i:1	i:6	a	i:0
+count	ab	i:1	i:6	abc	i:0
+count	ab	i:1	i:6	hello world	i:0
+count	ab	i:1	i:6	Hello, World!	i:0
+count	ab	i:1	i:6	  spaced  out  	i:0
+count	ab	i:1	i:6	\t\ttabs\tand\nnewlines\n	i:1
+count	ab	i:1	i:6	abcabcabc	i:1
+count	ab	i:1	i:6	aaa	i:0
+count	ab	i:1	i:6	xyz	i:0
+count	ab	i:1	i:6	1234567890	i:0
+count	ab	i:1	i:6	Ab1	i:0
+count	ab	i:1	i:6	'quoted' and "double"	i:0
+count	ab	i:1	i:6	back\\slash	i:0
+count	ab	i:1	i:6	0123456789	i:0
+count	ab	i:1	i:6	MiXeD CaSe StRiNg	i:0
+count	ab	i:1	i:6	a b	i:0
+count	ab	i:1	i:6	café	i:0
+count	ab	i:1	i:6	ñ	i:0
+count	ab	i:1	i:6	µ	i:0
+count	ab	i:1	i:6	ÿ	i:0
+count	ab	i:1	i:6	ÀÉÎÕÜ	i:0
+count	ab	i:1	i:6	abcÿdef	i:0
+count	ab	i:1	i:6	ééé	i:0
+count	ab	i:1	i:6		i:0
+count	ab	i:1	i:6	😀	i:0
+count	ab	i:1	i:6	a𝐀c	i:0
+count	ab	i:1	i:6	𐀀	i:0
+count	ab	i:1	i:6	􏿿	i:0
+count	ab	i:1	i:6	x😀y😀z	i:0
+count	ab	i:1	i:6	ß	i:0
+count	ab	i:1	i:6	İ	i:0
+count	ab	i:1	i:6	ǅ	i:0
+count	ab	i:1	i:6	ﬃ	i:0
+count	ab	i:1	i:6	ʼn	i:0
+count	ab	i:1	i:6	٣	i:0
+count	ab	i:1	i:6	²	i:0
+count	ab	i:1	i:6	Ⅻ	i:0
+count	ab	i:1	i:6	三	i:0
+count	ab	i:1	i:6	 	i:0
+count	ab	i:1	i:6	 	i:0
+count	ab	i:1	i:6	ᾈ	i:0
+count	ab	i:1	i:6	á	i:0
+count		i:0	i:-1		i:1
+count		i:0	i:-1	a	i:1
+count		i:0	i:-1	abc	i:3
+count		i:0	i:-1	hello world	i:11
+count		i:0	i:-1	Hello, World!	i:13
+count		i:0	i:-1	  spaced  out  	i:15
+count		i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:20
+count		i:0	i:-1	abcabcabc	i:9
+count		i:0	i:-1	aaa	i:3
+count		i:0	i:-1	xyz	i:3
+count		i:0	i:-1	1234567890	i:10
+count		i:0	i:-1	Ab1	i:3
+count		i:0	i:-1	'quoted' and "double"	i:21
+count		i:0	i:-1	back\\slash	i:10
+count		i:0	i:-1	0123456789	i:10
+count		i:0	i:-1	MiXeD CaSe StRiNg	i:17
+count		i:0	i:-1	a b	i:3
+count		i:0	i:-1	café	i:4
+count		i:0	i:-1	ñ	i:1
+count		i:0	i:-1	µ	i:1
+count		i:0	i:-1	ÿ	i:1
+count		i:0	i:-1	ÀÉÎÕÜ	i:5
+count		i:0	i:-1	abcÿdef	i:7
+count		i:0	i:-1	ééé	i:3
+count		i:0	i:-1		i:2
+count		i:0	i:-1	😀	i:1
+count		i:0	i:-1	a𝐀c	i:3
+count		i:0	i:-1	𐀀	i:1
+count		i:0	i:-1	􏿿	i:1
+count		i:0	i:-1	x😀y😀z	i:5
+count		i:0	i:-1	ß	i:1
+count		i:0	i:-1	İ	i:1
+count		i:0	i:-1	ǅ	i:1
+count		i:0	i:-1	ﬃ	i:1
+count		i:0	i:-1	ʼn	i:2
+count		i:0	i:-1	٣	i:1
+count		i:0	i:-1	²	i:1
+count		i:0	i:-1	Ⅻ	i:1
+count		i:0	i:-1	三	i:1
+count		i:0	i:-1	 	i:1
+count		i:0	i:-1	 	i:1
+count		i:0	i:-1	ᾈ	i:1
+count		i:0	i:-1	á	i:2
+count	z	i:0	i:-1		i:0
+count	z	i:0	i:-1	a	i:0
+count	z	i:0	i:-1	abc	i:0
+count	z	i:0	i:-1	hello world	i:0
+count	z	i:0	i:-1	Hello, World!	i:0
+count	z	i:0	i:-1	  spaced  out  	i:0
+count	z	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:0
+count	z	i:0	i:-1	abcabcabc	i:0
+count	z	i:0	i:-1	aaa	i:0
+count	z	i:0	i:-1	xyz	i:0
+count	z	i:0	i:-1	1234567890	i:0
+count	z	i:0	i:-1	Ab1	i:0
+count	z	i:0	i:-1	'quoted' and "double"	i:0
+count	z	i:0	i:-1	back\\slash	i:0
+count	z	i:0	i:-1	0123456789	i:0
+count	z	i:0	i:-1	MiXeD CaSe StRiNg	i:0
+count	z	i:0	i:-1	a b	i:0
+count	z	i:0	i:-1	café	i:0
+count	z	i:0	i:-1	ñ	i:0
+count	z	i:0	i:-1	µ	i:0
+count	z	i:0	i:-1	ÿ	i:0
+count	z	i:0	i:-1	ÀÉÎÕÜ	i:0
+count	z	i:0	i:-1	abcÿdef	i:0
+count	z	i:0	i:-1	ééé	i:0
+count	z	i:0	i:-1		i:0
+count	z	i:0	i:-1	😀	i:0
+count	z	i:0	i:-1	a𝐀c	i:0
+count	z	i:0	i:-1	𐀀	i:0
+count	z	i:0	i:-1	􏿿	i:0
+count	z	i:0	i:-1	x😀y😀z	i:0
+count	z	i:0	i:-1	ß	i:0
+count	z	i:0	i:-1	İ	i:0
+count	z	i:0	i:-1	ǅ	i:0
+count	z	i:0	i:-1	ﬃ	i:0
+count	z	i:0	i:-1	ʼn	i:0
+count	z	i:0	i:-1	٣	i:0
+count	z	i:0	i:-1	²	i:0
+count	z	i:0	i:-1	Ⅻ	i:0
+count	z	i:0	i:-1	三	i:0
+count	z	i:0	i:-1	 	i:0
+count	z	i:0	i:-1	 	i:0
+count	z	i:0	i:-1	ᾈ	i:0
+count	z	i:0	i:-1	á	i:0
+find	a	i:0	i:-1		i:-1
+find	a	i:0	i:-1	a	i:-1
+find	a	i:0	i:-1	abc	i:0
+find	a	i:0	i:-1	hello world	i:-1
+find	a	i:0	i:-1	Hello, World!	i:-1
+find	a	i:0	i:-1	  spaced  out  	i:4
+find	a	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:3
+find	a	i:0	i:-1	abcabcabc	i:0
+find	a	i:0	i:-1	aaa	i:0
+find	a	i:0	i:-1	xyz	i:-1
+find	a	i:0	i:-1	1234567890	i:-1
+find	a	i:0	i:-1	Ab1	i:-1
+find	a	i:0	i:-1	'quoted' and "double"	i:9
+find	a	i:0	i:-1	back\\slash	i:1
+find	a	i:0	i:-1	0123456789	i:-1
+find	a	i:0	i:-1	MiXeD CaSe StRiNg	i:7
+find	a	i:0	i:-1	a b	i:0
+find	a	i:0	i:-1	café	i:1
+find	a	i:0	i:-1	ñ	i:-1
+find	a	i:0	i:-1	µ	i:-1
+find	a	i:0	i:-1	ÿ	i:-1
+find	a	i:0	i:-1	ÀÉÎÕÜ	i:-1
+find	a	i:0	i:-1	abcÿdef	i:0
+find	a	i:0	i:-1	ééé	i:-1
+find	a	i:0	i:-1		i:-1
+find	a	i:0	i:-1	😀	i:-1
+find	a	i:0	i:-1	a𝐀c	i:0
+find	a	i:0	i:-1	𐀀	i:-1
+find	a	i:0	i:-1	􏿿	i:-1
+find	a	i:0	i:-1	x😀y😀z	i:-1
+find	a	i:0	i:-1	ß	i:-1
+find	a	i:0	i:-1	İ	i:-1
+find	a	i:0	i:-1	ǅ	i:-1
+find	a	i:0	i:-1	ﬃ	i:-1
+find	a	i:0	i:-1	ʼn	i:-1
+find	a	i:0	i:-1	٣	i:-1
+find	a	i:0	i:-1	²	i:-1
+find	a	i:0	i:-1	Ⅻ	i:-1
+find	a	i:0	i:-1	三	i:-1
+find	a	i:0	i:-1	 	i:-1
+find	a	i:0	i:-1	 	i:-1
+find	a	i:0	i:-1	ᾈ	i:-1
+find	a	i:0	i:-1	á	i:0
+find	ab	i:1	i:5		i:-1
+find	ab	i:1	i:5	a	i:-1
+find	ab	i:1	i:5	abc	i:-1
+find	ab	i:1	i:5	hello world	i:-1
+find	ab	i:1	i:5	Hello, World!	i:-1
+find	ab	i:1	i:5	  spaced  out  	i:-1
+find	ab	i:1	i:5	\t\ttabs\tand\nnewlines\n	i:3
+find	ab	i:1	i:5	abcabcabc	i:3
+find	ab	i:1	i:5	aaa	i:-1
+find	ab	i:1	i:5	xyz	i:-1
+find	ab	i:1	i:5	1234567890	i:-1
+find	ab	i:1	i:5	Ab1	i:-1
+find	ab	i:1	i:5	'quoted' and "double"	i:-1
+find	ab	i:1	i:5	back\\slash	i:-1
+find	ab	i:1	i:5	0123456789	i:-1
+find	ab	i:1	i:5	MiXeD CaSe StRiNg	i:-1
+find	ab	i:1	i:5	a b	i:-1
+find	ab	i:1	i:5	café	i:-1
+find	ab	i:1	i:5	ñ	i:-1
+find	ab	i:1	i:5	µ	i:-1
+find	ab	i:1	i:5	ÿ	i:-1
+find	ab	i:1	i:5	ÀÉÎÕÜ	i:-1
+find	ab	i:1	i:5	abcÿdef	i:-1
+find	ab	i:1	i:5	ééé	i:-1
+find	ab	i:1	i:5		i:-1
+find	ab	i:1	i:5	😀	i:-1
+find	ab	i:1	i:5	a𝐀c	i:-1
+find	ab	i:1	i:5	𐀀	i:-1
+find	ab	i:1	i:5	􏿿	i:-1
+find	ab	i:1	i:5	x😀y😀z	i:-1
+find	ab	i:1	i:5	ß	i:-1
+find	ab	i:1	i:5	İ	i:-1
+find	ab	i:1	i:5	ǅ	i:-1
+find	ab	i:1	i:5	ﬃ	i:-1
+find	ab	i:1	i:5	ʼn	i:-1
+find	ab	i:1	i:5	٣	i:-1
+find	ab	i:1	i:5	²	i:-1
+find	ab	i:1	i:5	Ⅻ	i:-1
+find	ab	i:1	i:5	三	i:-1
+find	ab	i:1	i:5	 	i:-1
+find	ab	i:1	i:5	 	i:-1
+find	ab	i:1	i:5	ᾈ	i:-1
+find	ab	i:1	i:5	á	i:-1
+find	z	i:0	i:-1		i:-1
+find	z	i:0	i:-1	a	i:-1
+find	z	i:0	i:-1	abc	i:-1
+find	z	i:0	i:-1	hello world	i:-1
+find	z	i:0	i:-1	Hello, World!	i:-1
+find	z	i:0	i:-1	  spaced  out  	i:-1
+find	z	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:-1
+find	z	i:0	i:-1	abcabcabc	i:-1
+find	z	i:0	i:-1	aaa	i:-1
+find	z	i:0	i:-1	xyz	i:-1
+find	z	i:0	i:-1	1234567890	i:-1
+find	z	i:0	i:-1	Ab1	i:-1
+find	z	i:0	i:-1	'quoted' and "double"	i:-1
+find	z	i:0	i:-1	back\\slash	i:-1
+find	z	i:0	i:-1	0123456789	i:-1
+find	z	i:0	i:-1	MiXeD CaSe StRiNg	i:-1
+find	z	i:0	i:-1	a b	i:-1
+find	z	i:0	i:-1	café	i:-1
+find	z	i:0	i:-1	ñ	i:-1
+find	z	i:0	i:-1	µ	i:-1
+find	z	i:0	i:-1	ÿ	i:-1
+find	z	i:0	i:-1	ÀÉÎÕÜ	i:-1
+find	z	i:0	i:-1	abcÿdef	i:-1
+find	z	i:0	i:-1	ééé	i:-1
+find	z	i:0	i:-1		i:-1
+find	z	i:0	i:-1	😀	i:-1
+find	z	i:0	i:-1	a𝐀c	i:-1
+find	z	i:0	i:-1	𐀀	i:-1
+find	z	i:0	i:-1	􏿿	i:-1
+find	z	i:0	i:-1	x😀y😀z	i:-1
+find	z	i:0	i:-1	ß	i:-1
+find	z	i:0	i:-1	İ	i:-1
+find	z	i:0	i:-1	ǅ	i:-1
+find	z	i:0	i:-1	ﬃ	i:-1
+find	z	i:0	i:-1	ʼn	i:-1
+find	z	i:0	i:-1	٣	i:-1
+find	z	i:0	i:-1	²	i:-1
+find	z	i:0	i:-1	Ⅻ	i:-1
+find	z	i:0	i:-1	三	i:-1
+find	z	i:0	i:-1	 	i:-1
+find	z	i:0	i:-1	 	i:-1
+find	z	i:0	i:-1	ᾈ	i:-1
+find	z	i:0	i:-1	á	i:-1
+find		i:3	i:3		i:-1
+find		i:3	i:3	a	i:-1
+find		i:3	i:3	abc	i:3
+find		i:3	i:3	hello world	i:3
+find		i:3	i:3	Hello, World!	i:3
+find		i:3	i:3	  spaced  out  	i:3
+find		i:3	i:3	\t\ttabs\tand\nnewlines\n	i:3
+find		i:3	i:3	abcabcabc	i:3
+find		i:3	i:3	aaa	i:3
+find		i:3	i:3	xyz	i:3
+find		i:3	i:3	1234567890	i:3
+find		i:3	i:3	Ab1	i:3
+find		i:3	i:3	'quoted' and "double"	i:3
+find		i:3	i:3	back\\slash	i:3
+find		i:3	i:3	0123456789	i:3
+find		i:3	i:3	MiXeD CaSe StRiNg	i:3
+find		i:3	i:3	a b	i:3
+find		i:3	i:3	café	i:3
+find		i:3	i:3	ñ	i:-1
+find		i:3	i:3	µ	i:-1
+find		i:3	i:3	ÿ	i:-1
+find		i:3	i:3	ÀÉÎÕÜ	i:3
+find		i:3	i:3	abcÿdef	i:3
+find		i:3	i:3	ééé	i:3
+find		i:3	i:3		i:-1
+find		i:3	i:3	😀	i:-1
+find		i:3	i:3	a𝐀c	i:3
+find		i:3	i:3	𐀀	i:-1
+find		i:3	i:3	􏿿	i:-1
+find		i:3	i:3	x😀y😀z	i:3
+find		i:3	i:3	ß	i:-1
+find		i:3	i:3	İ	i:-1
+find		i:3	i:3	ǅ	i:-1
+find		i:3	i:3	ﬃ	i:-1
+find		i:3	i:3	ʼn	i:-1
+find		i:3	i:3	٣	i:-1
+find		i:3	i:3	²	i:-1
+find		i:3	i:3	Ⅻ	i:-1
+find		i:3	i:3	三	i:-1
+find		i:3	i:3	 	i:-1
+find		i:3	i:3	 	i:-1
+find		i:3	i:3	ᾈ	i:-1
+find		i:3	i:3	á	i:-1
+rfind	a	i:0	i:-1		i:-1
+rfind	a	i:0	i:-1	a	i:-1
+rfind	a	i:0	i:-1	abc	i:0
+rfind	a	i:0	i:-1	hello world	i:-1
+rfind	a	i:0	i:-1	Hello, World!	i:-1
+rfind	a	i:0	i:-1	  spaced  out  	i:4
+rfind	a	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:7
+rfind	a	i:0	i:-1	abcabcabc	i:6
+rfind	a	i:0	i:-1	aaa	i:1
+rfind	a	i:0	i:-1	xyz	i:-1
+rfind	a	i:0	i:-1	1234567890	i:-1
+rfind	a	i:0	i:-1	Ab1	i:-1
+rfind	a	i:0	i:-1	'quoted' and "double"	i:9
+rfind	a	i:0	i:-1	back\\slash	i:7
+rfind	a	i:0	i:-1	0123456789	i:-1
+rfind	a	i:0	i:-1	MiXeD CaSe StRiNg	i:7
+rfind	a	i:0	i:-1	a b	i:0
+rfind	a	i:0	i:-1	café	i:1
+rfind	a	i:0	i:-1	ñ	i:-1
+rfind	a	i:0	i:-1	µ	i:-1
+rfind	a	i:0	i:-1	ÿ	i:-1
+rfind	a	i:0	i:-1	ÀÉÎÕÜ	i:-1
+rfind	a	i:0	i:-1	abcÿdef	i:0
+rfind	a	i:0	i:-1	ééé	i:-1
+rfind	a	i:0	i:-1		i:-1
+rfind	a	i:0	i:-1	😀	i:-1
+rfind	a	i:0	i:-1	a𝐀c	i:0
+rfind	a	i:0	i:-1	𐀀	i:-1
+rfind	a	i:0	i:-1	􏿿	i:-1
+rfind	a	i:0	i:-1	x😀y😀z	i:-1
+rfind	a	i:0	i:-1	ß	i:-1
+rfind	a	i:0	i:-1	İ	i:-1
+rfind	a	i:0	i:-1	ǅ	i:-1
+rfind	a	i:0	i:-1	ﬃ	i:-1
+rfind	a	i:0	i:-1	ʼn	i:-1
+rfind	a	i:0	i:-1	٣	i:-1
+rfind	a	i:0	i:-1	²	i:-1
+rfind	a	i:0	i:-1	Ⅻ	i:-1
+rfind	a	i:0	i:-1	三	i:-1
+rfind	a	i:0	i:-1	 	i:-1
+rfind	a	i:0	i:-1	 	i:-1
+rfind	a	i:0	i:-1	ᾈ	i:-1
+rfind	a	i:0	i:-1	á	i:0
+rfind	z	i:0	i:-1		i:-1
+rfind	z	i:0	i:-1	a	i:-1
+rfind	z	i:0	i:-1	abc	i:-1
+rfind	z	i:0	i:-1	hello world	i:-1
+rfind	z	i:0	i:-1	Hello, World!	i:-1
+rfind	z	i:0	i:-1	  spaced  out  	i:-1
+rfind	z	i:0	i:-1	\t\ttabs\tand\nnewlines\n	i:-1
+rfind	z	i:0	i:-1	abcabcabc	i:-1
+rfind	z	i:0	i:-1	aaa	i:-1
+rfind	z	i:0	i:-1	xyz	i:-1
+rfind	z	i:0	i:-1	1234567890	i:-1
+rfind	z	i:0	i:-1	Ab1	i:-1
+rfind	z	i:0	i:-1	'quoted' and "double"	i:-1
+rfind	z	i:0	i:-1	back\\slash	i:-1
+rfind	z	i:0	i:-1	0123456789	i:-1
+rfind	z	i:0	i:-1	MiXeD CaSe StRiNg	i:-1
+rfind	z	i:0	i:-1	a b	i:-1
+rfind	z	i:0	i:-1	café	i:-1
+rfind	z	i:0	i:-1	ñ	i:-1
+rfind	z	i:0	i:-1	µ	i:-1
+rfind	z	i:0	i:-1	ÿ	i:-1
+rfind	z	i:0	i:-1	ÀÉÎÕÜ	i:-1
+rfind	z	i:0	i:-1	abcÿdef	i:-1
+rfind	z	i:0	i:-1	ééé	i:-1
+rfind	z	i:0	i:-1		i:-1
+rfind	z	i:0	i:-1	😀	i:-1
+rfind	z	i:0	i:-1	a𝐀c	i:-1
+rfind	z	i:0	i:-1	𐀀	i:-1
+rfind	z	i:0	i:-1	􏿿	i:-1
+rfind	z	i:0	i:-1	x😀y😀z	i:-1
+rfind	z	i:0	i:-1	ß	i:-1
+rfind	z	i:0	i:-1	İ	i:-1
+rfind	z	i:0	i:-1	ǅ	i:-1
+rfind	z	i:0	i:-1	ﬃ	i:-1
+rfind	z	i:0	i:-1	ʼn	i:-1
+rfind	z	i:0	i:-1	٣	i:-1
+rfind	z	i:0	i:-1	²	i:-1
+rfind	z	i:0	i:-1	Ⅻ	i:-1
+rfind	z	i:0	i:-1	三	i:-1
+rfind	z	i:0	i:-1	 	i:-1
+rfind	z	i:0	i:-1	 	i:-1
+rfind	z	i:0	i:-1	ᾈ	i:-1
+rfind	z	i:0	i:-1	á	i:-1
+startswith	ab	i:0	i:-1		b:0
+startswith	ab	i:0	i:-1	a	b:0
+startswith	ab	i:0	i:-1	abc	b:1
+startswith	ab	i:0	i:-1	hello world	b:0
+startswith	ab	i:0	i:-1	Hello, World!	b:0
+startswith	ab	i:0	i:-1	  spaced  out  	b:0
+startswith	ab	i:0	i:-1	\t\ttabs\tand\nnewlines\n	b:0
+startswith	ab	i:0	i:-1	abcabcabc	b:1
+startswith	ab	i:0	i:-1	aaa	b:0
+startswith	ab	i:0	i:-1	xyz	b:0
+startswith	ab	i:0	i:-1	1234567890	b:0
+startswith	ab	i:0	i:-1	Ab1	b:0
+startswith	ab	i:0	i:-1	'quoted' and "double"	b:0
+startswith	ab	i:0	i:-1	back\\slash	b:0
+startswith	ab	i:0	i:-1	0123456789	b:0
+startswith	ab	i:0	i:-1	MiXeD CaSe StRiNg	b:0
+startswith	ab	i:0	i:-1	a b	b:0
+startswith	ab	i:0	i:-1	café	b:0
+startswith	ab	i:0	i:-1	ñ	b:0
+startswith	ab	i:0	i:-1	µ	b:0
+startswith	ab	i:0	i:-1	ÿ	b:0
+startswith	ab	i:0	i:-1	ÀÉÎÕÜ	b:0
+startswith	ab	i:0	i:-1	abcÿdef	b:1
+startswith	ab	i:0	i:-1	ééé	b:0
+startswith	ab	i:0	i:-1		b:0
+startswith	ab	i:0	i:-1	😀	b:0
+startswith	ab	i:0	i:-1	a𝐀c	b:0
+startswith	ab	i:0	i:-1	𐀀	b:0
+startswith	ab	i:0	i:-1	􏿿	b:0
+startswith	ab	i:0	i:-1	x😀y😀z	b:0
+startswith	ab	i:0	i:-1	ß	b:0
+startswith	ab	i:0	i:-1	İ	b:0
+startswith	ab	i:0	i:-1	ǅ	b:0
+startswith	ab	i:0	i:-1	ﬃ	b:0
+startswith	ab	i:0	i:-1	ʼn	b:0
+startswith	ab	i:0	i:-1	٣	b:0
+startswith	ab	i:0	i:-1	²	b:0
+startswith	ab	i:0	i:-1	Ⅻ	b:0
+startswith	ab	i:0	i:-1	三	b:0
+startswith	ab	i:0	i:-1	 	b:0
+startswith	ab	i:0	i:-1	 	b:0
+startswith	ab	i:0	i:-1	ᾈ	b:0
+startswith	ab	i:0	i:-1	á	b:0
+startswith		i:0	i:-1		b:1
+startswith		i:0	i:-1	a	b:1
+startswith		i:0	i:-1	abc	b:1
+startswith		i:0	i:-1	hello world	b:1
+startswith		i:0	i:-1	Hello, World!	b:1
+startswith		i:0	i:-1	  spaced  out  	b:1
+startswith		i:0	i:-1	\t\ttabs\tand\nnewlines\n	b:1
+startswith		i:0	i:-1	abcabcabc	b:1
+startswith		i:0	i:-1	aaa	b:1
+startswith		i:0	i:-1	xyz	b:1
+startswith		i:0	i:-1	1234567890	b:1
+startswith		i:0	i:-1	Ab1	b:1
+startswith		i:0	i:-1	'quoted' and "double"	b:1
+startswith		i:0	i:-1	back\\slash	b:1
+startswith		i:0	i:-1	0123456789	b:1
+startswith		i:0	i:-1	MiXeD CaSe StRiNg	b:1
+startswith		i:0	i:-1	a b	b:1
+startswith		i:0	i:-1	café	b:1
+startswith		i:0	i:-1	ñ	b:1
+startswith		i:0	i:-1	µ	b:1
+startswith		i:0	i:-1	ÿ	b:1
+startswith		i:0	i:-1	ÀÉÎÕÜ	b:1
+startswith		i:0	i:-1	abcÿdef	b:1
+startswith		i:0	i:-1	ééé	b:1
+startswith		i:0	i:-1		b:1
+startswith		i:0	i:-1	😀	b:1
+startswith		i:0	i:-1	a𝐀c	b:1
+startswith		i:0	i:-1	𐀀	b:1
+startswith		i:0	i:-1	􏿿	b:1
+startswith		i:0	i:-1	x😀y😀z	b:1
+startswith		i:0	i:-1	ß	b:1
+startswith		i:0	i:-1	İ	b:1
+startswith		i:0	i:-1	ǅ	b:1
+startswith		i:0	i:-1	ﬃ	b:1
+startswith		i:0	i:-1	ʼn	b:1
+startswith		i:0	i:-1	٣	b:1
+startswith		i:0	i:-1	²	b:1
+startswith		i:0	i:-1	Ⅻ	b:1
+startswith		i:0	i:-1	三	b:1
+startswith		i:0	i:-1	 	b:1
+startswith		i:0	i:-1	 	b:1
+startswith		i:0	i:-1	ᾈ	b:1
+startswith		i:0	i:-1	á	b:1
+endswith	c	i:0	i:-1		b:0
+endswith	c	i:0	i:-1	a	b:0
+endswith	c	i:0	i:-1	abc	b:0
+endswith	c	i:0	i:-1	hello world	b:0
+endswith	c	i:0	i:-1	Hello, World!	b:0
+endswith	c	i:0	i:-1	  spaced  out  	b:0
+endswith	c	i:0	i:-1	\t\ttabs\tand\nnewlines\n	b:0
+endswith	c	i:0	i:-1	abcabcabc	b:0
+endswith	c	i:0	i:-1	aaa	b:0
+endswith	c	i:0	i:-1	xyz	b:0
+endswith	c	i:0	i:-1	1234567890	b:0
+endswith	c	i:0	i:-1	Ab1	b:0
+endswith	c	i:0	i:-1	'quoted' and "double"	b:0
+endswith	c	i:0	i:-1	back\\slash	b:0
+endswith	c	i:0	i:-1	0123456789	b:0
+endswith	c	i:0	i:-1	MiXeD CaSe StRiNg	b:0
+endswith	c	i:0	i:-1	a b	b:0
+endswith	c	i:0	i:-1	café	b:0
+endswith	c	i:0	i:-1	ñ	b:0
+endswith	c	i:0	i:-1	µ	b:0
+endswith	c	i:0	i:-1	ÿ	b:0
+endswith	c	i:0	i:-1	ÀÉÎÕÜ	b:0
+endswith	c	i:0	i:-1	abcÿdef	b:0
+endswith	c	i:0	i:-1	ééé	b:0
+endswith	c	i:0	i:-1		b:0
+endswith	c	i:0	i:-1	😀	b:0
+endswith	c	i:0	i:-1	a𝐀c	b:0
+endswith	c	i:0	i:-1	𐀀	b:0
+endswith	c	i:0	i:-1	􏿿	b:0
+endswith	c	i:0	i:-1	x😀y😀z	b:0
+endswith	c	i:0	i:-1	ß	b:0
+endswith	c	i:0	i:-1	İ	b:0
+endswith	c	i:0	i:-1	ǅ	b:0
+endswith	c	i:0	i:-1	ﬃ	b:0
+endswith	c	i:0	i:-1	ʼn	b:0
+endswith	c	i:0	i:-1	٣	b:0
+endswith	c	i:0	i:-1	²	b:0
+endswith	c	i:0	i:-1	Ⅻ	b:0
+endswith	c	i:0	i:-1	三	b:0
+endswith	c	i:0	i:-1	 	b:0
+endswith	c	i:0	i:-1	 	b:0
+endswith	c	i:0	i:-1	ᾈ	b:0
+endswith	c	i:0	i:-1	á	b:0
+endswith		i:0	i:-1		b:1
+endswith		i:0	i:-1	a	b:1
+endswith		i:0	i:-1	abc	b:1
+endswith		i:0	i:-1	hello world	b:1
+endswith		i:0	i:-1	Hello, World!	b:1
+endswith		i:0	i:-1	  spaced  out  	b:1
+endswith		i:0	i:-1	\t\ttabs\tand\nnewlines\n	b:1
+endswith		i:0	i:-1	abcabcabc	b:1
+endswith		i:0	i:-1	aaa	b:1
+endswith		i:0	i:-1	xyz	b:1
+endswith		i:0	i:-1	1234567890	b:1
+endswith		i:0	i:-1	Ab1	b:1
+endswith		i:0	i:-1	'quoted' and "double"	b:1
+endswith		i:0	i:-1	back\\slash	b:1
+endswith		i:0	i:-1	0123456789	b:1
+endswith		i:0	i:-1	MiXeD CaSe StRiNg	b:1
+endswith		i:0	i:-1	a b	b:1
+endswith		i:0	i:-1	café	b:1
+endswith		i:0	i:-1	ñ	b:1
+endswith		i:0	i:-1	µ	b:1
+endswith		i:0	i:-1	ÿ	b:1
+endswith		i:0	i:-1	ÀÉÎÕÜ	b:1
+endswith		i:0	i:-1	abcÿdef	b:1
+endswith		i:0	i:-1	ééé	b:1
+endswith		i:0	i:-1		b:1
+endswith		i:0	i:-1	😀	b:1
+endswith		i:0	i:-1	a𝐀c	b:1
+endswith		i:0	i:-1	𐀀	b:1
+endswith		i:0	i:-1	􏿿	b:1
+endswith		i:0	i:-1	x😀y😀z	b:1
+endswith		i:0	i:-1	ß	b:1
+endswith		i:0	i:-1	İ	b:1
+endswith		i:0	i:-1	ǅ	b:1
+endswith		i:0	i:-1	ﬃ	b:1
+endswith		i:0	i:-1	ʼn	b:1
+endswith		i:0	i:-1	٣	b:1
+endswith		i:0	i:-1	²	b:1
+endswith		i:0	i:-1	Ⅻ	b:1
+endswith		i:0	i:-1	三	b:1
+endswith		i:0	i:-1	 	b:1
+endswith		i:0	i:-1	 	b:1
+endswith		i:0	i:-1	ᾈ	b:1
+endswith		i:0	i:-1	á	b:1
+replace	a	X	i:-1		s:
+replace	a	X	i:-1	a	s:X
+replace	a	X	i:-1	abc	s:Xbc
+replace	a	X	i:-1	hello world	s:hello world
+replace	a	X	i:-1	Hello, World!	s:Hello, World!
+replace	a	X	i:-1	  spaced  out  	s:  spXced  out  
+replace	a	X	i:-1	\t\ttabs\tand\nnewlines\n	s:\t\ttXbs\tXnd\nnewlines\n
+replace	a	X	i:-1	abcabcabc	s:XbcXbcXbc
+replace	a	X	i:-1	aaa	s:XXX
+replace	a	X	i:-1	xyz	s:xyz
+replace	a	X	i:-1	1234567890	s:1234567890
+replace	a	X	i:-1	Ab1	s:Ab1
+replace	a	X	i:-1	'quoted' and "double"	s:'quoted' Xnd "double"
+replace	a	X	i:-1	back\\slash	s:bXck\\slXsh
+replace	a	X	i:-1	0123456789	s:0123456789
+replace	a	X	i:-1	MiXeD CaSe StRiNg	s:MiXeD CXSe StRiNg
+replace	a	X	i:-1	a b	s:X b
+replace	a	X	i:-1	café	s:cXfé
+replace	a	X	i:-1	ñ	s:ñ
+replace	a	X	i:-1	µ	s:µ
+replace	a	X	i:-1	ÿ	s:ÿ
+replace	a	X	i:-1	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+replace	a	X	i:-1	abcÿdef	s:Xbcÿdef
+replace	a	X	i:-1	ééé	s:ééé
+replace	a	X	i:-1		s:
+replace	a	X	i:-1	😀	s:😀
+replace	a	X	i:-1	a𝐀c	s:X𝐀c
+replace	a	X	i:-1	𐀀	s:𐀀
+replace	a	X	i:-1	􏿿	s:􏿿
+replace	a	X	i:-1	x😀y😀z	s:x😀y😀z
+replace	a	X	i:-1	ß	s:ß
+replace	a	X	i:-1	İ	s:İ
+replace	a	X	i:-1	ǅ	s:ǅ
+replace	a	X	i:-1	ﬃ	s:ﬃ
+replace	a	X	i:-1	ʼn	s:ʼn
+replace	a	X	i:-1	٣	s:٣
+replace	a	X	i:-1	²	s:²
+replace	a	X	i:-1	Ⅻ	s:Ⅻ
+replace	a	X	i:-1	三	s:三
+replace	a	X	i:-1	 	s: 
+replace	a	X	i:-1	 	s: 
+replace	a	X	i:-1	ᾈ	s:ᾈ
+replace	a	X	i:-1	á	s:X́
+replace	a	X	i:2		s:
+replace	a	X	i:2	a	s:X
+replace	a	X	i:2	abc	s:Xbc
+replace	a	X	i:2	hello world	s:hello world
+replace	a	X	i:2	Hello, World!	s:Hello, World!
+replace	a	X	i:2	  spaced  out  	s:  spXced  out  
+replace	a	X	i:2	\t\ttabs\tand\nnewlines\n	s:\t\ttXbs\tXnd\nnewlines\n
+replace	a	X	i:2	abcabcabc	s:XbcXbcabc
+replace	a	X	i:2	aaa	s:XXa
+replace	a	X	i:2	xyz	s:xyz
+replace	a	X	i:2	1234567890	s:1234567890
+replace	a	X	i:2	Ab1	s:Ab1
+replace	a	X	i:2	'quoted' and "double"	s:'quoted' Xnd "double"
+replace	a	X	i:2	back\\slash	s:bXck\\slXsh
+replace	a	X	i:2	0123456789	s:0123456789
+replace	a	X	i:2	MiXeD CaSe StRiNg	s:MiXeD CXSe StRiNg
+replace	a	X	i:2	a b	s:X b
+replace	a	X	i:2	café	s:cXfé
+replace	a	X	i:2	ñ	s:ñ
+replace	a	X	i:2	µ	s:µ
+replace	a	X	i:2	ÿ	s:ÿ
+replace	a	X	i:2	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+replace	a	X	i:2	abcÿdef	s:Xbcÿdef
+replace	a	X	i:2	ééé	s:ééé
+replace	a	X	i:2		s:
+replace	a	X	i:2	😀	s:😀
+replace	a	X	i:2	a𝐀c	s:X𝐀c
+replace	a	X	i:2	𐀀	s:𐀀
+replace	a	X	i:2	􏿿	s:􏿿
+replace	a	X	i:2	x😀y😀z	s:x😀y😀z
+replace	a	X	i:2	ß	s:ß
+replace	a	X	i:2	İ	s:İ
+replace	a	X	i:2	ǅ	s:ǅ
+replace	a	X	i:2	ﬃ	s:ﬃ
+replace	a	X	i:2	ʼn	s:ʼn
+replace	a	X	i:2	٣	s:٣
+replace	a	X	i:2	²	s:²
+replace	a	X	i:2	Ⅻ	s:Ⅻ
+replace	a	X	i:2	三	s:三
+replace	a	X	i:2	 	s: 
+replace	a	X	i:2	 	s: 
+replace	a	X	i:2	ᾈ	s:ᾈ
+replace	a	X	i:2	á	s:X́
+replace		-	i:-1		s:-
+replace		-	i:-1	a	s:-a-
+replace		-	i:-1	abc	s:-a-b-c-
+replace		-	i:-1	hello world	s:-h-e-l-l-o- -w-o-r-l-d-
+replace		-	i:-1	Hello, World!	s:-H-e-l-l-o-,- -W-o-r-l-d-!-
+replace		-	i:-1	  spaced  out  	s:- - -s-p-a-c-e-d- - -o-u-t- - -
+replace		-	i:-1	\t\ttabs\tand\nnewlines\n	s:-\t-\t-t-a-b-s-\t-a-n-d-\n-n-e-w-l-i-n-e-s-\n-
+replace		-	i:-1	abcabcabc	s:-a-b-c-a-b-c-a-b-c-
+replace		-	i:-1	aaa	s:-a-a-a-
+replace		-	i:-1	xyz	s:-x-y-z-
+replace		-	i:-1	1234567890	s:-1-2-3-4-5-6-7-8-9-0-
+replace		-	i:-1	Ab1	s:-A-b-1-
+replace		-	i:-1	'quoted' and "double"	s:-'-q-u-o-t-e-d-'- -a-n-d- -"-d-o-u-b-l-e-"-
+replace		-	i:-1	back\\slash	s:-b-a-c-k-\\-s-l-a-s-h-
+replace		-	i:-1	0123456789	s:-0-1-2-3-4-5-6-7-8-9-
+replace		-	i:-1	MiXeD CaSe StRiNg	s:-M-i-X-e-D- -C-a-S-e- -S-t-R-i-N-g-
+replace		-	i:-1	a b	s:-a- -b-
+replace		-	i:-1	café	s:-c-a-f-é-
+replace		-	i:-1	ñ	s:-ñ-
+replace		-	i:-1	µ	s:-µ-
+replace		-	i:-1	ÿ	s:-ÿ-
+replace		-	i:-1	ÀÉÎÕÜ	s:-À-É-Î-Õ-Ü-
+replace		-	i:-1	abcÿdef	s:-a-b-c-ÿ-d-e-f-
+replace		-	i:-1	ééé	s:-é-é-é-
+replace		-	i:-1		s:---
+replace		-	i:-1	😀	s:-😀-
+replace		-	i:-1	a𝐀c	s:-a-𝐀-c-
+replace		-	i:-1	𐀀	s:-𐀀-
+replace		-	i:-1	􏿿	s:-􏿿-
+replace		-	i:-1	x😀y😀z	s:-x-😀-y-😀-z-
+replace		-	i:-1	ß	s:-ß-
+replace		-	i:-1	İ	s:-İ-
+replace		-	i:-1	ǅ	s:-ǅ-
+replace		-	i:-1	ﬃ	s:-ﬃ-
+replace		-	i:-1	ʼn	s:-ʼ-n-
+replace		-	i:-1	٣	s:-٣-
+replace		-	i:-1	²	s:-²-
+replace		-	i:-1	Ⅻ	s:-Ⅻ-
+replace		-	i:-1	三	s:-三-
+replace		-	i:-1	 	s:- -
+replace		-	i:-1	 	s:- -
+replace		-	i:-1	ᾈ	s:-ᾈ-
+replace		-	i:-1	á	s:-a-́-
+replace	abc		i:-1		s:
+replace	abc		i:-1	a	s:a
+replace	abc		i:-1	abc	s:
+replace	abc		i:-1	hello world	s:hello world
+replace	abc		i:-1	Hello, World!	s:Hello, World!
+replace	abc		i:-1	  spaced  out  	s:  spaced  out  
+replace	abc		i:-1	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+replace	abc		i:-1	abcabcabc	s:
+replace	abc		i:-1	aaa	s:aaa
+replace	abc		i:-1	xyz	s:xyz
+replace	abc		i:-1	1234567890	s:1234567890
+replace	abc		i:-1	Ab1	s:Ab1
+replace	abc		i:-1	'quoted' and "double"	s:'quoted' and "double"
+replace	abc		i:-1	back\\slash	s:back\\slash
+replace	abc		i:-1	0123456789	s:0123456789
+replace	abc		i:-1	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+replace	abc		i:-1	a b	s:a b
+replace	abc		i:-1	café	s:café
+replace	abc		i:-1	ñ	s:ñ
+replace	abc		i:-1	µ	s:µ
+replace	abc		i:-1	ÿ	s:ÿ
+replace	abc		i:-1	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+replace	abc		i:-1	abcÿdef	s:ÿdef
+replace	abc		i:-1	ééé	s:ééé
+replace	abc		i:-1		s:
+replace	abc		i:-1	😀	s:😀
+replace	abc		i:-1	a𝐀c	s:a𝐀c
+replace	abc		i:-1	𐀀	s:𐀀
+replace	abc		i:-1	􏿿	s:􏿿
+replace	abc		i:-1	x😀y😀z	s:x😀y😀z
+replace	abc		i:-1	ß	s:ß
+replace	abc		i:-1	İ	s:İ
+replace	abc		i:-1	ǅ	s:ǅ
+replace	abc		i:-1	ﬃ	s:ﬃ
+replace	abc		i:-1	ʼn	s:ʼn
+replace	abc		i:-1	٣	s:٣
+replace	abc		i:-1	²	s:²
+replace	abc		i:-1	Ⅻ	s:Ⅻ
+replace	abc		i:-1	三	s:三
+replace	abc		i:-1	 	s: 
+replace	abc		i:-1	 	s: 
+replace	abc		i:-1	ᾈ	s:ᾈ
+replace	abc		i:-1	á	s:á
+removeprefix	ab		s:
+removeprefix	ab	a	s:a
+removeprefix	ab	abc	s:c
+removeprefix	ab	hello world	s:hello world
+removeprefix	ab	Hello, World!	s:Hello, World!
+removeprefix	ab	  spaced  out  	s:  spaced  out  
+removeprefix	ab	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+removeprefix	ab	abcabcabc	s:cabcabc
+removeprefix	ab	aaa	s:aaa
+removeprefix	ab	xyz	s:xyz
+removeprefix	ab	1234567890	s:1234567890
+removeprefix	ab	Ab1	s:Ab1
+removeprefix	ab	'quoted' and "double"	s:'quoted' and "double"
+removeprefix	ab	back\\slash	s:back\\slash
+removeprefix	ab	0123456789	s:0123456789
+removeprefix	ab	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+removeprefix	ab	a b	s:a b
+removeprefix	ab	café	s:café
+removeprefix	ab	ñ	s:ñ
+removeprefix	ab	µ	s:µ
+removeprefix	ab	ÿ	s:ÿ
+removeprefix	ab	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+removeprefix	ab	abcÿdef	s:cÿdef
+removeprefix	ab	ééé	s:ééé
+removeprefix	ab		s:
+removeprefix	ab	😀	s:😀
+removeprefix	ab	a𝐀c	s:a𝐀c
+removeprefix	ab	𐀀	s:𐀀
+removeprefix	ab	􏿿	s:􏿿
+removeprefix	ab	x😀y😀z	s:x😀y😀z
+removeprefix	ab	ß	s:ß
+removeprefix	ab	İ	s:İ
+removeprefix	ab	ǅ	s:ǅ
+removeprefix	ab	ﬃ	s:ﬃ
+removeprefix	ab	ʼn	s:ʼn
+removeprefix	ab	٣	s:٣
+removeprefix	ab	²	s:²
+removeprefix	ab	Ⅻ	s:Ⅻ
+removeprefix	ab	三	s:三
+removeprefix	ab	 	s: 
+removeprefix	ab	 	s: 
+removeprefix	ab	ᾈ	s:ᾈ
+removeprefix	ab	á	s:á
+removeprefix	zz		s:
+removeprefix	zz	a	s:a
+removeprefix	zz	abc	s:abc
+removeprefix	zz	hello world	s:hello world
+removeprefix	zz	Hello, World!	s:Hello, World!
+removeprefix	zz	  spaced  out  	s:  spaced  out  
+removeprefix	zz	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+removeprefix	zz	abcabcabc	s:abcabcabc
+removeprefix	zz	aaa	s:aaa
+removeprefix	zz	xyz	s:xyz
+removeprefix	zz	1234567890	s:1234567890
+removeprefix	zz	Ab1	s:Ab1
+removeprefix	zz	'quoted' and "double"	s:'quoted' and "double"
+removeprefix	zz	back\\slash	s:back\\slash
+removeprefix	zz	0123456789	s:0123456789
+removeprefix	zz	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+removeprefix	zz	a b	s:a b
+removeprefix	zz	café	s:café
+removeprefix	zz	ñ	s:ñ
+removeprefix	zz	µ	s:µ
+removeprefix	zz	ÿ	s:ÿ
+removeprefix	zz	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+removeprefix	zz	abcÿdef	s:abcÿdef
+removeprefix	zz	ééé	s:ééé
+removeprefix	zz		s:
+removeprefix	zz	😀	s:😀
+removeprefix	zz	a𝐀c	s:a𝐀c
+removeprefix	zz	𐀀	s:𐀀
+removeprefix	zz	􏿿	s:􏿿
+removeprefix	zz	x😀y😀z	s:x😀y😀z
+removeprefix	zz	ß	s:ß
+removeprefix	zz	İ	s:İ
+removeprefix	zz	ǅ	s:ǅ
+removeprefix	zz	ﬃ	s:ﬃ
+removeprefix	zz	ʼn	s:ʼn
+removeprefix	zz	٣	s:٣
+removeprefix	zz	²	s:²
+removeprefix	zz	Ⅻ	s:Ⅻ
+removeprefix	zz	三	s:三
+removeprefix	zz	 	s: 
+removeprefix	zz	 	s: 
+removeprefix	zz	ᾈ	s:ᾈ
+removeprefix	zz	á	s:á
+removesuffix	bc		s:
+removesuffix	bc	a	s:a
+removesuffix	bc	abc	s:a
+removesuffix	bc	hello world	s:hello world
+removesuffix	bc	Hello, World!	s:Hello, World!
+removesuffix	bc	  spaced  out  	s:  spaced  out  
+removesuffix	bc	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+removesuffix	bc	abcabcabc	s:abcabca
+removesuffix	bc	aaa	s:aaa
+removesuffix	bc	xyz	s:xyz
+removesuffix	bc	1234567890	s:1234567890
+removesuffix	bc	Ab1	s:Ab1
+removesuffix	bc	'quoted' and "double"	s:'quoted' and "double"
+removesuffix	bc	back\\slash	s:back\\slash
+removesuffix	bc	0123456789	s:0123456789
+removesuffix	bc	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+removesuffix	bc	a b	s:a b
+removesuffix	bc	café	s:café
+removesuffix	bc	ñ	s:ñ
+removesuffix	bc	µ	s:µ
+removesuffix	bc	ÿ	s:ÿ
+removesuffix	bc	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+removesuffix	bc	abcÿdef	s:abcÿdef
+removesuffix	bc	ééé	s:ééé
+removesuffix	bc		s:
+removesuffix	bc	😀	s:😀
+removesuffix	bc	a𝐀c	s:a𝐀c
+removesuffix	bc	𐀀	s:𐀀
+removesuffix	bc	􏿿	s:􏿿
+removesuffix	bc	x😀y😀z	s:x😀y😀z
+removesuffix	bc	ß	s:ß
+removesuffix	bc	İ	s:İ
+removesuffix	bc	ǅ	s:ǅ
+removesuffix	bc	ﬃ	s:ﬃ
+removesuffix	bc	ʼn	s:ʼn
+removesuffix	bc	٣	s:٣
+removesuffix	bc	²	s:²
+removesuffix	bc	Ⅻ	s:Ⅻ
+removesuffix	bc	三	s:三
+removesuffix	bc	 	s: 
+removesuffix	bc	 	s: 
+removesuffix	bc	ᾈ	s:ᾈ
+removesuffix	bc	á	s:á
+removesuffix	zz		s:
+removesuffix	zz	a	s:a
+removesuffix	zz	abc	s:abc
+removesuffix	zz	hello world	s:hello world
+removesuffix	zz	Hello, World!	s:Hello, World!
+removesuffix	zz	  spaced  out  	s:  spaced  out  
+removesuffix	zz	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n
+removesuffix	zz	abcabcabc	s:abcabcabc
+removesuffix	zz	aaa	s:aaa
+removesuffix	zz	xyz	s:xyz
+removesuffix	zz	1234567890	s:1234567890
+removesuffix	zz	Ab1	s:Ab1
+removesuffix	zz	'quoted' and "double"	s:'quoted' and "double"
+removesuffix	zz	back\\slash	s:back\\slash
+removesuffix	zz	0123456789	s:0123456789
+removesuffix	zz	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNg
+removesuffix	zz	a b	s:a b
+removesuffix	zz	café	s:café
+removesuffix	zz	ñ	s:ñ
+removesuffix	zz	µ	s:µ
+removesuffix	zz	ÿ	s:ÿ
+removesuffix	zz	ÀÉÎÕÜ	s:ÀÉÎÕÜ
+removesuffix	zz	abcÿdef	s:abcÿdef
+removesuffix	zz	ééé	s:ééé
+removesuffix	zz		s:
+removesuffix	zz	😀	s:😀
+removesuffix	zz	a𝐀c	s:a𝐀c
+removesuffix	zz	𐀀	s:𐀀
+removesuffix	zz	􏿿	s:􏿿
+removesuffix	zz	x😀y😀z	s:x😀y😀z
+removesuffix	zz	ß	s:ß
+removesuffix	zz	İ	s:İ
+removesuffix	zz	ǅ	s:ǅ
+removesuffix	zz	ﬃ	s:ﬃ
+removesuffix	zz	ʼn	s:ʼn
+removesuffix	zz	٣	s:٣
+removesuffix	zz	²	s:²
+removesuffix	zz	Ⅻ	s:Ⅻ
+removesuffix	zz	三	s:三
+removesuffix	zz	 	s: 
+removesuffix	zz	 	s: 
+removesuffix	zz	ᾈ	s:ᾈ
+removesuffix	zz	á	s:á
+isalpha		b:0
+isalpha	a	b:1
+isalpha	abc	b:1
+isalpha	hello world	b:0
+isalpha	Hello, World!	b:0
+isalpha	  spaced  out  	b:0
+isalpha	\t\ttabs\tand\nnewlines\n	b:0
+isalpha	abcabcabc	b:1
+isalpha	aaa	b:1
+isalpha	xyz	b:1
+isalpha	1234567890	b:0
+isalpha	Ab1	b:0
+isalpha	'quoted' and "double"	b:0
+isalpha	back\\slash	b:0
+isalpha	0123456789	b:0
+isalpha	MiXeD CaSe StRiNg	b:0
+isalpha	a b	b:0
+isalpha	café	b:1
+isalpha	ñ	b:1
+isalpha	µ	b:1
+isalpha	ÿ	b:1
+isalpha	ÀÉÎÕÜ	b:1
+isalpha	abcÿdef	b:1
+isalpha	ééé	b:1
+isalpha		b:0
+isalpha	😀	b:0
+isalpha	a𝐀c	b:1
+isalpha	𐀀	b:1
+isalpha	􏿿	b:0
+isalpha	x😀y😀z	b:0
+isalpha	ß	b:1
+isalpha	İ	b:1
+isalpha	ǅ	b:1
+isalpha	ﬃ	b:1
+isalpha	ʼn	b:1
+isalpha	٣	b:0
+isalpha	²	b:0
+isalpha	Ⅻ	b:0
+isalpha	三	b:1
+isalpha	 	b:0
+isalpha	 	b:0
+isalpha	ᾈ	b:1
+isalpha	á	b:0
+isdecimal		b:0
+isdecimal	a	b:0
+isdecimal	abc	b:0
+isdecimal	hello world	b:0
+isdecimal	Hello, World!	b:0
+isdecimal	  spaced  out  	b:0
+isdecimal	\t\ttabs\tand\nnewlines\n	b:0
+isdecimal	abcabcabc	b:0
+isdecimal	aaa	b:0
+isdecimal	xyz	b:0
+isdecimal	1234567890	b:1
+isdecimal	Ab1	b:0
+isdecimal	'quoted' and "double"	b:0
+isdecimal	back\\slash	b:0
+isdecimal	0123456789	b:1
+isdecimal	MiXeD CaSe StRiNg	b:0
+isdecimal	a b	b:0
+isdecimal	café	b:0
+isdecimal	ñ	b:0
+isdecimal	µ	b:0
+isdecimal	ÿ	b:0
+isdecimal	ÀÉÎÕÜ	b:0
+isdecimal	abcÿdef	b:0
+isdecimal	ééé	b:0
+isdecimal		b:0
+isdecimal	😀	b:0
+isdecimal	a𝐀c	b:0
+isdecimal	𐀀	b:0
+isdecimal	􏿿	b:0
+isdecimal	x😀y😀z	b:0
+isdecimal	ß	b:0
+isdecimal	İ	b:0
+isdecimal	ǅ	b:0
+isdecimal	ﬃ	b:0
+isdecimal	ʼn	b:0
+isdecimal	٣	b:1
+isdecimal	²	b:0
+isdecimal	Ⅻ	b:0
+isdecimal	三	b:0
+isdecimal	 	b:0
+isdecimal	 	b:0
+isdecimal	ᾈ	b:0
+isdecimal	á	b:0
+isdigit		b:0
+isdigit	a	b:0
+isdigit	abc	b:0
+isdigit	hello world	b:0
+isdigit	Hello, World!	b:0
+isdigit	  spaced  out  	b:0
+isdigit	\t\ttabs\tand\nnewlines\n	b:0
+isdigit	abcabcabc	b:0
+isdigit	aaa	b:0
+isdigit	xyz	b:0
+isdigit	1234567890	b:1
+isdigit	Ab1	b:0
+isdigit	'quoted' and "double"	b:0
+isdigit	back\\slash	b:0
+isdigit	0123456789	b:1
+isdigit	MiXeD CaSe StRiNg	b:0
+isdigit	a b	b:0
+isdigit	café	b:0
+isdigit	ñ	b:0
+isdigit	µ	b:0
+isdigit	ÿ	b:0
+isdigit	ÀÉÎÕÜ	b:0
+isdigit	abcÿdef	b:0
+isdigit	ééé	b:0
+isdigit		b:0
+isdigit	😀	b:0
+isdigit	a𝐀c	b:0
+isdigit	𐀀	b:0
+isdigit	􏿿	b:0
+isdigit	x😀y😀z	b:0
+isdigit	ß	b:0
+isdigit	İ	b:0
+isdigit	ǅ	b:0
+isdigit	ﬃ	b:0
+isdigit	ʼn	b:0
+isdigit	٣	b:1
+isdigit	²	b:1
+isdigit	Ⅻ	b:0
+isdigit	三	b:0
+isdigit	 	b:0
+isdigit	 	b:0
+isdigit	ᾈ	b:0
+isdigit	á	b:0
+isnumeric		b:0
+isnumeric	a	b:0
+isnumeric	abc	b:0
+isnumeric	hello world	b:0
+isnumeric	Hello, World!	b:0
+isnumeric	  spaced  out  	b:0
+isnumeric	\t\ttabs\tand\nnewlines\n	b:0
+isnumeric	abcabcabc	b:0
+isnumeric	aaa	b:0
+isnumeric	xyz	b:0
+isnumeric	1234567890	b:1
+isnumeric	Ab1	b:0
+isnumeric	'quoted' and "double"	b:0
+isnumeric	back\\slash	b:0
+isnumeric	0123456789	b:1
+isnumeric	MiXeD CaSe StRiNg	b:0
+isnumeric	a b	b:0
+isnumeric	café	b:0
+isnumeric	ñ	b:0
+isnumeric	µ	b:0
+isnumeric	ÿ	b:0
+isnumeric	ÀÉÎÕÜ	b:0
+isnumeric	abcÿdef	b:0
+isnumeric	ééé	b:0
+isnumeric		b:0
+isnumeric	😀	b:0
+isnumeric	a𝐀c	b:0
+isnumeric	𐀀	b:0
+isnumeric	􏿿	b:0
+isnumeric	x😀y😀z	b:0
+isnumeric	ß	b:0
+isnumeric	İ	b:0
+isnumeric	ǅ	b:0
+isnumeric	ﬃ	b:0
+isnumeric	ʼn	b:0
+isnumeric	٣	b:1
+isnumeric	²	b:1
+isnumeric	Ⅻ	b:1
+isnumeric	三	b:1
+isnumeric	 	b:0
+isnumeric	 	b:0
+isnumeric	ᾈ	b:0
+isnumeric	á	b:0
+isspace		b:0
+isspace	a	b:0
+isspace	abc	b:0
+isspace	hello world	b:0
+isspace	Hello, World!	b:0
+isspace	  spaced  out  	b:0
+isspace	\t\ttabs\tand\nnewlines\n	b:0
+isspace	abcabcabc	b:0
+isspace	aaa	b:0
+isspace	xyz	b:0
+isspace	1234567890	b:0
+isspace	Ab1	b:0
+isspace	'quoted' and "double"	b:0
+isspace	back\\slash	b:0
+isspace	0123456789	b:0
+isspace	MiXeD CaSe StRiNg	b:0
+isspace	a b	b:0
+isspace	café	b:0
+isspace	ñ	b:0
+isspace	µ	b:0
+isspace	ÿ	b:0
+isspace	ÀÉÎÕÜ	b:0
+isspace	abcÿdef	b:0
+isspace	ééé	b:0
+isspace		b:0
+isspace	😀	b:0
+isspace	a𝐀c	b:0
+isspace	𐀀	b:0
+isspace	􏿿	b:0
+isspace	x😀y😀z	b:0
+isspace	ß	b:0
+isspace	İ	b:0
+isspace	ǅ	b:0
+isspace	ﬃ	b:0
+isspace	ʼn	b:0
+isspace	٣	b:0
+isspace	²	b:0
+isspace	Ⅻ	b:0
+isspace	三	b:0
+isspace	 	b:1
+isspace	 	b:1
+isspace	ᾈ	b:0
+isspace	á	b:0
+islower		b:0
+islower	a	b:1
+islower	abc	b:1
+islower	hello world	b:1
+islower	Hello, World!	b:0
+islower	  spaced  out  	b:1
+islower	\t\ttabs\tand\nnewlines\n	b:1
+islower	abcabcabc	b:1
+islower	aaa	b:1
+islower	xyz	b:1
+islower	1234567890	b:0
+islower	Ab1	b:0
+islower	'quoted' and "double"	b:1
+islower	back\\slash	b:1
+islower	0123456789	b:0
+islower	MiXeD CaSe StRiNg	b:0
+islower	a b	b:1
+islower	café	b:1
+islower	ñ	b:1
+islower	µ	b:1
+islower	ÿ	b:1
+islower	ÀÉÎÕÜ	b:0
+islower	abcÿdef	b:1
+islower	ééé	b:1
+islower		b:0
+islower	😀	b:0
+islower	a𝐀c	b:0
+islower	𐀀	b:0
+islower	􏿿	b:0
+islower	x😀y😀z	b:1
+islower	ß	b:1
+islower	İ	b:0
+islower	ǅ	b:0
+islower	ﬃ	b:1
+islower	ʼn	b:1
+islower	٣	b:0
+islower	²	b:0
+islower	Ⅻ	b:0
+islower	三	b:0
+islower	 	b:0
+islower	 	b:0
+islower	ᾈ	b:0
+islower	á	b:1
+isupper		b:0
+isupper	a	b:0
+isupper	abc	b:0
+isupper	hello world	b:0
+isupper	Hello, World!	b:0
+isupper	  spaced  out  	b:0
+isupper	\t\ttabs\tand\nnewlines\n	b:0
+isupper	abcabcabc	b:0
+isupper	aaa	b:0
+isupper	xyz	b:0
+isupper	1234567890	b:0
+isupper	Ab1	b:0
+isupper	'quoted' and "double"	b:0
+isupper	back\\slash	b:0
+isupper	0123456789	b:0
+isupper	MiXeD CaSe StRiNg	b:0
+isupper	a b	b:0
+isupper	café	b:0
+isupper	ñ	b:0
+isupper	µ	b:0
+isupper	ÿ	b:0
+isupper	ÀÉÎÕÜ	b:1
+isupper	abcÿdef	b:0
+isupper	ééé	b:0
+isupper		b:0
+isupper	😀	b:0
+isupper	a𝐀c	b:0
+isupper	𐀀	b:0
+isupper	􏿿	b:0
+isupper	x😀y😀z	b:0
+isupper	ß	b:0
+isupper	İ	b:1
+isupper	ǅ	b:0
+isupper	ﬃ	b:0
+isupper	ʼn	b:0
+isupper	٣	b:0
+isupper	²	b:0
+isupper	Ⅻ	b:1
+isupper	三	b:0
+isupper	 	b:0
+isupper	 	b:0
+isupper	ᾈ	b:0
+isupper	á	b:0
+istitle		b:0
+istitle	a	b:0
+istitle	abc	b:0
+istitle	hello world	b:0
+istitle	Hello, World!	b:1
+istitle	  spaced  out  	b:0
+istitle	\t\ttabs\tand\nnewlines\n	b:0
+istitle	abcabcabc	b:0
+istitle	aaa	b:0
+istitle	xyz	b:0
+istitle	1234567890	b:0
+istitle	Ab1	b:1
+istitle	'quoted' and "double"	b:0
+istitle	back\\slash	b:0
+istitle	0123456789	b:0
+istitle	MiXeD CaSe StRiNg	b:0
+istitle	a b	b:0
+istitle	café	b:0
+istitle	ñ	b:0
+istitle	µ	b:0
+istitle	ÿ	b:0
+istitle	ÀÉÎÕÜ	b:0
+istitle	abcÿdef	b:0
+istitle	ééé	b:0
+istitle		b:0
+istitle	😀	b:0
+istitle	a𝐀c	b:0
+istitle	𐀀	b:0
+istitle	􏿿	b:0
+istitle	x😀y😀z	b:0
+istitle	ß	b:0
+istitle	İ	b:1
+istitle	ǅ	b:1
+istitle	ﬃ	b:0
+istitle	ʼn	b:0
+istitle	٣	b:0
+istitle	²	b:0
+istitle	Ⅻ	b:1
+istitle	三	b:0
+istitle	 	b:0
+istitle	 	b:0
+istitle	ᾈ	b:1
+istitle	á	b:0
+isalnum		b:0
+isalnum	a	b:1
+isalnum	abc	b:1
+isalnum	hello world	b:0
+isalnum	Hello, World!	b:0
+isalnum	  spaced  out  	b:0
+isalnum	\t\ttabs\tand\nnewlines\n	b:0
+isalnum	abcabcabc	b:1
+isalnum	aaa	b:1
+isalnum	xyz	b:1
+isalnum	1234567890	b:1
+isalnum	Ab1	b:1
+isalnum	'quoted' and "double"	b:0
+isalnum	back\\slash	b:0
+isalnum	0123456789	b:1
+isalnum	MiXeD CaSe StRiNg	b:0
+isalnum	a b	b:0
+isalnum	café	b:1
+isalnum	ñ	b:1
+isalnum	µ	b:1
+isalnum	ÿ	b:1
+isalnum	ÀÉÎÕÜ	b:1
+isalnum	abcÿdef	b:1
+isalnum	ééé	b:1
+isalnum		b:0
+isalnum	😀	b:0
+isalnum	a𝐀c	b:1
+isalnum	𐀀	b:1
+isalnum	􏿿	b:0
+isalnum	x😀y😀z	b:0
+isalnum	ß	b:1
+isalnum	İ	b:1
+isalnum	ǅ	b:1
+isalnum	ﬃ	b:1
+isalnum	ʼn	b:1
+isalnum	٣	b:1
+isalnum	²	b:1
+isalnum	Ⅻ	b:1
+isalnum	三	b:1
+isalnum	 	b:0
+isalnum	 	b:0
+isalnum	ᾈ	b:1
+isalnum	á	b:0
+isascii		b:1
+isascii	a	b:1
+isascii	abc	b:1
+isascii	hello world	b:1
+isascii	Hello, World!	b:1
+isascii	  spaced  out  	b:1
+isascii	\t\ttabs\tand\nnewlines\n	b:1
+isascii	abcabcabc	b:1
+isascii	aaa	b:1
+isascii	xyz	b:1
+isascii	1234567890	b:1
+isascii	Ab1	b:1
+isascii	'quoted' and "double"	b:1
+isascii	back\\slash	b:1
+isascii	0123456789	b:1
+isascii	MiXeD CaSe StRiNg	b:1
+isascii	a b	b:1
+isascii	café	b:0
+isascii	ñ	b:0
+isascii	µ	b:0
+isascii	ÿ	b:0
+isascii	ÀÉÎÕÜ	b:0
+isascii	abcÿdef	b:0
+isascii	ééé	b:0
+isascii		b:0
+isascii	😀	b:0
+isascii	a𝐀c	b:0
+isascii	𐀀	b:0
+isascii	􏿿	b:0
+isascii	x😀y😀z	b:0
+isascii	ß	b:0
+isascii	İ	b:0
+isascii	ǅ	b:0
+isascii	ﬃ	b:0
+isascii	ʼn	b:0
+isascii	٣	b:0
+isascii	²	b:0
+isascii	Ⅻ	b:0
+isascii	三	b:0
+isascii	 	b:0
+isascii	 	b:0
+isascii	ᾈ	b:0
+isascii	á	b:0
+isprintable		b:1
+isprintable	a	b:1
+isprintable	abc	b:1
+isprintable	hello world	b:1
+isprintable	Hello, World!	b:1
+isprintable	  spaced  out  	b:1
+isprintable	\t\ttabs\tand\nnewlines\n	b:0
+isprintable	abcabcabc	b:1
+isprintable	aaa	b:1
+isprintable	xyz	b:1
+isprintable	1234567890	b:1
+isprintable	Ab1	b:1
+isprintable	'quoted' and "double"	b:1
+isprintable	back\\slash	b:1
+isprintable	0123456789	b:1
+isprintable	MiXeD CaSe StRiNg	b:1
+isprintable	a b	b:1
+isprintable	café	b:1
+isprintable	ñ	b:1
+isprintable	µ	b:1
+isprintable	ÿ	b:1
+isprintable	ÀÉÎÕÜ	b:1
+isprintable	abcÿdef	b:1
+isprintable	ééé	b:1
+isprintable		b:0
+isprintable	😀	b:1
+isprintable	a𝐀c	b:1
+isprintable	𐀀	b:1
+isprintable	􏿿	b:0
+isprintable	x😀y😀z	b:1
+isprintable	ß	b:1
+isprintable	İ	b:1
+isprintable	ǅ	b:1
+isprintable	ﬃ	b:1
+isprintable	ʼn	b:1
+isprintable	٣	b:1
+isprintable	²	b:1
+isprintable	Ⅻ	b:1
+isprintable	三	b:1
+isprintable	 	b:0
+isprintable	 	b:0
+isprintable	ᾈ	b:1
+isprintable	á	b:1
+isidentifier		b:0
+isidentifier	a	b:1
+isidentifier	abc	b:1
+isidentifier	hello world	b:0
+isidentifier	Hello, World!	b:0
+isidentifier	  spaced  out  	b:0
+isidentifier	\t\ttabs\tand\nnewlines\n	b:0
+isidentifier	abcabcabc	b:1
+isidentifier	aaa	b:1
+isidentifier	xyz	b:1
+isidentifier	1234567890	b:0
+isidentifier	Ab1	b:1
+isidentifier	'quoted' and "double"	b:0
+isidentifier	back\\slash	b:0
+isidentifier	0123456789	b:0
+isidentifier	MiXeD CaSe StRiNg	b:0
+isidentifier	a b	b:0
+isidentifier	café	b:1
+isidentifier	ñ	b:1
+isidentifier	µ	b:1
+isidentifier	ÿ	b:1
+isidentifier	ÀÉÎÕÜ	b:1
+isidentifier	abcÿdef	b:1
+isidentifier	ééé	b:1
+isidentifier		b:0
+isidentifier	😀	b:0
+isidentifier	a𝐀c	b:1
+isidentifier	𐀀	b:1
+isidentifier	􏿿	b:0
+isidentifier	x😀y😀z	b:0
+isidentifier	ß	b:1
+isidentifier	İ	b:1
+isidentifier	ǅ	b:1
+isidentifier	ﬃ	b:1
+isidentifier	ʼn	b:1
+isidentifier	٣	b:0
+isidentifier	²	b:0
+isidentifier	Ⅻ	b:1
+isidentifier	三	b:1
+isidentifier	 	b:0
+isidentifier	 	b:0
+isidentifier	ᾈ	b:1
+isidentifier	á	b:1
+split		i:-1		L:0
+split		i:-1	a	L:1	a
+split		i:-1	abc	L:1	abc
+split		i:-1	hello world	L:2	hello	world
+split		i:-1	Hello, World!	L:2	Hello,	World!
+split		i:-1	  spaced  out  	L:2	spaced	out
+split		i:-1	\t\ttabs\tand\nnewlines\n	L:3	tabs	and	newlines
+split		i:-1	abcabcabc	L:1	abcabcabc
+split		i:-1	aaa	L:1	aaa
+split		i:-1	xyz	L:1	xyz
+split		i:-1	1234567890	L:1	1234567890
+split		i:-1	Ab1	L:1	Ab1
+split		i:-1	'quoted' and "double"	L:3	'quoted'	and	"double"
+split		i:-1	back\\slash	L:1	back\\slash
+split		i:-1	0123456789	L:1	0123456789
+split		i:-1	MiXeD CaSe StRiNg	L:3	MiXeD	CaSe	StRiNg
+split		i:-1	a b	L:2	a	b
+split		i:-1	café	L:1	café
+split		i:-1	ñ	L:1	ñ
+split		i:-1	µ	L:1	µ
+split		i:-1	ÿ	L:1	ÿ
+split		i:-1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+split		i:-1	abcÿdef	L:1	abcÿdef
+split		i:-1	ééé	L:1	ééé
+split		i:-1		L:1	
+split		i:-1	😀	L:1	😀
+split		i:-1	a𝐀c	L:1	a𝐀c
+split		i:-1	𐀀	L:1	𐀀
+split		i:-1	􏿿	L:1	􏿿
+split		i:-1	x😀y😀z	L:1	x😀y😀z
+split		i:-1	ß	L:1	ß
+split		i:-1	İ	L:1	İ
+split		i:-1	ǅ	L:1	ǅ
+split		i:-1	ﬃ	L:1	ﬃ
+split		i:-1	ʼn	L:1	ʼn
+split		i:-1	٣	L:1	٣
+split		i:-1	²	L:1	²
+split		i:-1	Ⅻ	L:1	Ⅻ
+split		i:-1	三	L:1	三
+split		i:-1	 	L:0
+split		i:-1	 	L:0
+split		i:-1	ᾈ	L:1	ᾈ
+split		i:-1	á	L:1	á
+split		i:1		L:0
+split		i:1	a	L:1	a
+split		i:1	abc	L:1	abc
+split		i:1	hello world	L:2	hello	world
+split		i:1	Hello, World!	L:2	Hello,	World!
+split		i:1	  spaced  out  	L:2	spaced	out  
+split		i:1	\t\ttabs\tand\nnewlines\n	L:2	tabs	and\nnewlines\n
+split		i:1	abcabcabc	L:1	abcabcabc
+split		i:1	aaa	L:1	aaa
+split		i:1	xyz	L:1	xyz
+split		i:1	1234567890	L:1	1234567890
+split		i:1	Ab1	L:1	Ab1
+split		i:1	'quoted' and "double"	L:2	'quoted'	and "double"
+split		i:1	back\\slash	L:1	back\\slash
+split		i:1	0123456789	L:1	0123456789
+split		i:1	MiXeD CaSe StRiNg	L:2	MiXeD	CaSe StRiNg
+split		i:1	a b	L:2	a	b
+split		i:1	café	L:1	café
+split		i:1	ñ	L:1	ñ
+split		i:1	µ	L:1	µ
+split		i:1	ÿ	L:1	ÿ
+split		i:1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+split		i:1	abcÿdef	L:1	abcÿdef
+split		i:1	ééé	L:1	ééé
+split		i:1		L:1	
+split		i:1	😀	L:1	😀
+split		i:1	a𝐀c	L:1	a𝐀c
+split		i:1	𐀀	L:1	𐀀
+split		i:1	􏿿	L:1	􏿿
+split		i:1	x😀y😀z	L:1	x😀y😀z
+split		i:1	ß	L:1	ß
+split		i:1	İ	L:1	İ
+split		i:1	ǅ	L:1	ǅ
+split		i:1	ﬃ	L:1	ﬃ
+split		i:1	ʼn	L:1	ʼn
+split		i:1	٣	L:1	٣
+split		i:1	²	L:1	²
+split		i:1	Ⅻ	L:1	Ⅻ
+split		i:1	三	L:1	三
+split		i:1	 	L:0
+split		i:1	 	L:0
+split		i:1	ᾈ	L:1	ᾈ
+split		i:1	á	L:1	á
+split	a	i:-1		L:1	
+split	a	i:-1	a	L:2		
+split	a	i:-1	abc	L:2		bc
+split	a	i:-1	hello world	L:1	hello world
+split	a	i:-1	Hello, World!	L:1	Hello, World!
+split	a	i:-1	  spaced  out  	L:2	  sp	ced  out  
+split	a	i:-1	\t\ttabs\tand\nnewlines\n	L:3	\t\tt	bs\t	nd\nnewlines\n
+split	a	i:-1	abcabcabc	L:4		bc	bc	bc
+split	a	i:-1	aaa	L:4				
+split	a	i:-1	xyz	L:1	xyz
+split	a	i:-1	1234567890	L:1	1234567890
+split	a	i:-1	Ab1	L:1	Ab1
+split	a	i:-1	'quoted' and "double"	L:2	'quoted' 	nd "double"
+split	a	i:-1	back\\slash	L:3	b	ck\\sl	sh
+split	a	i:-1	0123456789	L:1	0123456789
+split	a	i:-1	MiXeD CaSe StRiNg	L:2	MiXeD C	Se StRiNg
+split	a	i:-1	a b	L:2		 b
+split	a	i:-1	café	L:2	c	fé
+split	a	i:-1	ñ	L:1	ñ
+split	a	i:-1	µ	L:1	µ
+split	a	i:-1	ÿ	L:1	ÿ
+split	a	i:-1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+split	a	i:-1	abcÿdef	L:2		bcÿdef
+split	a	i:-1	ééé	L:1	ééé
+split	a	i:-1		L:1	
+split	a	i:-1	😀	L:1	😀
+split	a	i:-1	a𝐀c	L:2		𝐀c
+split	a	i:-1	𐀀	L:1	𐀀
+split	a	i:-1	􏿿	L:1	􏿿
+split	a	i:-1	x😀y😀z	L:1	x😀y😀z
+split	a	i:-1	ß	L:1	ß
+split	a	i:-1	İ	L:1	İ
+split	a	i:-1	ǅ	L:1	ǅ
+split	a	i:-1	ﬃ	L:1	ﬃ
+split	a	i:-1	ʼn	L:1	ʼn
+split	a	i:-1	٣	L:1	٣
+split	a	i:-1	²	L:1	²
+split	a	i:-1	Ⅻ	L:1	Ⅻ
+split	a	i:-1	三	L:1	三
+split	a	i:-1	 	L:1	 
+split	a	i:-1	 	L:1	 
+split	a	i:-1	ᾈ	L:1	ᾈ
+split	a	i:-1	á	L:2		́
+split	a	i:0		L:1	
+split	a	i:0	a	L:1	a
+split	a	i:0	abc	L:1	abc
+split	a	i:0	hello world	L:1	hello world
+split	a	i:0	Hello, World!	L:1	Hello, World!
+split	a	i:0	  spaced  out  	L:1	  spaced  out  
+split	a	i:0	\t\ttabs\tand\nnewlines\n	L:1	\t\ttabs\tand\nnewlines\n
+split	a	i:0	abcabcabc	L:1	abcabcabc
+split	a	i:0	aaa	L:1	aaa
+split	a	i:0	xyz	L:1	xyz
+split	a	i:0	1234567890	L:1	1234567890
+split	a	i:0	Ab1	L:1	Ab1
+split	a	i:0	'quoted' and "double"	L:1	'quoted' and "double"
+split	a	i:0	back\\slash	L:1	back\\slash
+split	a	i:0	0123456789	L:1	0123456789
+split	a	i:0	MiXeD CaSe StRiNg	L:1	MiXeD CaSe StRiNg
+split	a	i:0	a b	L:1	a b
+split	a	i:0	café	L:1	café
+split	a	i:0	ñ	L:1	ñ
+split	a	i:0	µ	L:1	µ
+split	a	i:0	ÿ	L:1	ÿ
+split	a	i:0	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+split	a	i:0	abcÿdef	L:1	abcÿdef
+split	a	i:0	ééé	L:1	ééé
+split	a	i:0		L:1	
+split	a	i:0	😀	L:1	😀
+split	a	i:0	a𝐀c	L:1	a𝐀c
+split	a	i:0	𐀀	L:1	𐀀
+split	a	i:0	􏿿	L:1	􏿿
+split	a	i:0	x😀y😀z	L:1	x😀y😀z
+split	a	i:0	ß	L:1	ß
+split	a	i:0	İ	L:1	İ
+split	a	i:0	ǅ	L:1	ǅ
+split	a	i:0	ﬃ	L:1	ﬃ
+split	a	i:0	ʼn	L:1	ʼn
+split	a	i:0	٣	L:1	٣
+split	a	i:0	²	L:1	²
+split	a	i:0	Ⅻ	L:1	Ⅻ
+split	a	i:0	三	L:1	三
+split	a	i:0	 	L:1	 
+split	a	i:0	 	L:1	 
+split	a	i:0	ᾈ	L:1	ᾈ
+split	a	i:0	á	L:1	á
+split	bc	i:-1		L:1	
+split	bc	i:-1	a	L:1	a
+split	bc	i:-1	abc	L:2	a	
+split	bc	i:-1	hello world	L:1	hello world
+split	bc	i:-1	Hello, World!	L:1	Hello, World!
+split	bc	i:-1	  spaced  out  	L:1	  spaced  out  
+split	bc	i:-1	\t\ttabs\tand\nnewlines\n	L:1	\t\ttabs\tand\nnewlines\n
+split	bc	i:-1	abcabcabc	L:4	a	a	a	
+split	bc	i:-1	aaa	L:1	aaa
+split	bc	i:-1	xyz	L:1	xyz
+split	bc	i:-1	1234567890	L:1	1234567890
+split	bc	i:-1	Ab1	L:1	Ab1
+split	bc	i:-1	'quoted' and "double"	L:1	'quoted' and "double"
+split	bc	i:-1	back\\slash	L:1	back\\slash
+split	bc	i:-1	0123456789	L:1	0123456789
+split	bc	i:-1	MiXeD CaSe StRiNg	L:1	MiXeD CaSe StRiNg
+split	bc	i:-1	a b	L:1	a b
+split	bc	i:-1	café	L:1	café
+split	bc	i:-1	ñ	L:1	ñ
+split	bc	i:-1	µ	L:1	µ
+split	bc	i:-1	ÿ	L:1	ÿ
+split	bc	i:-1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+split	bc	i:-1	abcÿdef	L:2	a	ÿdef
+split	bc	i:-1	ééé	L:1	ééé
+split	bc	i:-1		L:1	
+split	bc	i:-1	😀	L:1	😀
+split	bc	i:-1	a𝐀c	L:1	a𝐀c
+split	bc	i:-1	𐀀	L:1	𐀀
+split	bc	i:-1	􏿿	L:1	􏿿
+split	bc	i:-1	x😀y😀z	L:1	x😀y😀z
+split	bc	i:-1	ß	L:1	ß
+split	bc	i:-1	İ	L:1	İ
+split	bc	i:-1	ǅ	L:1	ǅ
+split	bc	i:-1	ﬃ	L:1	ﬃ
+split	bc	i:-1	ʼn	L:1	ʼn
+split	bc	i:-1	٣	L:1	٣
+split	bc	i:-1	²	L:1	²
+split	bc	i:-1	Ⅻ	L:1	Ⅻ
+split	bc	i:-1	三	L:1	三
+split	bc	i:-1	 	L:1	 
+split	bc	i:-1	 	L:1	 
+split	bc	i:-1	ᾈ	L:1	ᾈ
+split	bc	i:-1	á	L:1	á
+rsplit		i:-1		L:0
+rsplit		i:-1	a	L:1	a
+rsplit		i:-1	abc	L:1	abc
+rsplit		i:-1	hello world	L:2	hello	world
+rsplit		i:-1	Hello, World!	L:2	Hello,	World!
+rsplit		i:-1	  spaced  out  	L:2	spaced	out
+rsplit		i:-1	\t\ttabs\tand\nnewlines\n	L:3	tabs	and	newlines
+rsplit		i:-1	abcabcabc	L:1	abcabcabc
+rsplit		i:-1	aaa	L:1	aaa
+rsplit		i:-1	xyz	L:1	xyz
+rsplit		i:-1	1234567890	L:1	1234567890
+rsplit		i:-1	Ab1	L:1	Ab1
+rsplit		i:-1	'quoted' and "double"	L:3	'quoted'	and	"double"
+rsplit		i:-1	back\\slash	L:1	back\\slash
+rsplit		i:-1	0123456789	L:1	0123456789
+rsplit		i:-1	MiXeD CaSe StRiNg	L:3	MiXeD	CaSe	StRiNg
+rsplit		i:-1	a b	L:2	a	b
+rsplit		i:-1	café	L:1	café
+rsplit		i:-1	ñ	L:1	ñ
+rsplit		i:-1	µ	L:1	µ
+rsplit		i:-1	ÿ	L:1	ÿ
+rsplit		i:-1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+rsplit		i:-1	abcÿdef	L:1	abcÿdef
+rsplit		i:-1	ééé	L:1	ééé
+rsplit		i:-1		L:1	
+rsplit		i:-1	😀	L:1	😀
+rsplit		i:-1	a𝐀c	L:1	a𝐀c
+rsplit		i:-1	𐀀	L:1	𐀀
+rsplit		i:-1	􏿿	L:1	􏿿
+rsplit		i:-1	x😀y😀z	L:1	x😀y😀z
+rsplit		i:-1	ß	L:1	ß
+rsplit		i:-1	İ	L:1	İ
+rsplit		i:-1	ǅ	L:1	ǅ
+rsplit		i:-1	ﬃ	L:1	ﬃ
+rsplit		i:-1	ʼn	L:1	ʼn
+rsplit		i:-1	٣	L:1	٣
+rsplit		i:-1	²	L:1	²
+rsplit		i:-1	Ⅻ	L:1	Ⅻ
+rsplit		i:-1	三	L:1	三
+rsplit		i:-1	 	L:0
+rsplit		i:-1	 	L:0
+rsplit		i:-1	ᾈ	L:1	ᾈ
+rsplit		i:-1	á	L:1	á
+rsplit		i:1		L:0
+rsplit		i:1	a	L:1	a
+rsplit		i:1	abc	L:1	abc
+rsplit		i:1	hello world	L:2	hello	world
+rsplit		i:1	Hello, World!	L:2	Hello,	World!
+rsplit		i:1	  spaced  out  	L:2	  spaced	out
+rsplit		i:1	\t\ttabs\tand\nnewlines\n	L:2	\t\ttabs\tand	newlines
+rsplit		i:1	abcabcabc	L:1	abcabcabc
+rsplit		i:1	aaa	L:1	aaa
+rsplit		i:1	xyz	L:1	xyz
+rsplit		i:1	1234567890	L:1	1234567890
+rsplit		i:1	Ab1	L:1	Ab1
+rsplit		i:1	'quoted' and "double"	L:2	'quoted' and	"double"
+rsplit		i:1	back\\slash	L:1	back\\slash
+rsplit		i:1	0123456789	L:1	0123456789
+rsplit		i:1	MiXeD CaSe StRiNg	L:2	MiXeD CaSe	StRiNg
+rsplit		i:1	a b	L:2	a	b
+rsplit		i:1	café	L:1	café
+rsplit		i:1	ñ	L:1	ñ
+rsplit		i:1	µ	L:1	µ
+rsplit		i:1	ÿ	L:1	ÿ
+rsplit		i:1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+rsplit		i:1	abcÿdef	L:1	abcÿdef
+rsplit		i:1	ééé	L:1	ééé
+rsplit		i:1		L:1	
+rsplit		i:1	😀	L:1	😀
+rsplit		i:1	a𝐀c	L:1	a𝐀c
+rsplit		i:1	𐀀	L:1	𐀀
+rsplit		i:1	􏿿	L:1	􏿿
+rsplit		i:1	x😀y😀z	L:1	x😀y😀z
+rsplit		i:1	ß	L:1	ß
+rsplit		i:1	İ	L:1	İ
+rsplit		i:1	ǅ	L:1	ǅ
+rsplit		i:1	ﬃ	L:1	ﬃ
+rsplit		i:1	ʼn	L:1	ʼn
+rsplit		i:1	٣	L:1	٣
+rsplit		i:1	²	L:1	²
+rsplit		i:1	Ⅻ	L:1	Ⅻ
+rsplit		i:1	三	L:1	三
+rsplit		i:1	 	L:0
+rsplit		i:1	 	L:0
+rsplit		i:1	ᾈ	L:1	ᾈ
+rsplit		i:1	á	L:1	á
+rsplit	a	i:-1		L:1	
+rsplit	a	i:-1	a	L:2		
+rsplit	a	i:-1	abc	L:2		bc
+rsplit	a	i:-1	hello world	L:1	hello world
+rsplit	a	i:-1	Hello, World!	L:1	Hello, World!
+rsplit	a	i:-1	  spaced  out  	L:2	  sp	ced  out  
+rsplit	a	i:-1	\t\ttabs\tand\nnewlines\n	L:3	\t\tt	bs\t	nd\nnewlines\n
+rsplit	a	i:-1	abcabcabc	L:4		bc	bc	bc
+rsplit	a	i:-1	aaa	L:4				
+rsplit	a	i:-1	xyz	L:1	xyz
+rsplit	a	i:-1	1234567890	L:1	1234567890
+rsplit	a	i:-1	Ab1	L:1	Ab1
+rsplit	a	i:-1	'quoted' and "double"	L:2	'quoted' 	nd "double"
+rsplit	a	i:-1	back\\slash	L:3	b	ck\\sl	sh
+rsplit	a	i:-1	0123456789	L:1	0123456789
+rsplit	a	i:-1	MiXeD CaSe StRiNg	L:2	MiXeD C	Se StRiNg
+rsplit	a	i:-1	a b	L:2		 b
+rsplit	a	i:-1	café	L:2	c	fé
+rsplit	a	i:-1	ñ	L:1	ñ
+rsplit	a	i:-1	µ	L:1	µ
+rsplit	a	i:-1	ÿ	L:1	ÿ
+rsplit	a	i:-1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+rsplit	a	i:-1	abcÿdef	L:2		bcÿdef
+rsplit	a	i:-1	ééé	L:1	ééé
+rsplit	a	i:-1		L:1	
+rsplit	a	i:-1	😀	L:1	😀
+rsplit	a	i:-1	a𝐀c	L:2		𝐀c
+rsplit	a	i:-1	𐀀	L:1	𐀀
+rsplit	a	i:-1	􏿿	L:1	􏿿
+rsplit	a	i:-1	x😀y😀z	L:1	x😀y😀z
+rsplit	a	i:-1	ß	L:1	ß
+rsplit	a	i:-1	İ	L:1	İ
+rsplit	a	i:-1	ǅ	L:1	ǅ
+rsplit	a	i:-1	ﬃ	L:1	ﬃ
+rsplit	a	i:-1	ʼn	L:1	ʼn
+rsplit	a	i:-1	٣	L:1	٣
+rsplit	a	i:-1	²	L:1	²
+rsplit	a	i:-1	Ⅻ	L:1	Ⅻ
+rsplit	a	i:-1	三	L:1	三
+rsplit	a	i:-1	 	L:1	 
+rsplit	a	i:-1	 	L:1	 
+rsplit	a	i:-1	ᾈ	L:1	ᾈ
+rsplit	a	i:-1	á	L:2		́
+rsplit	bc	i:1		L:1	
+rsplit	bc	i:1	a	L:1	a
+rsplit	bc	i:1	abc	L:2	a	
+rsplit	bc	i:1	hello world	L:1	hello world
+rsplit	bc	i:1	Hello, World!	L:1	Hello, World!
+rsplit	bc	i:1	  spaced  out  	L:1	  spaced  out  
+rsplit	bc	i:1	\t\ttabs\tand\nnewlines\n	L:1	\t\ttabs\tand\nnewlines\n
+rsplit	bc	i:1	abcabcabc	L:2	abcabca	
+rsplit	bc	i:1	aaa	L:1	aaa
+rsplit	bc	i:1	xyz	L:1	xyz
+rsplit	bc	i:1	1234567890	L:1	1234567890
+rsplit	bc	i:1	Ab1	L:1	Ab1
+rsplit	bc	i:1	'quoted' and "double"	L:1	'quoted' and "double"
+rsplit	bc	i:1	back\\slash	L:1	back\\slash
+rsplit	bc	i:1	0123456789	L:1	0123456789
+rsplit	bc	i:1	MiXeD CaSe StRiNg	L:1	MiXeD CaSe StRiNg
+rsplit	bc	i:1	a b	L:1	a b
+rsplit	bc	i:1	café	L:1	café
+rsplit	bc	i:1	ñ	L:1	ñ
+rsplit	bc	i:1	µ	L:1	µ
+rsplit	bc	i:1	ÿ	L:1	ÿ
+rsplit	bc	i:1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+rsplit	bc	i:1	abcÿdef	L:2	a	ÿdef
+rsplit	bc	i:1	ééé	L:1	ééé
+rsplit	bc	i:1		L:1	
+rsplit	bc	i:1	😀	L:1	😀
+rsplit	bc	i:1	a𝐀c	L:1	a𝐀c
+rsplit	bc	i:1	𐀀	L:1	𐀀
+rsplit	bc	i:1	􏿿	L:1	􏿿
+rsplit	bc	i:1	x😀y😀z	L:1	x😀y😀z
+rsplit	bc	i:1	ß	L:1	ß
+rsplit	bc	i:1	İ	L:1	İ
+rsplit	bc	i:1	ǅ	L:1	ǅ
+rsplit	bc	i:1	ﬃ	L:1	ﬃ
+rsplit	bc	i:1	ʼn	L:1	ʼn
+rsplit	bc	i:1	٣	L:1	٣
+rsplit	bc	i:1	²	L:1	²
+rsplit	bc	i:1	Ⅻ	L:1	Ⅻ
+rsplit	bc	i:1	三	L:1	三
+rsplit	bc	i:1	 	L:1	 
+rsplit	bc	i:1	 	L:1	 
+rsplit	bc	i:1	ᾈ	L:1	ᾈ
+rsplit	bc	i:1	á	L:1	á
+splitlines	b:0		L:0
+splitlines	b:0	a	L:1	a
+splitlines	b:0	abc	L:1	abc
+splitlines	b:0	hello world	L:1	hello world
+splitlines	b:0	Hello, World!	L:1	Hello, World!
+splitlines	b:0	  spaced  out  	L:1	  spaced  out  
+splitlines	b:0	\t\ttabs\tand\nnewlines\n	L:2	\t\ttabs\tand	newlines
+splitlines	b:0	abcabcabc	L:1	abcabcabc
+splitlines	b:0	aaa	L:1	aaa
+splitlines	b:0	xyz	L:1	xyz
+splitlines	b:0	1234567890	L:1	1234567890
+splitlines	b:0	Ab1	L:1	Ab1
+splitlines	b:0	'quoted' and "double"	L:1	'quoted' and "double"
+splitlines	b:0	back\\slash	L:1	back\\slash
+splitlines	b:0	0123456789	L:1	0123456789
+splitlines	b:0	MiXeD CaSe StRiNg	L:1	MiXeD CaSe StRiNg
+splitlines	b:0	a b	L:1	a b
+splitlines	b:0	café	L:1	café
+splitlines	b:0	ñ	L:1	ñ
+splitlines	b:0	µ	L:1	µ
+splitlines	b:0	ÿ	L:1	ÿ
+splitlines	b:0	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+splitlines	b:0	abcÿdef	L:1	abcÿdef
+splitlines	b:0	ééé	L:1	ééé
+splitlines	b:0		L:1	
+splitlines	b:0	😀	L:1	😀
+splitlines	b:0	a𝐀c	L:1	a𝐀c
+splitlines	b:0	𐀀	L:1	𐀀
+splitlines	b:0	􏿿	L:1	􏿿
+splitlines	b:0	x😀y😀z	L:1	x😀y😀z
+splitlines	b:0	ß	L:1	ß
+splitlines	b:0	İ	L:1	İ
+splitlines	b:0	ǅ	L:1	ǅ
+splitlines	b:0	ﬃ	L:1	ﬃ
+splitlines	b:0	ʼn	L:1	ʼn
+splitlines	b:0	٣	L:1	٣
+splitlines	b:0	²	L:1	²
+splitlines	b:0	Ⅻ	L:1	Ⅻ
+splitlines	b:0	三	L:1	三
+splitlines	b:0	 	L:1	 
+splitlines	b:0	 	L:1	
+splitlines	b:0	ᾈ	L:1	ᾈ
+splitlines	b:0	á	L:1	á
+splitlines	b:1		L:0
+splitlines	b:1	a	L:1	a
+splitlines	b:1	abc	L:1	abc
+splitlines	b:1	hello world	L:1	hello world
+splitlines	b:1	Hello, World!	L:1	Hello, World!
+splitlines	b:1	  spaced  out  	L:1	  spaced  out  
+splitlines	b:1	\t\ttabs\tand\nnewlines\n	L:2	\t\ttabs\tand\n	newlines\n
+splitlines	b:1	abcabcabc	L:1	abcabcabc
+splitlines	b:1	aaa	L:1	aaa
+splitlines	b:1	xyz	L:1	xyz
+splitlines	b:1	1234567890	L:1	1234567890
+splitlines	b:1	Ab1	L:1	Ab1
+splitlines	b:1	'quoted' and "double"	L:1	'quoted' and "double"
+splitlines	b:1	back\\slash	L:1	back\\slash
+splitlines	b:1	0123456789	L:1	0123456789
+splitlines	b:1	MiXeD CaSe StRiNg	L:1	MiXeD CaSe StRiNg
+splitlines	b:1	a b	L:1	a b
+splitlines	b:1	café	L:1	café
+splitlines	b:1	ñ	L:1	ñ
+splitlines	b:1	µ	L:1	µ
+splitlines	b:1	ÿ	L:1	ÿ
+splitlines	b:1	ÀÉÎÕÜ	L:1	ÀÉÎÕÜ
+splitlines	b:1	abcÿdef	L:1	abcÿdef
+splitlines	b:1	ééé	L:1	ééé
+splitlines	b:1		L:1	
+splitlines	b:1	😀	L:1	😀
+splitlines	b:1	a𝐀c	L:1	a𝐀c
+splitlines	b:1	𐀀	L:1	𐀀
+splitlines	b:1	􏿿	L:1	􏿿
+splitlines	b:1	x😀y😀z	L:1	x😀y😀z
+splitlines	b:1	ß	L:1	ß
+splitlines	b:1	İ	L:1	İ
+splitlines	b:1	ǅ	L:1	ǅ
+splitlines	b:1	ﬃ	L:1	ﬃ
+splitlines	b:1	ʼn	L:1	ʼn
+splitlines	b:1	٣	L:1	٣
+splitlines	b:1	²	L:1	²
+splitlines	b:1	Ⅻ	L:1	Ⅻ
+splitlines	b:1	三	L:1	三
+splitlines	b:1	 	L:1	 
+splitlines	b:1	 	L:1	 
+splitlines	b:1	ᾈ	L:1	ᾈ
+splitlines	b:1	á	L:1	á
+partition	b		L:3			
+partition	b	a	L:3	a		
+partition	b	abc	L:3	a	b	c
+partition	b	hello world	L:3	hello world		
+partition	b	Hello, World!	L:3	Hello, World!		
+partition	b	  spaced  out  	L:3	  spaced  out  		
+partition	b	\t\ttabs\tand\nnewlines\n	L:3	\t\tta	b	s\tand\nnewlines\n
+partition	b	abcabcabc	L:3	a	b	cabcabc
+partition	b	aaa	L:3	aaa		
+partition	b	xyz	L:3	xyz		
+partition	b	1234567890	L:3	1234567890		
+partition	b	Ab1	L:3	A	b	1
+partition	b	'quoted' and "double"	L:3	'quoted' and "dou	b	le"
+partition	b	back\\slash	L:3		b	ack\\slash
+partition	b	0123456789	L:3	0123456789		
+partition	b	MiXeD CaSe StRiNg	L:3	MiXeD CaSe StRiNg		
+partition	b	a b	L:3	a 	b	
+partition	b	café	L:3	café		
+partition	b	ñ	L:3	ñ		
+partition	b	µ	L:3	µ		
+partition	b	ÿ	L:3	ÿ		
+partition	b	ÀÉÎÕÜ	L:3	ÀÉÎÕÜ		
+partition	b	abcÿdef	L:3	a	b	cÿdef
+partition	b	ééé	L:3	ééé		
+partition	b		L:3			
+partition	b	😀	L:3	😀		
+partition	b	a𝐀c	L:3	a𝐀c		
+partition	b	𐀀	L:3	𐀀		
+partition	b	􏿿	L:3	􏿿		
+partition	b	x😀y😀z	L:3	x😀y😀z		
+partition	b	ß	L:3	ß		
+partition	b	İ	L:3	İ		
+partition	b	ǅ	L:3	ǅ		
+partition	b	ﬃ	L:3	ﬃ		
+partition	b	ʼn	L:3	ʼn		
+partition	b	٣	L:3	٣		
+partition	b	²	L:3	²		
+partition	b	Ⅻ	L:3	Ⅻ		
+partition	b	三	L:3	三		
+partition	b	 	L:3	 		
+partition	b	 	L:3	 		
+partition	b	ᾈ	L:3	ᾈ		
+partition	b	á	L:3	á		
+partition	zz		L:3			
+partition	zz	a	L:3	a		
+partition	zz	abc	L:3	abc		
+partition	zz	hello world	L:3	hello world		
+partition	zz	Hello, World!	L:3	Hello, World!		
+partition	zz	  spaced  out  	L:3	  spaced  out  		
+partition	zz	\t\ttabs\tand\nnewlines\n	L:3	\t\ttabs\tand\nnewlines\n		
+partition	zz	abcabcabc	L:3	abcabcabc		
+partition	zz	aaa	L:3	aaa		
+partition	zz	xyz	L:3	xyz		
+partition	zz	1234567890	L:3	1234567890		
+partition	zz	Ab1	L:3	Ab1		
+partition	zz	'quoted' and "double"	L:3	'quoted' and "double"		
+partition	zz	back\\slash	L:3	back\\slash		
+partition	zz	0123456789	L:3	0123456789		
+partition	zz	MiXeD CaSe StRiNg	L:3	MiXeD CaSe StRiNg		
+partition	zz	a b	L:3	a b		
+partition	zz	café	L:3	café		
+partition	zz	ñ	L:3	ñ		
+partition	zz	µ	L:3	µ		
+partition	zz	ÿ	L:3	ÿ		
+partition	zz	ÀÉÎÕÜ	L:3	ÀÉÎÕÜ		
+partition	zz	abcÿdef	L:3	abcÿdef		
+partition	zz	ééé	L:3	ééé		
+partition	zz		L:3			
+partition	zz	😀	L:3	😀		
+partition	zz	a𝐀c	L:3	a𝐀c		
+partition	zz	𐀀	L:3	𐀀		
+partition	zz	􏿿	L:3	􏿿		
+partition	zz	x😀y😀z	L:3	x😀y😀z		
+partition	zz	ß	L:3	ß		
+partition	zz	İ	L:3	İ		
+partition	zz	ǅ	L:3	ǅ		
+partition	zz	ﬃ	L:3	ﬃ		
+partition	zz	ʼn	L:3	ʼn		
+partition	zz	٣	L:3	٣		
+partition	zz	²	L:3	²		
+partition	zz	Ⅻ	L:3	Ⅻ		
+partition	zz	三	L:3	三		
+partition	zz	 	L:3	 		
+partition	zz	 	L:3	 		
+partition	zz	ᾈ	L:3	ᾈ		
+partition	zz	á	L:3	á		
+rpartition	b		L:3			
+rpartition	b	a	L:3			a
+rpartition	b	abc	L:3	a	b	c
+rpartition	b	hello world	L:3			hello world
+rpartition	b	Hello, World!	L:3			Hello, World!
+rpartition	b	  spaced  out  	L:3			  spaced  out  
+rpartition	b	\t\ttabs\tand\nnewlines\n	L:3	\t\tta	b	s\tand\nnewlines\n
+rpartition	b	abcabcabc	L:3	abcabca	b	c
+rpartition	b	aaa	L:3			aaa
+rpartition	b	xyz	L:3			xyz
+rpartition	b	1234567890	L:3			1234567890
+rpartition	b	Ab1	L:3	A	b	1
+rpartition	b	'quoted' and "double"	L:3	'quoted' and "dou	b	le"
+rpartition	b	back\\slash	L:3		b	ack\\slash
+rpartition	b	0123456789	L:3			0123456789
+rpartition	b	MiXeD CaSe StRiNg	L:3			MiXeD CaSe StRiNg
+rpartition	b	a b	L:3	a 	b	
+rpartition	b	café	L:3			café
+rpartition	b	ñ	L:3			ñ
+rpartition	b	µ	L:3			µ
+rpartition	b	ÿ	L:3			ÿ
+rpartition	b	ÀÉÎÕÜ	L:3			ÀÉÎÕÜ
+rpartition	b	abcÿdef	L:3	a	b	cÿdef
+rpartition	b	ééé	L:3			ééé
+rpartition	b		L:3			
+rpartition	b	😀	L:3			😀
+rpartition	b	a𝐀c	L:3			a𝐀c
+rpartition	b	𐀀	L:3			𐀀
+rpartition	b	􏿿	L:3			􏿿
+rpartition	b	x😀y😀z	L:3			x😀y😀z
+rpartition	b	ß	L:3			ß
+rpartition	b	İ	L:3			İ
+rpartition	b	ǅ	L:3			ǅ
+rpartition	b	ﬃ	L:3			ﬃ
+rpartition	b	ʼn	L:3			ʼn
+rpartition	b	٣	L:3			٣
+rpartition	b	²	L:3			²
+rpartition	b	Ⅻ	L:3			Ⅻ
+rpartition	b	三	L:3			三
+rpartition	b	 	L:3			 
+rpartition	b	 	L:3			 
+rpartition	b	ᾈ	L:3			ᾈ
+rpartition	b	á	L:3			á
+rpartition	zz		L:3			
+rpartition	zz	a	L:3			a
+rpartition	zz	abc	L:3			abc
+rpartition	zz	hello world	L:3			hello world
+rpartition	zz	Hello, World!	L:3			Hello, World!
+rpartition	zz	  spaced  out  	L:3			  spaced  out  
+rpartition	zz	\t\ttabs\tand\nnewlines\n	L:3			\t\ttabs\tand\nnewlines\n
+rpartition	zz	abcabcabc	L:3			abcabcabc
+rpartition	zz	aaa	L:3			aaa
+rpartition	zz	xyz	L:3			xyz
+rpartition	zz	1234567890	L:3			1234567890
+rpartition	zz	Ab1	L:3			Ab1
+rpartition	zz	'quoted' and "double"	L:3			'quoted' and "double"
+rpartition	zz	back\\slash	L:3			back\\slash
+rpartition	zz	0123456789	L:3			0123456789
+rpartition	zz	MiXeD CaSe StRiNg	L:3			MiXeD CaSe StRiNg
+rpartition	zz	a b	L:3			a b
+rpartition	zz	café	L:3			café
+rpartition	zz	ñ	L:3			ñ
+rpartition	zz	µ	L:3			µ
+rpartition	zz	ÿ	L:3			ÿ
+rpartition	zz	ÀÉÎÕÜ	L:3			ÀÉÎÕÜ
+rpartition	zz	abcÿdef	L:3			abcÿdef
+rpartition	zz	ééé	L:3			ééé
+rpartition	zz		L:3			
+rpartition	zz	😀	L:3			😀
+rpartition	zz	a𝐀c	L:3			a𝐀c
+rpartition	zz	𐀀	L:3			𐀀
+rpartition	zz	􏿿	L:3			􏿿
+rpartition	zz	x😀y😀z	L:3			x😀y😀z
+rpartition	zz	ß	L:3			ß
+rpartition	zz	İ	L:3			İ
+rpartition	zz	ǅ	L:3			ǅ
+rpartition	zz	ﬃ	L:3			ﬃ
+rpartition	zz	ʼn	L:3			ʼn
+rpartition	zz	٣	L:3			٣
+rpartition	zz	²	L:3			²
+rpartition	zz	Ⅻ	L:3			Ⅻ
+rpartition	zz	三	L:3			三
+rpartition	zz	 	L:3			 
+rpartition	zz	 	L:3			 
+rpartition	zz	ᾈ	L:3			ᾈ
+rpartition	zz	á	L:3			á
+join_pair		s:
+join_pair	a	s:aaa
+join_pair	abc	s:abcabcabc
+join_pair	hello world	s:hello worldhello worldhello world
+join_pair	Hello, World!	s:Hello, World!Hello, World!Hello, World!
+join_pair	  spaced  out  	s:  spaced  out    spaced  out    spaced  out  
+join_pair	\t\ttabs\tand\nnewlines\n	s:\t\ttabs\tand\nnewlines\n\t\ttabs\tand\nnewlines\n\t\ttabs\tand\nnewlines\n
+join_pair	abcabcabc	s:abcabcabcabcabcabcabcabcabc
+join_pair	aaa	s:aaaaaaaaa
+join_pair	xyz	s:xyzxyzxyz
+join_pair	1234567890	s:123456789012345678901234567890
+join_pair	Ab1	s:Ab1Ab1Ab1
+join_pair	'quoted' and "double"	s:'quoted' and "double"'quoted' and "double"'quoted' and "double"
+join_pair	back\\slash	s:back\\slashback\\slashback\\slash
+join_pair	0123456789	s:012345678901234567890123456789
+join_pair	MiXeD CaSe StRiNg	s:MiXeD CaSe StRiNgMiXeD CaSe StRiNgMiXeD CaSe StRiNg
+join_pair	a b	s:a ba ba b
+join_pair	café	s:cafécafécafé
+join_pair	ñ	s:ñññ
+join_pair	µ	s:µµµ
+join_pair	ÿ	s:ÿÿÿ
+join_pair	ÀÉÎÕÜ	s:ÀÉÎÕÜÀÉÎÕÜÀÉÎÕÜ
+join_pair	abcÿdef	s:abcÿdefabcÿdefabcÿdef
+join_pair	ééé	s:ééééééééé
+join_pair		s:
+join_pair	😀	s:😀😀😀
+join_pair	a𝐀c	s:a𝐀ca𝐀ca𝐀c
+join_pair	𐀀	s:𐀀𐀀𐀀
+join_pair	􏿿	s:􏿿􏿿􏿿
+join_pair	x😀y😀z	s:x😀y😀zx😀y😀zx😀y😀z
+join_pair	ß	s:ßßß
+join_pair	İ	s:İİİ
+join_pair	ǅ	s:ǅǅǅ
+join_pair	ﬃ	s:ﬃﬃﬃ
+join_pair	ʼn	s:ʼnʼnʼn
+join_pair	٣	s:٣٣٣
+join_pair	²	s:²²²
+join_pair	Ⅻ	s:ⅫⅫⅫ
+join_pair	三	s:三三三
+join_pair	 	s:   
+join_pair	 	s:   
+join_pair	ᾈ	s:ᾈᾈᾈ
+join_pair	á	s:ááá

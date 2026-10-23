@@ -1,0 +1,20 @@
+# value spec result
+text		s:text
+text	s	s:text
+text	>10	s:      text
+text	<10	s:text      
+text	^10	s:   text   
+text	*^12	s:****text****
+text	.2	s:te
+text	10.3	s:tex       
+text	=10	e:ValueError:'=' alignment not allowed in string format specifier
+text	+10	e:ValueError:Sign not allowed in string format specifier
+text	x	e:ValueError:Unknown format code 'x' for object of type 'str'
+text	,	e:ValueError:Cannot specify ',' with 's'.
+	^7	s:       
+abc	0>5	s:00abc
+abc	0<5	s:abc00
+abc	05	s:abc00
+ab	c^6	s:ccabcc
+abc	.10	s:abc
+abcd	.2s	s:ab

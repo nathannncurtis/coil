@@ -1,0 +1,726 @@
+# value encoding errors result
+	ascii		B:
+	ascii	strict	B:
+	ascii	ignore	B:
+	ascii	replace	B:
+	ascii	backslashreplace	B:
+	latin1		B:
+	latin-1	strict	B:
+	latin-1	replace	B:
+	latin-1	ignore	B:
+	utf8		B:
+	utf-8	strict	B:
+	utf-8	surrogateescape	B:
+	utf-16		B:\xff\xfe
+	utf-16le		B:
+	utf-16be		B:
+	utf-32		B:\xff\xfe\x00\x00
+	utf_32_le		B:
+	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+	unicode_escape		B:
+	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+	charmap		B:
+	l1		B:
+	utf-16-le		B:
+	utf16le		e:LookupError:unknown encoding: utf16le
+	raw-unicode-escape		B:
+a	ascii		B:a
+a	ascii	strict	B:a
+a	ascii	ignore	B:a
+a	ascii	replace	B:a
+a	ascii	backslashreplace	B:a
+a	latin1		B:a
+a	latin-1	strict	B:a
+a	latin-1	replace	B:a
+a	latin-1	ignore	B:a
+a	utf8		B:a
+a	utf-8	strict	B:a
+a	utf-8	surrogateescape	B:a
+a	utf-16		B:\xff\xfea\x00
+a	utf-16le		B:a\x00
+a	utf-16be		B:\x00a
+a	utf-32		B:\xff\xfe\x00\x00a\x00\x00\x00
+a	utf_32_le		B:a\x00\x00\x00
+a	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+a	unicode_escape		B:a
+a	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+a	charmap		B:a
+a	l1		B:a
+a	utf-16-le		B:a\x00
+a	utf16le		e:LookupError:unknown encoding: utf16le
+a	raw-unicode-escape		B:a
+abc	ascii		B:abc
+abc	ascii	strict	B:abc
+abc	ascii	ignore	B:abc
+abc	ascii	replace	B:abc
+abc	ascii	backslashreplace	B:abc
+abc	latin1		B:abc
+abc	latin-1	strict	B:abc
+abc	latin-1	replace	B:abc
+abc	latin-1	ignore	B:abc
+abc	utf8		B:abc
+abc	utf-8	strict	B:abc
+abc	utf-8	surrogateescape	B:abc
+abc	utf-16		B:\xff\xfea\x00b\x00c\x00
+abc	utf-16le		B:a\x00b\x00c\x00
+abc	utf-16be		B:\x00a\x00b\x00c
+abc	utf-32		B:\xff\xfe\x00\x00a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00
+abc	utf_32_le		B:a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00
+abc	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+abc	unicode_escape		B:abc
+abc	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+abc	charmap		B:abc
+abc	l1		B:abc
+abc	utf-16-le		B:a\x00b\x00c\x00
+abc	utf16le		e:LookupError:unknown encoding: utf16le
+abc	raw-unicode-escape		B:abc
+hello world	ascii		B:hello world
+hello world	ascii	strict	B:hello world
+hello world	ascii	ignore	B:hello world
+hello world	ascii	replace	B:hello world
+hello world	ascii	backslashreplace	B:hello world
+hello world	latin1		B:hello world
+hello world	latin-1	strict	B:hello world
+hello world	latin-1	replace	B:hello world
+hello world	latin-1	ignore	B:hello world
+hello world	utf8		B:hello world
+hello world	utf-8	strict	B:hello world
+hello world	utf-8	surrogateescape	B:hello world
+hello world	utf-16		B:\xff\xfeh\x00e\x00l\x00l\x00o\x00 \x00w\x00o\x00r\x00l\x00d\x00
+hello world	utf-16le		B:h\x00e\x00l\x00l\x00o\x00 \x00w\x00o\x00r\x00l\x00d\x00
+hello world	utf-16be		B:\x00h\x00e\x00l\x00l\x00o\x00 \x00w\x00o\x00r\x00l\x00d
+hello world	utf-32		B:\xff\xfe\x00\x00h\x00\x00\x00e\x00\x00\x00l\x00\x00\x00l\x00\x00\x00o\x00\x00\x00 \x00\x00\x00w\x00\x00\x00o\x00\x00\x00r\x00\x00\x00l\x00\x00\x00d\x00\x00\x00
+hello world	utf_32_le		B:h\x00\x00\x00e\x00\x00\x00l\x00\x00\x00l\x00\x00\x00o\x00\x00\x00 \x00\x00\x00w\x00\x00\x00o\x00\x00\x00r\x00\x00\x00l\x00\x00\x00d\x00\x00\x00
+hello world	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+hello world	unicode_escape		B:hello world
+hello world	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+hello world	charmap		B:hello world
+hello world	l1		B:hello world
+hello world	utf-16-le		B:h\x00e\x00l\x00l\x00o\x00 \x00w\x00o\x00r\x00l\x00d\x00
+hello world	utf16le		e:LookupError:unknown encoding: utf16le
+hello world	raw-unicode-escape		B:hello world
+Hello, World!	ascii		B:Hello, World!
+Hello, World!	ascii	strict	B:Hello, World!
+Hello, World!	ascii	ignore	B:Hello, World!
+Hello, World!	ascii	replace	B:Hello, World!
+Hello, World!	ascii	backslashreplace	B:Hello, World!
+Hello, World!	latin1		B:Hello, World!
+Hello, World!	latin-1	strict	B:Hello, World!
+Hello, World!	latin-1	replace	B:Hello, World!
+Hello, World!	latin-1	ignore	B:Hello, World!
+Hello, World!	utf8		B:Hello, World!
+Hello, World!	utf-8	strict	B:Hello, World!
+Hello, World!	utf-8	surrogateescape	B:Hello, World!
+Hello, World!	utf-16		B:\xff\xfeH\x00e\x00l\x00l\x00o\x00,\x00 \x00W\x00o\x00r\x00l\x00d\x00!\x00
+Hello, World!	utf-16le		B:H\x00e\x00l\x00l\x00o\x00,\x00 \x00W\x00o\x00r\x00l\x00d\x00!\x00
+Hello, World!	utf-16be		B:\x00H\x00e\x00l\x00l\x00o\x00,\x00 \x00W\x00o\x00r\x00l\x00d\x00!
+Hello, World!	utf-32		B:\xff\xfe\x00\x00H\x00\x00\x00e\x00\x00\x00l\x00\x00\x00l\x00\x00\x00o\x00\x00\x00,\x00\x00\x00 \x00\x00\x00W\x00\x00\x00o\x00\x00\x00r\x00\x00\x00l\x00\x00\x00d\x00\x00\x00!\x00\x00\x00
+Hello, World!	utf_32_le		B:H\x00\x00\x00e\x00\x00\x00l\x00\x00\x00l\x00\x00\x00o\x00\x00\x00,\x00\x00\x00 \x00\x00\x00W\x00\x00\x00o\x00\x00\x00r\x00\x00\x00l\x00\x00\x00d\x00\x00\x00!\x00\x00\x00
+Hello, World!	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+Hello, World!	unicode_escape		B:Hello, World!
+Hello, World!	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+Hello, World!	charmap		B:Hello, World!
+Hello, World!	l1		B:Hello, World!
+Hello, World!	utf-16-le		B:H\x00e\x00l\x00l\x00o\x00,\x00 \x00W\x00o\x00r\x00l\x00d\x00!\x00
+Hello, World!	utf16le		e:LookupError:unknown encoding: utf16le
+Hello, World!	raw-unicode-escape		B:Hello, World!
+  spaced  out  	ascii		B:  spaced  out  
+  spaced  out  	ascii	strict	B:  spaced  out  
+  spaced  out  	ascii	ignore	B:  spaced  out  
+  spaced  out  	ascii	replace	B:  spaced  out  
+  spaced  out  	ascii	backslashreplace	B:  spaced  out  
+  spaced  out  	latin1		B:  spaced  out  
+  spaced  out  	latin-1	strict	B:  spaced  out  
+  spaced  out  	latin-1	replace	B:  spaced  out  
+  spaced  out  	latin-1	ignore	B:  spaced  out  
+  spaced  out  	utf8		B:  spaced  out  
+  spaced  out  	utf-8	strict	B:  spaced  out  
+  spaced  out  	utf-8	surrogateescape	B:  spaced  out  
+  spaced  out  	utf-16		B:\xff\xfe \x00 \x00s\x00p\x00a\x00c\x00e\x00d\x00 \x00 \x00o\x00u\x00t\x00 \x00 \x00
+  spaced  out  	utf-16le		B: \x00 \x00s\x00p\x00a\x00c\x00e\x00d\x00 \x00 \x00o\x00u\x00t\x00 \x00 \x00
+  spaced  out  	utf-16be		B:\x00 \x00 \x00s\x00p\x00a\x00c\x00e\x00d\x00 \x00 \x00o\x00u\x00t\x00 \x00 
+  spaced  out  	utf-32		B:\xff\xfe\x00\x00 \x00\x00\x00 \x00\x00\x00s\x00\x00\x00p\x00\x00\x00a\x00\x00\x00c\x00\x00\x00e\x00\x00\x00d\x00\x00\x00 \x00\x00\x00 \x00\x00\x00o\x00\x00\x00u\x00\x00\x00t\x00\x00\x00 \x00\x00\x00 \x00\x00\x00
+  spaced  out  	utf_32_le		B: \x00\x00\x00 \x00\x00\x00s\x00\x00\x00p\x00\x00\x00a\x00\x00\x00c\x00\x00\x00e\x00\x00\x00d\x00\x00\x00 \x00\x00\x00 \x00\x00\x00o\x00\x00\x00u\x00\x00\x00t\x00\x00\x00 \x00\x00\x00 \x00\x00\x00
+  spaced  out  	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+  spaced  out  	unicode_escape		B:  spaced  out  
+  spaced  out  	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+  spaced  out  	charmap		B:  spaced  out  
+  spaced  out  	l1		B:  spaced  out  
+  spaced  out  	utf-16-le		B: \x00 \x00s\x00p\x00a\x00c\x00e\x00d\x00 \x00 \x00o\x00u\x00t\x00 \x00 \x00
+  spaced  out  	utf16le		e:LookupError:unknown encoding: utf16le
+  spaced  out  	raw-unicode-escape		B:  spaced  out  
+\t\ttabs\tand\nnewlines\n	ascii		B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	ascii	strict	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	ascii	ignore	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	ascii	replace	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	ascii	backslashreplace	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	latin1		B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	latin-1	strict	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	latin-1	replace	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	latin-1	ignore	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	utf8		B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	utf-8	strict	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	utf-8	surrogateescape	B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	utf-16		B:\xff\xfe\t\x00\t\x00t\x00a\x00b\x00s\x00\t\x00a\x00n\x00d\x00\n\x00n\x00e\x00w\x00l\x00i\x00n\x00e\x00s\x00\n\x00
+\t\ttabs\tand\nnewlines\n	utf-16le		B:\t\x00\t\x00t\x00a\x00b\x00s\x00\t\x00a\x00n\x00d\x00\n\x00n\x00e\x00w\x00l\x00i\x00n\x00e\x00s\x00\n\x00
+\t\ttabs\tand\nnewlines\n	utf-16be		B:\x00\t\x00\t\x00t\x00a\x00b\x00s\x00\t\x00a\x00n\x00d\x00\n\x00n\x00e\x00w\x00l\x00i\x00n\x00e\x00s\x00\n
+\t\ttabs\tand\nnewlines\n	utf-32		B:\xff\xfe\x00\x00\t\x00\x00\x00\t\x00\x00\x00t\x00\x00\x00a\x00\x00\x00b\x00\x00\x00s\x00\x00\x00\t\x00\x00\x00a\x00\x00\x00n\x00\x00\x00d\x00\x00\x00\n\x00\x00\x00n\x00\x00\x00e\x00\x00\x00w\x00\x00\x00l\x00\x00\x00i\x00\x00\x00n\x00\x00\x00e\x00\x00\x00s\x00\x00\x00\n\x00\x00\x00
+\t\ttabs\tand\nnewlines\n	utf_32_le		B:\t\x00\x00\x00\t\x00\x00\x00t\x00\x00\x00a\x00\x00\x00b\x00\x00\x00s\x00\x00\x00\t\x00\x00\x00a\x00\x00\x00n\x00\x00\x00d\x00\x00\x00\n\x00\x00\x00n\x00\x00\x00e\x00\x00\x00w\x00\x00\x00l\x00\x00\x00i\x00\x00\x00n\x00\x00\x00e\x00\x00\x00s\x00\x00\x00\n\x00\x00\x00
+\t\ttabs\tand\nnewlines\n	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+\t\ttabs\tand\nnewlines\n	unicode_escape		B:\\t\\ttabs\\tand\\nnewlines\\n
+\t\ttabs\tand\nnewlines\n	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+\t\ttabs\tand\nnewlines\n	charmap		B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	l1		B:\t\ttabs\tand\nnewlines\n
+\t\ttabs\tand\nnewlines\n	utf-16-le		B:\t\x00\t\x00t\x00a\x00b\x00s\x00\t\x00a\x00n\x00d\x00\n\x00n\x00e\x00w\x00l\x00i\x00n\x00e\x00s\x00\n\x00
+\t\ttabs\tand\nnewlines\n	utf16le		e:LookupError:unknown encoding: utf16le
+\t\ttabs\tand\nnewlines\n	raw-unicode-escape		B:\t\ttabs\tand\nnewlines\n
+abcabcabc	ascii		B:abcabcabc
+abcabcabc	ascii	strict	B:abcabcabc
+abcabcabc	ascii	ignore	B:abcabcabc
+abcabcabc	ascii	replace	B:abcabcabc
+abcabcabc	ascii	backslashreplace	B:abcabcabc
+abcabcabc	latin1		B:abcabcabc
+abcabcabc	latin-1	strict	B:abcabcabc
+abcabcabc	latin-1	replace	B:abcabcabc
+abcabcabc	latin-1	ignore	B:abcabcabc
+abcabcabc	utf8		B:abcabcabc
+abcabcabc	utf-8	strict	B:abcabcabc
+abcabcabc	utf-8	surrogateescape	B:abcabcabc
+abcabcabc	utf-16		B:\xff\xfea\x00b\x00c\x00a\x00b\x00c\x00a\x00b\x00c\x00
+abcabcabc	utf-16le		B:a\x00b\x00c\x00a\x00b\x00c\x00a\x00b\x00c\x00
+abcabcabc	utf-16be		B:\x00a\x00b\x00c\x00a\x00b\x00c\x00a\x00b\x00c
+abcabcabc	utf-32		B:\xff\xfe\x00\x00a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00
+abcabcabc	utf_32_le		B:a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00
+abcabcabc	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+abcabcabc	unicode_escape		B:abcabcabc
+abcabcabc	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+abcabcabc	charmap		B:abcabcabc
+abcabcabc	l1		B:abcabcabc
+abcabcabc	utf-16-le		B:a\x00b\x00c\x00a\x00b\x00c\x00a\x00b\x00c\x00
+abcabcabc	utf16le		e:LookupError:unknown encoding: utf16le
+abcabcabc	raw-unicode-escape		B:abcabcabc
+aaa	ascii		B:aaa
+aaa	ascii	strict	B:aaa
+aaa	ascii	ignore	B:aaa
+aaa	ascii	replace	B:aaa
+aaa	ascii	backslashreplace	B:aaa
+aaa	latin1		B:aaa
+aaa	latin-1	strict	B:aaa
+aaa	latin-1	replace	B:aaa
+aaa	latin-1	ignore	B:aaa
+aaa	utf8		B:aaa
+aaa	utf-8	strict	B:aaa
+aaa	utf-8	surrogateescape	B:aaa
+aaa	utf-16		B:\xff\xfea\x00a\x00a\x00
+aaa	utf-16le		B:a\x00a\x00a\x00
+aaa	utf-16be		B:\x00a\x00a\x00a
+aaa	utf-32		B:\xff\xfe\x00\x00a\x00\x00\x00a\x00\x00\x00a\x00\x00\x00
+aaa	utf_32_le		B:a\x00\x00\x00a\x00\x00\x00a\x00\x00\x00
+aaa	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+aaa	unicode_escape		B:aaa
+aaa	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+aaa	charmap		B:aaa
+aaa	l1		B:aaa
+aaa	utf-16-le		B:a\x00a\x00a\x00
+aaa	utf16le		e:LookupError:unknown encoding: utf16le
+aaa	raw-unicode-escape		B:aaa
+xyz	ascii		B:xyz
+xyz	ascii	strict	B:xyz
+xyz	ascii	ignore	B:xyz
+xyz	ascii	replace	B:xyz
+xyz	ascii	backslashreplace	B:xyz
+xyz	latin1		B:xyz
+xyz	latin-1	strict	B:xyz
+xyz	latin-1	replace	B:xyz
+xyz	latin-1	ignore	B:xyz
+xyz	utf8		B:xyz
+xyz	utf-8	strict	B:xyz
+xyz	utf-8	surrogateescape	B:xyz
+xyz	utf-16		B:\xff\xfex\x00y\x00z\x00
+xyz	utf-16le		B:x\x00y\x00z\x00
+xyz	utf-16be		B:\x00x\x00y\x00z
+xyz	utf-32		B:\xff\xfe\x00\x00x\x00\x00\x00y\x00\x00\x00z\x00\x00\x00
+xyz	utf_32_le		B:x\x00\x00\x00y\x00\x00\x00z\x00\x00\x00
+xyz	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+xyz	unicode_escape		B:xyz
+xyz	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+xyz	charmap		B:xyz
+xyz	l1		B:xyz
+xyz	utf-16-le		B:x\x00y\x00z\x00
+xyz	utf16le		e:LookupError:unknown encoding: utf16le
+xyz	raw-unicode-escape		B:xyz
+1234567890	ascii		B:1234567890
+1234567890	ascii	strict	B:1234567890
+1234567890	ascii	ignore	B:1234567890
+1234567890	ascii	replace	B:1234567890
+1234567890	ascii	backslashreplace	B:1234567890
+1234567890	latin1		B:1234567890
+1234567890	latin-1	strict	B:1234567890
+1234567890	latin-1	replace	B:1234567890
+1234567890	latin-1	ignore	B:1234567890
+1234567890	utf8		B:1234567890
+1234567890	utf-8	strict	B:1234567890
+1234567890	utf-8	surrogateescape	B:1234567890
+1234567890	utf-16		B:\xff\xfe1\x002\x003\x004\x005\x006\x007\x008\x009\x000\x00
+1234567890	utf-16le		B:1\x002\x003\x004\x005\x006\x007\x008\x009\x000\x00
+1234567890	utf-16be		B:\x001\x002\x003\x004\x005\x006\x007\x008\x009\x000
+1234567890	utf-32		B:\xff\xfe\x00\x001\x00\x00\x002\x00\x00\x003\x00\x00\x004\x00\x00\x005\x00\x00\x006\x00\x00\x007\x00\x00\x008\x00\x00\x009\x00\x00\x000\x00\x00\x00
+1234567890	utf_32_le		B:1\x00\x00\x002\x00\x00\x003\x00\x00\x004\x00\x00\x005\x00\x00\x006\x00\x00\x007\x00\x00\x008\x00\x00\x009\x00\x00\x000\x00\x00\x00
+1234567890	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+1234567890	unicode_escape		B:1234567890
+1234567890	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+1234567890	charmap		B:1234567890
+1234567890	l1		B:1234567890
+1234567890	utf-16-le		B:1\x002\x003\x004\x005\x006\x007\x008\x009\x000\x00
+1234567890	utf16le		e:LookupError:unknown encoding: utf16le
+1234567890	raw-unicode-escape		B:1234567890
+Ab1	ascii		B:Ab1
+Ab1	ascii	strict	B:Ab1
+Ab1	ascii	ignore	B:Ab1
+Ab1	ascii	replace	B:Ab1
+Ab1	ascii	backslashreplace	B:Ab1
+Ab1	latin1		B:Ab1
+Ab1	latin-1	strict	B:Ab1
+Ab1	latin-1	replace	B:Ab1
+Ab1	latin-1	ignore	B:Ab1
+Ab1	utf8		B:Ab1
+Ab1	utf-8	strict	B:Ab1
+Ab1	utf-8	surrogateescape	B:Ab1
+Ab1	utf-16		B:\xff\xfeA\x00b\x001\x00
+Ab1	utf-16le		B:A\x00b\x001\x00
+Ab1	utf-16be		B:\x00A\x00b\x001
+Ab1	utf-32		B:\xff\xfe\x00\x00A\x00\x00\x00b\x00\x00\x001\x00\x00\x00
+Ab1	utf_32_le		B:A\x00\x00\x00b\x00\x00\x001\x00\x00\x00
+Ab1	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+Ab1	unicode_escape		B:Ab1
+Ab1	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+Ab1	charmap		B:Ab1
+Ab1	l1		B:Ab1
+Ab1	utf-16-le		B:A\x00b\x001\x00
+Ab1	utf16le		e:LookupError:unknown encoding: utf16le
+Ab1	raw-unicode-escape		B:Ab1
+'quoted' and "double"	ascii		B:'quoted' and "double"
+'quoted' and "double"	ascii	strict	B:'quoted' and "double"
+'quoted' and "double"	ascii	ignore	B:'quoted' and "double"
+'quoted' and "double"	ascii	replace	B:'quoted' and "double"
+'quoted' and "double"	ascii	backslashreplace	B:'quoted' and "double"
+'quoted' and "double"	latin1		B:'quoted' and "double"
+'quoted' and "double"	latin-1	strict	B:'quoted' and "double"
+'quoted' and "double"	latin-1	replace	B:'quoted' and "double"
+'quoted' and "double"	latin-1	ignore	B:'quoted' and "double"
+'quoted' and "double"	utf8		B:'quoted' and "double"
+'quoted' and "double"	utf-8	strict	B:'quoted' and "double"
+'quoted' and "double"	utf-8	surrogateescape	B:'quoted' and "double"
+'quoted' and "double"	utf-16		B:\xff\xfe'\x00q\x00u\x00o\x00t\x00e\x00d\x00'\x00 \x00a\x00n\x00d\x00 \x00"\x00d\x00o\x00u\x00b\x00l\x00e\x00"\x00
+'quoted' and "double"	utf-16le		B:'\x00q\x00u\x00o\x00t\x00e\x00d\x00'\x00 \x00a\x00n\x00d\x00 \x00"\x00d\x00o\x00u\x00b\x00l\x00e\x00"\x00
+'quoted' and "double"	utf-16be		B:\x00'\x00q\x00u\x00o\x00t\x00e\x00d\x00'\x00 \x00a\x00n\x00d\x00 \x00"\x00d\x00o\x00u\x00b\x00l\x00e\x00"
+'quoted' and "double"	utf-32		B:\xff\xfe\x00\x00'\x00\x00\x00q\x00\x00\x00u\x00\x00\x00o\x00\x00\x00t\x00\x00\x00e\x00\x00\x00d\x00\x00\x00'\x00\x00\x00 \x00\x00\x00a\x00\x00\x00n\x00\x00\x00d\x00\x00\x00 \x00\x00\x00"\x00\x00\x00d\x00\x00\x00o\x00\x00\x00u\x00\x00\x00b\x00\x00\x00l\x00\x00\x00e\x00\x00\x00"\x00\x00\x00
+'quoted' and "double"	utf_32_le		B:'\x00\x00\x00q\x00\x00\x00u\x00\x00\x00o\x00\x00\x00t\x00\x00\x00e\x00\x00\x00d\x00\x00\x00'\x00\x00\x00 \x00\x00\x00a\x00\x00\x00n\x00\x00\x00d\x00\x00\x00 \x00\x00\x00"\x00\x00\x00d\x00\x00\x00o\x00\x00\x00u\x00\x00\x00b\x00\x00\x00l\x00\x00\x00e\x00\x00\x00"\x00\x00\x00
+'quoted' and "double"	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+'quoted' and "double"	unicode_escape		B:'quoted' and "double"
+'quoted' and "double"	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+'quoted' and "double"	charmap		B:'quoted' and "double"
+'quoted' and "double"	l1		B:'quoted' and "double"
+'quoted' and "double"	utf-16-le		B:'\x00q\x00u\x00o\x00t\x00e\x00d\x00'\x00 \x00a\x00n\x00d\x00 \x00"\x00d\x00o\x00u\x00b\x00l\x00e\x00"\x00
+'quoted' and "double"	utf16le		e:LookupError:unknown encoding: utf16le
+'quoted' and "double"	raw-unicode-escape		B:'quoted' and "double"
+back\\slash	ascii		B:back\\slash
+back\\slash	ascii	strict	B:back\\slash
+back\\slash	ascii	ignore	B:back\\slash
+back\\slash	ascii	replace	B:back\\slash
+back\\slash	ascii	backslashreplace	B:back\\slash
+back\\slash	latin1		B:back\\slash
+back\\slash	latin-1	strict	B:back\\slash
+back\\slash	latin-1	replace	B:back\\slash
+back\\slash	latin-1	ignore	B:back\\slash
+back\\slash	utf8		B:back\\slash
+back\\slash	utf-8	strict	B:back\\slash
+back\\slash	utf-8	surrogateescape	B:back\\slash
+back\\slash	utf-16		B:\xff\xfeb\x00a\x00c\x00k\x00\\\x00s\x00l\x00a\x00s\x00h\x00
+back\\slash	utf-16le		B:b\x00a\x00c\x00k\x00\\\x00s\x00l\x00a\x00s\x00h\x00
+back\\slash	utf-16be		B:\x00b\x00a\x00c\x00k\x00\\\x00s\x00l\x00a\x00s\x00h
+back\\slash	utf-32		B:\xff\xfe\x00\x00b\x00\x00\x00a\x00\x00\x00c\x00\x00\x00k\x00\x00\x00\\\x00\x00\x00s\x00\x00\x00l\x00\x00\x00a\x00\x00\x00s\x00\x00\x00h\x00\x00\x00
+back\\slash	utf_32_le		B:b\x00\x00\x00a\x00\x00\x00c\x00\x00\x00k\x00\x00\x00\\\x00\x00\x00s\x00\x00\x00l\x00\x00\x00a\x00\x00\x00s\x00\x00\x00h\x00\x00\x00
+back\\slash	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+back\\slash	unicode_escape		B:back\\\\slash
+back\\slash	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+back\\slash	charmap		B:back\\slash
+back\\slash	l1		B:back\\slash
+back\\slash	utf-16-le		B:b\x00a\x00c\x00k\x00\\\x00s\x00l\x00a\x00s\x00h\x00
+back\\slash	utf16le		e:LookupError:unknown encoding: utf16le
+back\\slash	raw-unicode-escape		B:back\\slash
+0123456789	ascii		B:0123456789
+0123456789	ascii	strict	B:0123456789
+0123456789	ascii	ignore	B:0123456789
+0123456789	ascii	replace	B:0123456789
+0123456789	ascii	backslashreplace	B:0123456789
+0123456789	latin1		B:0123456789
+0123456789	latin-1	strict	B:0123456789
+0123456789	latin-1	replace	B:0123456789
+0123456789	latin-1	ignore	B:0123456789
+0123456789	utf8		B:0123456789
+0123456789	utf-8	strict	B:0123456789
+0123456789	utf-8	surrogateescape	B:0123456789
+0123456789	utf-16		B:\xff\xfe0\x001\x002\x003\x004\x005\x006\x007\x008\x009\x00
+0123456789	utf-16le		B:0\x001\x002\x003\x004\x005\x006\x007\x008\x009\x00
+0123456789	utf-16be		B:\x000\x001\x002\x003\x004\x005\x006\x007\x008\x009
+0123456789	utf-32		B:\xff\xfe\x00\x000\x00\x00\x001\x00\x00\x002\x00\x00\x003\x00\x00\x004\x00\x00\x005\x00\x00\x006\x00\x00\x007\x00\x00\x008\x00\x00\x009\x00\x00\x00
+0123456789	utf_32_le		B:0\x00\x00\x001\x00\x00\x002\x00\x00\x003\x00\x00\x004\x00\x00\x005\x00\x00\x006\x00\x00\x007\x00\x00\x008\x00\x00\x009\x00\x00\x00
+0123456789	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+0123456789	unicode_escape		B:0123456789
+0123456789	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+0123456789	charmap		B:0123456789
+0123456789	l1		B:0123456789
+0123456789	utf-16-le		B:0\x001\x002\x003\x004\x005\x006\x007\x008\x009\x00
+0123456789	utf16le		e:LookupError:unknown encoding: utf16le
+0123456789	raw-unicode-escape		B:0123456789
+MiXeD CaSe StRiNg	ascii		B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	ascii	strict	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	ascii	ignore	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	ascii	replace	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	ascii	backslashreplace	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	latin1		B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	latin-1	strict	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	latin-1	replace	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	latin-1	ignore	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	utf8		B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	utf-8	strict	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	utf-8	surrogateescape	B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	utf-16		B:\xff\xfeM\x00i\x00X\x00e\x00D\x00 \x00C\x00a\x00S\x00e\x00 \x00S\x00t\x00R\x00i\x00N\x00g\x00
+MiXeD CaSe StRiNg	utf-16le		B:M\x00i\x00X\x00e\x00D\x00 \x00C\x00a\x00S\x00e\x00 \x00S\x00t\x00R\x00i\x00N\x00g\x00
+MiXeD CaSe StRiNg	utf-16be		B:\x00M\x00i\x00X\x00e\x00D\x00 \x00C\x00a\x00S\x00e\x00 \x00S\x00t\x00R\x00i\x00N\x00g
+MiXeD CaSe StRiNg	utf-32		B:\xff\xfe\x00\x00M\x00\x00\x00i\x00\x00\x00X\x00\x00\x00e\x00\x00\x00D\x00\x00\x00 \x00\x00\x00C\x00\x00\x00a\x00\x00\x00S\x00\x00\x00e\x00\x00\x00 \x00\x00\x00S\x00\x00\x00t\x00\x00\x00R\x00\x00\x00i\x00\x00\x00N\x00\x00\x00g\x00\x00\x00
+MiXeD CaSe StRiNg	utf_32_le		B:M\x00\x00\x00i\x00\x00\x00X\x00\x00\x00e\x00\x00\x00D\x00\x00\x00 \x00\x00\x00C\x00\x00\x00a\x00\x00\x00S\x00\x00\x00e\x00\x00\x00 \x00\x00\x00S\x00\x00\x00t\x00\x00\x00R\x00\x00\x00i\x00\x00\x00N\x00\x00\x00g\x00\x00\x00
+MiXeD CaSe StRiNg	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+MiXeD CaSe StRiNg	unicode_escape		B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+MiXeD CaSe StRiNg	charmap		B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	l1		B:MiXeD CaSe StRiNg
+MiXeD CaSe StRiNg	utf-16-le		B:M\x00i\x00X\x00e\x00D\x00 \x00C\x00a\x00S\x00e\x00 \x00S\x00t\x00R\x00i\x00N\x00g\x00
+MiXeD CaSe StRiNg	utf16le		e:LookupError:unknown encoding: utf16le
+MiXeD CaSe StRiNg	raw-unicode-escape		B:MiXeD CaSe StRiNg
+a b	ascii		B:a b
+a b	ascii	strict	B:a b
+a b	ascii	ignore	B:a b
+a b	ascii	replace	B:a b
+a b	ascii	backslashreplace	B:a b
+a b	latin1		B:a b
+a b	latin-1	strict	B:a b
+a b	latin-1	replace	B:a b
+a b	latin-1	ignore	B:a b
+a b	utf8		B:a b
+a b	utf-8	strict	B:a b
+a b	utf-8	surrogateescape	B:a b
+a b	utf-16		B:\xff\xfea\x00 \x00b\x00
+a b	utf-16le		B:a\x00 \x00b\x00
+a b	utf-16be		B:\x00a\x00 \x00b
+a b	utf-32		B:\xff\xfe\x00\x00a\x00\x00\x00 \x00\x00\x00b\x00\x00\x00
+a b	utf_32_le		B:a\x00\x00\x00 \x00\x00\x00b\x00\x00\x00
+a b	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+a b	unicode_escape		B:a b
+a b	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+a b	charmap		B:a b
+a b	l1		B:a b
+a b	utf-16-le		B:a\x00 \x00b\x00
+a b	utf16le		e:LookupError:unknown encoding: utf16le
+a b	raw-unicode-escape		B:a b
+café	ascii		e:UnicodeEncodeError:'ascii' codec can't encode character '\\xe9' in position 3: ordinal not in range(128)
+café	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xe9' in position 3: ordinal not in range(128)
+café	ascii	ignore	B:caf
+café	ascii	replace	B:caf?
+café	ascii	backslashreplace	B:caf\\xe9
+café	latin1		B:caf\xe9
+café	latin-1	strict	B:caf\xe9
+café	latin-1	replace	B:caf\xe9
+café	latin-1	ignore	B:caf\xe9
+café	utf8		B:caf\xc3\xa9
+café	utf-8	strict	B:caf\xc3\xa9
+café	utf-8	surrogateescape	B:caf\xc3\xa9
+café	utf-16		B:\xff\xfec\x00a\x00f\x00\xe9\x00
+café	utf-16le		B:c\x00a\x00f\x00\xe9\x00
+café	utf-16be		B:\x00c\x00a\x00f\x00\xe9
+café	utf-32		B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00
+café	utf_32_le		B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00
+café	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+café	unicode_escape		B:caf\\xe9
+café	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+café	charmap		B:caf\xe9
+café	l1		B:caf\xe9
+café	utf-16-le		B:c\x00a\x00f\x00\xe9\x00
+café	utf16le		e:LookupError:unknown encoding: utf16le
+café	raw-unicode-escape		B:caf\xe9
+ñ	ascii		e:UnicodeEncodeError:'ascii' codec can't encode character '\\xf1' in position 0: ordinal not in range(128)
+ñ	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xf1' in position 0: ordinal not in range(128)
+ñ	ascii	ignore	B:
+ñ	ascii	replace	B:?
+ñ	ascii	backslashreplace	B:\\xf1
+ñ	latin1		B:\xf1
+ñ	latin-1	strict	B:\xf1
+ñ	latin-1	replace	B:\xf1
+ñ	latin-1	ignore	B:\xf1
+ñ	utf8		B:\xc3\xb1
+ñ	utf-8	strict	B:\xc3\xb1
+ñ	utf-8	surrogateescape	B:\xc3\xb1
+ñ	utf-16		B:\xff\xfe\xf1\x00
+ñ	utf-16le		B:\xf1\x00
+ñ	utf-16be		B:\x00\xf1
+ñ	utf-32		B:\xff\xfe\x00\x00\xf1\x00\x00\x00
+ñ	utf_32_le		B:\xf1\x00\x00\x00
+ñ	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+ñ	unicode_escape		B:\\xf1
+ñ	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+ñ	charmap		B:\xf1
+ñ	l1		B:\xf1
+ñ	utf-16-le		B:\xf1\x00
+ñ	utf16le		e:LookupError:unknown encoding: utf16le
+ñ	raw-unicode-escape		B:\xf1
+µ	ascii		e:UnicodeEncodeError:'ascii' codec can't encode character '\\xb5' in position 0: ordinal not in range(128)
+µ	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xb5' in position 0: ordinal not in range(128)
+µ	ascii	ignore	B:
+µ	ascii	replace	B:?
+µ	ascii	backslashreplace	B:\\xb5
+µ	latin1		B:\xb5
+µ	latin-1	strict	B:\xb5
+µ	latin-1	replace	B:\xb5
+µ	latin-1	ignore	B:\xb5
+µ	utf8		B:\xc2\xb5
+µ	utf-8	strict	B:\xc2\xb5
+µ	utf-8	surrogateescape	B:\xc2\xb5
+µ	utf-16		B:\xff\xfe\xb5\x00
+µ	utf-16le		B:\xb5\x00
+µ	utf-16be		B:\x00\xb5
+µ	utf-32		B:\xff\xfe\x00\x00\xb5\x00\x00\x00
+µ	utf_32_le		B:\xb5\x00\x00\x00
+µ	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+µ	unicode_escape		B:\\xb5
+µ	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+µ	charmap		B:\xb5
+µ	l1		B:\xb5
+µ	utf-16-le		B:\xb5\x00
+µ	utf16le		e:LookupError:unknown encoding: utf16le
+µ	raw-unicode-escape		B:\xb5
+ÿ	ascii		e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
+ÿ	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
+ÿ	ascii	ignore	B:
+ÿ	ascii	replace	B:?
+ÿ	ascii	backslashreplace	B:\\xff
+ÿ	latin1		B:\xff
+ÿ	latin-1	strict	B:\xff
+ÿ	latin-1	replace	B:\xff
+ÿ	latin-1	ignore	B:\xff
+ÿ	utf8		B:\xc3\xbf
+ÿ	utf-8	strict	B:\xc3\xbf
+ÿ	utf-8	surrogateescape	B:\xc3\xbf
+ÿ	utf-16		B:\xff\xfe\xff\x00
+ÿ	utf-16le		B:\xff\x00
+ÿ	utf-16be		B:\x00\xff
+ÿ	utf-32		B:\xff\xfe\x00\x00\xff\x00\x00\x00
+ÿ	utf_32_le		B:\xff\x00\x00\x00
+ÿ	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+ÿ	unicode_escape		B:\\xff
+ÿ	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+ÿ	charmap		B:\xff
+ÿ	l1		B:\xff
+ÿ	utf-16-le		B:\xff\x00
+ÿ	utf16le		e:LookupError:unknown encoding: utf16le
+ÿ	raw-unicode-escape		B:\xff
+ÀÉÎÕÜ	ascii		e:UnicodeEncodeError:'ascii' codec can't encode characters in position 0-4: ordinal not in range(128)
+ÀÉÎÕÜ	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode characters in position 0-4: ordinal not in range(128)
+ÀÉÎÕÜ	ascii	ignore	B:
+ÀÉÎÕÜ	ascii	replace	B:?????
+ÀÉÎÕÜ	ascii	backslashreplace	B:\\xc0\\xc9\\xce\\xd5\\xdc
+ÀÉÎÕÜ	latin1		B:\xc0\xc9\xce\xd5\xdc
+ÀÉÎÕÜ	latin-1	strict	B:\xc0\xc9\xce\xd5\xdc
+ÀÉÎÕÜ	latin-1	replace	B:\xc0\xc9\xce\xd5\xdc
+ÀÉÎÕÜ	latin-1	ignore	B:\xc0\xc9\xce\xd5\xdc
+ÀÉÎÕÜ	utf8		B:\xc3\x80\xc3\x89\xc3\x8e\xc3\x95\xc3\x9c
+ÀÉÎÕÜ	utf-8	strict	B:\xc3\x80\xc3\x89\xc3\x8e\xc3\x95\xc3\x9c
+ÀÉÎÕÜ	utf-8	surrogateescape	B:\xc3\x80\xc3\x89\xc3\x8e\xc3\x95\xc3\x9c
+ÀÉÎÕÜ	utf-16		B:\xff\xfe\xc0\x00\xc9\x00\xce\x00\xd5\x00\xdc\x00
+ÀÉÎÕÜ	utf-16le		B:\xc0\x00\xc9\x00\xce\x00\xd5\x00\xdc\x00
+ÀÉÎÕÜ	utf-16be		B:\x00\xc0\x00\xc9\x00\xce\x00\xd5\x00\xdc
+ÀÉÎÕÜ	utf-32		B:\xff\xfe\x00\x00\xc0\x00\x00\x00\xc9\x00\x00\x00\xce\x00\x00\x00\xd5\x00\x00\x00\xdc\x00\x00\x00
+ÀÉÎÕÜ	utf_32_le		B:\xc0\x00\x00\x00\xc9\x00\x00\x00\xce\x00\x00\x00\xd5\x00\x00\x00\xdc\x00\x00\x00
+ÀÉÎÕÜ	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+ÀÉÎÕÜ	unicode_escape		B:\\xc0\\xc9\\xce\\xd5\\xdc
+ÀÉÎÕÜ	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+ÀÉÎÕÜ	charmap		B:\xc0\xc9\xce\xd5\xdc
+ÀÉÎÕÜ	l1		B:\xc0\xc9\xce\xd5\xdc
+ÀÉÎÕÜ	utf-16-le		B:\xc0\x00\xc9\x00\xce\x00\xd5\x00\xdc\x00
+ÀÉÎÕÜ	utf16le		e:LookupError:unknown encoding: utf16le
+ÀÉÎÕÜ	raw-unicode-escape		B:\xc0\xc9\xce\xd5\xdc
+abcÿdef	ascii		e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 3: ordinal not in range(128)
+abcÿdef	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 3: ordinal not in range(128)
+abcÿdef	ascii	ignore	B:abcdef
+abcÿdef	ascii	replace	B:abc?def
+abcÿdef	ascii	backslashreplace	B:abc\\xffdef
+abcÿdef	latin1		B:abc\xffdef
+abcÿdef	latin-1	strict	B:abc\xffdef
+abcÿdef	latin-1	replace	B:abc\xffdef
+abcÿdef	latin-1	ignore	B:abc\xffdef
+abcÿdef	utf8		B:abc\xc3\xbfdef
+abcÿdef	utf-8	strict	B:abc\xc3\xbfdef
+abcÿdef	utf-8	surrogateescape	B:abc\xc3\xbfdef
+abcÿdef	utf-16		B:\xff\xfea\x00b\x00c\x00\xff\x00d\x00e\x00f\x00
+abcÿdef	utf-16le		B:a\x00b\x00c\x00\xff\x00d\x00e\x00f\x00
+abcÿdef	utf-16be		B:\x00a\x00b\x00c\x00\xff\x00d\x00e\x00f
+abcÿdef	utf-32		B:\xff\xfe\x00\x00a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00\xff\x00\x00\x00d\x00\x00\x00e\x00\x00\x00f\x00\x00\x00
+abcÿdef	utf_32_le		B:a\x00\x00\x00b\x00\x00\x00c\x00\x00\x00\xff\x00\x00\x00d\x00\x00\x00e\x00\x00\x00f\x00\x00\x00
+abcÿdef	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+abcÿdef	unicode_escape		B:abc\\xffdef
+abcÿdef	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+abcÿdef	charmap		B:abc\xffdef
+abcÿdef	l1		B:abc\xffdef
+abcÿdef	utf-16-le		B:a\x00b\x00c\x00\xff\x00d\x00e\x00f\x00
+abcÿdef	utf16le		e:LookupError:unknown encoding: utf16le
+abcÿdef	raw-unicode-escape		B:abc\xffdef
+ééé	ascii		e:UnicodeEncodeError:'ascii' codec can't encode characters in position 0-2: ordinal not in range(128)
+ééé	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode characters in position 0-2: ordinal not in range(128)
+ééé	ascii	ignore	B:
+ééé	ascii	replace	B:???
+ééé	ascii	backslashreplace	B:\\xe9\\xe9\\xe9
+ééé	latin1		B:\xe9\xe9\xe9
+ééé	latin-1	strict	B:\xe9\xe9\xe9
+ééé	latin-1	replace	B:\xe9\xe9\xe9
+ééé	latin-1	ignore	B:\xe9\xe9\xe9
+ééé	utf8		B:\xc3\xa9\xc3\xa9\xc3\xa9
+ééé	utf-8	strict	B:\xc3\xa9\xc3\xa9\xc3\xa9
+ééé	utf-8	surrogateescape	B:\xc3\xa9\xc3\xa9\xc3\xa9
+ééé	utf-16		B:\xff\xfe\xe9\x00\xe9\x00\xe9\x00
+ééé	utf-16le		B:\xe9\x00\xe9\x00\xe9\x00
+ééé	utf-16be		B:\x00\xe9\x00\xe9\x00\xe9
+ééé	utf-32		B:\xff\xfe\x00\x00\xe9\x00\x00\x00\xe9\x00\x00\x00\xe9\x00\x00\x00
+ééé	utf_32_le		B:\xe9\x00\x00\x00\xe9\x00\x00\x00\xe9\x00\x00\x00
+ééé	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+ééé	unicode_escape		B:\\xe9\\xe9\\xe9
+ééé	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+ééé	charmap		B:\xe9\xe9\xe9
+ééé	l1		B:\xe9\xe9\xe9
+ééé	utf-16-le		B:\xe9\x00\xe9\x00\xe9\x00
+ééé	utf16le		e:LookupError:unknown encoding: utf16le
+ééé	raw-unicode-escape		B:\xe9\xe9\xe9
+	ascii		e:UnicodeEncodeError:'ascii' codec can't encode characters in position 0-1: ordinal not in range(128)
+	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode characters in position 0-1: ordinal not in range(128)
+	ascii	ignore	B:
+	ascii	replace	B:??
+	ascii	backslashreplace	B:\\x80\\x9f
+	latin1		B:\x80\x9f
+	latin-1	strict	B:\x80\x9f
+	latin-1	replace	B:\x80\x9f
+	latin-1	ignore	B:\x80\x9f
+	utf8		B:\xc2\x80\xc2\x9f
+	utf-8	strict	B:\xc2\x80\xc2\x9f
+	utf-8	surrogateescape	B:\xc2\x80\xc2\x9f
+	utf-16		B:\xff\xfe\x80\x00\x9f\x00
+	utf-16le		B:\x80\x00\x9f\x00
+	utf-16be		B:\x00\x80\x00\x9f
+	utf-32		B:\xff\xfe\x00\x00\x80\x00\x00\x00\x9f\x00\x00\x00
+	utf_32_le		B:\x80\x00\x00\x00\x9f\x00\x00\x00
+	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+	unicode_escape		B:\\x80\\x9f
+	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+	charmap		B:\x80\x9f
+	l1		B:\x80\x9f
+	utf-16-le		B:\x80\x00\x9f\x00
+	utf16le		e:LookupError:unknown encoding: utf16le
+	raw-unicode-escape		B:\x80\x9f
+ 	ascii		B: 
+ 	ascii	strict	B: 
+ 	ascii	ignore	B: 
+ 	ascii	replace	B: 
+ 	ascii	backslashreplace	B: 
+ 	latin1		B: 
+ 	latin-1	strict	B: 
+ 	latin-1	replace	B: 
+ 	latin-1	ignore	B: 
+ 	utf8		B: 
+ 	utf-8	strict	B: 
+ 	utf-8	surrogateescape	B: 
+ 	utf-16		B:\xff\xfe \x00
+ 	utf-16le		B: \x00
+ 	utf-16be		B:\x00 
+ 	utf-32		B:\xff\xfe\x00\x00 \x00\x00\x00
+ 	utf_32_le		B: \x00\x00\x00
+ 	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+ 	unicode_escape		B: 
+ 	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+ 	charmap		B: 
+ 	l1		B: 
+ 	utf-16-le		B: \x00
+ 	utf16le		e:LookupError:unknown encoding: utf16le
+ 	raw-unicode-escape		B: 
+😀	ascii		e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(128)
+😀	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(128)
+😀	ascii	ignore	B:
+😀	ascii	replace	B:?
+😀	ascii	backslashreplace	B:\\U0001f600
+😀	latin1		e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(256)
+😀	latin-1	strict	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(256)
+😀	latin-1	replace	B:?
+😀	latin-1	ignore	B:
+😀	utf8		B:\xf0\x9f\x98\x80
+😀	utf-8	strict	B:\xf0\x9f\x98\x80
+😀	utf-8	surrogateescape	B:\xf0\x9f\x98\x80
+😀	utf-16		B:\xff\xfe=\xd8\x00\xde
+😀	utf-16le		B:=\xd8\x00\xde
+😀	utf-16be		B:\xd8=\xde\x00
+😀	utf-32		B:\xff\xfe\x00\x00\x00\xf6\x01\x00
+😀	utf_32_le		B:\x00\xf6\x01\x00
+😀	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+😀	unicode_escape		B:\\U0001f600
+😀	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+😀	charmap		e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(256)
+😀	l1		e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(256)
+😀	utf-16-le		B:=\xd8\x00\xde
+😀	utf16le		e:LookupError:unknown encoding: utf16le
+😀	raw-unicode-escape		B:\\U0001f600
+ǅ	ascii		e:UnicodeEncodeError:'ascii' codec can't encode character '\\u01c5' in position 0: ordinal not in range(128)
+ǅ	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u01c5' in position 0: ordinal not in range(128)
+ǅ	ascii	ignore	B:
+ǅ	ascii	replace	B:?
+ǅ	ascii	backslashreplace	B:\\u01c5
+ǅ	latin1		e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u01c5' in position 0: ordinal not in range(256)
+ǅ	latin-1	strict	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u01c5' in position 0: ordinal not in range(256)
+ǅ	latin-1	replace	B:?
+ǅ	latin-1	ignore	B:
+ǅ	utf8		B:\xc7\x85
+ǅ	utf-8	strict	B:\xc7\x85
+ǅ	utf-8	surrogateescape	B:\xc7\x85
+ǅ	utf-16		B:\xff\xfe\xc5\x01
+ǅ	utf-16le		B:\xc5\x01
+ǅ	utf-16be		B:\x01\xc5
+ǅ	utf-32		B:\xff\xfe\x00\x00\xc5\x01\x00\x00
+ǅ	utf_32_le		B:\xc5\x01\x00\x00
+ǅ	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+ǅ	unicode_escape		B:\\u01c5
+ǅ	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+ǅ	charmap		e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u01c5' in position 0: ordinal not in range(256)
+ǅ	l1		e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u01c5' in position 0: ordinal not in range(256)
+ǅ	utf-16-le		B:\xc5\x01
+ǅ	utf16le		e:LookupError:unknown encoding: utf16le
+ǅ	raw-unicode-escape		B:\\u01c5
+ß	ascii		e:UnicodeEncodeError:'ascii' codec can't encode character '\\xdf' in position 0: ordinal not in range(128)
+ß	ascii	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xdf' in position 0: ordinal not in range(128)
+ß	ascii	ignore	B:
+ß	ascii	replace	B:?
+ß	ascii	backslashreplace	B:\\xdf
+ß	latin1		B:\xdf
+ß	latin-1	strict	B:\xdf
+ß	latin-1	replace	B:\xdf
+ß	latin-1	ignore	B:\xdf
+ß	utf8		B:\xc3\x9f
+ß	utf-8	strict	B:\xc3\x9f
+ß	utf-8	surrogateescape	B:\xc3\x9f
+ß	utf-16		B:\xff\xfe\xdf\x00
+ß	utf-16le		B:\xdf\x00
+ß	utf-16be		B:\x00\xdf
+ß	utf-32		B:\xff\xfe\x00\x00\xdf\x00\x00\x00
+ß	utf_32_le		B:\xdf\x00\x00\x00
+ß	unicodeescape		e:LookupError:unknown encoding: unicodeescape
+ß	unicode_escape		B:\\xdf
+ß	rawunicodeescape		e:LookupError:unknown encoding: rawunicodeescape
+ß	charmap		B:\xdf
+ß	l1		B:\xdf
+ß	utf-16-le		B:\xdf\x00
+ß	utf16le		e:LookupError:unknown encoding: utf16le
+ß	raw-unicode-escape		B:\xdf

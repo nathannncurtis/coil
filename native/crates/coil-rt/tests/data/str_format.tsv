@@ -1,0 +1,58 @@
+# format arg result
+no placeholders	i:7	e:TypeError:not all arguments converted during string formatting
+	i:7	e:TypeError:not all arguments converted during string formatting
+%%	i:7	e:TypeError:not all arguments converted during string formatting
+%d	i:7	s:7
+%d	i:-7	s:-7
+%d	i:0	s:0
+%5d	i:7	s:    7
+%-5d|	i:7	s:7    |
+%05d	i:-7	s:-0007
+% d	i:7	s: 7
+%+d	i:7	s:+7
+%+d	i:-7	s:-7
+%i	i:42	s:42
+%u	i:42	s:42
+%o	i:8	s:10
+%#o	i:8	s:0o10
+%x	i:255	s:ff
+%X	i:255	s:FF
+%#x	i:255	s:0xff
+%#X	i:255	s:0XFF
+%8x	i:255	s:      ff
+%.4x	i:255	s:00ff
+%#010x	i:255	s:0x000000ff
+%s	s:text	s:text
+%s	s:	s:
+%10s	s:hi	s:        hi
+%-10s|	s:hi	s:hi        |
+%.2s	s:hello	s:he
+%r	s:text	s:'text'
+%a	s:text	s:'text'
+%r	s:q'uo"te	s:'q\\'uo"te'
+%c	s:A	s:A
+%c	s:€	s:€
+%s%%	i:100	s:100%
+%%%d	i:9	s:%9
+%(name)s	i:7	e:TypeError:format requires a mapping
+%s %s	i:7	e:TypeError:not enough arguments for format string
+%c	s:ab	e:TypeError:%c requires int or char
+%d	s:x	e:TypeError:%d format: a real number is required, not str
+%f	f:3FF8000000000000	s:1.500000
+%.2f	f:3FF0147AE147AE14	s:1.00
+%e	f:40C81CD6E631F8A1	s:1.234568e+04
+%E	f:40C81CD6E631F8A1	s:1.234568E+04
+%g	f:3F1A36E2EB1C432D	s:0.0001
+%G	f:419D6F3454000000	s:1.23457E+08
+%g	f:419D6F3454000000	s:1.23457e+08
+%.3g	f:3F505E1C15097C81	s:0.000999
+%12.4f|	f:400921FB53C8D4F1	s:      3.1416|
+%-12.4f|	f:400921FB53C8D4F1	s:3.1416      |
+%+012.4f	f:400921FB53C8D4F1	s:+000003.1416
+%f	f:7FF0000000000000	s:inf
+%f	f:FFF0000000000000	s:-inf
+%f	f:7FF8000000000000	s:nan
+%e	f:0000000000000000	s:0.000000e+00
+%a	f:3FF0000000000000	s:1.0
+%r	f:3FF8000000000000	s:1.5
+%d	f:3FF8000000000000	s:1
