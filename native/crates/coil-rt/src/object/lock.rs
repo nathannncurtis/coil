@@ -36,7 +36,7 @@ struct Waiter {
 
 /// The parking lot: waiter queues keyed by the address of the lock byte,
 /// CPython's `_PyParkingLot` shape. One global mutex guards the table;
-/// queues are FIFO so waiters are woken in arrival order.
+/// queues are FIFO, so waiters are woken in enqueue order.
 fn parking_lot() -> &'static Mutex<HashMap<usize, VecDeque<Arc<Waiter>>>> {
     static LOT: OnceLock<Mutex<HashMap<usize, VecDeque<Arc<Waiter>>>>> = OnceLock::new();
     LOT.get_or_init(|| Mutex::new(HashMap::new()))
@@ -187,11 +187,22 @@ impl Drop for Guard {
 
 #[cfg(test)]
 mod tests {
+    use super::parking_lot;
     use super::{Guard, LOCKED, LOCKED_PARKED, UNLOCKED, lock, try_lock, unlock};
     use std::sync::Arc;
     use std::sync::Mutex;
     use std::sync::atomic::AtomicU8;
     use std::sync::atomic::AtomicUsize;
+    use std::thread::ThreadId;
+
+    /// The queued waiters' thread ids, in dequeue order: the order the
+    /// hand-off must follow.
+    fn parked_queue_for_test(byte: &AtomicU8) -> Vec<ThreadId> {
+        let lot = parking_lot().lock().expect("parking lot poisoned");
+        lot.get(&(byte as *const AtomicU8 as usize))
+            .map(|queue| queue.iter().map(|waiter| waiter.thread.id()).collect())
+            .unwrap_or_default()
+    }
 
     #[test]
     fn uncontended_lock_cycles_through_states() {
@@ -210,25 +221,26 @@ mod tests {
         let byte = Box::leak(Box::new(AtomicU8::new(UNLOCKED)));
         lock(byte);
         let order = Arc::new(Mutex::new(Vec::new()));
-        let arrived = Arc::new(Mutex::new(Vec::new()));
         let mut handles = Vec::new();
-        // Start each contender only after the previous one reached the
-        // lock, so the queue order is this order.
-        for i in 0..4u8 {
+        for _ in 0..4 {
             let order = Arc::clone(&order);
-            let thread_arrived = Arc::clone(&arrived);
             let byte = &*byte;
             handles.push(std::thread::spawn(move || {
-                thread_arrived.lock().unwrap().push(i);
                 lock(byte);
-                order.lock().unwrap().push(i);
+                order.lock().unwrap().push(std::thread::current().id());
                 unlock(byte);
             }));
-            let wanted = (0..=i).collect::<Vec<_>>();
-            while *arrived.lock().unwrap() != wanted {
-                std::thread::yield_now();
-            }
         }
+        // Spawn order does not pin queue order (a thread signals nothing
+        // before it holds the lot mutex), so the queue itself — read once
+        // every contender has parked — is the expected grant order.
+        let queued = loop {
+            let snapshot = parked_queue_for_test(byte);
+            if snapshot.len() == 4 {
+                break snapshot;
+            }
+            std::thread::yield_now();
+        };
         assert_eq!(
             byte.load(std::sync::atomic::Ordering::Relaxed),
             LOCKED_PARKED
@@ -237,7 +249,7 @@ mod tests {
         for handle in handles {
             handle.join().expect("waiter thread panicked");
         }
-        assert_eq!(*order.lock().unwrap(), vec![0, 1, 2, 3]);
+        assert_eq!(*order.lock().unwrap(), queued);
         assert_eq!(byte.load(std::sync::atomic::Ordering::Relaxed), UNLOCKED);
     }
 
