@@ -1638,6 +1638,114 @@ fn removed_trivial_phi_is_replaced_in_other_variables() {
 }
 
 #[test]
+fn nested_walrus_loop_phis_verify() {
+    const Y: Sym = Sym(4);
+    // Nested loops with two loop-carried variables, one written by a walrus
+    // in the inner test (`while a and (y := ...): x += y`), and a read of
+    // the other at the outer latch: the incomplete phis the unsealed headers
+    // create must all resolve to live values once sealing completes.
+    // Blocks in lowering order: 0 entry, 1 outer header, 2/3 outer arms,
+    // 4 exit, 5 inner header, 6 inner-then, 7, 8 and-join, 9 inner body,
+    // 10, 11 outer latch.
+    let mut b = FunctionBuilder::new(Sym(3), one_param(), vec![Type::Top]).unwrap();
+    let p = v(0);
+
+    let x0 = konst(&mut b, 0);
+    b.write_variable(X, b.entry(), x0).unwrap();
+    let y0 = konst(&mut b, 1);
+    b.write_variable(Y, b.entry(), y0).unwrap();
+    let hdr = b.new_block(); // 1
+    b.set_term(b.entry(), Terminator::Jump { to: hdr }).unwrap();
+
+    b.switch_to(hdr).unwrap();
+    let x1 = konst(&mut b, 2); // the outer walrus write
+    b.write_variable(X, hdr, x1).unwrap();
+    let c1 = cond(&mut b, p);
+    let arm = b.new_block(); // 2
+    let done = b.new_block(); // 3
+    let exit = b.new_block(); // 4
+    b.set_term(
+        hdr,
+        Terminator::Branch {
+            cond: c1,
+            then_to: arm,
+            else_to: done,
+        },
+    )
+    .unwrap();
+    b.set_term(arm, Terminator::Jump { to: exit }).unwrap();
+    b.set_term(done, Terminator::Jump { to: exit }).unwrap();
+    b.set_term(exit, Terminator::Return { value: x0 }).unwrap();
+
+    // Outer body: the arm continues into the inner loop.
+    let inner = b.new_block(); // 5
+    b.set_term(arm, Terminator::Jump { to: inner }).unwrap();
+
+    b.switch_to(inner).unwrap();
+    let x_in = b.read_variable(X, inner).unwrap();
+    // The inner condition reads Y too; the read must resolve (the nested
+    // walrus writes it in the then-arm and the join reads it again).
+    b.read_variable(Y, inner).unwrap();
+    let c2 = cond(&mut b, x_in);
+    let then_blk = b.new_block(); // 6
+    let else_blk = b.new_block(); // 7
+    let join = b.new_block(); // 8
+    b.set_term(
+        inner,
+        Terminator::Branch {
+            cond: c2,
+            then_to: then_blk,
+            else_to: else_blk,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(then_blk).unwrap();
+    let y_new = konst(&mut b, 3); // the inner walrus write
+    b.write_variable(Y, then_blk, y_new).unwrap();
+    b.set_term(then_blk, Terminator::Jump { to: join }).unwrap();
+    b.set_term(else_blk, Terminator::Jump { to: join }).unwrap();
+
+    b.switch_to(join).unwrap();
+    let y_join = b.read_variable(Y, join).unwrap();
+    let c3 = cond(&mut b, y_join);
+    let body = b.new_block(); // 9
+    let after = b.new_block(); // 10
+    b.set_term(
+        join,
+        Terminator::Branch {
+            cond: c3,
+            then_to: body,
+            else_to: after,
+        },
+    )
+    .unwrap();
+
+    b.switch_to(body).unwrap();
+    let x_b = b.read_variable(X, body).unwrap();
+    let y_b = b.read_variable(Y, body).unwrap();
+    let x2 = add(&mut b, x_b, y_b);
+    b.write_variable(X, body, x2).unwrap();
+    b.set_term(body, Terminator::Jump { to: inner }).unwrap();
+    let latch = b.new_block(); // 11
+    b.set_term(after, Terminator::Jump { to: latch }).unwrap();
+    b.set_term(done, Terminator::Jump { to: latch }).unwrap();
+    b.switch_to(latch).unwrap();
+    let x_l = b.read_variable(X, latch).unwrap();
+    let use_x = b.fresh(Type::Top);
+    b.push(Instr::Copy {
+        src: x_l,
+        into: use_x,
+    })
+    .unwrap();
+    b.set_term(latch, Terminator::Jump { to: hdr }).unwrap();
+
+    b.seal_all().unwrap();
+    let f = b.finish().unwrap();
+    verify::verify_function(&f, &[]).unwrap();
+}
+
+#[test]
 fn phi_must_not_merge_boxed_and_unboxed() {
     // 0: v0 = const; v1 = truth(v0); branch -> 1, 2
     // 1: v2 = const (Int64); jump 3     2: jump 3     3: v3 = phi(v2, v0); return v3
