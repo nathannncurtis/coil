@@ -12,11 +12,13 @@ use common::{call, encode_ptr, init, rows, token, ulp_agrees};
 use python312::modules::math;
 use python312::tstate;
 
-/// The functions the platform libm computes; one ulp per component.
+/// The functions the platform libm computes (`m_atan2` handles the
+/// infinities and zeros itself and calls atan2 for the rest); one ulp
+/// per component.
 const ULP_FUNCTIONS: &[&str] = &[
-    "acos", "acosh", "asin", "asinh", "atan", "atanh", "cbrt", "cos", "cosh", "erf", "erfc", "exp",
-    "exp2", "expm1", "gamma", "lgamma", "log", "log1p", "log2", "log10", "pow", "sin", "sinh",
-    "tan", "tanh",
+    "acos", "acosh", "asin", "asinh", "atan", "atan2", "atanh", "cbrt", "cos", "cosh", "erf",
+    "erfc", "exp", "exp2", "expm1", "gamma", "lgamma", "log", "log1p", "log2", "log10", "pow",
+    "sin", "sinh", "tan", "tanh",
 ];
 
 #[test]

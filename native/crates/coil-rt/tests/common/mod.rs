@@ -236,13 +236,15 @@ pub fn ulp_of(x: f64) -> f64 {
 /// a few ulp, and near cancellation zeros (lgamma just above 1.0, say)
 /// by more than any ulp count can express. Finite results of the same
 /// sign agree within four ulp of the larger magnitude or an absolute
-/// 1e-13, whichever is looser; NaN, infinities, zeros, signs and every
-/// error stay exact.
+/// 1e-13, whichever is looser — the absolute bound also admits the
+/// subnormal underflow where MSVC's atan2 yields a signed zero for an
+/// input the macOS build keeps subnormal — and NaN, infinities, zero
+/// signs and every error stay exact.
 pub fn close(got: f64, want: f64) -> bool {
     if got == want {
         return true;
     }
-    if !got.is_finite() || !want.is_finite() || got == 0.0 || want == 0.0 {
+    if !got.is_finite() || !want.is_finite() {
         return false;
     }
     if got.signum() != want.signum() {

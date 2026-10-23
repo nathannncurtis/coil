@@ -3,7 +3,8 @@
 //! `tools/gen_module_oracle.py`). Functions whose results come from the
 //! platform libm components carry a one-ulp allowance per part
 //! (`common::close`); the predicates, the errors, and every signed zero
-//! and NaN component match exactly.
+//! and NaN component match exactly (a signed zero may stand in for the
+//! same-sign subnormal another platform's atan2 keeps).
 
 mod common;
 
