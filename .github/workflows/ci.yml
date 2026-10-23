@@ -50,6 +50,8 @@ jobs:
               - '.github/workflows/ci.yml'
             rust:
               - 'native/**'
+              - 'src/coil/native/**'
+              - 'tools/gen_abi.py'
               - 'tools/gen_ast.py'
               - 'tools/fetch_cpython_src.py'
               - 'tools/layout_oracle.c'
@@ -212,6 +214,8 @@ jobs:
           python-version: "3.12.10"
       - name: Generated AST types are current
         run: python tools/gen_ast.py --check
+      - name: Generated ABI constants are current
+        run: python tools/gen_abi.py --check
       - name: MSVC environment for the CPython header layout oracle
         if: runner.os == 'Windows'
         uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
@@ -238,6 +242,18 @@ jobs:
         working-directory: native
       - run: cargo test --workspace
         working-directory: native
+      - name: coil-rt builds python312.dll and exports the ABI hash
+        if: runner.os == 'Windows'
+        working-directory: native
+        run: |
+          cargo build --release -p coil-rt
+          if (-Not (Test-Path target/release/python312.dll)) {
+            throw "cargo did not produce target/release/python312.dll"
+          }
+          $exports = dumpbin /EXPORTS target/release/python312.dll
+          if (-Not ($exports -match 'coil_rt_abi_sha256')) {
+            throw "python312.dll does not export coil_rt_abi_sha256"
+          }
 
   compat:
     needs: changes
