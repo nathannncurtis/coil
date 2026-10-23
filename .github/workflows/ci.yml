@@ -252,8 +252,8 @@ jobs:
         run: python -m pip install pytest pefile==2024.8.26
       - name: Fetch the pinned embeddable runtime for the python3.dll forwarder comparison
         run: python -c "import pathlib, urllib.request; p = pathlib.Path.home() / '.coil' / 'cache' / 'runtimes'; p.mkdir(parents=True, exist_ok=True); name = 'python-3.12.10-embed-amd64.zip'; urllib.request.urlretrieve('https://www.python.org/ftp/python/3.12.10/' + name, p / name)"
-      - name: PE linker, resource and python3.dll forwarder tests (the Windows leg also runs the linked image)
-        run: python -m pytest -q tests/native/test_pe_linker.py tests/native/test_pe_resources.py tests/native/test_python3_forwarder.py
+      - name: PE linker, resource, forwarder and unwind tests (the Windows leg also runs the linked images)
+        run: python -m pytest -q tests/native/test_pe_linker.py tests/native/test_pe_resources.py tests/native/test_python3_forwarder.py tests/native/test_pe_unwind.py
       - name: coil-rt builds python312.dll and exports the ABI hash
         if: runner.os == 'Windows'
         working-directory: native
