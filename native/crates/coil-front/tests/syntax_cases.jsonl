@@ -10,6 +10,16 @@
 {"id":"test_eof.py:42","src":"# coding: latin1\n\u00e4 = '''th\u00ees is \na \ntest","mode":"eval","encoding":"latin1","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 4)","lineno":2,"offset":5,"end_lineno":2,"end_offset":5}}
 {"id":"test_eof.py:90","src":"\"\\Xhh\" \\","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":9,"end_lineno":1,"end_offset":-1}}
 {"id":"test_eof.py:97","src":"\u00e4 = 5\\","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":7,"end_lineno":1,"end_offset":-1}}
+{"id":"test_exceptions.py:166","src":"f'{6 0}'","expected":{"type":"SyntaxError","msg":"invalid syntax. Perhaps you forgot a comma?","lineno":1,"offset":4,"end_lineno":1,"end_offset":7}}
+{"id":"test_exceptions.py:179","src":"print \"old style\"","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'print'. Did you mean print(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":18}}
+{"id":"test_exceptions.py:182","src":"print \"old style\",","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'print'. Did you mean print(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":19}}
+{"id":"test_exceptions.py:185","src":"print f(a+b,c)","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'print'. Did you mean print(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":15}}
+{"id":"test_exceptions.py:188","src":"exec \"old style\"","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'exec'. Did you mean exec(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":17}}
+{"id":"test_exceptions.py:191","src":"exec f(a+b,c)","expected":{"type":"SyntaxError","msg":"Missing parentheses in call to 'exec'. Did you mean exec(...)?","lineno":1,"offset":1,"end_lineno":1,"end_offset":14}}
+{"id":"test_exceptions.py:197","src":"print (a+b,c) $ 42","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":15,"end_lineno":1,"end_offset":16}}
+{"id":"test_exceptions.py:200","src":"exec (a+b,c) $ 42","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":14,"end_lineno":1,"end_offset":15}}
+{"id":"test_exceptions.py:204","src":"if True:\nprint \"No indent\"","expected":{"type":"IndentationError","msg":"expected an indented block after 'if' statement on line 1","lineno":2,"offset":1,"end_lineno":2,"end_offset":6}}
+{"id":"test_exceptions.py:207","src":"if True:\n        print()\n\texec \"mixed tabs and spaces\"","expected":{"type":"TabError","msg":"inconsistent use of tabs and spaces in indentation","lineno":3,"offset":1,"end_lineno":3,"end_offset":0}}
 {"id":"test_exceptions.py:228","src":"\"\\\n\"(1 for c in I,\\\n\\","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":2,"offset":2,"end_lineno":2,"end_offset":0}}
 {"id":"test_exceptions.py:232","src":"def fact(x):\n\treturn x!\n","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":2,"offset":10,"end_lineno":2,"end_offset":11}}
 {"id":"test_exceptions.py:233","src":"1 +\n","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":4,"end_lineno":1,"end_offset":5}}
@@ -196,10 +206,6 @@
 {"id":"test_grammar.py:1186","src":"def g(): f(yield from ())","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
 {"id":"test_grammar.py:1187","src":"def g(): f(yield from (), 1)","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
 {"id":"test_grammar.py:1190","src":"yield from","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":11,"end_lineno":1,"end_offset":12}}
-{"id":"test_grammar.py:1203","src":"'yield' inside list comprehension","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":15}}
-{"id":"test_grammar.py:1209","src":"'yield' inside set comprehension","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":15}}
-{"id":"test_grammar.py:1211","src":"'yield' inside dict comprehension","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":15}}
-{"id":"test_grammar.py:1215","src":"'yield' inside generator expression","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":15}}
 {"id":"test_grammar.py:124","src":"0x","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
 {"id":"test_grammar.py:1411","src":"try:\n    pass\nexcept Exception as a.b:\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":3,"offset":22,"end_lineno":3,"end_offset":23}}
 {"id":"test_grammar.py:1412","src":"try:\n    pass\nexcept Exception as a[b]:\n    pass","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":3,"offset":22,"end_lineno":3,"end_offset":23}}
@@ -250,13 +256,23 @@
 {"id":"test_grammar.py:189#7","src":"0 if 1_Else 1","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":7,"end_lineno":1,"end_offset":7}}
 {"id":"test_grammar.py:189#8","src":"0_b0","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
 {"id":"test_grammar.py:189#9","src":"0_xf","mode":"eval","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
-{"id":"test_grammar.py:195","src":"invalid digit '2' in binary literal","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":14}}
-{"id":"test_grammar.py:198","src":"invalid binary literal","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":15}}
-{"id":"test_grammar.py:200","src":"invalid digit '8' in octal literal","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":14}}
-{"id":"test_grammar.py:203","src":"invalid octal literal","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":14}}
-{"id":"test_grammar.py:205","src":"invalid hexadecimal literal","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":20}}
-{"id":"test_grammar.py:207","src":"invalid decimal literal","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":9,"end_lineno":1,"end_offset":16}}
-{"id":"test_grammar.py:208","src":"leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":70,"end_lineno":1,"end_offset":70}}
+{"id":"test_grammar.py:195","src":"0b12","expected":{"type":"SyntaxError","msg":"invalid digit '2' in binary literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:196","src":"0b1_2","expected":{"type":"SyntaxError","msg":"invalid digit '2' in binary literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_grammar.py:197","src":"0b2","expected":{"type":"SyntaxError","msg":"invalid digit '2' in binary literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:198","src":"0b1_","expected":{"type":"SyntaxError","msg":"invalid binary literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:199","src":"0b","expected":{"type":"SyntaxError","msg":"invalid binary literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:200","src":"0o18","expected":{"type":"SyntaxError","msg":"invalid digit '8' in octal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:201","src":"0o1_8","expected":{"type":"SyntaxError","msg":"invalid digit '8' in octal literal","lineno":1,"offset":5,"end_lineno":1,"end_offset":5}}
+{"id":"test_grammar.py:202","src":"0o8","expected":{"type":"SyntaxError","msg":"invalid digit '8' in octal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
+{"id":"test_grammar.py:203","src":"0o1_","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:204","src":"0o","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:205","src":"0x1_","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:206","src":"0x","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:207","src":"1_","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":2,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:208","src":"012","expected":{"type":"SyntaxError","msg":"leading zeros in decimal integer literals are not permitted; use an 0o prefix for octal integers","lineno":1,"offset":1,"end_lineno":1,"end_offset":2}}
+{"id":"test_grammar.py:211","src":"1.2_","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:212","src":"1e2_","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
+{"id":"test_grammar.py:213","src":"1e+","expected":{"type":"SyntaxError","msg":"invalid decimal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
 {"id":"test_grammar.py:222","src":"0xfand x","expected":{"type":"SyntaxError","msg":"invalid hexadecimal literal","lineno":1,"offset":4,"end_lineno":1,"end_offset":4}}
 {"id":"test_grammar.py:222#15","src":"0o7spam","expected":{"type":"SyntaxError","msg":"invalid octal literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
 {"id":"test_grammar.py:222#23","src":"0b1spam","expected":{"type":"SyntaxError","msg":"invalid binary literal","lineno":1,"offset":3,"end_lineno":1,"end_offset":3}}
@@ -759,18 +775,43 @@
 {"id":"test_syntax.py:2194","src":"try: pass\nexcept ValueError: pass\nexcept* TypeError: pass","expected":{"type":"SyntaxError","msg":"cannot have both 'except' and 'except*' on the same 'try'","lineno":3,"offset":1,"end_lineno":3,"end_offset":8}}
 {"id":"test_syntax.py:2199","src":"try: pass\nexcept* ValueError: pass\nexcept TypeError: pass","expected":{"type":"SyntaxError","msg":"cannot have both 'except' and 'except*' on the same 'try'","lineno":3,"offset":1,"end_lineno":3,"end_offset":7}}
 {"id":"test_syntax.py:2245","src":"\\\nif x:\n    y = 1\n  \\\n  foo = 1\n        ","expected":{"type":"IndentationError","msg":"unindent does not match any outer indentation level","lineno":5,"offset":10,"end_lineno":5,"end_offset":-1}}
+{"id":"test_syntax.py:2343","src":"\ndef func1():\n    if a != b:\n        raise ValueError\n\ndef func2():\n    try\n        return 1\n    finally:\n        pass\n","expected":{"type":"SyntaxError","msg":"expected ':'","lineno":7,"offset":8,"end_lineno":7,"end_offset":9}}
 {"id":"test_syntax.py:2346","src":"a = 3 \\ 4","expected":{"type":"SyntaxError","msg":"unexpected character after line continuation character","lineno":1,"offset":8,"end_lineno":1,"end_offset":0}}
 {"id":"test_syntax.py:2349","src":"1,\\#\n2","expected":{"type":"SyntaxError","msg":"unexpected character after line continuation character","lineno":1,"offset":4,"end_lineno":1,"end_offset":0}}
 {"id":"test_syntax.py:2352","src":"\nfgdfgf\n1,\\#\n2\n","expected":{"type":"SyntaxError","msg":"unexpected character after line continuation character","lineno":3,"offset":4,"end_lineno":3,"end_offset":0}}
 {"id":"test_syntax.py:2359","src":"A.\u018a\\ ","expected":{"type":"SyntaxError","msg":"unexpected character after line continuation character","lineno":1,"offset":5,"end_lineno":1,"end_offset":0}}
 {"id":"test_syntax.py:2361","src":"A.\u03bc\\\n","expected":{"type":"SyntaxError","msg":"unexpected EOF while parsing","lineno":1,"offset":5,"end_lineno":1,"end_offset":-1}}
+{"id":"test_syntax.py:2366","src":"(1 + 2","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":1,"offset":1,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2366#1","src":"[1 + 2","expected":{"type":"SyntaxError","msg":"'[' was never closed","lineno":1,"offset":1,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2366#2","src":"{1 + 2","expected":{"type":"SyntaxError","msg":"'{' was never closed","lineno":1,"offset":1,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2369","src":"a = ( 1, 2, 3\nb=3","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":1,"offset":5,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2369#1","src":"a = [ 1, 2, 3\nb=3","expected":{"type":"SyntaxError","msg":"'[' was never closed","lineno":1,"offset":5,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2369#2","src":"a = { 1, 2, 3\nb=3","expected":{"type":"SyntaxError","msg":"'{' was never closed","lineno":1,"offset":5,"end_lineno":1,"end_offset":0}}
+{"id":"test_syntax.py:2372","src":")1 + 2","expected":{"type":"SyntaxError","msg":"unmatched ')'","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2372#1","src":"]1 + 2","expected":{"type":"SyntaxError","msg":"unmatched ']'","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2372#2","src":"}1 + 2","expected":{"type":"SyntaxError","msg":"unmatched '}'","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
+{"id":"test_syntax.py:2381","src":"func(\n    a=[\"unclosed], # Need a quote in this comment: \"\n    b=2,\n)\n","expected":{"type":"SyntaxError","msg":"closing parenthesis ')' does not match opening parenthesis '[' on line 2","lineno":4,"offset":1,"end_lineno":4,"end_offset":1}}
 {"id":"test_syntax.py:2383","src":"match y:\n case e(e=v,v,","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":2,"offset":8,"end_lineno":2,"end_offset":0}}
+{"id":"test_syntax.py:2387","src":"# coding=latin\n(aaaaaaaaaaaaaaaaa\naaaaaaaaaaa\u00b5","encoding":"latin-1","expected":{"type":"SyntaxError","msg":"'(' was never closed","lineno":2,"offset":1,"end_lineno":2,"end_offset":0}}
 {"id":"test_syntax.py:2391","src":"'blech","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
 {"id":"test_syntax.py:2392","src":"\"blech","expected":{"type":"SyntaxError","msg":"unterminated string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
 {"id":"test_syntax.py:2393","src":"'''blech","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
 {"id":"test_syntax.py:2394","src":"\"\"\"blech","expected":{"type":"SyntaxError","msg":"unterminated triple-quoted string literal (detected at line 1)","lineno":1,"offset":1,"end_lineno":1,"end_offset":1}}
 {"id":"test_syntax.py:2397","src":"print\u0017(\"Hello\")","expected":{"type":"SyntaxError","msg":"invalid non-printable character U+0017","lineno":1,"offset":6,"end_lineno":1,"end_offset":6}}
 {"id":"test_syntax.py:2475","src":"d{{{{{{{{{{{{{{{{{{{{{{{{{```{{{{{{{ef f():y","expected":{"type":"SyntaxError","msg":"invalid syntax","lineno":1,"offset":2,"end_lineno":1,"end_offset":3}}
+{"id":"test_type_params.py:1006","src":"def func1[*A: str](): pass","expected":{"type":"SyntaxError","msg":"cannot use bound with TypeVarTuple","lineno":1,"offset":13,"end_lineno":1,"end_offset":18}}
+{"id":"test_type_params.py:1008","src":"def func1[*A: (int, str)](): pass","expected":{"type":"SyntaxError","msg":"cannot use constraints with TypeVarTuple","lineno":1,"offset":13,"end_lineno":1,"end_offset":25}}
+{"id":"test_type_params.py:1010","src":"class X[*A: str]: pass","expected":{"type":"SyntaxError","msg":"cannot use bound with TypeVarTuple","lineno":1,"offset":11,"end_lineno":1,"end_offset":16}}
+{"id":"test_type_params.py:1012","src":"class X[*A: (int, str)]: pass","expected":{"type":"SyntaxError","msg":"cannot use constraints with TypeVarTuple","lineno":1,"offset":11,"end_lineno":1,"end_offset":23}}
+{"id":"test_type_params.py:1014","src":"type X[*A: str] = int","expected":{"type":"SyntaxError","msg":"cannot use bound with TypeVarTuple","lineno":1,"offset":10,"end_lineno":1,"end_offset":15}}
+{"id":"test_type_params.py:1016","src":"type X[*A: (int, str)] = int","expected":{"type":"SyntaxError","msg":"cannot use constraints with TypeVarTuple","lineno":1,"offset":10,"end_lineno":1,"end_offset":22}}
+{"id":"test_type_params.py:1029","src":"def func1[**A: str](): pass","expected":{"type":"SyntaxError","msg":"cannot use bound with ParamSpec","lineno":1,"offset":14,"end_lineno":1,"end_offset":19}}
+{"id":"test_type_params.py:1031","src":"def func1[**A: (int, str)](): pass","expected":{"type":"SyntaxError","msg":"cannot use constraints with ParamSpec","lineno":1,"offset":14,"end_lineno":1,"end_offset":26}}
+{"id":"test_type_params.py:1033","src":"class X[**A: str]: pass","expected":{"type":"SyntaxError","msg":"cannot use bound with ParamSpec","lineno":1,"offset":12,"end_lineno":1,"end_offset":17}}
+{"id":"test_type_params.py:1035","src":"class X[**A: (int, str)]: pass","expected":{"type":"SyntaxError","msg":"cannot use constraints with ParamSpec","lineno":1,"offset":12,"end_lineno":1,"end_offset":24}}
+{"id":"test_type_params.py:1037","src":"type X[**A: str] = int","expected":{"type":"SyntaxError","msg":"cannot use bound with ParamSpec","lineno":1,"offset":11,"end_lineno":1,"end_offset":16}}
+{"id":"test_type_params.py:1039","src":"type X[**A: (int, str)] = int","expected":{"type":"SyntaxError","msg":"cannot use constraints with ParamSpec","lineno":1,"offset":11,"end_lineno":1,"end_offset":23}}
+{"id":"test_type_params.py:165","src":"\n            def outer():\n                X = 1\n                def inner[X]():\n                    nonlocal X\n                return X\n            ","expected":{"type":"IndentationError","msg":"unexpected indent","lineno":2,"offset":12,"end_lineno":2,"end_offset":-1}}
 {"id":"test_unicode_identifiers.py:badsyntax_3131.py","src":"# -*- coding: utf-8 -*-\n\u20ac = 2\n","encoding":"utf-8","expected":{"type":"SyntaxError","msg":"invalid character '\u20ac' (U+20AC)","lineno":2,"offset":1,"end_lineno":2,"end_offset":1}}
 {"id":"test_unpack_ex.py:7","src":"[*item for item in l]","expected":{"type":"SyntaxError","msg":"iterable unpacking cannot be used in comprehension","lineno":1,"offset":2,"end_lineno":1,"end_offset":7}}
 {"id":"test_unpack_ex.py:7#1","src":"[*[0, 1] for i in range(10)]","expected":{"type":"SyntaxError","msg":"iterable unpacking cannot be used in comprehension","lineno":1,"offset":2,"end_lineno":1,"end_offset":9}}
