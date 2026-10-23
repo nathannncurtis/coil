@@ -1485,6 +1485,24 @@ fn check_types(
         I::PushExcInfo { into } => c.def_boxed(*into)?,
         I::FinallyEnter { into } => c.def_exact(*into, Type::None)?,
         I::FinallyExit { reason } => c.use_boxed(*reason)?,
+        I::CatchStarBegin {
+            src,
+            types,
+            matched,
+            exc,
+            rest,
+        } => {
+            c.use_boxed(*src)?;
+            c.use_boxed(*types)?;
+            c.def_exact(*matched, b)?;
+            c.def_boxed(*exc)?;
+            c.def_boxed(*rest)?;
+        }
+        I::PrepReraiseStar { orig, excs, into } => {
+            c.use_boxed(*orig)?;
+            c.use_boxed(*excs)?;
+            c.def_boxed(*into)?;
+        }
     }
     Ok(())
 }

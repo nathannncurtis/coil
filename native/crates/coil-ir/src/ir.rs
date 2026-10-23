@@ -698,6 +698,28 @@ pub enum Instr {
     /// (`None`, the exception, or the return value). Re-raises when the slot
     /// holds an exception, so it may raise.
     FinallyExit { reason: Value },
+    /// `CatchStarBegin(src, types) -> (matched: Bool, exc, rest)`: the
+    /// `except*` split of `src` against `types` (a boxed tuple of classes),
+    /// following `exception_group_match`: `exc` is the matched subgroup (or
+    /// `None`) and `rest` the remainder (or `None`). A non-`None` `exc`
+    /// becomes the current exception. May raise on an invalid match type.
+    CatchStarBegin {
+        src: Value,
+        types: Value,
+        matched: Value,
+        exc: Value,
+        rest: Value,
+    },
+    /// `PrepReraiseStar(orig, excs) -> into`: `_PyExc_PrepReraiseStar`;
+    /// `excs` is a list of the exceptions raised in the handlers followed by
+    /// the unmatched remainder (entries may be `None`). Yields the exception
+    /// to re-raise, or `None` when everything was handled. May raise while
+    /// rebuilding the group.
+    PrepReraiseStar {
+        orig: Value,
+        excs: Value,
+        into: Value,
+    },
 }
 
 /// Whether the instruction can raise and therefore needs the after-call error
@@ -750,6 +772,8 @@ impl Instr {
                 | I::YieldFrom { .. }
                 | I::Await { .. }
                 | I::Safepoint
+                | I::CatchStarBegin { .. }
+                | I::PrepReraiseStar { .. }
         )
     }
 }

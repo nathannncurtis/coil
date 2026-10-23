@@ -939,6 +939,14 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
             f(lhs);
             f(rhs);
         }
+        I::CatchStarBegin { src, types, .. } => {
+            f(src);
+            f(types);
+        }
+        I::PrepReraiseStar { orig, excs, .. } => {
+            f(orig);
+            f(excs);
+        }
         I::SetAttr { obj, value, .. } => {
             f(obj);
             f(value);

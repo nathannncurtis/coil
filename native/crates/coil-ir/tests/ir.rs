@@ -833,6 +833,18 @@ fn sink_instrs() -> Vec<Instr> {
         Instr::PopExcInfo,
         Instr::FinallyEnter { into: vv(1) },
         Instr::FinallyExit { reason: vv(0) },
+        Instr::CatchStarBegin {
+            src: vv(0),
+            types: vv(1),
+            matched: vv(2),
+            exc: vv(3),
+            rest: vv(4),
+        },
+        Instr::PrepReraiseStar {
+            orig: vv(0),
+            excs: vv(1),
+            into: vv(2),
+        },
     ]
 }
 
@@ -933,7 +945,7 @@ fn every_instruction_roundtrips() {
 fn may_raise_marks() {
     let instrs = sink_instrs();
     // Every variant appears once; the marks must survive a roundtrip too.
-    assert_eq!(instrs.len(), 88);
+    assert_eq!(instrs.len(), 90);
     assert!(instrs.iter().filter(|i| i.may_raise()).count() > 0);
     assert!(
         Instr::BinOp {
@@ -946,6 +958,24 @@ fn may_raise_marks() {
     );
     assert!(Instr::Safepoint.may_raise());
     assert!(Instr::FinallyExit { reason: v(0) }.may_raise());
+    assert!(
+        Instr::CatchStarBegin {
+            src: v(0),
+            types: v(1),
+            matched: v(2),
+            exc: v(3),
+            rest: v(4)
+        }
+        .may_raise()
+    );
+    assert!(
+        Instr::PrepReraiseStar {
+            orig: v(0),
+            excs: v(1),
+            into: v(2)
+        }
+        .may_raise()
+    );
     assert!(
         !Instr::IAddOvf {
             lhs: v(0),
