@@ -164,14 +164,25 @@ pub unsafe fn block_capacity(ptr: *const u8) -> Option<usize> {
 }
 
 /// The address of the object containing `addr`, found by walking back to
-/// the granule with `is_object` set. `None` outside the heap or when no
-/// object starts at or below `addr` within its block. For counted-regime
-/// objects this is the object address, not the block base.
+/// the granule with `is_object` set. `None` outside the heap, in a page
+/// header, or when no object starts at or below `addr` within its block.
+/// For counted-regime objects this is the object address, not the block
+/// base, on small pages and large runs alike.
 pub fn object_start(addr: usize) -> Option<usize> {
     let header = page_table::lookup(addr)?;
     let base = header.base();
+    let data = base + page::DATA_OFFSET;
+    if addr < data {
+        return None;
+    }
     if !header.is_small() {
-        return Some(base + page::DATA_OFFSET);
+        if header.has_prehdr(0) && header.is_object(1) {
+            return Some(data + PREHEADER);
+        }
+        if header.is_object(0) {
+            return Some(data);
+        }
+        return None;
     }
     let block = header.block_start(base, addr);
     let first = header.granule_of(base, block);

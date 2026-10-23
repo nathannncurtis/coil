@@ -2,9 +2,13 @@
 //! couple of dependent loads, answering "is this address in the GC heap"
 //! and giving the page header with the side bitmaps (spec section 9.1).
 
-use core::sync::atomic::{AtomicPtr, AtomicU64, Ordering};
+use core::sync::atomic::{AtomicPtr, AtomicU32, AtomicU64, Ordering};
 
 use super::page::{PAGE_SIZE, PageHeader};
+
+/// `run_head` value for a page that is not part of a large run. The head
+/// page of a run stores 0; interior pages store their offset back to it.
+const NO_RUN: u32 = u32::MAX;
 
 /// A free page run in a segment, kept sorted by start page.
 pub struct Run {
@@ -12,15 +16,16 @@ pub struct Run {
     pub pages: u32,
 }
 
-/// One reserved segment: its address range and which pages are committed.
-/// Segments are registered once and live for the process; `committed`
-/// grows only, so lookups are lock-free. The mutable placement state (the
-/// unassigned tail and the free-run list) lives in the pool, which owns
-/// every segment.
+/// One reserved segment: its address range, which pages are committed, and
+/// which pages belong to a large run. Segments are registered once and live
+/// for the process; `committed` grows only, so lookups are lock-free. The
+/// mutable placement state (the unassigned tail and the free-run list) lives
+/// in the pool, which owns every segment.
 pub struct Segment {
     pub base: usize,
     pub page_count: u32,
     committed: Vec<AtomicU64>,
+    run_head: Vec<AtomicU32>,
 }
 
 impl Segment {
@@ -31,6 +36,7 @@ impl Segment {
             committed: (0..(page_count as usize).div_ceil(64))
                 .map(|_| AtomicU64::new(0))
                 .collect(),
+            run_head: (0..page_count).map(|_| AtomicU32::new(NO_RUN)).collect(),
         }
     }
 
@@ -45,6 +51,24 @@ impl Segment {
             let word = &self.committed[(page >> 6) as usize];
             word.fetch_or(1 << (page & 63), Ordering::Release);
         }
+    }
+
+    /// Record pages `[from, from + len)` as a large run. Only the head page
+    /// carries a header; an object spanning the run would overwrite any
+    /// header in the interior pages, so the back-pointers live here. Pool
+    /// lock only; the stores happen before `set_committed`, whose Release
+    /// pairs with `lookup`'s Acquire, so a reader that sees the run
+    /// committed also sees these entries.
+    pub fn set_run(&self, from: u32, len: u32) {
+        for page in from..from + len {
+            self.run_head[page as usize].store(page - from, Ordering::Release);
+        }
+    }
+
+    /// Mark a page as standing alone (not part of a large run) when it is
+    /// handed to the small-object path. Pool lock only.
+    pub fn clear_run(&self, page: u32) {
+        self.run_head[page as usize].store(NO_RUN, Ordering::Release);
     }
 }
 
@@ -122,14 +146,25 @@ pub fn segment_of(addr: usize) -> Option<&'static Segment> {
 }
 
 /// The page header for `addr`, or `None` when `addr` is outside the GC
-/// heap or its page is not committed. The header carries the side bitmaps.
+/// heap or its page is not committed. Interior pages of a large run have no
+/// header of their own (the object runs over them), so they resolve to the
+/// run head. The header carries the side bitmaps.
 pub fn lookup(addr: usize) -> Option<&'static PageHeader> {
     let segment = segment_of(addr)?;
     let page = ((addr - segment.base) / PAGE_SIZE) as u32;
     if page >= segment.page_count || !segment.is_committed(page) {
         return None;
     }
+    // Relaxed: the Acquire load of `committed` above already ordered this
+    // read after the pool's Release stores, since `set_run` precedes
+    // `set_committed`.
+    let offset = segment.run_head[page as usize].load(Ordering::Relaxed);
+    let head = if offset == NO_RUN {
+        page
+    } else {
+        page - offset
+    };
     Some(super::page::header_of(
-        (segment.base + page as usize * PAGE_SIZE) as *const u8,
+        (segment.base + head as usize * PAGE_SIZE) as *const u8,
     ))
 }

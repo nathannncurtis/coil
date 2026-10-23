@@ -113,6 +113,7 @@ fn commit_small_page(
     unsafe { PageHeader::init_small_at(base as *mut u8, class) };
     let header = PageHeader::header_at(base);
     header.current_for.store(owner, Ordering::Release);
+    segment.clear_run(page);
     segment.set_committed(page, 1);
     Some(header)
 }
@@ -190,6 +191,7 @@ pub fn alloc_large(size: usize, is_object: bool) -> *mut u8 {
     // the pool lock.
     unsafe { PageHeader::init_large_at(base as *mut u8, pages as usize) };
     let header = PageHeader::header_at(base);
+    segment.set_run(start, pages);
     segment.set_committed(start, pages);
     let data = base + DATA_OFFSET;
     // SAFETY: the object area of the freshly committed run is ours to
@@ -220,6 +222,10 @@ pub fn free_large(base: usize) -> bool {
     let entry = &mut pool.segments[index];
     let start = ((base - segment.base) / PAGE_SIZE) as u32;
     let pages = header.run_pages;
+    // Drop the object markers so a freed run no longer looks live to heap
+    // walks; a later allocation of the run sets them again.
+    header.clear_is_object(0);
+    header.clear_has_prehdr(0);
     if start + pages == entry.cursor {
         // Returning to the unassigned tail; absorb runs that now border it.
         entry.cursor = start;

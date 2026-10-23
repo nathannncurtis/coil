@@ -139,7 +139,11 @@ impl PageHeader {
     }
 
     /// Prepare the freshly committed page at `base` as the first page of
-    /// a large-object run of `run_pages` pages. Pool lock only.
+    /// a large-object run of `run_pages` pages. Only the first page gets a
+    /// header: the object spans the rest of the run contiguously, so a
+    /// header written in an interior page would be overwritten by it —
+    /// interior pages resolve through the segment's run table instead.
+    /// Pool lock only.
     ///
     /// # Safety
     ///
@@ -148,7 +152,8 @@ impl PageHeader {
     pub unsafe fn init_large_at(base: *mut u8, run_pages: usize) {
         let mut header = PageHeader::empty(KIND_LARGE);
         header.run_pages = run_pages as u32;
-        // SAFETY: guaranteed by the caller.
+        // SAFETY: the page was just committed and is exclusively ours; the
+        // caller holds the pool lock.
         unsafe { core::ptr::write(base as *mut PageHeader, header) };
     }
 
