@@ -207,7 +207,8 @@ class Visitor(ast.NodeVisitor):
     def resolve_helper_value(self, value: ast.AST) -> object | None:
         if isinstance(value, ast.Attribute):
             if value.attr in HELPER_EXTRACTORS:
-                return ("helper", value.attr)
+                # self.<helper> is bound: no testcase argument in front.
+                return ("bound_helper", value.attr)
         if isinstance(value, ast.Name) and (found := self.lookup(value.id)):
             return found
         return None
@@ -215,8 +216,14 @@ class Visitor(ast.NodeVisitor):
     def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
         # Bind the def's name in the enclosing scope first: Python makes it
         # visible to the whole scope, and the callers here may nest the calls
-        # before the def line.
-        self.bind(node.name, ("local_def", node))
+        # before the def line.  A def whose name is a known helper whose
+        # extractor already knows its signature (test_exceptions defines its
+        # ckmsg locally) dispatches to that extractor, not to the generic
+        # local-def walk.
+        if node.name in LOCAL_DEF_HELPERS:
+            self.bind(node.name, ("helper", node.name))
+        else:
+            self.bind(node.name, ("local_def", node))
         self.scopes.append({})
         self.generic_visit(node)
         self.scopes.pop()
@@ -248,6 +255,9 @@ class Visitor(ast.NodeVisitor):
             return None
         if isinstance(node.iter, (ast.Tuple, ast.List)):
             values = [const(item) for item in node.iter.elts]
+        elif isinstance(node.iter, ast.Constant) and isinstance(node.iter.value, str):
+            # `for paren in "([{"` iterates the characters.
+            values = list(node.iter.value)
         elif isinstance(node.iter, ast.Name) and isinstance(
             self.module_consts.get(node.iter.id), (list, tuple)
         ):
@@ -266,10 +276,22 @@ class Visitor(ast.NodeVisitor):
             if resolved[0] == "helper":
                 self.add(HELPER_EXTRACTORS[resolved[1]](self, node))
                 return
+            if resolved[0] == "bound_helper":
+                # An alias of a bound method: its arguments start at the
+                # statement, without the testcase parameter.
+                extractor = BOUND_HELPER_EXTRACTORS.get(
+                    resolved[1], HELPER_EXTRACTORS[resolved[1]]
+                )
+                self.add(extractor(self, node))
+                return
             if resolved[0] == "local_def":
                 self.add(helper_local_def(self, node, resolved[1]))
                 return
         if isinstance(node.func, ast.Attribute):
+            if node.func.attr in BOUND_HELPER_EXTRACTORS:
+                # self.<helper>(...) is the bound form.
+                self.add(BOUND_HELPER_EXTRACTORS[node.func.attr](self, node))
+                return
             if node.func.attr in HELPER_EXTRACTORS:
                 self.add(HELPER_EXTRACTORS[node.func.attr](self, node))
                 return
@@ -301,21 +323,25 @@ class Visitor(ast.NodeVisitor):
 # -- helper extractions ---------------------------------------------------------
 
 
-def helper_check_syntax_error(v: Visitor, call: ast.Call) -> list[Case]:
+def helper_check_syntax_error(v: Visitor, call: ast.Call, first_arg: int = 1) -> list[Case]:
     # test.support.check_syntax_error(testcase, statement[, errtext],
-    #                                 *, lineno, offset)
-    if len(call.args) < 2:
+    #                                 *, lineno, offset).  The bound
+    # self.check_syntax_error call has no testcase in front.
+    if len(call.args) <= first_arg:
         return []
-    src = const_str(call.args[1])
-    if src is None:
+    if (resolved := source_of(v, call.args[first_arg])) is None:
         return []
-    case = Case(v.case_id(call), src)
-    if len(call.args) >= 3:
-        case.regex = const_str(call.args[2])
+    case = Case(v.case_id(call), resolved[0], encoding=resolved[1])
+    if len(call.args) > first_arg + 1:
+        case.regex = const_str(call.args[first_arg + 1])
     for kw in call.keywords:
         if kw.arg in ("lineno", "offset") and isinstance(kw.value, ast.Constant):
             setattr(case, kw.arg, kw.value.value)
     return [case]
+
+
+def helper_check_syntax_error_bound(v: Visitor, call: ast.Call) -> list[Case]:
+    return helper_check_syntax_error(v, call, first_arg=0)
 
 
 def helper_check_error_stmt(v: Visitor, call: ast.Call) -> list[Case]:
@@ -323,12 +349,11 @@ def helper_check_error_stmt(v: Visitor, call: ast.Call) -> list[Case]:
     #     mode=, subclass=, lineno=, offset=, end_lineno=, end_offset=)
     if not call.args:
         return []
-    src = const_str(call.args[0])
-    if src is None:
+    if (resolved := source_of(v, call.args[0])) is None:
         return []
-    case = Case(v.case_id(call), src)
-    if len(call.args) >= 2:
-        case.regex = const_str(call.args[1])
+    case = Case(v.case_id(call), resolved[0], encoding=resolved[1])
+    if len(call.args) >= 2 and (text := source_of(v, call.args[1])) is not None:
+        case.regex = text[0]
     for kw in call.keywords:
         if not isinstance(kw.value, ast.Constant):
             continue
@@ -383,10 +408,10 @@ def helper_ckmsg(v: Visitor, call: ast.Call) -> list[Case]:
     # test_exceptions' local ckmsg(src, msg[, exception=])
     if len(call.args) < 2:
         return []
-    src = const_str(call.args[0])
-    if src is None:
+    if (resolved := source_of(v, call.args[0])) is None:
         return []
-    case = Case(v.case_id(call), src, exact=const_str(call.args[1]))
+    case = Case(v.case_id(call), resolved[0], encoding=resolved[1],
+                exact=const_str(call.args[1]))
     for kw in call.keywords:
         if kw.arg == "exception" and isinstance(kw.value, ast.Name):
             if kw.value.id not in ERROR_TYPES:
@@ -469,6 +494,18 @@ HELPER_EXTRACTORS = {
     "assertAllRaise": helper_assert_all_raise,
 }
 
+# The helpers whose bound form shifts the arguments: self.check_syntax_error
+# drops the leading testcase parameter.  Every other helper takes the source
+# as its first argument in both forms.
+BOUND_HELPER_EXTRACTORS = {
+    "check_syntax_error": helper_check_syntax_error_bound,
+}
+
+# Helper names that the test modules also define locally, where the generic
+# local-def walk cannot see the assertion shape (ckmsg's compile call sits in
+# a bare try block, not under assertRaises).
+LOCAL_DEF_HELPERS = {"ckmsg"}
+
 
 def with_block_cases(v: Visitor, node: ast.With, regex: str | None) -> list[Case]:
     """Snippets from the compile/eval/exec calls inside an assertRaises with
@@ -537,10 +574,13 @@ def source_of(v: Visitor, node: ast.AST) -> tuple[str, str | None] | None:
         if isinstance(found[1], str):
             return (found[1], None)
         if isinstance(found[1], bytes):
+            # Not every bytes source is UTF-8: test_syntax builds a latin-1
+            # snippet with an explicit `# coding=latin` line.  latin-1 maps
+            # every byte, so the round trip through the corpus is exact.
             try:
                 return (found[1].decode("utf-8"), "utf-8")
             except UnicodeDecodeError:
-                return None
+                return (found[1].decode("latin-1"), "latin-1")
     if (text := const_str(node)) is not None:
         return (text, None)
     return None
