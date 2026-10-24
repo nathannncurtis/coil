@@ -9,6 +9,9 @@ publish.workspace = true
 coil-rt-abi = { path = "../coil-rt-abi" }
 coil-capi-sys = { path = "../coil-capi-sys" }
 
+[dev-dependencies]
+cc = "=1.10.0"
+
 [lib]
 # The cdylib is the runtime DLL named for the impersonated ABI (section 10.1).
 name = "python312"
