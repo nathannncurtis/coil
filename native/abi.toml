@@ -44,7 +44,7 @@ coil_rt_set_frame = { ret = "void", args = ["void *frame"] }
 # keeps rbp chained (section 9.4): saved rbp at [rbp], the return
 # address at [rbp+8], the function descriptor pointer 8 bytes below rbp,
 # and the frame's reference slots stepping down from 16 bytes below it —
-# stack-map bitmap bit i covers the slot at rbp + slot_base + i*slot_stride.
+# stack-map bitmap bit i covers the slot at rbp + slot_base - i*slot_stride.
 [offsets]
 
 [offsets.compiled_frame]
@@ -67,7 +67,7 @@ eval_breaker = 56
 # and the table is read-only data the compiler emits into .rdata.
 # Entries are sorted ascending by ret_addr; each carries a bitmap over
 # the frame's reference slots, bit i set meaning slot i (at
-# rbp + slot_base + i*slot_stride) holds a live PyObject* at that
+# rbp + slot_base - i*slot_stride) holds a live PyObject* at that
 # safepoint.
 [formats.stackmap]
 
@@ -77,4 +77,4 @@ entry_count = "u64: number of entries that follow"
 entry.ret_addr = "u64: absolute return address inside the unit's code"
 entry.nslots = "u32: number of reference slots the frame has"
 entry.bitmap_words = "u32: ceil(nslots / 64)"
-entry.bitmap = "u64 × bitmap_words: bit i covers slot i"
+entry.bitmap = "u64 × bitmap_words: bit i covers the slot at rbp + slot_base - i*slot_stride"
