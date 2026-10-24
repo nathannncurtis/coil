@@ -27,15 +27,9 @@ pub struct MethodTable(pub &'static [coil_capi_sys::PyMethodDef]);
 // SAFETY: the name strings and function pointers are process-static.
 unsafe impl Sync for MethodTable {}
 
-pub mod _collections;
-pub mod _struct;
-pub mod array;
-pub mod audioop;
 pub mod binascii;
 pub mod cmath;
-pub mod itertools;
 pub mod math;
-pub mod zlib;
 
 // ------------------------------------------------------------ call helper
 
