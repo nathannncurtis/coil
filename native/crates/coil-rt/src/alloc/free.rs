@@ -53,6 +53,10 @@ pub(super) fn pop_thread_free(page: &PageHeader) -> *mut u8 {
 /// when `ptr` addressed a live GC-heap allocation (an object address for
 /// counted-regime blocks, the block address otherwise).
 ///
+/// During a collection's sweep window the free is queued instead (spec
+/// section 9.3: nothing is reused before phase 9); the flush after the
+/// sweep frees the queue for real.
+///
 /// # Safety
 ///
 /// `ptr` must be null or a pointer this allocator returned, and must not
@@ -73,6 +77,24 @@ pub unsafe fn free_block(ptr: *mut u8) -> bool {
         if addr != data && !(addr == data + GRANULE && page.has_prehdr(0)) {
             return false;
         }
+        if crate::gc::counted::is_sweeping() {
+            // SAFETY: the address was just validated against the run.
+            unsafe { crate::gc::counted::queue_sweep_free(addr) };
+            return true;
+        }
+        #[cfg(feature = "debug-heap")]
+        if unsafe {
+            release_or_quarantine(
+                page,
+                if page.has_prehdr(0) {
+                    data + GRANULE
+                } else {
+                    data
+                },
+            )
+        } {
+            return true;
+        }
         return pool::free_large(base);
     }
     let data = base + DATA_OFFSET;
@@ -92,6 +114,22 @@ pub unsafe fn free_block(ptr: *mut u8) -> bool {
     if !page.allocated(g0) {
         return false;
     }
+    if crate::gc::counted::is_sweeping() {
+        // SAFETY: the block was just validated against the page's bits.
+        unsafe { crate::gc::counted::queue_sweep_free(addr) };
+        return true;
+    }
+    #[cfg(feature = "debug-heap")]
+    if unsafe {
+        let object = if page.has_prehdr(g0) {
+            block + GRANULE
+        } else {
+            block
+        };
+        release_or_quarantine(page, object)
+    } {
+        return true;
+    }
     page.clear_object_bits(g0, granules);
     let owner = page.current_for.load(Ordering::Acquire);
     if owner != 0
@@ -109,4 +147,46 @@ pub unsafe fn free_block(ptr: *mut u8) -> bool {
         pool::recycle_page(page, base);
     }
     true
+}
+
+/// The `--features debug-heap` treatment of a freed object: a counted
+/// object's block is quarantined for one more collection (poisoned, hidden
+/// from the walks, kept allocated — true, and the caller frees nothing);
+/// every other object's body is poisoned on its way to the free list. The
+/// allocator's free-list link takes the block's first word either way.
+///
+/// # Safety
+///
+/// `object` must be the object address of a live block this free is about
+/// to release, whose page bits are still intact.
+#[cfg(feature = "debug-heap")]
+unsafe fn release_or_quarantine(page: &PageHeader, object: usize) -> bool {
+    let granule = page.granule_of(page.base(), object);
+    if !page.is_object(granule) {
+        return false;
+    }
+    // SAFETY: `object` is a live object whose page bits are intact.
+    if unsafe { crate::gc::counted::quarantine_counted(object) } {
+        return true;
+    }
+    let base = page.base();
+    let block = if page.is_small() {
+        page.block_start(base, object)
+    } else {
+        base + DATA_OFFSET
+    };
+    // SAFETY: the block is about to be freed and is exclusively this
+    // thread's.
+    let capacity = unsafe { crate::alloc::block_capacity(block as *const u8) }.unwrap_or(0);
+    if capacity > 8 {
+        // SAFETY: the body is `capacity` bytes at the block.
+        unsafe {
+            core::ptr::write_bytes(
+                (block + 8) as *mut u8,
+                crate::alloc::page::POISON_BYTE,
+                capacity - 8,
+            )
+        };
+    }
+    false
 }

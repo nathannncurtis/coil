@@ -5793,18 +5793,22 @@ unsafe fn format_one_arg(
                     if res.is_null() {
                         return false;
                     }
-                    let view = as_chars(res).unwrap();
+                    // Copy before the decref: `_Py_Dealloc` may free —
+                    // and with debug-heap poison — the string the view
+                    // borrows from.
+                    let text = as_chars(res).unwrap().as_vec();
                     decref(res);
-                    Some(view.as_vec())
+                    Some(text)
                 } else {
                     let res =
                         _PyUnicode_FormatLong(v, (flags & F_ALT) as c_int, prec, type_ as c_char);
                     if res.is_null() {
                         return false;
                     }
-                    let view = as_chars(res).unwrap();
+                    // As above: the copy precedes the decref it outlives.
+                    let text = as_chars(res).unwrap().as_vec();
                     decref(res);
-                    Some(view.as_vec())
+                    Some(text)
                 }
             }
             'e' | 'E' | 'f' | 'F' | 'g' | 'G' => {

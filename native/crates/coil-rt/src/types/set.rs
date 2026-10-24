@@ -374,6 +374,10 @@ unsafe fn add_entry(so: *mut PySetObject, key: *mut PyObject, hash: isize) -> bo
             unsafe {
                 (*entry).key = key;
                 (*entry).hash = hash;
+                // The store is a heap store of an R-typed or Top-typed
+                // value: the barrier gives the key the heap reference
+                // the slot now holds (section 9.3).
+                crate::gc::counted::barrier(core::ptr::null_mut(), key);
                 (*so).fill += 1;
                 (*so).used += 1;
                 if ((*so).fill as usize * 5) < (*so).mask as usize * 3 {
@@ -392,6 +396,7 @@ unsafe fn add_entry(so: *mut PySetObject, key: *mut PyObject, hash: isize) -> bo
             unsafe {
                 (*freeslot).key = key;
                 (*freeslot).hash = hash;
+                crate::gc::counted::barrier(core::ptr::null_mut(), key);
                 (*so).used += 1;
                 true
             }
@@ -447,9 +452,13 @@ unsafe fn discard_entry(so: *mut PySetObject, key: *mut PyObject, hash: isize) -
         if (*entry).key.is_null() {
             return 0;
         }
+        let removed = (*entry).key;
         (*entry).key = dummy();
         (*entry).hash = -1;
         (*so).used -= 1;
+        // The removal is a heap store of null: the barrier takes the
+        // slot's heap reference back (section 9.3).
+        crate::gc::counted::barrier(removed, core::ptr::null_mut());
     }
     1
 }
@@ -496,6 +505,10 @@ unsafe fn pop(so: *mut PySetObject) -> *mut PyObject {
         (*entry).hash = -1;
         (*so).used -= 1;
         (*so).finger = entry.offset_from((*so).table) + 1;
+        // The popped key leaves the table's heap reference behind — the
+        // result is a new reference — so the entry's slot gives its
+        // reference up (section 9.3).
+        crate::gc::counted::barrier(key, core::ptr::null_mut());
         key
     }
 }
@@ -545,6 +558,9 @@ unsafe fn clear_internal(so: *mut PySetObject) -> c_int {
         let mut entry = source;
         while remaining > 0 {
             if !(*entry).key.is_null() && !core::ptr::eq((*entry).key, dummy()) {
+                // The clearing drops every slot: each key's heap
+                // reference goes back (section 9.3).
+                crate::gc::counted::barrier((*entry).key, core::ptr::null_mut());
                 remaining -= 1;
             }
             entry = entry.add(1);
@@ -637,6 +653,9 @@ unsafe extern "C" fn set_dealloc(object: *mut PyObject) {
         let mut entry = table;
         while used > 0 {
             if !(*entry).key.is_null() && !core::ptr::eq((*entry).key, dummy()) {
+                // The table's slots die with the set: each key's heap
+                // reference goes back (section 9.3).
+                crate::gc::counted::barrier((*entry).key, core::ptr::null_mut());
                 used -= 1;
             }
             entry = entry.add(1);

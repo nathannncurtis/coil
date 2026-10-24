@@ -16,7 +16,7 @@
 
 # Bumped when an entry changes in a way its consumers must notice; the
 # runtime and an executable agree when version and hash both match.
-version = 2
+version = 3
 
 # Every coil_rt_* entry point compiled code may call, with its signature
 # as (return type, argument types) in C spelling. Registered once per
@@ -44,6 +44,21 @@ coil_rt_register_module_table = { ret = "int", args = [
 # walks every anchor on the chain.
 coil_rt_push_frame = { ret = "void", args = ["void *frame"] }
 coil_rt_pop_frame = { ret = "void", args = [] }
+
+# Store barriers (spec section 9.3). `overwritten` is the value leaving the
+# heap slot (null on a first store), `stored` the value entering it (null on
+# a removal). `ext` is emitted when the slot's static type is an extension
+# (R) type or Top, so the barrier adjusts heap_refs unconditionally;
+# `dynamic` first consults the page table's regime bit for the stored value.
+coil_rt_barrier_ext = { ret = "void", args = [
+    "PyObject *overwritten",
+    "PyObject *stored",
+] }
+
+coil_rt_barrier_dynamic = { ret = "void", args = [
+    "PyObject *overwritten",
+    "PyObject *stored",
+] }
 
 # Offsets into runtime structs that compiled code reads or writes
 # directly instead of calling an entry point, in bytes. A compiled frame

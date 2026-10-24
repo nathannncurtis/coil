@@ -76,8 +76,9 @@ pub struct ThreadState {
     /// This thread's allocator cache, reached by the collector's
     /// stop-the-world walk; never dereferenced after thread death.
     pub alloc_cache: *mut c_void,
-    /// This thread's zero-count table (section 9.2), until the collector
-    /// task owns it.
+    /// This thread's zero-count table (section 9.3): the R objects whose
+    /// two counts reached zero, waiting for the stack walk that decides
+    /// their fate. Owned by `gc::counted`.
     pub zct: *mut c_void,
     /// The raw bytes of the pending exception's message, the payload the
     /// str type will carry in `args`; empty when the exception was set by
@@ -99,7 +100,7 @@ impl ThreadState {
             gilstate_counter: 0,
             context: core::ptr::null_mut(),
             alloc_cache: crate::alloc::thread_cache::cache_ptr().cast(),
-            zct: core::ptr::null_mut(),
+            zct: crate::gc::counted::new_zct(),
             message: Vec::new(),
         }
     }

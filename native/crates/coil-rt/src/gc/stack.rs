@@ -240,10 +240,10 @@ pub unsafe extern "C" fn coil_rt_pop_frame() {
     }
 }
 
-/// Mark the reference slots the stack map for `ret_addr` names in the
+/// Visit the reference slots the stack map for `ret_addr` names in the
 /// frame at `rbp`. False when no registered unit covers `ret_addr` — the
 /// walk's stop condition.
-fn mark_slots(ret_addr: usize, rbp: usize, marks: &mut MarkState) -> bool {
+fn visit_slots(ret_addr: usize, rbp: usize, visit: &mut dyn FnMut(*mut PyObject)) -> bool {
     let units = units().lock().expect("code registry poisoned");
     let Some(unit) = units
         .iter()
@@ -267,24 +267,25 @@ fn mark_slots(ret_addr: usize, rbp: usize, marks: &mut MarkState) -> bool {
         // PyObject* at this safepoint, and the frame is live on a stack.
         let value = unsafe { core::ptr::read_volatile(addr as *const *mut PyObject) };
         if !value.is_null() {
-            marks.mark(value);
+            visit(value);
         }
     }
     true
 }
 
-/// Walk the frame chain anchored at `rbp`, marking every reference slot
-/// the stack maps name (section 9.4: every live reference is in a frame
-/// slot at a safepoint, and `rbp` is always kept). The walk stops at the
-/// first frame whose return address no unit covers, at a null or unaligned
-/// `rbp`, a chain that does not climb, or after `MAX_FRAMES` frames — a
-/// runaway chain must not hang the collector on a corrupted stack.
+/// Walk the frame chain anchored at `rbp`, handing every reference slot
+/// the stack maps name to `visit` (section 9.4: every live reference is
+/// in a frame slot at a safepoint, and `rbp` is always kept). The walk
+/// stops at the first frame whose return address no unit covers, at a
+/// null or unaligned `rbp`, a chain that does not climb, or after
+/// `MAX_FRAMES` frames — a runaway chain must not hang the collector on
+/// a corrupted stack.
 ///
 /// # Safety
 ///
 /// `rbp` must be null or a saved-rbp value of a compiled frame that is
 /// live on some thread's stack, whose chain is well-formed.
-pub(crate) unsafe fn mark_frames(rbp: usize, marks: &mut MarkState) {
+pub(crate) unsafe fn walk_frames(rbp: usize, visit: &mut dyn FnMut(*mut PyObject)) {
     const MAX_FRAMES: usize = 64 * 1024;
     let mut rbp = rbp;
     for _ in 0..MAX_FRAMES {
@@ -295,7 +296,7 @@ pub(crate) unsafe fn mark_frames(rbp: usize, marks: &mut MarkState) {
         // caller's rbp are the two words above it.
         let ret_addr = unsafe { core::ptr::read_volatile((rbp as *const usize).offset(1)) };
         let caller = unsafe { core::ptr::read_volatile(rbp as *const usize) };
-        if !mark_slots(ret_addr, rbp, marks) {
+        if !visit_slots(ret_addr, rbp, visit) {
             return;
         }
         if caller <= rbp {
@@ -303,6 +304,18 @@ pub(crate) unsafe fn mark_frames(rbp: usize, marks: &mut MarkState) {
             return;
         }
         rbp = caller;
+    }
+}
+
+/// `walk_frames` as the collector's marking pass.
+///
+/// # Safety
+///
+/// As `walk_frames`.
+pub(crate) unsafe fn mark_frames(rbp: usize, marks: &mut MarkState) {
+    // SAFETY: as `walk_frames`; the visitor only marks.
+    unsafe {
+        walk_frames(rbp, &mut |value| marks.mark(value));
     }
 }
 

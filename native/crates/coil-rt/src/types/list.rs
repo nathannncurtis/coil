@@ -122,6 +122,14 @@ fn app1(self_: *mut PyListObject, v: *mut PyObject) -> c_int {
             return -1;
         }
         *(*self_).ob_item.add(n as usize) = v;
+        // CPython's append takes a reference; a counted list's slot holds
+        // it by `ob_refcnt`, any other list's by the barrier (section
+        // 9.3).
+        if crate::gc::counted::slots_are_counted(self_.cast()) {
+            crate::gc::counted::_Py_IncRef(v);
+        } else {
+            crate::gc::counted::barrier(core::ptr::null_mut(), v);
+        }
     }
     0
 }
@@ -162,14 +170,37 @@ fn ins1(self_: *mut PyListObject, where_: isize, v: *mut PyObject) -> c_int {
             *items.add(i as usize + 1) = *items.add(i as usize);
         }
         *items.add(where_ as usize) = v;
+        // As `app1`: CPython's insert takes a reference.
+        if crate::gc::counted::slots_are_counted(self_.cast()) {
+            crate::gc::counted::_Py_IncRef(v);
+        } else {
+            crate::gc::counted::barrier(core::ptr::null_mut(), v);
+        }
     }
     0
 }
 
 unsafe extern "C" fn list_dealloc(object: *mut PyObject) {
-    // SAFETY: the object came from `PyType_GenericAlloc`.
+    // SAFETY: the object came from `PyType_GenericAlloc`; the item reads
+    // are within the list's array.
     unsafe {
-        let items = (*object.cast::<PyListObject>()).ob_item;
+        let list = object.cast::<PyListObject>();
+        let size = (*list).ob_base.ob_size.max(0) as usize;
+        let counted = crate::gc::counted::slots_are_counted(object);
+        for i in 0..size {
+            let item = *(*list).ob_item.add(i);
+            if item.is_null() {
+                continue;
+            }
+            // A counted list's slots held the items' references; any
+            // other list's slots held heap references (section 9.3).
+            if counted {
+                crate::gc::counted::decref_unless_claimed(item);
+            } else {
+                crate::gc::counted::barrier(item, core::ptr::null_mut());
+            }
+        }
+        let items = (*list).ob_item;
         crate::alloc::pymem::plain_free(items.cast());
         crate::alloc::free_block(object.cast());
     }
@@ -237,6 +268,9 @@ pub extern "C" fn PyList_New(size: isize) -> *mut PyObject {
     let list = object.cast::<PyListObject>();
     // SAFETY: the fresh block is exclusively ours.
     unsafe {
+        // The slots the caller is about to fill are counted references
+        // (CPython's `PyList_SetItem` steals; section 9.3).
+        crate::gc::counted::mark_counted_slots(object);
         (*list).ob_base.ob_size = size;
         (*list).ob_allocated = size;
         if size > 0 {
@@ -294,7 +328,15 @@ pub unsafe extern "C" fn PyList_GetItem(op: *mut PyObject, i: isize) -> *mut PyO
         return core::ptr::null_mut();
     }
     // SAFETY: the item read is within the item array.
-    unsafe { *(*list).ob_item.add(i as usize) }
+    unsafe {
+        let item = *(*list).ob_item.add(i as usize);
+        // The borrowed pointer crossing into compiled code escapes a
+        // C-created value (spec 9.3).
+        if crate::gc::counted::slots_are_counted(op) {
+            crate::gc::counted::note_read_from_counted(item);
+        }
+        item
+    }
 }
 
 /// See the CPython 3.12 contract for this entry point.
@@ -327,7 +369,19 @@ pub unsafe extern "C" fn PyList_SetItem(
             );
             return -1;
         }
-        *(*list).ob_item.add(i as usize) = newitem;
+        let slot = (*list).ob_item.add(i as usize);
+        let old = *slot;
+        *slot = newitem;
+        // CPython's `SetItem` steals the new reference and drops the old
+        // one; a non-counted list's slots trade barrier-accounted heap
+        // references instead (section 9.3).
+        if crate::gc::counted::slots_are_counted(op) {
+            if !old.is_null() {
+                crate::gc::counted::decref_unless_claimed(old);
+            }
+        } else {
+            crate::gc::counted::barrier(old, newitem);
+        }
     }
     0
 }
@@ -409,6 +463,12 @@ pub unsafe extern "C" fn PyList_GetSlice(
                 dst,
                 (ihigh - ilow) as usize,
             );
+            // The result is a fresh list: its slots are counted
+            // references, so each copied item is retained the way
+            // CPython's `list_slice` does.
+            for i in 0..(ihigh - ilow) as usize {
+                crate::gc::counted::_Py_IncRef(*dst.add(i));
+            }
         }
     }
     result
@@ -451,6 +511,15 @@ pub unsafe extern "C" fn PyList_SetSlice(
         let ilow = ilow.clamp(0, n);
         let ihigh = ihigh.clamp(ilow, n);
         let norig = ihigh - ilow;
+        let counted = crate::gc::counted::slots_are_counted(a);
+        // The slice being replaced gives its references up; keep the old
+        // values until the moves are done, then drop them.
+        let replaced: Vec<*mut PyObject> = if norig > 0 {
+            // SAFETY: the item reads are within the list's array.
+            core::slice::from_raw_parts((*list).ob_item.add(ilow as usize), norig as usize).to_vec()
+        } else {
+            Vec::new()
+        };
         if !list_resize(list, n - norig + b.len() as isize) {
             return -1;
         }
@@ -466,6 +535,23 @@ pub unsafe extern "C" fn PyList_SetSlice(
         // Fill the slice.
         for (i, item) in b.iter().enumerate() {
             *items.add(ilow as usize + i) = *item;
+            if counted {
+                // CPython's slice assignment takes a reference per
+                // stored item.
+                crate::gc::counted::_Py_IncRef(*item);
+            } else {
+                crate::gc::counted::barrier(core::ptr::null_mut(), *item);
+            }
+        }
+        for old in replaced {
+            if old.is_null() {
+                continue;
+            }
+            if counted {
+                crate::gc::counted::decref_unless_claimed(old);
+            } else {
+                crate::gc::counted::barrier(old, core::ptr::null_mut());
+            }
         }
     }
     0

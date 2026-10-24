@@ -139,7 +139,8 @@ pub(crate) unsafe fn retain_object(object: *mut PyObject) {
 }
 
 /// Drop a reference to `object`, destroying it at zero (CPython's
-/// `Py_DECREF`); immortal objects are untouched.
+/// `Py_DECREF`); immortal objects are untouched. Zero routes through the
+/// regime rules of section 9.3 (`_Py_Dealloc`'s body).
 ///
 /// # Safety
 ///
@@ -149,19 +150,12 @@ pub(crate) unsafe fn release_object(object: *mut PyObject) {
     if object.is_null() || unsafe { header::is_immortal(object) } {
         return;
     }
-    // SAFETY: as `retain_object`; the dealloc call hands the dead object to
-    // its own type.
+    // SAFETY: as `retain_object`; the zero count hands the object to the
+    // regime's dealloc rules.
     unsafe {
         (*object).ob_refcnt -= 1;
         if (*object).ob_refcnt == 0 {
-            let ty = header::type_of(object);
-            if let Some(dealloc) = (*ty).tp_dealloc {
-                dealloc(object);
-            } else {
-                // Every runtime object is a heap block; a type without a
-                // dealloc slot reaches here only through these fields.
-                crate::alloc::free_block(object.cast());
-            }
+            crate::gc::counted::dealloc_at_zero(object);
         }
     };
 }
@@ -754,10 +748,17 @@ pub fn init_exception_types() -> c_int {
         if typeobject::PyType_Ready(base_exception_type()) < 0 {
             return -1;
         }
+        // SAFETY: the outer block; readied once, before concurrency.
+        crate::gc::counted::note_coil_type(base_exception_type());
         for t in SUBTYPE_OBJECTS.0 {
             if typeobject::PyType_Ready(*t) < 0 {
                 return -1;
             }
+            // The runtime's own dealloc makes these tracing-regime types;
+            // the heap types `PyErr_NewException` builds later share the
+            // pointer, so the one registration covers them.
+            // SAFETY: as above.
+            crate::gc::counted::note_coil_type(*t);
         }
         if !typeobject::register_mro(
             exception_group_type(),

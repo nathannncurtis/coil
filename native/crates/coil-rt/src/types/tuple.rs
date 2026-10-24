@@ -83,9 +83,10 @@ fn tuple_alloc(size: isize) -> *mut PyTupleObject {
     tuple
 }
 
-/// Build a tuple copying `items`; the empty case returns the singleton
-/// (CPython's `_PyTuple_FromArray`).
-pub(crate) fn from_array(items: &[*mut PyObject]) -> *mut PyObject {
+/// Build a tuple copying `items` with no accounting at all: the slots
+/// hold borrowed pointers, the way the gc module's diagnostic lists
+/// report the heap without pinning or escape-marking what they list.
+pub(crate) fn from_array_untracked(items: &[*mut PyObject]) -> *mut PyObject {
     if items.is_empty() {
         return empty_tuple();
     }
@@ -100,10 +101,52 @@ pub(crate) fn from_array(items: &[*mut PyObject]) -> *mut PyObject {
     tuple.cast()
 }
 
+/// Build a tuple copying `items`; the empty case returns the singleton
+/// (CPython's `_PyTuple_FromArray`). The tuple is not a counted
+/// container — the caller keeps its own references — so every store goes
+/// through the barrier (spec 9.3): an R item gains the heap reference
+/// this tuple's slot now holds.
+pub(crate) fn from_array(items: &[*mut PyObject]) -> *mut PyObject {
+    if items.is_empty() {
+        return empty_tuple();
+    }
+    let tuple = tuple_alloc(items.len() as isize);
+    if tuple.is_null() {
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the fresh block holds `items.len()` slots.
+    unsafe {
+        core::ptr::copy_nonoverlapping(items.as_ptr(), (*tuple).ob_item.as_mut_ptr(), items.len());
+        for item in items {
+            crate::gc::counted::barrier(core::ptr::null_mut(), *item);
+        }
+    }
+    tuple.cast()
+}
+
 unsafe extern "C" fn tuple_dealloc(object: *mut PyObject) {
-    // Tuples live on the GC heap (the collector's sweep handles items).
-    // SAFETY: the object came from `PyType_GenericAlloc`.
-    unsafe { crate::alloc::free_block(object.cast()) };
+    // A counted tuple's slots hold the stolen references: each dies here.
+    // Any other tuple's slots were barrier-accounted: each heap reference
+    // goes back. Tuples live on the GC heap either way.
+    let tuple = object.cast::<PyTupleObject>();
+    // SAFETY: the item reads are within the tuple's allocation.
+    unsafe {
+        let size = (*tuple).ob_base.ob_size.max(0) as usize;
+        let counted = crate::gc::counted::slots_are_counted(object);
+        for i in 0..size {
+            let item = (*tuple).ob_item.as_ptr().add(i).read();
+            if item.is_null() {
+                continue;
+            }
+            if counted {
+                crate::gc::counted::decref_unless_claimed(item);
+            } else {
+                crate::gc::counted::barrier(item, core::ptr::null_mut());
+            }
+        }
+        // SAFETY: the object came from `PyType_GenericAlloc`.
+        crate::alloc::free_block(object.cast());
+    }
 }
 
 unsafe extern "C" fn tuple_traverse(
@@ -290,7 +333,17 @@ pub extern "C" fn PyTuple_New(size: isize) -> *mut PyObject {
     if size == 0 {
         return empty_tuple();
     }
-    tuple_alloc(size).cast()
+    let tuple = tuple_alloc(size);
+    if tuple.is_null() {
+        return core::ptr::null_mut();
+    }
+    // The slots the caller is about to fill are counted references
+    // (CPython's `PyTuple_SetItem` steals; section 9.3): the tuple's
+    // death will drop them, and the collection's subtraction counts
+    // them as internal.
+    // SAFETY: the fresh tuple is this caller's alone.
+    unsafe { crate::gc::counted::mark_counted_slots(tuple.cast()) };
+    tuple.cast()
 }
 
 /// See the CPython 3.12 contract for this entry point.
@@ -345,10 +398,16 @@ pub unsafe extern "C" fn PyTuple_GetItemWithError(op: *mut PyObject, i: isize) -
     }
     // SAFETY: the item read is within the tuple's allocation.
     unsafe {
-        *(*op.cast::<PyTupleObject>())
+        let item = *(*op.cast::<PyTupleObject>())
             .ob_item
             .as_ptr()
-            .add(i as usize)
+            .add(i as usize);
+        // The borrowed pointer crossing into compiled code escapes a
+        // C-created value (spec 9.3).
+        if crate::gc::counted::slots_are_counted(op) {
+            crate::gc::counted::note_read_from_counted(item);
+        }
+        item
     }
 }
 
@@ -381,9 +440,24 @@ pub unsafe extern "C" fn PyTuple_SetItem(
         return -1;
     }
     // Immutable tuples carry no lock; the contract's NULL-slot rule makes
-    // the store uncontended by construction.
+    // the store uncontended by construction. A counted tuple's slot
+    // steals the caller's reference (CPython's contract); any other
+    // tuple's slot takes a barrier-accounted heap reference.
     // SAFETY: the item write is within the tuple's allocation.
-    unsafe { (*tuple).ob_item.as_mut_ptr().add(i as usize).write(newitem) };
+    unsafe {
+        let slot = (*tuple).ob_item.as_mut_ptr().add(i as usize);
+        if crate::gc::counted::slots_are_counted(op) {
+            let old = slot.read();
+            slot.write(newitem);
+            if !old.is_null() {
+                crate::gc::counted::decref_unless_claimed(old);
+            }
+        } else {
+            let old = slot.read();
+            slot.write(newitem);
+            crate::gc::counted::barrier(old, newitem);
+        }
+    };
     0
 }
 
@@ -430,6 +504,33 @@ pub unsafe extern "C" fn PyTuple_GetSlice(
     from_array(items)
 }
 
+/// Drop the item references of a caller-owned tuple from `from` on: a
+/// counted tuple's slots hold them by `ob_refcnt`, any other tuple's by
+/// the barrier.
+///
+/// # Safety
+///
+/// `v` must be an exact tuple exclusively owned by the caller.
+unsafe fn drop_items(v: *mut PyObject, from: isize) {
+    let tuple = v.cast::<PyTupleObject>();
+    // SAFETY: the size read and item reads are within the tuple.
+    unsafe {
+        let size = (*tuple).ob_base.ob_size;
+        let counted = crate::gc::counted::slots_are_counted(v);
+        for i in from..size {
+            let item = (*tuple).ob_item.as_ptr().add(i as usize).read();
+            if item.is_null() {
+                continue;
+            }
+            if counted {
+                crate::gc::counted::decref_unless_claimed(item);
+            } else {
+                crate::gc::counted::barrier(item, core::ptr::null_mut());
+            }
+        }
+    }
+}
+
 /// See the CPython 3.12 contract for this entry point: resize a tuple
 /// still exclusively owned by the caller.
 ///
@@ -463,6 +564,9 @@ pub unsafe extern "C" fn _PyTuple_Resize(pv: *mut *mut PyObject, newsize: isize)
     }
     if newsize == 0 {
         if size != 0 {
+            // Every slot's reference dies with the tuple.
+            // SAFETY: the item reads are within the caller-owned tuple.
+            unsafe { drop_items(v, 0) };
             // SAFETY: `v` came from `PyType_GenericAlloc`.
             unsafe { crate::alloc::free_block(v.cast()) };
         }
@@ -476,6 +580,12 @@ pub unsafe extern "C" fn _PyTuple_Resize(pv: *mut *mut PyObject, newsize: isize)
         unsafe { *pv = PyTuple_New(newsize) };
         // SAFETY: the caller's slot again.
         return if unsafe { *pv }.is_null() { -1 } else { 0 };
+    }
+    if newsize < size {
+        // The slots past the new size die here; read them before the
+        // block moves.
+        // SAFETY: the item reads are within the caller-owned tuple.
+        unsafe { drop_items(v, newsize) };
     }
     // SAFETY: `v` came from `PyType_GenericAlloc`.
     let fresh = unsafe {
