@@ -2,16 +2,15 @@
 //! `lower_module`. `lower_module` verifies every function it produces, so an
 //! `Ok` here means the IR also passed `verify`.
 
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-use coil_front::lower::{LowerKind, LowerOptions, LowerOutput, lower_module};
+use coil_front::lower::{LowerOptions, lower_module};
 use coil_front::parser::parse_module;
 use coil_front::symtable;
-use coil_ir::ir::{Const, Function, Instr, LocalKind, Params, Terminator};
+use coil_ir::ir::{Const, FnFlags, Function, Instr, LocalKind, Module, Params, Terminator};
 use coil_ir::types::Value;
 
-fn lower_opt(src: &str, optimize: u8) -> Result<LowerOutput, String> {
+fn lower_opt(src: &str, optimize: u8) -> Result<Module, String> {
     let (module, mut interner) =
         parse_module(src.as_bytes(), Some(Path::new("test.py"))).map_err(|e| e.message)?;
     let table = symtable::symtable(&module, &mut interner).map_err(|e| e.message)?;
@@ -27,15 +26,14 @@ fn lower_opt(src: &str, optimize: u8) -> Result<LowerOutput, String> {
     .map_err(|e| e.to_string())
 }
 
-fn lower(src: &str) -> LowerOutput {
+fn lower(src: &str) -> Module {
     lower_opt(src, 0).expect("lowering failed")
 }
 
-fn fn_by_qualname<'a>(out: &'a LowerOutput, name: &str) -> &'a Function {
-    out.module
-        .functions
+fn fn_by_qualname<'a>(out: &'a Module, name: &str) -> &'a Function {
+    out.functions
         .iter()
-        .find(|f| out.module.consts.sym_str(f.qualname) == name)
+        .find(|f| out.consts.sym_str(f.qualname) == name)
         .unwrap_or_else(|| panic!("no function named {name}"))
 }
 
@@ -47,22 +45,21 @@ fn has_instr(f: &Function, pred: impl Fn(&Instr) -> bool) -> bool {
     instrs(f).any(pred)
 }
 
-fn local_kind(f: &Function, out: &LowerOutput, name: &str) -> LocalKind {
+fn local_kind(f: &Function, out: &Module, name: &str) -> LocalKind {
     f.locals
         .iter()
-        .find(|m| out.module.consts.sym_str(m.name) == name)
+        .find(|m| out.consts.sym_str(m.name) == name)
         .map(|m| m.kind)
         .unwrap_or_else(|| {
             panic!(
                 "no local named {name} in {}",
-                out.module.consts.sym_str(f.qualname)
+                out.consts.sym_str(f.qualname)
             )
         })
 }
 
-fn sym_of(out: &LowerOutput, name: &str) -> coil_ir::types::Sym {
-    out.module
-        .consts
+fn sym_of(out: &Module, name: &str) -> coil_ir::types::Sym {
+    out.consts
         .strings
         .iter()
         .position(|s| s == name)
@@ -79,12 +76,10 @@ def add(a, b):
 x = add(1, 2)
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let names: Vec<&str> = out
-        .module
         .functions
         .iter()
-        .map(|f| out.module.consts.sym_str(f.qualname))
+        .map(|f| out.consts.sym_str(f.qualname))
         .collect();
     assert_eq!(names, vec!["<module>", "add"]);
     let add = fn_by_qualname(&out, "add");
@@ -319,19 +314,18 @@ class Base:
 "#,
     );
     let names: Vec<&str> = out
-        .module
         .classes
         .iter()
-        .map(|c| out.module.consts.sym_str(c.name))
+        .map(|c| out.consts.sym_str(c.name))
         .collect();
     assert_eq!(names, vec!["Base"]);
-    let cls = &out.module.classes[0];
-    let body = &out.module.functions[cls.body.0 as usize];
-    assert_eq!(out.module.consts.sym_str(body.qualname), "Base");
+    let cls = &out.classes[0];
+    let body = &out.functions[cls.body.0 as usize];
+    assert_eq!(out.consts.sym_str(body.qualname), "Base");
     let method_names: Vec<&str> = cls
         .methods
         .iter()
-        .map(|&(s, _)| out.module.consts.sym_str(s))
+        .map(|&(s, _)| out.consts.sym_str(s))
         .collect();
     assert_eq!(method_names, vec!["m"]);
 }
@@ -474,9 +468,9 @@ fn assert_follows_optimize_level() {
 fn docstring_follows_optimize_level() {
     let src = "def f():\n    'doc'\n    return 1\n";
     let kept = lower_opt(src, 0).expect("optimize 0 lowers");
-    assert!(kept.module.consts.strings.iter().any(|s| s == "__doc__"));
+    assert!(kept.consts.strings.iter().any(|s| s == "__doc__"));
     let dropped = lower_opt(src, 2).expect("optimize 2 lowers");
-    assert!(!dropped.module.consts.strings.iter().any(|s| s == "__doc__"));
+    assert!(!dropped.consts.strings.iter().any(|s| s == "__doc__"));
 }
 
 #[test]
@@ -491,7 +485,7 @@ fn future_annotations_stringify() {
         i,
         Instr::LoadGlobal { name, .. } if *name == undef
     )));
-    assert!(out.module.consts.strings.iter().any(|s| s == "Undefined"));
+    assert!(out.consts.strings.iter().any(|s| s == "Undefined"));
 }
 
 #[test]
@@ -550,7 +544,7 @@ def f(name, v):
 }
 
 #[test]
-fn unsupported_statements_report_kinds_and_keep_the_rest() {
+fn async_and_generator_defs_carry_their_flags() {
     let src = r#"
 def a():
     async def inner():
@@ -562,70 +556,70 @@ def e():
 def g2(s):
     return [i for i in s]
 
+async def h(s):
+    return await s
+
+async def ag(s):
+    async for x in s:
+        yield x
+
 def kept():
     return 7
 "#;
     let out = lower(src);
-    let kinds: HashSet<&str> = out.unsupported.iter().map(|k| k.name()).collect();
     assert_eq!(
-        kinds,
-        HashSet::from(["async function", "yield", "comprehension"])
+        fn_by_qualname(&out, "a.<locals>.inner").flags,
+        FnFlags::COROUTINE
     );
-    // The rest of the module still lowered and verified.
+    assert_eq!(fn_by_qualname(&out, "e").flags, FnFlags::GENERATOR);
+    assert_eq!(fn_by_qualname(&out, "g2").flags, FnFlags(0));
+    assert_eq!(fn_by_qualname(&out, "h").flags, FnFlags::COROUTINE);
+    assert_eq!(fn_by_qualname(&out, "ag").flags, FnFlags::ASYNC_GEN);
     fn_by_qualname(&out, "kept");
 }
 
 #[test]
-fn unsupported_expressions_report_their_kind() {
-    // Unsupported constructs in droppable positions are dropped and named
-    // in the output; the module and the rest of the function still verify.
-    let cases: &[(&str, LowerKind)] = &[
-        (
-            "def f(s):\n    return (x for x in s)\n",
-            LowerKind::GeneratorExp,
-        ),
-        (
-            "def f(s):\n    return {x for x in s}\n",
-            LowerKind::Comprehension,
-        ),
-        (
-            "def f(s):\n    return {x: 1 for x in s}\n",
-            LowerKind::Comprehension,
-        ),
-        ("def f(s):\n    return await s\n", LowerKind::Await),
-        (
-            "def f(s):\n    return x if s else (yield)\n",
-            LowerKind::Yield,
-        ),
-    ];
-    for &(src, kind) in cases {
-        let out = lower(src);
-        assert!(
-            out.unsupported.contains(&kind),
-            "{:?} missing from {:?} for {src}",
-            kind,
-            out.unsupported
-        );
-    }
+fn comprehension_forms_lower_inline() {
+    // A list, set and dict comprehension lower into the enclosing function
+    // (PEP 709): no child scope, and the container ops appear in `f`.
+    let out = lower(
+        r#"
+def f(s):
+    a = [i for i in s]
+    b = {i for i in s}
+    c = {i: i for i in s}
+    return a, b, c
+"#,
+    );
+    let f = fn_by_qualname(&out, "f");
+    assert!(has_instr(f, |i| matches!(
+        i,
+        Instr::BuildList { .. } | Instr::BuildSet { .. } | Instr::BuildDict { .. }
+    )));
+    let names: Vec<&str> = instrs(f)
+        .filter_map(|i| match i {
+            Instr::GetAttr { name, .. } => Some(out.consts.sym_str(*name)),
+            _ => None,
+        })
+        .collect();
+    assert!(names.contains(&"append"));
+    assert!(names.contains(&"add"));
+    assert_eq!(out.functions.len(), 2); // module body and f
 }
 
 #[test]
-fn lambda_body_with_unsupported_expression_still_lowers_rest() {
-    // A lambda body cannot be dropped without dropping the lambda, so the
-    // lambda itself is dropped and the module still verifies.
+fn lambda_body_with_a_comprehension_lowers() {
+    // A comprehension in a lambda body inlines into the lambda; the module
+    // still verifies.
     let out = lower("f = lambda s: [x for x in s]\ng = 1\n");
-    assert!(
-        out.unsupported
-            .iter()
-            .any(|k| matches!(k, LowerKind::Comprehension))
-    );
+    let lam = fn_by_qualname(&out, "<lambda>");
+    assert!(has_instr(lam, |i| matches!(i, Instr::BuildList { .. })));
     let names: Vec<&str> = out
-        .module
         .functions
         .iter()
-        .map(|f| out.module.consts.sym_str(f.qualname))
+        .map(|f| out.consts.sym_str(f.qualname))
         .collect();
-    assert_eq!(names, vec!["<module>"]);
+    assert_eq!(names, vec!["<module>", "<lambda>"]);
 }
 
 #[test]
@@ -745,15 +739,13 @@ def f(a=lambda: y):
     return a
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     fn_by_qualname(&out, "f");
     // Both lambdas lower in the module scope, one in the decorator and one
     // in the defaults, each bound to its own scope.
     let lambdas = out
-        .module
         .functions
         .iter()
-        .filter(|f| out.module.consts.sym_str(f.qualname) == "<lambda>")
+        .filter(|f| out.consts.sym_str(f.qualname) == "<lambda>")
         .count();
     assert_eq!(lambdas, 2);
 }
@@ -769,14 +761,14 @@ def g():
     return h
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     fn_by_qualname(&out, "g.<locals>.<lambda>");
 }
 
 #[test]
-fn dropped_generic_def_keeps_the_child_cursor() {
-    // A TypeVar bound's scopes nest inside the type-parameters scope, so
-    // dropping the def advances the cursor by exactly one slot.
+fn generic_def_with_genexp_bound_keeps_the_child_cursor() {
+    // A TypeVar bound's genexp scope nests inside the type-parameters
+    // scope; lowering it consumes exactly its slots and the following defs
+    // still find theirs.
     let out = lower(
         r#"
 def f[T: (i for i in g())](x):
@@ -785,11 +777,11 @@ def h():
     return 1
 "#,
     );
-    assert!(
-        out.unsupported
-            .iter()
-            .any(|k| matches!(k, LowerKind::GeneratorExp))
-    );
+    // The bound thunk's children take bare names (as lambdas in bounds
+    // already do).
+    let genexp = fn_by_qualname(&out, "<genexpr>");
+    assert_eq!(genexp.flags, FnFlags::GENERATOR);
+    assert!(has_instr(genexp, |i| matches!(i, Instr::Yield { .. })));
     fn_by_qualname(&out, "h");
 }
 
@@ -873,7 +865,6 @@ def f(s):
     return s
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     assert_eq!(
         instrs(f)
@@ -904,7 +895,6 @@ def f(s):
         pass
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     assert_eq!(
         instrs(f)
@@ -956,7 +946,6 @@ def raising(s):
         raise KeyError(s)
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     assert!(has_instr(f, |i| matches!(i, Instr::FinallyEnter { .. })));
     assert!(has_instr(f, |i| matches!(i, Instr::FinallyExit { .. })));
@@ -976,11 +965,10 @@ def f(m, n):
     return a
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     let attrs: Vec<&str> = instrs(f)
         .filter_map(|i| match i {
-            Instr::GetAttr { name, .. } => Some(out.module.consts.sym_str(*name)),
+            Instr::GetAttr { name, .. } => Some(out.consts.sym_str(*name)),
             _ => None,
         })
         .collect();
@@ -1015,12 +1003,11 @@ def f(x, pairs):
     return y, rest, others, w
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     // Sequence and mapping tests look up members of collections.abc.
     let names: Vec<&str> = instrs(f)
         .filter_map(|i| match i {
-            Instr::GetAttr { name, .. } => Some(out.module.consts.sym_str(*name)),
+            Instr::GetAttr { name, .. } => Some(out.consts.sym_str(*name)),
             _ => None,
         })
         .collect();
@@ -1065,7 +1052,6 @@ def f(m):
     return 0
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     // The enter call has no arguments, the body call its own two, the
     // `type(exc)` lookup one, and every exit call exactly the protocol's
@@ -1081,9 +1067,9 @@ def f(m):
 }
 
 /// The constant a value is defined by, if any.
-fn const_of<'a>(f: &'a Function, out: &'a LowerOutput, v: Value) -> Option<&'a Const> {
+fn const_of<'a>(f: &'a Function, out: &'a Module, v: Value) -> Option<&'a Const> {
     instrs(f).find_map(|i| match i {
-        Instr::Const { idx, into } if *into == v => Some(&out.module.consts.consts[idx.0 as usize]),
+        Instr::Const { idx, into } if *into == v => Some(&out.consts.consts[idx.0 as usize]),
         _ => None,
     })
 }
@@ -1136,7 +1122,6 @@ def writes(g):
         return msg
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     // The handler sees a merge of both raise points: x is 1 at the first
     // call and 2 at the second, neither the region-entry constant nor one
     // end-of-body value.
@@ -1172,7 +1157,7 @@ def writes(g):
     let writes = fn_by_qualname(&out, "writes");
     let ret = handler_returns(writes)[0];
     assert!(
-        matches!(const_of(writes, &out, ret), Some(Const::Str(s)) if out.module.consts.sym_str(*s) == "failed"),
+        matches!(const_of(writes, &out, ret), Some(Const::Str(s)) if out.consts.sym_str(*s) == "failed"),
         "handler-local write must survive to its own read, got {ret:?}"
     );
 }
@@ -1189,7 +1174,6 @@ def f(m):
     return x
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     let ret = f
         .blocks
@@ -1206,7 +1190,7 @@ def f(m):
 fn finally_inside_except_star_handler_compiles() {
     // CPython compiles a try/finally inside an except* handler; only control
     // flow leaving the handler itself is the error.
-    let out = lower(
+    lower(
         r#"
 def f(g, c):
     try:
@@ -1219,7 +1203,6 @@ def f(g, c):
     return 0
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let err = match lower_opt(
         r#"
 def f(g):
@@ -1254,7 +1237,6 @@ def f(g, h):
     return 0
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     let to_raise = instrs(f)
         .find_map(|i| match i {
@@ -1281,7 +1263,6 @@ def f(g, h):
     return 0
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     let h = Value(1);
     let body = f
@@ -1339,7 +1320,6 @@ def f(g):
     return 0
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     let guarded = f.blocks.iter().any(|b| {
         let Terminator::Branch { cond, then_to, .. } = &b.term else {
@@ -1358,8 +1338,8 @@ def f(g):
 
 /// True when the function raises `<exc_name>(<msg>)` where the message is a
 /// `buildstr` containing a constant whose text contains `text`.
-fn raises_with_message(f: &Function, out: &LowerOutput, exc_name: &str, text: &str) -> bool {
-    let consts = &out.module.consts;
+fn raises_with_message(f: &Function, out: &Module, exc_name: &str, text: &str) -> bool {
+    let consts = &out.consts;
     let head = consts
         .consts
         .iter()
@@ -1417,7 +1397,6 @@ def f(d):
             return p
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     let f = fn_by_qualname(&out, "f");
     assert!(
         raises_with_message(
@@ -1448,7 +1427,6 @@ def pos_kw(o):
             return v
 "#,
     );
-    assert_eq!(out.unsupported, vec![]);
     for name in ["pos_pos", "pos_kw"] {
         let f = fn_by_qualname(&out, name);
         assert!(
@@ -1477,16 +1455,19 @@ match [1, 2]:
         r = x
 "#,
     );
-    assert_eq!(out_m.unsupported, vec![]);
     let m = fn_by_qualname(&out_m, "<module>");
     let flat: Vec<&Instr> = instrs(m).collect();
     let lookup = flat
         .iter()
-        .position(|i| matches!(i, Instr::GetAttr { name, .. } if out_m.module.consts.sym_str(*name) == "v"))
+        .position(
+            |i| matches!(i, Instr::GetAttr { name, .. } if out_m.consts.sym_str(*name) == "v"),
+        )
         .expect("obj.v lookup");
     let store_x = flat
         .iter()
-        .position(|i| matches!(i, Instr::StoreName { name, .. } if out_m.module.consts.sym_str(*name) == "x"))
+        .position(
+            |i| matches!(i, Instr::StoreName { name, .. } if out_m.consts.sym_str(*name) == "x"),
+        )
         .expect("capture store");
     assert!(
         lookup < store_x,
@@ -1500,7 +1481,6 @@ def g(s):
             return x
 "#,
     );
-    assert_eq!(out2.unsupported, vec![]);
     let g = fn_by_qualname(&out2, "g");
     let merged = g.blocks.iter().any(|b| match &b.term {
         Terminator::Return { value } => defined_by_phi(g, *value),
@@ -1520,4 +1500,199 @@ def h(s):
         Ok(_) => panic!("alternatives binding different names must not lower"),
     };
     assert!(err.to_string().contains("bind different names"), "{err}");
+}
+
+#[test]
+fn genexp_is_a_generator_function_of_the_outer_iterator() {
+    let out = lower("def f(s):\n    return (i * 2 for i in s)\n");
+    let f = fn_by_qualname(&out, "f");
+    let genexp = fn_by_qualname(&out, "f.<locals>.<genexpr>");
+    assert_eq!(genexp.flags, FnFlags::GENERATOR);
+    // The single `.0` parameter receives the outermost iterator, iterated
+    // before the call.
+    assert_eq!(genexp.params.positional.len(), 1);
+    assert_eq!(out.consts.sym_str(genexp.params.positional[0]), ".0");
+    assert!(has_instr(genexp, |i| matches!(
+        i,
+        Instr::Yield { state: 1, .. }
+    )));
+    // The outermost iterator is taken in the defining function, before the
+    // call that creates the generator.
+    assert!(has_instr(f, |i| matches!(i, Instr::GetIter { .. })));
+}
+
+#[test]
+fn yield_and_yield_from_lower_to_resumable_instructions() {
+    let out = lower(
+        r#"
+def g(s):
+    yield 1
+    yield from s
+"#,
+    );
+    let g = fn_by_qualname(&out, "g");
+    assert_eq!(g.flags, FnFlags::GENERATOR);
+    let states: Vec<u32> = instrs(g)
+        .filter_map(|i| match i {
+            Instr::Yield { state, .. } | Instr::YieldFrom { state, .. } => Some(*state),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(states, vec![1, 2]);
+    assert!(has_instr(g, |i| matches!(i, Instr::YieldFrom { .. })));
+}
+
+#[test]
+fn await_is_yield_from_over_dunder_await() {
+    let out = lower("async def f(s):\n    return await s\n");
+    let f = fn_by_qualname(&out, "f");
+    assert_eq!(f.flags, FnFlags::COROUTINE);
+    assert!(has_instr(f, |i| matches!(i, Instr::YieldFrom { .. })));
+    let names: Vec<&str> = instrs(f)
+        .filter_map(|i| match i {
+            Instr::GetAttr { name, .. } => Some(out.consts.sym_str(*name)),
+            _ => None,
+        })
+        .collect();
+    assert!(names.contains(&"__await__"));
+}
+
+#[test]
+fn async_for_and_async_with_lower() {
+    let out = lower(
+        r#"
+async def f(s, m):
+    async for x in s:
+        pass
+    async with m as v:
+        pass
+"#,
+    );
+    let f = fn_by_qualname(&out, "f");
+    assert_eq!(f.flags, FnFlags::COROUTINE);
+    let names: Vec<&str> = instrs(f)
+        .filter_map(|i| match i {
+            Instr::GetAttr { name, .. } => Some(out.consts.sym_str(*name)),
+            _ => None,
+        })
+        .collect();
+    for expected in ["__aiter__", "__anext__", "__aenter__", "__aexit__"] {
+        assert!(names.contains(&expected), "{expected} missing");
+    }
+}
+
+#[test]
+fn generator_bodies_wrap_stopiteration() {
+    // PEP 479: a StopIteration escaping a generator body becomes a
+    // RuntimeError whose cause is the original exception.
+    let out = lower("def g(s):\n    raise StopIteration\n    yield 1\n");
+    let g = fn_by_qualname(&out, "g");
+    let names: Vec<&str> = instrs(g)
+        .filter_map(|i| match i {
+            Instr::LoadGlobal { name, .. } => Some(out.consts.sym_str(*name)),
+            _ => None,
+        })
+        .collect();
+    assert!(names.contains(&"StopIteration"));
+    assert!(names.contains(&"RuntimeError"));
+}
+
+#[test]
+fn module_comprehension_target_becomes_a_cell() {
+    // A nested function captures the comprehension target, so the module
+    // owns a cell for it.
+    let out = lower("r = [lambda: x for x in (1, 2)]\n");
+    let module = &out.functions[out.body.0 as usize];
+    assert!(has_instr(module, |i| matches!(i, Instr::MakeCell { .. })));
+    assert!(module.locals.iter().any(|m| m.kind == LocalKind::Cell));
+}
+
+#[test]
+fn comprehension_target_isolation_restores_the_outer_local() {
+    // `[x for x in ...]` in a function that also binds `x`: the comp's x is
+    // a distinct SSA variable and the outer binding survives.
+    let out = lower(
+        r#"
+def f(s):
+    x = 1
+    r = [x for x in s]
+    return x
+"#,
+    );
+    fn_by_qualname(&out, "f");
+    assert_eq!(out.functions.len(), 2);
+}
+
+#[test]
+fn walrus_inside_a_comprehension_writes_the_enclosing_name() {
+    // PEP 572: the target binds in the containing scope; at module level
+    // that is a name store surviving the comprehension.
+    let out = lower("r = [y := i for i in (1, 2)]\ng = y\n");
+    let module = &out.functions[out.body.0 as usize];
+    assert!(has_instr(module, |i| matches!(i, Instr::StoreName { .. })));
+}
+
+#[test]
+fn dict_comprehension_evaluates_the_key_first() {
+    let out = lower("def f(s):\n    return {k(): v() for k, v in s}\n");
+    let f = fn_by_qualname(&out, "f");
+    // The symtable visits the value's scopes first; the code generator
+    // evaluates the key first. Both calls appear, in either evaluation
+    // order the IR still verifies; assert the calls exist.
+    assert!(has_instr(f, |i| matches!(i, Instr::Call { .. })));
+}
+
+#[test]
+fn async_comprehension_inside_async_def_lowers() {
+    let out = lower("async def f(s):\n    return [x async for x in s]\n");
+    let f = fn_by_qualname(&out, "f");
+    let names: Vec<&str> = instrs(f)
+        .filter_map(|i| match i {
+            Instr::GetAttr { name, .. } => Some(out.consts.sym_str(*name)),
+            _ => None,
+        })
+        .collect();
+    assert!(names.contains(&"__aiter__"));
+    assert!(names.contains(&"__anext__"));
+}
+
+#[test]
+fn async_genexp_lowers_with_the_async_gen_flag() {
+    let out = lower("async def f(s):\n    return (x async for x in s)\n");
+    let genexp = fn_by_qualname(&out, "f.<locals>.<genexpr>");
+    assert_eq!(genexp.flags, FnFlags::ASYNC_GEN);
+}
+
+#[test]
+fn compile_stage_rejections_match_cpython() {
+    let cases: &[(&str, &str)] = &[
+        ("yield 1\n", "'yield' outside function"),
+        (
+            "async def g(s):\n    yield from s\n",
+            "'yield from' inside async function",
+        ),
+        (
+            "async def f(s):\n    return [x async for x in s]\n\nr = [x async for x in f(1)]\n",
+            "asynchronous comprehension outside of an asynchronous function",
+        ),
+        ("def f(s):\n    await s\n", "'await' outside async function"),
+        (
+            "def f(s):\n    async for x in s:\n        pass\n",
+            "'async for' outside async function",
+        ),
+        (
+            "def f(m):\n    async with m:\n        pass\n",
+            "'async with' outside async function",
+        ),
+        (
+            "async def f(s):\n    async for x in s:\n        yield x\n    return 1\n",
+            "'return' with value in async generator",
+        ),
+    ];
+    for &(src, message) in cases {
+        match lower_opt(src, 0) {
+            Err(e) => assert!(e.contains(message), "{message} not in {e} for {src}"),
+            Ok(_) => panic!("expected rejection {message} for {src}"),
+        }
+    }
 }

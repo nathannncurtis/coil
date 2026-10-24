@@ -1,9 +1,12 @@
 //! Lowering from the AST plus symbol table to Coil IR (spec section 4): one
 //! function at a time, in CPython 3.12's codegen order so evaluation order
-//! matches. Constructs owned by the control-flow and generator tasks report
-//! `LowerError::Unsupported`; the statement driver drops such statements
-//! together with their nested scopes, so the rest of the module still lowers
-//! and every lowered function verifies.
+//! matches. Comprehensions are inlined into their enclosing scope (PEP 709)
+//! with their `for` targets isolated; generator expressions become generator
+//! functions whose single parameter `.0` receives the outermost iterator
+//! pre-iterated. Generators, coroutines and async generators lower to the
+//! resumable form of spec section 12.5: `Yield`/`YieldFrom` instructions
+//! whose `state` tags the resumption points the backend switches on, with
+//! locals that live across them as ordinary SSA variables.
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::path::PathBuf;
@@ -31,38 +34,8 @@ pub struct LowerOptions {
     pub optimize: u8,
 }
 
-/// A construct this task does not lower; the names match the split of the
-/// front-end work across tasks (spec section 4).
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum LowerKind {
-    Comprehension,
-    GeneratorExp,
-    Yield,
-    YieldFrom,
-    Await,
-    AsyncFunction,
-    AsyncFor,
-    AsyncWith,
-}
-
-impl LowerKind {
-    pub fn name(&self) -> &'static str {
-        match self {
-            LowerKind::Comprehension => "comprehension",
-            LowerKind::GeneratorExp => "generator expression",
-            LowerKind::Yield => "yield",
-            LowerKind::YieldFrom => "yield from",
-            LowerKind::Await => "await",
-            LowerKind::AsyncFunction => "async function",
-            LowerKind::AsyncFor => "async for",
-            LowerKind::AsyncWith => "async with",
-        }
-    }
-}
-
 #[derive(Debug)]
 pub enum LowerError {
-    Unsupported(LowerKind),
     Build(BuildError),
     /// A builder error surfaced while sealing a finished function, with the
     /// function's qualname for diagnosis.
@@ -85,6 +58,12 @@ pub enum LowerError {
         what: &'static str,
         line: u32,
     },
+    /// A compile-stage rejection, with CPython's message (e.g. `await`
+    /// outside an async function).
+    Rejected {
+        message: String,
+        line: u32,
+    },
 }
 
 impl From<BuildError> for LowerError {
@@ -96,7 +75,6 @@ impl From<BuildError> for LowerError {
 impl std::fmt::Display for LowerError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            LowerError::Unsupported(kind) => write!(f, "unsupported construct: {}", kind.name()),
             LowerError::Build(e) => write!(f, "builder: {e}"),
             LowerError::BuildIn { qualname, source } => {
                 write!(f, "build in {qualname}: {source}")
@@ -110,17 +88,14 @@ impl std::fmt::Display for LowerError {
             LowerError::UnexpectedAst { what, line } => {
                 write!(f, "unexpected AST shape: {what} (line {line})")
             }
+            LowerError::Rejected { message, line } => {
+                write!(f, "{message} (line {line})")
+            }
         }
     }
 }
 
 impl std::error::Error for LowerError {}
-
-/// A lowered module plus the constructs that were dropped from it.
-pub struct LowerOutput {
-    pub module: Module,
-    pub unsupported: Vec<LowerKind>,
-}
 
 /// Lower a module. The symbol table must be `symtable::symtable`'s result for
 /// the same module; `source` is the exact bytes it was parsed from (needed
@@ -133,14 +108,13 @@ pub fn lower_module(
     interner: &Interner,
     table: &SymbolTable,
     options: LowerOptions,
-) -> Result<LowerOutput, LowerError> {
+) -> Result<Module, LowerError> {
     let mut low = Lowerer {
         interner,
         names: HashMap::new(),
         consts: ConstPool::default(),
         functions: Vec::new(),
         classes: Vec::new(),
-        unsupported: Vec::new(),
         root: table,
         optimize: options.optimize,
         future_annotations: has_future_annotations(module, interner),
@@ -195,10 +169,7 @@ pub fn lower_module(
         qualname: "<module>".to_owned(),
         source,
     })?;
-    Ok(LowerOutput {
-        module,
-        unsupported: low.unsupported,
-    })
+    Ok(module)
 }
 
 fn has_future_annotations(module: &crate::ast_generated::Mod, interner: &Interner) -> bool {
@@ -495,7 +466,6 @@ struct Lowerer<'a> {
     consts: ConstPool,
     functions: Vec<Function>,
     classes: Vec<ClassDesc>,
-    unsupported: Vec<LowerKind>,
     root: &'a SymbolTable,
     optimize: u8,
     future_annotations: bool,
@@ -568,12 +538,6 @@ impl<'a> Lowerer<'a> {
             }
         }
         None
-    }
-
-    fn record_unsupported(&mut self, kind: LowerKind) {
-        if !self.unsupported.contains(&kind) {
-            self.unsupported.push(kind);
-        }
     }
 
     /// Source text between an expression's start and end positions.
@@ -818,7 +782,25 @@ impl<'a> Lowerer<'a> {
         let mut cells: HashMap<String, Value> = HashMap::new();
         let mut flags = FnFlags(0);
         let entry = b.entry();
-        let cell_scoped = kind.function_like() || matches!(kind, FnKind::Class);
+        // Generator, coroutine and async-generator flags, from the scope's
+        // own symbols (spec section 12.5: the state machine the backend
+        // builds keys off these).
+        if scope.generator {
+            flags = flags.union(if scope.coroutine {
+                FnFlags::ASYNC_GEN
+            } else {
+                FnFlags::GENERATOR
+            });
+        } else if scope.coroutine {
+            flags = flags.union(FnFlags::COROUTINE);
+        }
+        // A module needs cells only when an inlined comprehension's captured
+        // target turned into one (dictbytype matches CELL scope or the
+        // DEF_COMP_CELL flag, which survives on names the module also binds).
+        let has_cells = scope.symbols.iter().any(|&(_, sym_flags)| {
+            scope_of(sym_flags) == symtable::CELL || sym_flags & symtable::DEF_COMP_CELL != 0
+        });
+        let cell_scoped = kind.function_like() || matches!(kind, FnKind::Class) || has_cells;
         if kind.function_like() {
             // CPython's fast locals start as NULL slots; a read of a local
             // never assigned on the path yields None here instead of raising
@@ -837,13 +819,47 @@ impl<'a> Lowerer<'a> {
                         .expect("entry block exists");
                 }
             }
+        } else {
+            // A comprehension `for` target in a name-operation scope runs as
+            // an SSA local while the comprehension is active; it needs an
+            // entry-time definition so the save-read at the comprehension's
+            // start verifies (an entry def dominates everything, so reads on
+            // any later exception edge resolve to it).
+            for &s in &scope.comp_bound {
+                let name = self.text(s);
+                // A comp target the parent also routes through a cell
+                // (DEF_COMP_CELL) is swapped via cells, not an SSA save.
+                let is_local = scope.symbols.iter().any(|&(sym, sym_flags)| {
+                    sym == s
+                        && scope_of(sym_flags) == symtable::LOCAL
+                        && sym_flags & symtable::DEF_COMP_CELL == 0
+                });
+                if !is_local || param_syms.contains(&self.pool(&name)) {
+                    continue;
+                }
+                let into = b.fresh(Type::Top);
+                b.push(Instr::Const {
+                    idx: self.consts.const_idx(Const::None),
+                    into,
+                })
+                .expect("entry block is open");
+                b.write_variable(self.pool(&name), entry, into)
+                    .expect("entry block exists");
+                if !cell_scoped {
+                    b.add_local(LocalMeta {
+                        name: self.pool(&name),
+                        kind: LocalKind::Local,
+                    });
+                }
+            }
         }
         if cell_scoped {
             // Cell variables start as empty cells; a cell that is also a
             // parameter is initialised from the argument.
             for &(s, sym_flags) in &scope.symbols {
                 let name = self.text(s);
-                if scope_of(sym_flags) == symtable::CELL {
+                if scope_of(sym_flags) == symtable::CELL || sym_flags & symtable::DEF_COMP_CELL != 0
+                {
                     let initial = param_syms
                         .iter()
                         .position(|&p| p == self.pool(&name))
@@ -883,6 +899,7 @@ impl<'a> Lowerer<'a> {
                     symtable::CELL => LocalKind::Cell,
                     symtable::FREE => LocalKind::Free,
                     _ if sym_flags & symtable::DEF_FREE_CLASS != 0 => LocalKind::Free,
+                    _ if sym_flags & symtable::DEF_COMP_CELL != 0 => LocalKind::Cell,
                     _ => LocalKind::Local,
                 };
                 b.add_local(LocalMeta {
@@ -915,6 +932,10 @@ impl<'a> Lowerer<'a> {
             n_argcount: params.positional.len(),
             finally_count: 0,
             terminated: false,
+            async_def: false,
+            genexp_scope: false,
+            comp_frames: Vec::new(),
+            yield_state: 1,
             pending: VecDeque::new(),
         }
     }
@@ -962,6 +983,11 @@ enum Unwind {
     With {
         exit: Value,
     },
+    /// An `async with` body: await the bound `__aexit__(None, None, None)`
+    /// on the way out.
+    WithAsync {
+        exit: Value,
+    },
     /// A `try` body guarded by `finally`: store the reason in `var` and jump
     /// `entry`, abandoning the unwinding to the finally's dispatch.
     Finally {
@@ -989,6 +1015,26 @@ enum Unwind {
 enum Arity {
     Static(usize),
     Runtime(Value),
+}
+
+/// The kind of a comprehension expression: which container the element
+/// lands in, or that it is yielded (a generator expression).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CompKind {
+    List,
+    Set,
+    Dict,
+    Generator,
+}
+
+/// The symbol-table swap an inlined comprehension installs while it runs
+/// (CPython's `push_inlined_comprehension_state`): `overrides` replaces the
+/// parent's flags for the names the comprehension isolates, `saved` and
+/// `saved_cells` hold what the outer bindings to restore afterwards.
+struct CompFrame {
+    overrides: HashMap<String, i64>,
+    saved: Vec<(String, Value)>,
+    saved_cells: Vec<(String, Value)>,
 }
 
 /// One function body under construction.
@@ -1025,6 +1071,17 @@ struct FnLower<'a, 'b> {
     n_argcount: usize,
     finally_count: usize,
     terminated: bool,
+    /// The enclosing definition is `async def`.
+    async_def: bool,
+    /// The scope is a generator expression's: `await` is legal inside it
+    /// even when the enclosing definition is not async.
+    genexp_scope: bool,
+    /// Active inlined comprehensions, innermost last (CPython's
+    /// `u_in_inlined_comp` count plus the per-frame swap state).
+    comp_frames: Vec<CompFrame>,
+    /// The next resume-point tag handed to `Yield`/`YieldFrom` (spec
+    /// section 12.5); states count from 1.
+    yield_state: u32,
 }
 
 impl<'a, 'b> FnLower<'a, 'b> {
@@ -1221,7 +1278,24 @@ impl<'a, 'b> FnLower<'a, 'b> {
     }
 
     fn flags_for(&self, name: &str) -> Option<i64> {
+        // An active inlined comprehension swapped this name's flags in for
+        // its own duration (CPython's temp symbol table); the innermost
+        // frame that has it wins.
+        for frame in self.comp_frames.iter().rev() {
+            if let Some(&flags) = frame.overrides.get(name) {
+                return Some(flags);
+            }
+        }
         self.sym_map.get(name).copied()
+    }
+
+    /// True when an active inlined comprehension isolates this name: it
+    /// resolves by its comprehension scope, not the parent's.
+    fn comp_isolated(&self, mangled: &str) -> bool {
+        self.comp_frames
+            .iter()
+            .rev()
+            .any(|f| f.overrides.contains_key(mangled))
     }
 
     /// The next child scope in CPython's codegen order.
@@ -1282,11 +1356,15 @@ impl<'a, 'b> FnLower<'a, 'b> {
         if raw == "__debug__" && self.flags_for(mangled).is_none() {
             return self.const_val(Const::Bool(self.low.optimize == 0), pos);
         }
+        // A class body's namespace is invisible inside an inlined
+        // comprehension, so implicit globals load as globals there.
+        let class_comp = self.kind == FnKind::Class && !self.comp_frames.is_empty();
+        let name_ops = self.kind.uses_name_ops() && !self.comp_isolated(mangled);
         // A name the symtable never saw is an implicit global: exception
         // tuples and pattern helpers load builtins the source never names.
         let flags = match self.flags_for(mangled) {
             Some(flags) => flags,
-            None if self.kind.uses_name_ops() => {
+            None if name_ops && !class_comp => {
                 let name = self.pool(mangled);
                 return self.value_of(pos, |into| Instr::LoadName { name, into });
             }
@@ -1300,7 +1378,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 let name = self.pool(mangled);
                 self.value_of(pos, |into| Instr::LoadGlobal { name, into })
             }
-            symtable::GLOBAL_IMPLICIT if !self.kind.uses_name_ops() => {
+            symtable::GLOBAL_IMPLICIT if !name_ops => {
                 let name = self.pool(mangled);
                 self.value_of(pos, |into| Instr::LoadGlobal { name, into })
             }
@@ -1308,9 +1386,13 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 let cell = self.cell_of(mangled, pos)?;
                 self.value_of(pos, move |into| Instr::LoadCell { cell, into })
             }
-            _ if self.kind.uses_name_ops() => {
+            _ if name_ops => {
                 let name = self.pool(mangled);
-                self.value_of(pos, |into| Instr::LoadName { name, into })
+                if class_comp {
+                    self.value_of(pos, |into| Instr::LoadGlobal { name, into })
+                } else {
+                    self.value_of(pos, |into| Instr::LoadName { name, into })
+                }
             }
             _ => {
                 let sym = self.pool(mangled);
@@ -1335,6 +1417,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         value: Value,
         pos: Pos,
     ) -> Result<(), LowerError> {
+        let name_ops = self.kind.uses_name_ops() && !self.comp_isolated(mangled);
         let flags = self.flags_for(mangled).unwrap_or(0);
         match scope_of(flags) {
             symtable::GLOBAL_EXPLICIT => {
@@ -1342,7 +1425,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 self.emit(Instr::StoreGlobal { name, value }, pos)?;
                 Ok(())
             }
-            symtable::GLOBAL_IMPLICIT if !self.kind.uses_name_ops() => {
+            symtable::GLOBAL_IMPLICIT if !name_ops => {
                 let name = self.pool(mangled);
                 self.emit(Instr::StoreGlobal { name, value }, pos)?;
                 Ok(())
@@ -1352,7 +1435,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 self.emit(Instr::StoreCell { cell, value }, pos)?;
                 Ok(())
             }
-            _ if self.kind.uses_name_ops() => {
+            _ if name_ops => {
                 let name = self.pool(mangled);
                 self.emit(Instr::StoreName { name, value }, pos)?;
                 Ok(())
@@ -1382,9 +1465,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
 
     fn del_name(&mut self, id: FSym, pos: Pos) -> Result<(), LowerError> {
         let mangled = self.mangle(&self.text(id));
+        let name_ops = self.kind.uses_name_ops() && !self.comp_isolated(&mangled);
         let flags = self.flags_for(&mangled).unwrap_or(0);
         match scope_of(flags) {
-            symtable::GLOBAL_EXPLICIT | symtable::GLOBAL_IMPLICIT if !self.kind.uses_name_ops() => {
+            symtable::GLOBAL_EXPLICIT | symtable::GLOBAL_IMPLICIT if !name_ops => {
                 let name = self.pool(&mangled);
                 let value = self.none()?;
                 self.emit(Instr::StoreGlobal { name, value }, pos)?;
@@ -1394,7 +1478,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 let value = self.none()?;
                 self.emit(Instr::StoreCell { cell, value }, pos)?;
             }
-            _ if self.kind.uses_name_ops() => {
+            _ if name_ops => {
                 // DELETE_NAME. The IR has no unbind; storing None leaves the
                 // name bound (reads after `del` yield None, not NameError).
                 let name = self.pool(&mangled);
@@ -1534,13 +1618,6 @@ impl<'a, 'b> FnLower<'a, 'b> {
     }
 
     fn lower_stmt(&mut self, s: &Stmt) -> Result<(), LowerError> {
-        if let Some(kind) =
-            unsupported_in_stmt(s, self.low.future_annotations, self.kind.uses_name_ops())
-        {
-            self.low.record_unsupported(kind);
-            self.child += scope_count_stmt(s, self.low.future_annotations);
-            return Ok(());
-        }
         match s {
             Stmt::FunctionDef {
                 name,
@@ -1557,6 +1634,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 decorator_list,
                 returns,
                 type_params,
+                false,
                 stmt_pos(s),
             ),
             Stmt::ClassDef {
@@ -1585,6 +1663,12 @@ impl<'a, 'b> FnLower<'a, 'b> {
             Stmt::Return { value, .. } => {
                 if self.terminated {
                     return Ok(());
+                }
+                if value.is_some() && self.scope.generator && self.scope.coroutine {
+                    return Err(LowerError::Rejected {
+                        message: "'return' with value in async generator".to_owned(),
+                        line: stmt_pos(s).line,
+                    });
                 }
                 let v = match value {
                     Some(e) => self.expr(e)?,
@@ -1719,9 +1803,32 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 self.unwind_to_loop(true, stmt_pos(s))
             }
             Stmt::Global { .. } | Stmt::Nonlocal { .. } | Stmt::Pass { .. } => Ok(()),
-            Stmt::AsyncFunctionDef { .. } => Err(LowerError::Unsupported(LowerKind::AsyncFunction)),
-            Stmt::AsyncFor { .. } => Err(LowerError::Unsupported(LowerKind::AsyncFor)),
-            Stmt::AsyncWith { .. } => Err(LowerError::Unsupported(LowerKind::AsyncWith)),
+            Stmt::AsyncFunctionDef {
+                name,
+                args,
+                body,
+                decorator_list,
+                returns,
+                type_params,
+                ..
+            } => self.lower_function_def(
+                name,
+                args,
+                body,
+                decorator_list,
+                returns,
+                type_params,
+                true,
+                stmt_pos(s),
+            ),
+            Stmt::AsyncFor {
+                target,
+                iter,
+                body,
+                orelse,
+                ..
+            } => self.lower_async_for(target, iter, body, orelse, stmt_pos(s)),
+            Stmt::AsyncWith { items, body, .. } => self.lower_async_with(items, body, stmt_pos(s)),
             Stmt::With { items, body, .. } => self.lower_with(items, body, stmt_pos(s)),
             Stmt::Try {
                 body,
@@ -2157,6 +2264,84 @@ impl<'a, 'b> FnLower<'a, 'b> {
         Ok(())
     }
 
+    /// `async for`: the iterator's `__anext__()` coroutine awaited per turn
+    /// (spec section 12.5); `StopAsyncIteration` leaves the loop.
+    #[allow(clippy::too_many_arguments)]
+    fn lower_async_for(
+        &mut self,
+        target: &Expr,
+        iter: &Expr,
+        body: &[Stmt],
+        orelse: &[Stmt],
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        if !self.async_def {
+            return Err(LowerError::Rejected {
+                message: "'async for' outside async function".to_owned(),
+                line: pos.line,
+            });
+        }
+        let it_val = self.expr(iter)?;
+        let aiter_m = self.method(&it_val, "__aiter__", pos)?;
+        let it = self.call(aiter_m, vec![it_val], Vec::new(), pos)?;
+        let types = self.except_tuple("StopAsyncIteration", pos)?;
+        let head = self.new_block()?;
+        let catch = self.new_block()?;
+        let cont = self.new_block()?;
+        let end = self.new_block()?;
+        self.jump(head)?;
+        self.terminated = false;
+        self.b.switch_to(head)?;
+        // Only the __anext__ await is covered by the handler.
+        self.b.set_handler(head, Some(catch))?;
+        let anext_m = self.method(&it, "__anext__", pos)?;
+        let anext = self.call(anext_m, vec![it], Vec::new(), pos)?;
+        let next = self.await_of(anext, pos)?;
+        self.jump(cont)?;
+        self.terminated = false;
+        self.b.switch_to(cont)?;
+        self.assign_target(target, next, pos)?;
+        self.unwinds.push(Unwind::Loop { end, head });
+        self.lower_body(body)?;
+        self.unwinds.pop();
+        self.jump(head)?;
+        self.terminated = false;
+        self.b.switch_to(catch)?;
+        let matched = self.b.fresh(Type::Bool);
+        let exc = self.b.fresh(Type::Top);
+        self.emit(
+            Instr::CatchBegin {
+                types,
+                matched,
+                exc,
+            },
+            pos,
+        )?;
+        let clean = self.new_block()?;
+        let reraise_blk = self.new_block()?;
+        self.branch(matched, clean, reraise_blk)?;
+        self.terminated = false;
+        self.b.switch_to(reraise_blk)?;
+        self.b.set_term(reraise_blk, Terminator::Reraise)?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(clean)?;
+        self.emit(Instr::CatchEnd, pos)?;
+        if orelse.is_empty() {
+            self.jump(end)?;
+        } else {
+            let else_blk = self.new_block()?;
+            self.jump(else_blk)?;
+            self.terminated = false;
+            self.b.switch_to(else_blk)?;
+            self.lower_body(orelse)?;
+            self.jump(end)?;
+        }
+        self.terminated = false;
+        self.b.switch_to(end)?;
+        Ok(())
+    }
+
     // ---- try / with / match ------------------------------------------
 
     /// The exception types an `except` clause tests: a syntactic tuple is
@@ -2181,6 +2366,582 @@ impl<'a, 'b> FnLower<'a, 'b> {
     fn base_exception_tuple(&mut self, pos: Pos) -> Result<Value, LowerError> {
         let be = self.load_plain_name("BaseException", pos)?;
         self.build_tuple(vec![be], pos)
+    }
+
+    /// A one-element exception tuple over a global class, as `CatchBegin`
+    /// wants: `(<name>,)`.
+    fn except_tuple(&mut self, name: &str, pos: Pos) -> Result<Value, LowerError> {
+        let sym = self.pool(name);
+        let cls = self.value_of(pos, move |into| Instr::LoadGlobal { name: sym, into })?;
+        self.build_tuple(vec![cls], pos)
+    }
+
+    /// The next resume-point tag for a `Yield`/`YieldFrom` (spec section
+    /// 12.5).
+    fn next_state(&mut self) -> u32 {
+        let state = self.yield_state;
+        self.yield_state += 1;
+        state
+    }
+
+    /// `await v` (spec section 12.5): the awaitable's `__await__()`, driven
+    /// by a `YieldFrom`. Used by every await site (`await` expressions,
+    /// `__anext__`, `__aenter__`/`__aexit__`).
+    fn await_of(&mut self, v: Value, pos: Pos) -> Result<Value, LowerError> {
+        let m = self.method(&v, "__await__", pos)?;
+        let awaiter = self.call(m, vec![v], Vec::new(), pos)?;
+        let send = self.none()?;
+        let state = self.next_state();
+        self.value_of(pos, move |into| Instr::YieldFrom {
+            state,
+            iter: awaiter,
+            send,
+            into,
+        })
+    }
+
+    /// `await v`: `YieldFrom` over `v.__await__()`. Legal inside an `async
+    /// def`, and inside a generator expression whose outermost clause is
+    /// async (that scope is a coroutine); anything else is a compile error
+    /// (CPython's compiler_visit_expr1).
+    fn lower_await(&mut self, value: &Expr, pos: Pos) -> Result<Value, LowerError> {
+        if !self.kind.function_like() {
+            return Err(LowerError::Rejected {
+                message: "'await' outside function".to_owned(),
+                line: pos.line,
+            });
+        }
+        if !self.async_def && !self.genexp_scope {
+            return Err(LowerError::Rejected {
+                message: "'await' outside async function".to_owned(),
+                line: pos.line,
+            });
+        }
+        let v = self.expr(value)?;
+        self.await_of(v, pos)
+    }
+
+    /// PEP 479: a `StopIteration` escaping a generator-like body becomes a
+    /// `RuntimeError` with the original exception as its cause. Pushes the
+    /// wrapper's handler; `fill_stopiteration_landing` fills the landing
+    /// once the body is complete. Every generator, coroutine and async
+    /// generator body is wrapped (CPython's `wrap_in_stopiteration_handler`).
+    fn push_stopiteration_wrapper(&mut self) -> Result<BlockId, LowerError> {
+        let landing = self.new_block()?;
+        self.handlers.push(landing);
+        Ok(landing)
+    }
+
+    fn fill_stopiteration_landing(&mut self, landing: BlockId, pos: Pos) -> Result<(), LowerError> {
+        let back = self
+            .b
+            .current_block()
+            .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+        let back_terminated = self.terminated;
+        self.terminated = false;
+        self.b.switch_to(landing)?;
+        let types = self.except_tuple("StopIteration", pos)?;
+        let matched = self.b.fresh(Type::Bool);
+        let exc = self.b.fresh(Type::Top);
+        self.emit(
+            Instr::CatchBegin {
+                types,
+                matched,
+                exc,
+            },
+            pos,
+        )?;
+        let conv = self.new_block()?;
+        let reraise_blk = self.new_block()?;
+        self.branch(matched, conv, reraise_blk)?;
+        self.terminated = false;
+        self.b.switch_to(reraise_blk)?;
+        self.b.set_term(reraise_blk, Terminator::Reraise)?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(conv)?;
+        self.emit(Instr::CatchEnd, pos)?;
+        let msg = self.const_str("generator raised StopIteration", pos)?;
+        let err_cls_sym = self.pool("RuntimeError");
+        let err_cls = self.value_of(pos, move |into| Instr::LoadGlobal {
+            name: err_cls_sym,
+            into,
+        })?;
+        let err = self.call(err_cls, vec![msg], Vec::new(), pos)?;
+        let at = self
+            .b
+            .current_block()
+            .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+        self.b.set_term(
+            at,
+            Terminator::Raise {
+                exc: Some(err),
+                cause: Some(exc),
+            },
+        )?;
+        self.terminated = true;
+        self.terminated = back_terminated;
+        self.b.switch_to(back)?;
+        Ok(())
+    }
+
+    // ---- comprehensions (spec section 12.5, PEP 709) ---------------------
+
+    /// A list/set/dict comprehension, inlined into the enclosing scope
+    /// (PEP 709). The comprehension's `for` targets are isolated while it
+    /// runs: an SSA local that shadows the outer binding, or a fresh cell
+    /// when the comprehension itself made the target a cell (a nested
+    /// function captured it). Generator expressions are separate functions
+    /// (`lower_genexp`).
+    fn lower_inlined_comp(
+        &mut self,
+        kind: CompKind,
+        generators: &[Comprehension],
+        elt: &Expr,
+        value: Option<&Expr>,
+        pos: Pos,
+    ) -> Result<Value, LowerError> {
+        let key = (pos.line as i32, pos.col as i32);
+        let entry = self
+            .low
+            .root
+            .inlined_comps
+            .iter()
+            .find(|(k, _)| *k == key)
+            .ok_or(LowerError::UnexpectedAst {
+                what: "missing inlined comprehension scope",
+                line: pos.line,
+            })?;
+        let comp_coroutine = entry.1.coroutine;
+        let comp_symbols: Vec<(String, i64)> = entry
+            .1
+            .symbols
+            .iter()
+            .map(|&(s, flags)| (self.text(s), flags))
+            .collect();
+        if comp_coroutine && !self.async_def && !self.genexp_scope {
+            return Err(LowerError::Rejected {
+                message: "asynchronous comprehension outside of an asynchronous function"
+                    .to_owned(),
+                line: pos.line,
+            });
+        }
+        // The outermost iterator is evaluated in the enclosing scope, before
+        // the swap (CPython's compiler_comprehension order).
+        let iter_val = self.expr(&generators[0].iter)?;
+        let outermost_async = generators[0].is_async != 0;
+        let outer_it = if outermost_async {
+            let m = self.method(&iter_val, "__aiter__", pos)?;
+            self.call(m, vec![iter_val], Vec::new(), pos)?
+        } else {
+            self.value_of(pos, move |into| Instr::GetIter {
+                obj: iter_val,
+                into,
+            })?
+        };
+        // CPython's push_inlined_comprehension_state: inside a class body the
+        // comprehension runs against its own symbols wholesale (the class
+        // namespace is invisible to it); elsewhere only the names whose
+        // comprehension scope differs from the outer one are swapped, which
+        // in practice is exactly the isolated targets.
+        let in_class = self.kind == FnKind::Class && self.comp_frames.is_empty();
+        let mut frame = CompFrame {
+            overrides: HashMap::new(),
+            saved: Vec::new(),
+            saved_cells: Vec::new(),
+        };
+        for (raw_name, comp_flags) in comp_symbols {
+            let key = self.mangle(&raw_name);
+            let cs = scope_of(comp_flags);
+            let ps = self.sym_map.get(&key).copied();
+            let ps_scope = ps.map(scope_of).unwrap_or(0);
+            let swap = in_class
+                || (cs != ps_scope
+                    && cs != symtable::FREE
+                    && !(cs == symtable::CELL && ps_scope == symtable::FREE));
+            if swap {
+                frame.overrides.insert(key.clone(), comp_flags);
+            }
+            // A comp local without DEF_NONLOCAL is a `for` target.
+            if comp_flags & symtable::DEF_LOCAL == 0 || comp_flags & symtable::DEF_NONLOCAL != 0 {
+                continue;
+            }
+            if cs == symtable::CELL {
+                // Save the outer cell and make a fresh one: nested functions
+                // created inside the comprehension capture the fresh cell,
+                // the outer binding survives untouched.
+                let old = self.cell_of(&key, pos)?;
+                let fresh = self.value_of(pos, |into| Instr::MakeCell {
+                    initial: None,
+                    into,
+                })?;
+                self.cells.insert(key.clone(), fresh);
+                frame.saved_cells.push((key, old));
+            } else if ps_scope == symtable::LOCAL {
+                // The comprehension shadows an outer local; restore it when
+                // the comprehension ends.
+                let sym = self.pool(&key);
+                let v = self.read_var_at_current(sym)?;
+                frame.saved.push((key, v));
+            }
+        }
+        self.comp_frames.push(frame);
+        let container = match kind {
+            CompKind::List => self.build_list(Vec::new(), pos)?,
+            CompKind::Set => self.build_set(Vec::new(), pos)?,
+            CompKind::Dict => self.build_dict(Vec::new(), pos)?,
+            CompKind::Generator => {
+                return Err(LowerError::UnexpectedAst {
+                    what: "generator expression lowered as an inlined comprehension",
+                    line: pos.line,
+                });
+            }
+        };
+        self.comp_generators(
+            kind,
+            generators,
+            0,
+            elt,
+            value,
+            Some(outer_it),
+            container,
+            pos,
+        )?;
+        let frame = self.comp_frames.pop().expect("frame pushed above");
+        // CPython's pop_inlined_comprehension_state.
+        for (name, old) in frame.saved_cells {
+            self.cells.insert(name, old);
+        }
+        for (name, v) in frame.saved {
+            let sym = self.pool(&name);
+            self.write_var_at_current(sym, v)?;
+        }
+        Ok(container)
+    }
+
+    /// The `for` clauses of a comprehension, innermost recursive: the last
+    /// clause evaluates the element into the container. `outer_iter` carries
+    /// the already-iterated outermost iterator.
+    #[allow(clippy::too_many_arguments)]
+    fn comp_generators(
+        &mut self,
+        kind: CompKind,
+        generators: &[Comprehension],
+        gen_index: usize,
+        elt: &Expr,
+        value: Option<&Expr>,
+        outer_iter: Option<Value>,
+        container: Value,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let g = &generators[gen_index];
+        let it = match outer_iter {
+            Some(v) => v,
+            None => {
+                let v = self.expr(&g.iter)?;
+                if g.is_async != 0 {
+                    let m = self.method(&v, "__aiter__", pos)?;
+                    self.call(m, vec![v], Vec::new(), pos)?
+                } else {
+                    self.value_of(pos, move |into| Instr::GetIter { obj: v, into })?
+                }
+            }
+        };
+        if g.is_async != 0 {
+            self.async_comp_loop(kind, generators, gen_index, elt, value, it, container, pos)
+        } else {
+            self.sync_comp_loop(kind, generators, gen_index, elt, value, it, container, pos)
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn sync_comp_loop(
+        &mut self,
+        kind: CompKind,
+        generators: &[Comprehension],
+        gen_index: usize,
+        elt: &Expr,
+        value: Option<&Expr>,
+        it: Value,
+        container: Value,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let g = &generators[gen_index];
+        let types = self.except_tuple("StopIteration", pos)?;
+        let head = self.new_block()?;
+        let catch = self.new_block()?;
+        let body = self.new_block()?;
+        let after = self.new_block()?;
+        self.jump(head)?;
+        self.terminated = false;
+        self.b.switch_to(head)?;
+        self.b.set_handler(head, Some(catch))?;
+        let next = self.value_of(pos, |into| Instr::Next { iter: it, into })?;
+        // The target is written in the normal successor only: the handler
+        // edge reads end-of-block definitions, where the Next result is
+        // undefined.
+        self.jump(body)?;
+        self.terminated = false;
+        self.b.switch_to(body)?;
+        self.assign_target(&g.target, next, pos)?;
+        for if_expr in &g.ifs {
+            let cond = self.truth_of(if_expr)?;
+            let next_blk = self.new_block()?;
+            self.branch(cond, next_blk, head)?;
+            self.terminated = false;
+            self.b.switch_to(next_blk)?;
+        }
+        if gen_index + 1 < generators.len() {
+            self.comp_generators(
+                kind,
+                generators,
+                gen_index + 1,
+                elt,
+                value,
+                None,
+                container,
+                pos,
+            )?;
+        } else {
+            self.comp_element(kind, elt, value, container, pos)?;
+        }
+        self.jump(head)?;
+        self.terminated = false;
+        self.b.switch_to(catch)?;
+        let matched = self.b.fresh(Type::Bool);
+        let exc = self.b.fresh(Type::Top);
+        self.emit(
+            Instr::CatchBegin {
+                types,
+                matched,
+                exc,
+            },
+            pos,
+        )?;
+        let clean = self.new_block()?;
+        let reraise_blk = self.new_block()?;
+        self.branch(matched, clean, reraise_blk)?;
+        self.terminated = false;
+        self.b.switch_to(reraise_blk)?;
+        self.b.set_term(reraise_blk, Terminator::Reraise)?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(clean)?;
+        self.emit(Instr::CatchEnd, pos)?;
+        self.jump(after)?;
+        self.terminated = false;
+        self.b.switch_to(after)?;
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn async_comp_loop(
+        &mut self,
+        kind: CompKind,
+        generators: &[Comprehension],
+        gen_index: usize,
+        elt: &Expr,
+        value: Option<&Expr>,
+        it: Value,
+        container: Value,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let g = &generators[gen_index];
+        let types = self.except_tuple("StopAsyncIteration", pos)?;
+        let head = self.new_block()?;
+        let catch = self.new_block()?;
+        let cont = self.new_block()?;
+        let after = self.new_block()?;
+        self.jump(head)?;
+        self.terminated = false;
+        self.b.switch_to(head)?;
+        // Only the __anext__ await is covered by the handler (CPython's
+        // SETUP_FINALLY placement in the async comprehension generator).
+        self.b.set_handler(head, Some(catch))?;
+        let anext_m = self.method(&it, "__anext__", pos)?;
+        let anext = self.call(anext_m, vec![it], Vec::new(), pos)?;
+        let next = self.await_of(anext, pos)?;
+        self.jump(cont)?;
+        self.terminated = false;
+        self.b.switch_to(cont)?;
+        self.assign_target(&g.target, next, pos)?;
+        for if_expr in &g.ifs {
+            let cond = self.truth_of(if_expr)?;
+            let next_blk = self.new_block()?;
+            self.branch(cond, next_blk, head)?;
+            self.terminated = false;
+            self.b.switch_to(next_blk)?;
+        }
+        if gen_index + 1 < generators.len() {
+            self.comp_generators(
+                kind,
+                generators,
+                gen_index + 1,
+                elt,
+                value,
+                None,
+                container,
+                pos,
+            )?;
+        } else {
+            self.comp_element(kind, elt, value, container, pos)?;
+        }
+        self.jump(head)?;
+        self.terminated = false;
+        self.b.switch_to(catch)?;
+        let matched = self.b.fresh(Type::Bool);
+        let exc = self.b.fresh(Type::Top);
+        self.emit(
+            Instr::CatchBegin {
+                types,
+                matched,
+                exc,
+            },
+            pos,
+        )?;
+        let clean = self.new_block()?;
+        let reraise_blk = self.new_block()?;
+        self.branch(matched, clean, reraise_blk)?;
+        self.terminated = false;
+        self.b.switch_to(reraise_blk)?;
+        self.b.set_term(reraise_blk, Terminator::Reraise)?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(clean)?;
+        self.emit(Instr::CatchEnd, pos)?;
+        self.jump(after)?;
+        self.terminated = false;
+        self.b.switch_to(after)?;
+        Ok(())
+    }
+
+    /// The element expression of the innermost clause: appended to the
+    /// container, or yielded in a generator expression. A dict comprehension
+    /// evaluates its key before its value; the symtable visited them the
+    /// other way, so the children swap here.
+    fn comp_element(
+        &mut self,
+        kind: CompKind,
+        elt: &Expr,
+        value: Option<&Expr>,
+        container: Value,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        match kind {
+            CompKind::Generator => {
+                let v = self.expr(elt)?;
+                let state = self.next_state();
+                self.value_of(pos, move |into| Instr::Yield {
+                    state,
+                    value: v,
+                    into,
+                })?;
+            }
+            CompKind::List => {
+                let v = self.expr(elt)?;
+                let m = self.method(&container, "append", pos)?;
+                self.call(m, vec![v], Vec::new(), pos)?;
+            }
+            CompKind::Set => {
+                let v = self.expr(elt)?;
+                let m = self.method(&container, "add", pos)?;
+                self.call(m, vec![v], Vec::new(), pos)?;
+            }
+            CompKind::Dict => {
+                let n_value = value.map(expr_scopes).unwrap_or(0);
+                let n_key = expr_scopes(elt);
+                if n_value != 0 || n_key != 0 {
+                    self.requeue(n_value, n_key);
+                }
+                let k = self.expr(elt)?;
+                let v = match value {
+                    Some(v) => self.expr(v)?,
+                    None => {
+                        return Err(LowerError::UnexpectedAst {
+                            what: "dict comprehension without a value expression",
+                            line: pos.line,
+                        });
+                    }
+                };
+                self.emit(
+                    Instr::SetItem {
+                        obj: container,
+                        key: k,
+                        value: v,
+                    },
+                    pos,
+                )?;
+            }
+        }
+        Ok(())
+    }
+
+    /// A generator expression: a generator function of one parameter, `.0`,
+    /// receiving the outermost iterator pre-iterated, its whole body wrapped
+    /// so a `StopIteration` raised inside becomes a `RuntimeError` (PEP 479).
+    fn lower_genexp(
+        &mut self,
+        generators: &[Comprehension],
+        elt: &Expr,
+        pos: Pos,
+    ) -> Result<Value, LowerError> {
+        // The symtable placed the generator expression's scope after the
+        // outermost iterator's scopes; the function value is built first.
+        let n_iter = expr_scopes(&generators[0].iter);
+        self.requeue(n_iter, 1);
+        let scope = self.take_child().ok_or(LowerError::UnexpectedAst {
+            what: "missing generator expression scope",
+            line: pos.line,
+        })?;
+        let qualname = self.child_qualname("<genexpr>", FnKind::Function);
+        let fid = self.low.reserve_function();
+        let cells = self.child_cells(scope, pos)?;
+        let params = ParamSpec {
+            positional: vec![".0".to_owned()],
+            vararg: None,
+            kwonly: Vec::new(),
+            kwarg: None,
+        };
+        let private = self.private.clone();
+        let mangled = self.mangled.clone();
+        let mut child = self.low.new_fn(
+            scope,
+            FnKind::Function,
+            "<genexpr>",
+            &qualname,
+            params,
+            private,
+            mangled,
+            (Flavor::Function, scope),
+        );
+        child.genexp_scope = true;
+        let landing = child.push_stopiteration_wrapper()?;
+        child.comp_generators(
+            CompKind::Generator,
+            generators,
+            0,
+            elt,
+            None,
+            Some(Value(0)),
+            Value(0),
+            pos,
+        )?;
+        child.return_none()?;
+        child.fill_stopiteration_landing(landing, pos)?;
+        child.finish_into(fid)?;
+        let none_v = self.none()?;
+        let fv = self.make_function_value(fid, cells, none_v, none_v, pos)?;
+        let iter_val = self.expr(&generators[0].iter)?;
+        let it = if generators[0].is_async != 0 {
+            let m = self.method(&iter_val, "__aiter__", pos)?;
+            self.call(m, vec![iter_val], Vec::new(), pos)?
+        } else {
+            self.value_of(pos, move |into| Instr::GetIter {
+                obj: iter_val,
+                into,
+            })?
+        };
+        self.call(fv, vec![it], Vec::new(), pos)
     }
 
     /// Restore the `exc_info` stack and delete the bound name when control
@@ -2210,6 +2971,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 Unwind::Loop { .. } | Unwind::HandlerCleanup { .. } | Unwind::Finalbody { .. } => {}
                 Unwind::Handler
                 | Unwind::With { .. }
+                | Unwind::WithAsync { .. }
                 | Unwind::Finally { .. }
                 | Unwind::StarHandler => live -= 1,
             }
@@ -2236,6 +2998,27 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.b.switch_to(exit_blk)?;
         let none_v = self.none()?;
         self.call(exit_m, vec![none_v, none_v, none_v], Vec::new(), pos)?;
+        Ok(())
+    }
+
+    /// The awaited bound `__aexit__(None, None, None)` an `async with` item
+    /// needs when control leaves it by `break`, `continue` or `return`.
+    fn unwind_with_async_exit(
+        &mut self,
+        exit_m: Value,
+        handler: Option<BlockId>,
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        let exit_blk = self.b.new_block();
+        if let Some(h) = handler {
+            self.b.set_handler(exit_blk, Some(h))?;
+        }
+        self.jump(exit_blk)?;
+        self.terminated = false;
+        self.b.switch_to(exit_blk)?;
+        let none_v = self.none()?;
+        let r = self.call(exit_m, vec![none_v, none_v, none_v], Vec::new(), pos)?;
+        self.await_of(r, pos)?;
         Ok(())
     }
 
@@ -2281,7 +3064,8 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 Unwind::Finalbody { .. }
                 | Unwind::Handler
                 | Unwind::HandlerCleanup { .. }
-                | Unwind::With { .. } => {}
+                | Unwind::With { .. }
+                | Unwind::WithAsync { .. } => {}
             }
         }
         // Second pass: emit the unwinding.
@@ -2304,6 +3088,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 Unwind::With { exit } => {
                     let handler = self.handler_outside(depth);
                     self.unwind_with_exit(exit, handler, pos)?;
+                }
+                Unwind::WithAsync { exit } => {
+                    let handler = self.handler_outside(depth);
+                    self.unwind_with_async_exit(exit, handler, pos)?;
                 }
                 Unwind::Finally {
                     var,
@@ -2376,7 +3164,8 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 | Unwind::Finalbody { .. }
                 | Unwind::Handler
                 | Unwind::HandlerCleanup { .. }
-                | Unwind::With { .. } => {}
+                | Unwind::With { .. }
+                | Unwind::WithAsync { .. } => {}
             }
         }
         // Second pass: emit the unwinding.
@@ -2394,6 +3183,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 Unwind::With { exit } => {
                     let handler = self.handler_outside(depth);
                     self.unwind_with_exit(exit, handler, pos)?;
+                }
+                Unwind::WithAsync { exit } => {
+                    let handler = self.handler_outside(depth);
+                    self.unwind_with_async_exit(exit, handler, pos)?;
                 }
                 Unwind::Finally {
                     var,
@@ -2949,6 +3742,90 @@ impl<'a, 'b> FnLower<'a, 'b> {
         self.emit(Instr::PopExcInfo, pos)?;
         // The suppressed exception never propagates, so the raise-point
         // locals stay as the body left them (CPython keeps them too).
+        self.jump(end)?;
+        self.terminated = false;
+        self.b.switch_to(reraise_blk)?;
+        let at = reraise_blk;
+        self.b.set_term(at, Terminator::Reraise)?;
+        self.terminated = true;
+        self.terminated = false;
+        self.b.switch_to(end)?;
+        Ok(())
+    }
+
+    /// `async with`: like `with`, with `__aenter__`/`__aexit__` awaited
+    /// (spec section 12.5).
+    fn lower_async_with(
+        &mut self,
+        items: &[Withitem],
+        body: &[Stmt],
+        pos: Pos,
+    ) -> Result<(), LowerError> {
+        if !self.async_def {
+            return Err(LowerError::Rejected {
+                message: "'async with' outside async function".to_owned(),
+                line: pos.line,
+            });
+        }
+        let Some(item) = items.first() else {
+            return self.lower_body(body);
+        };
+        let Withitem {
+            context_expr,
+            optional_vars,
+        } = item;
+        // __aexit__ resolves before __aenter__ runs, and neither is covered
+        // by this item's handler. Both are the bound methods, awaited where
+        // CPython awaits them, with no manager argument.
+        let mgr = self.expr(context_expr)?;
+        let exit_m = self.method(&mgr, "__aexit__", pos)?;
+        let enter_m = self.method(&mgr, "__aenter__", pos)?;
+        let aenter = self.call(enter_m, Vec::new(), Vec::new(), pos)?;
+        let value = self.await_of(aenter, pos)?;
+        if let Some(vars) = optional_vars {
+            self.assign_target(vars, value, pos)?;
+        }
+        let landing = self.new_block()?;
+        self.handlers.push(landing);
+        self.unwinds.push(Unwind::WithAsync { exit: exit_m });
+        self.enter_region(landing)?;
+        self.lower_async_with(&items[1..], body, pos)?;
+        self.unwinds.pop();
+        self.handlers.pop();
+        let end = self.new_block()?;
+        if !self.terminated {
+            // Normal path: await aexit(None, None, None) outside the region.
+            let exit_blk = self.new_block()?;
+            self.jump(exit_blk)?;
+            self.terminated = false;
+            self.b.switch_to(exit_blk)?;
+            let none_v = self.none()?;
+            let r = self.call(exit_m, vec![none_v, none_v, none_v], Vec::new(), pos)?;
+            self.await_of(r, pos)?;
+            self.jump(end)?;
+        }
+        self.terminated = false;
+        self.b.switch_to(landing)?;
+        let exc = self.value_of(pos, |into| Instr::PushExcInfo { into })?;
+        let ty = self.call_global("type", vec![exc], pos)?;
+        let tb_sym = self.pool("__traceback__");
+        let tb = self.value_of(pos, move |into| Instr::GetAttr {
+            obj: exc,
+            name: tb_sym,
+            into,
+        })?;
+        let r = self.call(exit_m, vec![ty, exc, tb], Vec::new(), pos)?;
+        let awaited = self.await_of(r, pos)?;
+        let suppressed = self.unboxed_bool(pos, move |into| Instr::Truth {
+            value: awaited,
+            into,
+        })?;
+        let supp_blk = self.new_block()?;
+        let reraise_blk = self.new_block()?;
+        self.branch(suppressed, supp_blk, reraise_blk)?;
+        self.terminated = false;
+        self.b.switch_to(supp_blk)?;
+        self.emit(Instr::PopExcInfo, pos)?;
         self.jump(end)?;
         self.terminated = false;
         self.b.switch_to(reraise_blk)?;
@@ -4110,13 +4987,64 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 }
                 self.build_set(items, pos)
             }
-            Expr::ListComp { .. } | Expr::SetComp { .. } | Expr::DictComp { .. } => {
-                Err(LowerError::Unsupported(LowerKind::Comprehension))
+            Expr::ListComp {
+                elt, generators, ..
+            } => self.lower_inlined_comp(CompKind::List, generators, elt, None, pos),
+            Expr::SetComp {
+                elt, generators, ..
+            } => self.lower_inlined_comp(CompKind::Set, generators, elt, None, pos),
+            Expr::DictComp {
+                key,
+                value,
+                generators,
+                ..
+            } => self.lower_inlined_comp(CompKind::Dict, generators, key, Some(value), pos),
+            Expr::GeneratorExp {
+                elt, generators, ..
+            } => self.lower_genexp(generators, elt, pos),
+            Expr::Await { value, .. } => self.lower_await(value, pos),
+            Expr::Yield { value, .. } => {
+                if !self.kind.function_like() {
+                    return Err(LowerError::Rejected {
+                        message: "'yield' outside function".to_owned(),
+                        line: pos.line,
+                    });
+                }
+                let v = match value {
+                    Some(v) => self.expr(v)?,
+                    None => self.none()?,
+                };
+                let state = self.next_state();
+                self.value_of(pos, move |into| Instr::Yield {
+                    state,
+                    value: v,
+                    into,
+                })
             }
-            Expr::GeneratorExp { .. } => Err(LowerError::Unsupported(LowerKind::GeneratorExp)),
-            Expr::Await { .. } => Err(LowerError::Unsupported(LowerKind::Await)),
-            Expr::Yield { .. } => Err(LowerError::Unsupported(LowerKind::Yield)),
-            Expr::YieldFrom { .. } => Err(LowerError::Unsupported(LowerKind::YieldFrom)),
+            Expr::YieldFrom { value, .. } => {
+                if !self.kind.function_like() {
+                    return Err(LowerError::Rejected {
+                        message: "'yield from' outside function".to_owned(),
+                        line: pos.line,
+                    });
+                }
+                if self.async_def {
+                    return Err(LowerError::Rejected {
+                        message: "'yield from' inside async function".to_owned(),
+                        line: pos.line,
+                    });
+                }
+                let v = self.expr(value)?;
+                let it = self.value_of(pos, move |into| Instr::GetIter { obj: v, into })?;
+                let send = self.none()?;
+                let state = self.next_state();
+                self.value_of(pos, move |into| Instr::YieldFrom {
+                    state,
+                    iter: it,
+                    send,
+                    into,
+                })
+            }
             Expr::Compare {
                 left,
                 ops,
@@ -4631,8 +5559,16 @@ impl<'a, 'b> FnLower<'a, 'b> {
             mangled,
             (Flavor::Function, scope),
         );
+        let landing = if scope.generator {
+            Some(child.push_stopiteration_wrapper()?)
+        } else {
+            None
+        };
         let v = child.expr(body)?;
         child.ret(v)?;
+        if let Some(landing) = landing {
+            child.fill_stopiteration_landing(landing, pos)?;
+        }
         child.finish_into(fid)?;
         self.make_function_value(fid, cells, defaults, kwdefaults, pos)
     }
@@ -4901,6 +5837,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         decorator_list: &[Expr],
         returns: &Option<Box<Expr>>,
         type_params: &[TypeParam],
+        async_def: bool,
         pos: Pos,
     ) -> Result<(), LowerError> {
         // The symtable visits the defaults' sub-scopes before the
@@ -4946,8 +5883,17 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 mangled,
                 (Flavor::Function, scope),
             );
+            child.async_def = async_def;
+            let landing = if scope.generator || scope.coroutine {
+                Some(child.push_stopiteration_wrapper()?)
+            } else {
+                None
+            };
             child.lower_body(body)?;
             child.return_none()?;
+            if let Some(landing) = landing {
+                child.fill_stopiteration_landing(landing, pos)?;
+            }
             child.finish_into(fid)?;
             let fv = self.make_function_value(fid, cells, defaults, kwdefaults, pos)?;
             (fid, fv, annotations)
@@ -4958,6 +5904,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 body,
                 returns,
                 type_params,
+                async_def,
                 defaults,
                 kwdefaults,
                 pos,
@@ -5000,6 +5947,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         body: &[Stmt],
         returns: &Option<Box<Expr>>,
         type_params: &[TypeParam],
+        async_def: bool,
         defaults: Value,
         kwdefaults: Value,
         pos: Pos,
@@ -5073,8 +6021,17 @@ impl<'a, 'b> FnLower<'a, 'b> {
             mangled,
             (Flavor::Function, scope),
         );
+        child.async_def = async_def;
+        let landing = if scope.generator || scope.coroutine {
+            Some(child.push_stopiteration_wrapper()?)
+        } else {
+            None
+        };
         child.lower_body(body)?;
         child.return_none()?;
+        if let Some(landing) = landing {
+            child.fill_stopiteration_landing(landing, pos)?;
+        }
         child.finish_into(fid)?;
         let fv = tp.make_function_value(fid, cells, d, k, pos)?;
         let name_sym = tp.pool("__type_params__");
@@ -5756,514 +6713,8 @@ fn type_param_names(f: &FnLower, scope: &SymbolTable) -> Option<HashSet<String>>
 }
 
 // ---------------------------------------------------------------------------
-// Pre-scan: unsupported constructs and symtable child accounting
+// Symtable child accounting
 // ---------------------------------------------------------------------------
-
-/// Whether an expression (recursively, including lambda bodies and
-/// comprehension internals) contains a construct this task does not lower.
-/// The statement driver drops such statements whole, so the builder never
-/// aborts mid-construct.
-fn unsupported_in_expr(e: &Expr) -> Option<LowerKind> {
-    match e {
-        Expr::ListComp { .. } | Expr::SetComp { .. } | Expr::DictComp { .. } => {
-            Some(LowerKind::Comprehension)
-        }
-        Expr::GeneratorExp { .. } => Some(LowerKind::GeneratorExp),
-        Expr::Await { .. } => Some(LowerKind::Await),
-        Expr::Yield { .. } => Some(LowerKind::Yield),
-        Expr::YieldFrom { .. } => Some(LowerKind::YieldFrom),
-        Expr::BoolOp { values, .. } => values.iter().find_map(unsupported_in_expr),
-        Expr::NamedExpr { value, .. } => unsupported_in_expr(value),
-        Expr::BinOp { left, right, .. } => {
-            unsupported_in_expr(left).or_else(|| unsupported_in_expr(right))
-        }
-        Expr::UnaryOp { operand, .. } => unsupported_in_expr(operand),
-        Expr::Lambda { args, body, .. } => {
-            unsupported_in_args(args).or_else(|| unsupported_in_expr(body))
-        }
-        Expr::IfExp {
-            test, body, orelse, ..
-        } => unsupported_in_expr(test)
-            .or_else(|| unsupported_in_expr(body))
-            .or_else(|| unsupported_in_expr(orelse)),
-        Expr::Dict { keys, values, .. } => keys
-            .iter()
-            .flatten()
-            .find_map(unsupported_in_expr)
-            .or_else(|| values.iter().find_map(unsupported_in_expr)),
-        Expr::Set { elts, .. } | Expr::List { elts, .. } | Expr::Tuple { elts, .. } => {
-            elts.iter().find_map(|e| match e {
-                Expr::Starred { value, .. } => unsupported_in_expr(value),
-                other => unsupported_in_expr(other),
-            })
-        }
-        Expr::Compare {
-            left, comparators, ..
-        } => unsupported_in_expr(left).or_else(|| comparators.iter().find_map(unsupported_in_expr)),
-        Expr::Call {
-            func,
-            args,
-            keywords,
-            ..
-        } => unsupported_in_expr(func)
-            .or_else(|| unsupported_in_args_like(args))
-            .or_else(|| keywords.iter().find_map(|k| unsupported_in_expr(&k.value))),
-        Expr::FormattedValue {
-            value, format_spec, ..
-        } => unsupported_in_expr(value)
-            .or_else(|| format_spec.as_deref().and_then(unsupported_in_expr)),
-        Expr::JoinedStr { values, .. } => values.iter().find_map(unsupported_in_expr),
-        Expr::Constant { .. } | Expr::Name { .. } => None,
-        Expr::Attribute { value, .. } => unsupported_in_expr(value),
-        Expr::Subscript { value, slice, .. } => {
-            unsupported_in_expr(value).or_else(|| match slice.as_ref() {
-                Expr::Slice {
-                    lower, upper, step, ..
-                } => lower
-                    .as_deref()
-                    .and_then(unsupported_in_expr)
-                    .or_else(|| upper.as_deref().and_then(unsupported_in_expr))
-                    .or_else(|| step.as_deref().and_then(unsupported_in_expr)),
-                other => unsupported_in_expr(other),
-            })
-        }
-        Expr::Starred { value, .. } => unsupported_in_expr(value),
-        Expr::Slice { .. } => None,
-    }
-}
-
-fn unsupported_in_args(args: &Arguments) -> Option<LowerKind> {
-    args.defaults
-        .iter()
-        .chain(args.kw_defaults.iter().flatten())
-        .find_map(unsupported_in_expr)
-}
-
-fn unsupported_in_args_like(args: &[Expr]) -> Option<LowerKind> {
-    args.iter().find_map(|a| match a {
-        Expr::Starred { value, .. } => unsupported_in_expr(value),
-        other => unsupported_in_expr(other),
-    })
-}
-
-/// Unsupported constructs in the parts of a statement lowered in the
-/// current scope (nested bodies scan themselves when their turn comes).
-/// `name_ops` selects module/class scopes, which also evaluate annotations.
-fn unsupported_in_stmt(s: &Stmt, future_annotations: bool, name_ops: bool) -> Option<LowerKind> {
-    match s {
-        Stmt::AsyncFunctionDef { .. } => Some(LowerKind::AsyncFunction),
-        Stmt::AsyncFor { .. } => Some(LowerKind::AsyncFor),
-        Stmt::AsyncWith { .. } => Some(LowerKind::AsyncWith),
-        Stmt::With { items, .. } => items.iter().find_map(|it| {
-            unsupported_in_expr(&it.context_expr).or_else(|| {
-                it.optional_vars
-                    .as_deref()
-                    .and_then(unsupported_target_expr)
-            })
-        }),
-        Stmt::Try { handlers, .. } | Stmt::TryStar { handlers, .. } => {
-            handlers.iter().find_map(|h| match h {
-                Excepthandler::ExceptHandler {
-                    r#type: Some(t), ..
-                } => unsupported_in_expr(t),
-                _ => None,
-            })
-        }
-        Stmt::Match { subject, cases, .. } => unsupported_in_expr(subject).or_else(|| {
-            cases.iter().find_map(|c| {
-                unsupported_in_pattern(&c.pattern)
-                    .or_else(|| c.guard.as_deref().and_then(unsupported_in_expr))
-            })
-        }),
-        Stmt::FunctionDef {
-            args,
-            decorator_list,
-            returns,
-            type_params,
-            ..
-        } => unsupported_in_args(args)
-            .or_else(|| decorator_list.iter().find_map(unsupported_in_expr))
-            .or_else(|| {
-                type_params.iter().find_map(|tp| match tp {
-                    TypeParam::TypeVar { bound: Some(b), .. } => unsupported_in_expr(b),
-                    _ => None,
-                })
-            })
-            .or_else(|| {
-                if future_annotations {
-                    None
-                } else {
-                    annotations_exprs(args, returns).find_map(unsupported_in_expr)
-                }
-            }),
-        Stmt::ClassDef {
-            bases,
-            keywords,
-            decorator_list,
-            type_params,
-            ..
-        } => decorator_list
-            .iter()
-            .find_map(unsupported_in_expr)
-            .or_else(|| {
-                type_params.iter().find_map(|tp| match tp {
-                    TypeParam::TypeVar { bound: Some(b), .. } => unsupported_in_expr(b),
-                    _ => None,
-                })
-            })
-            .or_else(|| bases.iter().find_map(unsupported_in_expr))
-            .or_else(|| keywords.iter().find_map(|k| unsupported_in_expr(&k.value))),
-        Stmt::TypeAlias {
-            value, type_params, ..
-        } => type_params
-            .iter()
-            .find_map(|tp| match tp {
-                TypeParam::TypeVar { bound: Some(b), .. } => unsupported_in_expr(b),
-                _ => None,
-            })
-            .or_else(|| unsupported_in_expr(value)),
-        Stmt::Return { value, .. } => value.as_deref().and_then(unsupported_in_expr),
-        Stmt::Delete { targets, .. } => targets.iter().find_map(unsupported_target_expr),
-        Stmt::Assign { targets, value, .. } => {
-            unsupported_in_expr(value).or_else(|| targets.iter().find_map(unsupported_target_expr))
-        }
-        Stmt::AugAssign { target, value, .. } => {
-            unsupported_target_expr(target).or_else(|| unsupported_in_expr(value))
-        }
-        Stmt::AnnAssign {
-            target,
-            annotation,
-            value,
-            ..
-        } => {
-            let value_hit = value.as_deref().and_then(unsupported_in_expr);
-            value_hit
-                .or_else(|| {
-                    if !future_annotations && name_ops {
-                        unsupported_in_expr(annotation)
-                    } else {
-                        None
-                    }
-                })
-                .or_else(|| unsupported_target_expr(target))
-        }
-        Stmt::For { iter, .. } => unsupported_in_expr(iter),
-        Stmt::While { test, .. } | Stmt::If { test, .. } => unsupported_in_expr(test),
-        Stmt::Raise { exc, cause, .. } => exc
-            .as_deref()
-            .and_then(unsupported_in_expr)
-            .or_else(|| cause.as_deref().and_then(unsupported_in_expr)),
-        Stmt::Assert { test, msg, .. } => {
-            unsupported_in_expr(test).or_else(|| msg.as_deref().and_then(unsupported_in_expr))
-        }
-        Stmt::Expr { value, .. } => unsupported_in_expr(value),
-        Stmt::Import { .. }
-        | Stmt::ImportFrom { .. }
-        | Stmt::Global { .. }
-        | Stmt::Nonlocal { .. }
-        | Stmt::Pass { .. }
-        | Stmt::Break { .. }
-        | Stmt::Continue { .. } => None,
-    }
-}
-
-/// Store-context expressions still evaluate sub-expressions (attribute
-/// objects, subscript keys).
-fn unsupported_target_expr(e: &Expr) -> Option<LowerKind> {
-    match e {
-        Expr::Name { .. } => None,
-        Expr::Attribute { value, .. } => unsupported_in_expr(value),
-        Expr::Subscript { value, slice, .. } => {
-            unsupported_in_expr(value).or_else(|| match slice.as_ref() {
-                Expr::Slice {
-                    lower, upper, step, ..
-                } => lower
-                    .as_deref()
-                    .and_then(unsupported_in_expr)
-                    .or_else(|| upper.as_deref().and_then(unsupported_in_expr))
-                    .or_else(|| step.as_deref().and_then(unsupported_in_expr)),
-                other => unsupported_in_expr(other),
-            })
-        }
-        Expr::Tuple { elts, .. } | Expr::List { elts, .. } => elts.iter().find_map(|e| match e {
-            Expr::Starred { value, .. } => unsupported_target_expr(value),
-            other => unsupported_target_expr(other),
-        }),
-        Expr::Starred { value, .. } => unsupported_target_expr(value),
-        _ => None,
-    }
-}
-
-/// The value expressions a pattern evaluates: the class of a class pattern,
-/// the literals of a mapping pattern's keys, and the value of a value
-/// pattern. Capture names alone are always supported.
-fn unsupported_in_pattern(p: &Pattern) -> Option<LowerKind> {
-    match p {
-        Pattern::MatchValue { value, .. } => unsupported_in_expr(value),
-        Pattern::MatchSingleton { .. } | Pattern::MatchStar { .. } => None,
-        Pattern::MatchSequence { patterns, .. } | Pattern::MatchOr { patterns, .. } => {
-            patterns.iter().find_map(unsupported_in_pattern)
-        }
-        Pattern::MatchMapping { keys, patterns, .. } => keys
-            .iter()
-            .find_map(unsupported_in_expr)
-            .or_else(|| patterns.iter().find_map(unsupported_in_pattern)),
-        Pattern::MatchClass {
-            cls,
-            patterns,
-            kwd_patterns,
-            ..
-        } => unsupported_in_expr(cls)
-            .or_else(|| patterns.iter().find_map(unsupported_in_pattern))
-            .or_else(|| kwd_patterns.iter().find_map(unsupported_in_pattern)),
-        Pattern::MatchAs {
-            pattern: Some(inner),
-            ..
-        } => unsupported_in_pattern(inner),
-        Pattern::MatchAs { pattern: None, .. } => None,
-    }
-}
-
-fn annotations_exprs<'e>(
-    args: &'e Arguments,
-    returns: &'e Option<Box<Expr>>,
-) -> impl Iterator<Item = &'e Expr> {
-    let arg_anns = args
-        .posonlyargs
-        .iter()
-        .chain(&args.args)
-        .chain(&args.kwonlyargs)
-        .filter_map(|a| a.annotation.as_deref())
-        .chain(args.vararg.iter().filter_map(|a| a.annotation.as_deref()))
-        .chain(args.kwarg.iter().filter_map(|a| a.annotation.as_deref()));
-    arg_anns.chain(returns.as_deref())
-}
-
-/// How many entries of the parent's children list a statement's scopes
-/// occupy: the symtable inlines non-generator comprehension scopes, splicing
-/// their own children into the parent's list, so an inlined comprehension
-/// contributes its inner scopes and nothing of its own. Scopes created
-/// inside a def/class body of its own (lambda bodies, generic-function
-/// bases, annotation strings under `from __future__ import annotations`)
-/// never occupy parent slots.
-fn scope_count_stmt(s: &Stmt, future_annotations: bool) -> usize {
-    match s {
-        Stmt::FunctionDef {
-            args,
-            decorator_list,
-            returns,
-            type_params,
-            ..
-        }
-        | Stmt::AsyncFunctionDef {
-            args,
-            decorator_list,
-            returns,
-            type_params,
-            ..
-        } => {
-            let mut n = args.defaults.iter().map(expr_scopes).sum::<usize>()
-                + args
-                    .kw_defaults
-                    .iter()
-                    .flatten()
-                    .map(expr_scopes)
-                    .sum::<usize>()
-                + decorator_list.iter().map(expr_scopes).sum::<usize>()
-                + type_param_scopes(type_params);
-            if type_params.is_empty() {
-                // The function scope is a sibling; with type parameters it
-                // nests inside the type-parameters scope, along with the
-                // annotations' scopes.
-                n += 1;
-                if !future_annotations {
-                    n += annotations_exprs(args, returns)
-                        .map(expr_scopes)
-                        .sum::<usize>();
-                }
-            }
-            n
-        }
-        Stmt::ClassDef {
-            bases,
-            keywords,
-            decorator_list,
-            type_params,
-            ..
-        } => {
-            let mut n = decorator_list.iter().map(expr_scopes).sum::<usize>()
-                + type_param_scopes(type_params);
-            if type_params.is_empty() {
-                // Without type parameters the bases' scopes and the class
-                // scope are siblings; with them everything nests inside the
-                // type-parameters scope.
-                n += 1;
-                n += bases.iter().map(expr_scopes).sum::<usize>()
-                    + keywords
-                        .iter()
-                        .map(|k| expr_scopes(&k.value))
-                        .sum::<usize>();
-            }
-            n
-        }
-        // The alias thunk nests inside the type-parameters scope when the
-        // alias is generic, and is the single child otherwise.
-        Stmt::TypeAlias { .. } => 1,
-        Stmt::Return { value, .. } => value.as_deref().map(expr_scopes).unwrap_or(0),
-        Stmt::Delete { targets, .. } => targets.iter().map(target_scopes).sum(),
-        Stmt::Assign { targets, value, .. } => {
-            targets.iter().map(target_scopes).sum::<usize>() + expr_scopes(value)
-        }
-        Stmt::AugAssign { target, value, .. } => target_scopes(target) + expr_scopes(value),
-        Stmt::AnnAssign {
-            target,
-            annotation,
-            value,
-            ..
-        } => {
-            let ann = if future_annotations {
-                0
-            } else {
-                expr_scopes(annotation)
-            };
-            target_scopes(target) + ann + value.as_deref().map(expr_scopes).unwrap_or(0)
-        }
-        Stmt::For {
-            target,
-            iter,
-            body,
-            orelse,
-            ..
-        }
-        | Stmt::AsyncFor {
-            target,
-            iter,
-            body,
-            orelse,
-            ..
-        } => {
-            target_scopes(target)
-                + expr_scopes(iter)
-                + body
-                    .iter()
-                    .map(|s| scope_count_stmt(s, future_annotations))
-                    .sum::<usize>()
-                + orelse
-                    .iter()
-                    .map(|s| scope_count_stmt(s, future_annotations))
-                    .sum::<usize>()
-        }
-        Stmt::While {
-            test, body, orelse, ..
-        } => {
-            expr_scopes(test)
-                + body
-                    .iter()
-                    .map(|s| scope_count_stmt(s, future_annotations))
-                    .sum::<usize>()
-                + orelse
-                    .iter()
-                    .map(|s| scope_count_stmt(s, future_annotations))
-                    .sum::<usize>()
-        }
-        Stmt::If {
-            test, body, orelse, ..
-        } => {
-            expr_scopes(test)
-                + body
-                    .iter()
-                    .map(|s| scope_count_stmt(s, future_annotations))
-                    .sum::<usize>()
-                + orelse
-                    .iter()
-                    .map(|s| scope_count_stmt(s, future_annotations))
-                    .sum::<usize>()
-        }
-        Stmt::Raise { exc, cause, .. } => {
-            exc.as_deref().map(expr_scopes).unwrap_or(0)
-                + cause.as_deref().map(expr_scopes).unwrap_or(0)
-        }
-        Stmt::Assert { test, msg, .. } => {
-            expr_scopes(test) + msg.as_deref().map(expr_scopes).unwrap_or(0)
-        }
-        Stmt::Expr { value, .. } => expr_scopes(value),
-        Stmt::With { items, body, .. } | Stmt::AsyncWith { items, body, .. } => {
-            items
-                .iter()
-                .map(|i| expr_scopes(&i.context_expr))
-                .sum::<usize>()
-                + items
-                    .iter()
-                    .filter_map(|i| i.optional_vars.as_deref())
-                    .map(target_scopes)
-                    .sum::<usize>()
-                + body
-                    .iter()
-                    .map(|s| scope_count_stmt(s, future_annotations))
-                    .sum::<usize>()
-        }
-        Stmt::Try {
-            body,
-            handlers,
-            orelse,
-            finalbody,
-            ..
-        }
-        | Stmt::TryStar {
-            body,
-            handlers,
-            orelse,
-            finalbody,
-            ..
-        } => {
-            let count = |stmts: &[Stmt]| {
-                stmts
-                    .iter()
-                    .map(|s| scope_count_stmt(s, future_annotations))
-                    .sum::<usize>()
-            };
-            count(body)
-                + handlers
-                    .iter()
-                    .map(|h| match h {
-                        Excepthandler::ExceptHandler { r#type, body, .. } => {
-                            r#type.as_deref().map(expr_scopes).unwrap_or(0) + count(body)
-                        }
-                    })
-                    .sum::<usize>()
-                + count(orelse)
-                + count(finalbody)
-        }
-        Stmt::Match { subject, cases, .. } => {
-            expr_scopes(subject)
-                + cases
-                    .iter()
-                    .map(|c| {
-                        pattern_scopes(&c.pattern)
-                            + c.guard.as_deref().map(expr_scopes).unwrap_or(0)
-                            + c.body
-                                .iter()
-                                .map(|s| scope_count_stmt(s, future_annotations))
-                                .sum::<usize>()
-                    })
-                    .sum::<usize>()
-        }
-        Stmt::Import { .. }
-        | Stmt::ImportFrom { .. }
-        | Stmt::Global { .. }
-        | Stmt::Nonlocal { .. }
-        | Stmt::Pass { .. }
-        | Stmt::Break { .. }
-        | Stmt::Continue { .. } => 0,
-    }
-}
-
-/// A type-parameter list occupies one slot at this level: its block. The
-/// bounds' own blocks and anything scoped inside them are that block's
-/// children, not siblings.
-fn type_param_scopes(tps: &[TypeParam]) -> usize {
-    usize::from(!tps.is_empty())
-}
 
 fn target_scopes(e: &Expr) -> usize {
     match e {
@@ -6286,31 +6737,6 @@ fn slice_scopes(e: &Expr) -> usize {
                 + step.as_deref().map(expr_scopes).unwrap_or(0)
         }
         other => expr_scopes(other),
-    }
-}
-
-fn pattern_scopes(p: &Pattern) -> usize {
-    match p {
-        Pattern::MatchValue { value, .. } => expr_scopes(value),
-        Pattern::MatchSingleton { .. } => 0,
-        Pattern::MatchSequence { patterns, .. } => patterns.iter().map(pattern_scopes).sum(),
-        Pattern::MatchMapping { keys, patterns, .. } => {
-            keys.iter().map(expr_scopes).sum::<usize>()
-                + patterns.iter().map(pattern_scopes).sum::<usize>()
-        }
-        Pattern::MatchClass {
-            cls,
-            patterns,
-            kwd_patterns,
-            ..
-        } => {
-            expr_scopes(cls)
-                + patterns.iter().map(pattern_scopes).sum::<usize>()
-                + kwd_patterns.iter().map(pattern_scopes).sum::<usize>()
-        }
-        Pattern::MatchStar { .. } => 0,
-        Pattern::MatchAs { pattern, .. } => pattern.as_deref().map(pattern_scopes).unwrap_or(0),
-        Pattern::MatchOr { patterns, .. } => patterns.iter().map(pattern_scopes).sum(),
     }
 }
 
