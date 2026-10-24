@@ -265,13 +265,16 @@ fn build_extension_windows(
         .arg(format!("/out:{}", lib_path.display()));
     run(&mut l, "generate import library");
 
+    // `cl` is the compiler driver, not the linker: it drops `/ENTRY` (D9002)
+    // unless it follows `/link`, leaving the DLL with no entry point (LNK1561).
     let mut k = tool.to_command();
     k.arg("/nologo")
         .arg("/DLL")
-        .arg("/ENTRY:DllMain")
         .arg(&obj_path)
         .arg(&lib_path)
-        .arg(format!("/Fe:{}", out_path.display()));
+        .arg(format!("/Fe:{}", out_path.display()))
+        .arg("/link")
+        .arg("/ENTRY:DllMain");
     run(&mut k, "link extension");
 }
 
