@@ -221,6 +221,23 @@ unsafe fn free_keys(dk: *mut PyDictKeysObject) {
     if dk.is_null() || core::ptr::eq(dk, empty_keys()) {
         return;
     }
+    // Every live entry's key and value were barrier-accounted heap
+    // references (section 9.3): give them back before the table goes.
+    // SAFETY: the entry reads are within the table.
+    unsafe {
+        let n = (*dk).dk_nentries.max(0) as usize;
+        for i in 0..n {
+            let entry = entries_of(dk).add(i);
+            let key = (*entry).me_key;
+            let value = (*entry).me_value;
+            if !key.is_null() {
+                crate::gc::counted::barrier(key, core::ptr::null_mut());
+            }
+            if !value.is_null() {
+                crate::gc::counted::barrier(value, core::ptr::null_mut());
+            }
+        }
+    }
     // SAFETY: `dk` came from `new_keys_object`.
     unsafe { crate::alloc::pymem::plain_free(dk.cast()) };
 }
@@ -424,6 +441,11 @@ unsafe fn insertdict(
             (*ep).me_key = key;
             (*ep).me_hash = hash;
             (*ep).me_value = value;
+            // The stores are heap stores of R-typed or Top-typed values:
+            // the barrier gives each the heap reference the slot now
+            // holds (section 9.3).
+            crate::gc::counted::barrier(core::ptr::null_mut(), key);
+            crate::gc::counted::barrier(core::ptr::null_mut(), value);
             (*mp).ma_used += 1;
             (*mp).ma_version_tag = next_version();
             (*dk).dk_usable -= 1;
@@ -435,8 +457,10 @@ unsafe fn insertdict(
     unsafe {
         let ep = entries_of((*mp).ma_keys).add(ix as usize);
         if (*ep).me_value != value {
+            let old = (*ep).me_value;
             (*ep).me_value = value;
             (*mp).ma_version_tag = next_version();
+            crate::gc::counted::barrier(old, value);
         }
     }
     Ok(())
@@ -456,9 +480,15 @@ unsafe fn del_entry(mp: *mut PyDictObject, hash: isize, ix: isize) {
         (*mp).ma_version_tag = next_version();
         set_index(dk, hashpos as usize, DKIX_DUMMY);
         let ep = entries_of(dk).add(ix as usize);
+        let key = (*ep).me_key;
+        let value = (*ep).me_value;
         (*ep).me_key = core::ptr::null_mut();
         (*ep).me_value = core::ptr::null_mut();
         (*ep).me_hash = 0;
+        // The removals are heap stores of null: the barrier takes each
+        // slot's heap reference back (section 9.3).
+        crate::gc::counted::barrier(key, core::ptr::null_mut());
+        crate::gc::counted::barrier(value, core::ptr::null_mut());
     }
 }
 
