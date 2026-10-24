@@ -2,17 +2,17 @@
 // rerun the generator instead.
 
 /// Format version of the runtime/compiled-code contract (abi.toml [meta]).
-pub const ABI_FORMAT_VERSION: u32 = 2;
+pub const ABI_FORMAT_VERSION: u32 = 3;
 
 /// SHA-256 of native/abi.toml's content (LF line endings) when this
 /// file was generated. Compiled code embeds the same value;
 /// `coil_rt_init` refuses a mismatch (section 2).
 #[rustfmt::skip]
 pub static ABI_SHA256: [u8; 32] = [
-    0xdb, 0xe3, 0xd4, 0x8b, 0xd1, 0xdb, 0xb2, 0x70,
-    0xd8, 0x82, 0x4d, 0xed, 0x66, 0xf1, 0xe2, 0x88,
-    0xe6, 0x69, 0x74, 0xed, 0x5a, 0x69, 0x9a, 0x48,
-    0xfc, 0x27, 0x65, 0x1d, 0xd7, 0x3c, 0x81, 0xda,
+    0xb6, 0x5f, 0x28, 0x53, 0x65, 0xb9, 0x31, 0x70,
+    0x45, 0x4d, 0xb8, 0x1b, 0xe1, 0x70, 0xd6, 0x08,
+    0xdb, 0x87, 0x58, 0x11, 0x38, 0xea, 0x29, 0xd5,
+    0x82, 0xa6, 0xb6, 0x4f, 0x06, 0xd7, 0xe8, 0xb5,
 ];
 
 /// The `coil_rt_*` entry points compiled code may call, with their
@@ -23,6 +23,8 @@ pub static ABI_FUNCTIONS: &[(&str, &str, &[&str])] = &[
     ("coil_rt_register_module_table", "int", &["PyObject **table", "size_t count"]),
     ("coil_rt_push_frame", "void", &["void *frame"]),
     ("coil_rt_pop_frame", "void", &[]),
+    ("coil_rt_barrier_ext", "void", &["PyObject *overwritten", "PyObject *stored"]),
+    ("coil_rt_barrier_dynamic", "void", &["PyObject *overwritten", "PyObject *stored"]),
 ];
 
 /// Struct offsets compiled code touches directly, flattened as
