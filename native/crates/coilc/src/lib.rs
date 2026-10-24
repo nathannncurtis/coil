@@ -3,6 +3,7 @@
 
 pub mod analysis;
 pub mod backend;
+pub mod build;
 pub mod job;
 pub mod link;
 pub mod opt;
