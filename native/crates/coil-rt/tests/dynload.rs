@@ -314,6 +314,7 @@ fn make_spec(
 fn report_error(
     err_occurred: FnErrOccurred,
     err_fetch: FnErrFetch,
+    get_attr: FnGetAttr,
     as_utf8: FnAsUtf8,
     dec_ref: FnDecRef,
 ) {
@@ -325,6 +326,27 @@ fn report_error(
     let mut v = std::ptr::null_mut();
     let mut tb = std::ptr::null_mut();
     unsafe { err_fetch(&mut t, &mut v, &mut tb) };
+    // The exception value is an instance, not a string, so `as_utf8` on it is
+    // unreliable; the type's `__name__` is a real string and always is.
+    let type_name = if !t.is_null() {
+        let name = unsafe { get_attr(t, c"__name__".as_ptr()) };
+        if name.is_null() {
+            String::from("<unknown type>")
+        } else {
+            let utf8 = unsafe { as_utf8(name) };
+            let s = if utf8.is_null() {
+                String::from("<unknown type>")
+            } else {
+                unsafe { CStr::from_ptr(utf8) }
+                    .to_string_lossy()
+                    .into_owned()
+            };
+            unsafe { dec_ref(name) };
+            s
+        }
+    } else {
+        String::from("<no type>")
+    };
     let msg = if !v.is_null() {
         let utf8 = unsafe { as_utf8(v) };
         if utf8.is_null() {
@@ -337,7 +359,7 @@ fn report_error(
     } else {
         String::from("<no error value>")
     };
-    eprintln!("error: {msg}");
+    eprintln!("error: {type_name}: {msg}");
     for p in [t, v, tb] {
         if !p.is_null() {
             unsafe { dec_ref(p) };
@@ -459,7 +481,7 @@ fn loads_extension_through_both_init_styles() {
     );
     let module = unsafe { create_dyn(imp, spec) };
     if module.is_null() {
-        report_error(err_occurred, err_fetch, as_utf8, dec_ref);
+        report_error(err_occurred, err_fetch, get_attr, as_utf8, dec_ref);
     }
     assert!(!module.is_null(), "single-phase create_dynamic failed");
     let def = unsafe { get_def(module) };
@@ -488,14 +510,14 @@ fn loads_extension_through_both_init_styles() {
     );
     let module = unsafe { create_dyn(imp, spec) };
     if module.is_null() {
-        report_error(err_occurred, err_fetch, as_utf8, dec_ref);
+        report_error(err_occurred, err_fetch, get_attr, as_utf8, dec_ref);
     }
     assert!(!module.is_null(), "multi-phase create_dynamic failed");
     let state_before = unsafe { get_state(module) };
     assert!(state_before.is_null(), "state is not null before exec");
     let exec_result = unsafe { exec_dyn(imp, module) };
     if exec_result.is_null() {
-        report_error(err_occurred, err_fetch, as_utf8, dec_ref);
+        report_error(err_occurred, err_fetch, get_attr, as_utf8, dec_ref);
     }
     assert!(!exec_result.is_null(), "exec_dynamic failed");
     unsafe { dec_ref(exec_result) };
