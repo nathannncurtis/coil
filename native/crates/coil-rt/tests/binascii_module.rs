@@ -8,10 +8,11 @@
 
 mod common;
 
-use coil_capi_sys::PyObject;
+use coil_capi_sys::{PyObject, PyTypeObject};
 use common::{call, encode_ptr, init, rows, token};
 use python312::modules::binascii;
 use python312::tstate;
+use python312::types::exc;
 
 #[test]
 fn binascii_module_matches_cpython() {
@@ -42,4 +43,28 @@ fn binascii_module_matches_cpython() {
             .collect::<Vec<_>>()
             .join("\n")
     );
+}
+
+/// 3.12 keeps two module exceptions: `Error` under `ValueError` and
+/// `Incomplete` under `Exception` (`PyErr_NewException(name, NULL,
+/// NULL)`), the latter no longer raised anywhere now that the hqx
+/// codecs are gone.
+#[test]
+fn module_exceptions_match_cpython() {
+    init();
+    // SAFETY: the types are readied statics; these are plain field loads.
+    unsafe {
+        let error = binascii::error() as *mut PyTypeObject;
+        assert_eq!(
+            (*error).tp_base,
+            exc::value_error() as *mut PyTypeObject,
+            "binascii.Error must derive from ValueError"
+        );
+        let incomplete = binascii::incomplete() as *mut PyTypeObject;
+        assert_eq!(
+            (*incomplete).tp_base,
+            exc::exception() as *mut PyTypeObject,
+            "binascii.Incomplete must derive from Exception"
+        );
+    }
 }

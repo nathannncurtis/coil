@@ -35,13 +35,30 @@ pub fn error() -> *mut PyObject {
     &raw mut ERROR_TYPE as *mut PyObject
 }
 
-/// Ready the module's exception type; `init_static_types` calls this
+/// `binascii.Incomplete`, the module's `Exception` subtype. Nothing in
+/// 3.12 raises it — its raisers were the hqx codecs CPython removed —
+/// but the module attribute exists; like `Error`, the base is linked in
+/// `init`.
+static mut INCOMPLETE_TYPE: PyTypeObject =
+    exceptions::module_exception_type(c"binascii.Incomplete".as_ptr(), core::ptr::null_mut());
+
+/// The `binascii.Incomplete` type.
+pub fn incomplete() -> *mut PyObject {
+    &raw mut INCOMPLETE_TYPE as *mut PyObject
+}
+
+/// Ready the module's exception types; `init_static_types` calls this
 /// after the built-in exception hierarchy is readied.
 pub(crate) fn init() -> c_int {
     // SAFETY: init runs once before any concurrent access.
     unsafe {
         ERROR_TYPE.tp_base = exceptions::value_error() as *mut PyTypeObject;
         if typeobject::PyType_Ready(&raw mut ERROR_TYPE) < 0 {
+            return -1;
+        }
+        // `PyErr_NewException(name, NULL, NULL)` bases on `Exception`.
+        INCOMPLETE_TYPE.tp_base = exceptions::exception_type();
+        if typeobject::PyType_Ready(&raw mut INCOMPLETE_TYPE) < 0 {
             return -1;
         }
     }
