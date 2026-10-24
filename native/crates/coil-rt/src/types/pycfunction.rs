@@ -326,3 +326,82 @@ pub unsafe extern "C" fn PyCFunction_NewEx(
     }
     object
 }
+
+/// See the CPython 3.12 contract: `PyCFunction_NewEx` with a null module.
+///
+/// # Safety
+///
+/// As for `PyCFunction_NewEx`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyCFunction_New(
+    ml: *const coil_capi_sys::PyMethodDef,
+    self_: *mut PyObject,
+) -> *mut PyObject {
+    // SAFETY: the caller upholds the `PyCFunction_NewEx` contract.
+    unsafe { PyCFunction_NewEx(ml, self_, core::ptr::null_mut()) }
+}
+
+/// See the CPython 3.12 contract: the C function pointer the object was
+/// built from.
+///
+/// # Safety
+///
+/// `func` must be null or point to a valid `PyObject`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyCFunction_GetFunction(func: *mut PyObject) -> *mut c_void {
+    // SAFETY: the cfunction contract.
+    if unsafe { !is_cfunction(func) } {
+        tstate::set_string(
+            exceptions::type_error(),
+            b"bad argument type for built-in operation",
+        );
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the definition read follows the type check.
+    let ml = unsafe { method_def(func) };
+    // SAFETY: the function pointer read is within the definition; a
+    // cfunction always carries one.
+    let meth = unsafe { (*ml).ml_meth.unwrap() };
+    meth as *mut c_void
+}
+
+/// See the CPython 3.12 contract: the bound `self` of the object.
+///
+/// # Safety
+///
+/// `func` must be null or point to a valid `PyObject`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyCFunction_GetSelf(func: *mut PyObject) -> *mut PyObject {
+    // SAFETY: the cfunction contract.
+    if unsafe { !is_cfunction(func) } {
+        tstate::set_string(
+            exceptions::type_error(),
+            b"bad argument type for built-in operation",
+        );
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the self read follows the type check.
+    unsafe { bound_self(func) }
+}
+
+/// See the CPython 3.12 contract: the calling-convention flags the object
+/// was built with.
+///
+/// # Safety
+///
+/// `func` must be null or point to a valid `PyObject`.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyCFunction_GetFlags(func: *mut PyObject) -> c_int {
+    // SAFETY: the cfunction contract.
+    if unsafe { !is_cfunction(func) } {
+        tstate::set_string(
+            exceptions::type_error(),
+            b"bad argument type for built-in operation",
+        );
+        return -1;
+    }
+    // SAFETY: the definition read follows the type check.
+    let ml = unsafe { method_def(func) };
+    // SAFETY: the flag read is within the definition.
+    unsafe { (*ml).ml_flags }
+}
