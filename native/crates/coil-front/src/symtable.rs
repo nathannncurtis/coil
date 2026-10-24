@@ -113,11 +113,32 @@ pub struct SymbolTable {
     pub kind: BlockKind,
     pub lineno: i32,
     pub is_nested: bool,
+    /// The block contains `yield`/`yield from`.
+    pub generator: bool,
+    /// The block is a coroutine: `async def`, `await`, or an async
+    /// comprehension (including the flag an async comprehension propagates
+    /// to its enclosing scope).
+    pub coroutine: bool,
     /// Each name's final flag word (scope in the `SCOPE_OFFSET` bits), in
     /// first-seen order.
     pub symbols: Vec<(Sym, i64)>,
+    /// The `for` targets of inlined comprehensions in this block: names
+    /// whose outer binding is saved while the comprehension runs.
+    pub comp_bound: Vec<Sym>,
     /// Child blocks in `get_children()` order.
     pub children: Vec<SymbolTable>,
+    /// The inlined comprehensions of the whole module, keyed by the
+    /// `(lineno, col_offset)` of the comprehension expression. Carried by
+    /// the root table only; empty on children.
+    pub inlined_comps: Vec<((i32, i32), InlinedComp)>,
+}
+
+/// An inlined comprehension scope, as lowering needs it after analysis.
+pub struct InlinedComp {
+    pub coroutine: bool,
+    /// The comprehension scope's final flag words, `.0` excluded, in
+    /// first-seen order.
+    pub symbols: Vec<(Sym, i64)>,
 }
 
 impl SymbolTable {
@@ -244,11 +265,14 @@ struct Ste {
     free: bool,
     child_free: bool,
     generator: bool,
+    coroutine: bool,
     comprehension: ComprehensionKind,
     comp_inlined: bool,
     comp_iter_target: bool,
     can_see_class_scope: bool,
     comp_iter_expr: i32,
+    /// The `for` targets of comprehensions inlined into this block.
+    comp_bound: Vec<Sym>,
     lineno: i32,
     col_offset: i32,
     end_lineno: i32,
@@ -365,7 +389,25 @@ pub fn symtable(module: &Mod, interner: &mut Interner) -> Result<SymbolTable, Sy
     visited?;
     st.exit_block()?;
     st.analyze()?;
-    Ok(st.finalize(st.top))
+    let inlined_comps = st
+        .stes
+        .iter()
+        .filter(|entry| entry.comp_inlined)
+        .map(|entry| {
+            (
+                (entry.lineno, entry.col_offset),
+                InlinedComp {
+                    coroutine: entry.coroutine,
+                    symbols: entry
+                        .symbols
+                        .iter()
+                        .filter(|&(_, flags)| flags & DEF_PARAM == 0)
+                        .collect(),
+                },
+            )
+        })
+        .collect();
+    Ok(st.finalize(st.top, inlined_comps))
 }
 
 impl Builder<'_> {
@@ -494,11 +536,13 @@ impl Builder<'_> {
             free: false,
             child_free: false,
             generator: false,
+            coroutine: false,
             comprehension: ComprehensionKind::None,
             comp_inlined: false,
             comp_iter_target: false,
             can_see_class_scope: false,
             comp_iter_expr: 0,
+            comp_bound: Vec::new(),
             lineno: loc.lineno,
             col_offset: loc.col_offset,
             end_lineno: loc.end_lineno,
@@ -746,6 +790,8 @@ impl Builder<'_> {
                 }
                 self.visit_annotations(loc, args, returns)?;
                 self.enter_block(*name, BlockKind::Function, loc)?;
+                let ste = self.cur();
+                self.stes[ste].coroutine = true;
                 self.visit_arguments(args)?;
                 for stmt in body {
                     self.visit_stmt(stmt)?;
@@ -1234,6 +1280,8 @@ impl Builder<'_> {
                 let loc = Loc::new(*lineno, *col_offset, *end_lineno, *end_col_offset);
                 self.raise_if_annotation_block("await expression", loc)?;
                 self.visit_expr(value)?;
+                let ste = self.cur();
+                self.stes[ste].coroutine = true;
             }
             Expr::Yield {
                 value,
@@ -1771,6 +1819,9 @@ impl Builder<'_> {
         for guard in &lc.ifs {
             self.visit_expr(guard)?;
         }
+        if lc.is_async != 0 {
+            self.stes[ste].coroutine = true;
+        }
         Ok(())
     }
 
@@ -1802,6 +1853,9 @@ impl Builder<'_> {
         self.enter_block(scope_name, BlockKind::Function, loc)?;
         let ste = self.cur();
         self.stes[ste].comprehension = kind;
+        if outermost.is_async != 0 {
+            self.stes[ste].coroutine = true;
+        }
         // The outermost iter is received as an argument.
         let ste_loc = self.ste_loc(ste);
         self.add_def(self.names.dot0, DEF_PARAM, ste_loc)?;
@@ -1820,7 +1874,13 @@ impl Builder<'_> {
         }
         self.visit_expr(elt)?;
         self.stes[ste].generator = is_generator;
-        self.exit_block()
+        let is_async = self.stes[ste].coroutine && !is_generator;
+        self.exit_block()?;
+        if is_async {
+            let ste = self.cur();
+            self.stes[ste].coroutine = true;
+        }
+        Ok(())
     }
 
     fn raise_if_annotation_block(&mut self, name: &str, loc: Loc) -> Result<(), SymtableError> {
@@ -2128,6 +2188,14 @@ impl Builder<'_> {
             if scope == CELL || only_flags & DEF_COMP_CELL != 0 {
                 inlined_cells.insert(name);
             }
+            // A local without DEF_NONLOCAL is a comprehension `for` target:
+            // its outer binding is saved while the comprehension runs.
+            if only_flags & DEF_LOCAL != 0 && only_flags & DEF_NONLOCAL == 0 {
+                let bound_names = &mut self.stes[ste].comp_bound;
+                if !bound_names.contains(&name) {
+                    bound_names.push(name);
+                }
+            }
             let existing = self.stes[ste].symbols.get(name);
             // __class__ is never allowed to be free through a class scope
             // (see drop_class_free).
@@ -2163,19 +2231,23 @@ impl Builder<'_> {
         Ok(())
     }
 
-    fn finalize(&self, ste: usize) -> SymbolTable {
+    fn finalize(&self, ste: usize, inlined_comps: Vec<((i32, i32), InlinedComp)>) -> SymbolTable {
         let entry = &self.stes[ste];
         SymbolTable {
             name: entry.name,
             kind: entry.kind,
             lineno: entry.lineno,
             is_nested: entry.nested,
+            generator: entry.generator,
+            coroutine: entry.coroutine,
             symbols: entry.symbols.iter().collect(),
+            comp_bound: entry.comp_bound.clone(),
             children: entry
                 .children
                 .iter()
-                .map(|&child| self.finalize(child))
+                .map(|&child| self.finalize(child, Vec::new()))
                 .collect(),
+            inlined_comps,
         }
     }
 }

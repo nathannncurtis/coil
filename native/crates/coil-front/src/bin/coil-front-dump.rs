@@ -252,20 +252,14 @@ fn ir_record(path: &str, bytes: &[u8], optimize: u8, out: &mut String) {
                         &table,
                         options,
                     ) {
-                        Ok(result) => {
+                        Ok(module) => {
                             out.push_str(&format!(
-                                ",\"ok\":true,\"functions\":{},\"classes\":{},\"unsupported\":[",
-                                result.module.functions.len(),
-                                result.module.classes.len()
+                                ",\"ok\":true,\"functions\":{},\"classes\":{}",
+                                module.functions.len(),
+                                module.classes.len()
                             ));
-                            for (i, kind) in result.unsupported.iter().enumerate() {
-                                if i > 0 {
-                                    out.push(',');
-                                }
-                                json_string(out, kind.name());
-                            }
-                            out.push_str("],\"ir\":");
-                            json_string(out, &coil_ir::print::print_module(&result.module));
+                            out.push_str(",\"ir\":");
+                            json_string(out, &coil_ir::print::print_module(&module));
                             out.push_str("}\n");
                         }
                         Err(error) => {
