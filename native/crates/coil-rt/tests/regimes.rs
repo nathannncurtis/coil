@@ -191,14 +191,14 @@ fn hold_in_frame(value: *mut PyObject) -> usize {
             ),
             0
         );
-        stack::coil_rt_set_frame(rbp as *mut core::ffi::c_void);
+        stack::coil_rt_push_frame(rbp as *mut core::ffi::c_void);
     }
     rbp
 }
 
 fn clear_frame(rbp: usize) {
-    // SAFETY: the anchor this test set; null clears it.
-    unsafe { stack::coil_rt_set_frame(core::ptr::null_mut()) };
+    // SAFETY: the matching pop drops the thread's anchor.
+    unsafe { stack::coil_rt_pop_frame() };
     let _ = rbp;
 }
 
