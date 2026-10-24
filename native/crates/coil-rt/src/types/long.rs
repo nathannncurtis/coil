@@ -226,7 +226,7 @@ fn long_alloc(size: usize) -> *mut PyLongObject {
 /// # Safety
 ///
 /// Every entry of `mag` must be below `BASE`.
-unsafe fn from_mag(sign: i32, mag: &[u32]) -> *mut PyObject {
+pub(crate) unsafe fn from_mag(sign: i32, mag: &[u32]) -> *mut PyObject {
     // SAFETY: the digit writes below stay within the allocation.
     unsafe {
         let mut size = mag.len();
@@ -298,7 +298,7 @@ pub(crate) fn mag_cmp(a: &[u32], b: &[u32]) -> Ordering {
 }
 
 /// Add magnitudes (`x_add`).
-fn mag_add(a: &[u32], b: &[u32]) -> Vec<u32> {
+pub(crate) fn mag_add(a: &[u32], b: &[u32]) -> Vec<u32> {
     let (longer, shorter) = if a.len() >= b.len() { (a, b) } else { (b, a) };
     let mut z = Vec::with_capacity(longer.len() + 1);
     let mut carry: u64 = 0;
@@ -319,7 +319,7 @@ fn mag_add(a: &[u32], b: &[u32]) -> Vec<u32> {
 }
 
 /// Subtract magnitudes (`x_sub`); `a` must be at least `b`.
-fn mag_sub(a: &[u32], b: &[u32]) -> Vec<u32> {
+pub(crate) fn mag_sub(a: &[u32], b: &[u32]) -> Vec<u32> {
     debug_assert!(mag_cmp(a, b) != Ordering::Less);
     let mut z = Vec::with_capacity(a.len());
     let mut borrow: u32 = 0;
@@ -341,7 +341,7 @@ fn mag_sub(a: &[u32], b: &[u32]) -> Vec<u32> {
 
 /// Multiply magnitudes (`x_mul`'s schoolbook path, which CPython uses below
 /// the Karatsuba cutoff; the cutoff is a speed choice, not semantics).
-fn mag_mul(a: &[u32], b: &[u32]) -> Vec<u32> {
+pub(crate) fn mag_mul(a: &[u32], b: &[u32]) -> Vec<u32> {
     if a.is_empty() || b.is_empty() {
         return Vec::new();
     }
@@ -404,7 +404,7 @@ fn bit_length_digit(x: u32) -> usize {
 
 /// Divide a magnitude by a single digit (`inplace_divrem1`); returns the
 /// remainder. `n` must be nonzero.
-fn mag_divrem1(pout: &mut [u32], pin: &[u32], n: u32) -> u32 {
+pub(crate) fn mag_divrem1(pout: &mut [u32], pin: &[u32], n: u32) -> u32 {
     debug_assert!(n > 0 && n <= MASK);
     let mut remainder: u64 = 0;
     for i in (0..pin.len()).rev() {
@@ -417,7 +417,7 @@ fn mag_divrem1(pout: &mut [u32], pin: &[u32], n: u32) -> u32 {
 
 /// Unsigned division with remainder (`x_divrem`, Knuth's Algorithm D) for
 /// `2 <= w.len() <= v.len()`. Returns `(quotient, remainder)`.
-fn mag_divrem(v: &[u32], w: &[u32]) -> (Vec<u32>, Vec<u32>) {
+pub(crate) fn mag_divrem(v: &[u32], w: &[u32]) -> (Vec<u32>, Vec<u32>) {
     debug_assert!(w.len() >= 2 && v.len() >= w.len());
     // Normalize: shift w left so its top digit is >= BASE/2, and v by the
     // same amount.

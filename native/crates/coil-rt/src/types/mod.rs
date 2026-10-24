@@ -10,6 +10,7 @@ pub mod exc;
 pub mod float_;
 pub mod list;
 pub mod long;
+pub mod pycfunction;
 pub mod set;
 pub mod tuple;
 pub mod unicode;

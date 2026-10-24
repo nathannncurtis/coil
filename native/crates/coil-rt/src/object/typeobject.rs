@@ -1120,6 +1120,7 @@ pub fn init_static_types() -> c_int {
             &raw mut types::bytes::PyByteArray_Type,
             &raw mut types::bytes::PyByteArrayIter_Type,
             &raw mut crate::gc::weakref::PyWeakRef_Type,
+            &raw mut types::pycfunction::PyCFunction_Type,
         ];
         for t in objects {
             if PyType_Ready(t) < 0 {
