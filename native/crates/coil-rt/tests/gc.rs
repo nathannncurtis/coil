@@ -12,11 +12,11 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use coil_capi_sys::{PyModuleDef, PyObject, PyTypeObject, visitproc};
 use python312::gc;
-use python312::gc::{roots, stack, weakref};
+use python312::gc::{counted, roots, stack, weakref};
 use python312::object::{singletons, typeobject};
 use python312::tstate;
 use python312::types::exc as exceptions;
-use python312::types::{list, long, tuple};
+use python312::types::{dict, list, long, tuple};
 
 static INIT: Once = Once::new();
 
@@ -47,9 +47,9 @@ fn unpin(object: *mut PyObject) {
 }
 
 /// Whether `object` is in `gc.get_objects()`'s live set: the public
-/// liveness probe. The tuple `get_objects` returns is the suite's own
-/// reference; dropping and freeing it here keeps it from pinning the
-/// whole heap for the next collection.
+/// liveness probe. The snapshot tuple holds borrowed pointers — the
+/// diagnostic lists account nothing — so freeing it here drops nothing
+/// and keeps it from pinning the whole heap for the next collection.
 fn live(object: *mut PyObject) -> bool {
     let objects = gc::get_objects();
     let mut found = false;
@@ -646,20 +646,25 @@ fn counted_regime_objects_join_the_heap_walk() {
     let dead = python312::alloc::alloc_counted(100) as *mut PyObject;
     let held = python312::alloc::alloc_counted(100) as *mut PyObject;
     assert!(!dead.is_null() && !held.is_null());
-    // One heap reference in the pre-header's first word: the pin rule of
-    // section 9.3.
-    // SAFETY: the pre-header is the 16 bytes before the object.
+    // One heap reference from a real traced container — the store
+    // barrier of section 9.3 maintains the pre-header's first word, and
+    // the pin rule reads it.
+    let holder = dict::PyDict_New();
+    // SAFETY: both objects are freshly created.
     unsafe {
-        core::ptr::write_unaligned(
-            (held as usize - python312::alloc::PREHEADER) as *mut isize,
-            1,
-        )
-    };
+        assert_eq!(dict::PyDict_SetItem(holder, singletons::none(), held), 0);
+    }
 
     assert!(live(held), "the held counted object is reported live");
     assert_eq!(gc::collect(), 1, "the unheld counted object frees");
     assert!(!live(dead));
     assert!(live(held));
+
+    // Drop the holder's reference and drain the entry it leaves, so the
+    // suite leaks nothing into the next test's counts.
+    // SAFETY: the holder's own reference.
+    unsafe { counted::_Py_DecRef(holder) };
+    counted::process_zct();
 
     #[cfg(feature = "debug-heap")]
     {

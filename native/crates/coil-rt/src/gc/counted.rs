@@ -535,13 +535,15 @@ pub fn process_zct() {
 }
 
 /// Phase 2's entry: the same pass, run inside a collection where the
-/// `is_collecting` guard would otherwise stop it.
-pub(crate) fn process_zct_for_collection() {
+/// `is_collecting` guard would otherwise stop it. Its frees are the
+/// collection's — `gc.collect()` counts them.
+pub(crate) fn process_zct_for_collection() -> usize {
     if ZCT_PROCESSING.swap(true, Ordering::AcqRel) {
-        return;
+        return 0;
     }
-    run_zct_pass();
+    let freed = run_zct_pass();
     ZCT_PROCESSING.store(false, Ordering::Release);
+    freed
 }
 
 fn run_zct_pass() -> usize {
@@ -776,6 +778,14 @@ pub(crate) unsafe fn dealloc_object(object: *mut PyObject) {
     }
     // SAFETY: the header read is within the object.
     let ty = unsafe { header::type_of(object) };
+    if ty.is_null() {
+        // `alloc_counted` ran but `PyObject_Init` never did: no type,
+        // so no finalizer and no destructor — the block is the whole
+        // object.
+        // SAFETY: the object is this allocator's.
+        unsafe { crate::alloc::free_block(object.cast()) };
+        return;
+    }
     // PEP 442 at refcount death (CPython's `subtype_dealloc` runs a
     // pending finalizer before `tp_dealloc`); the bitmap bit keeps it to
     // once, ever, shared with the collection's phase 5.
@@ -1160,9 +1170,17 @@ fn holds_internal_refs(addr: usize) -> bool {
     if page.counted_slots(granule) {
         return true;
     }
-    page.regime(granule)
-        // SAFETY: the address is a live object of a readied type.
-        && unsafe { (*header::type_of(addr as *mut PyObject)).tp_traverse }.is_some()
+    if !page.regime(granule) {
+        return false;
+    }
+    // Raw allocations carry no type until `PyObject_Init` runs.
+    // SAFETY: the header read is within the block.
+    let ty = unsafe { header::type_of(addr as *mut PyObject) };
+    if ty.is_null() {
+        return false;
+    }
+    // SAFETY: the slot read is within the type object.
+    unsafe { (*ty).tp_traverse }.is_some()
 }
 
 /// Whether `addr` holds barrier-accounted heap references: a traced
@@ -1225,6 +1243,10 @@ pub(crate) unsafe fn clear_pass(dead: &[usize]) {
         let object = addr as *mut PyObject;
         // SAFETY: the header read is within the object.
         let ty = unsafe { header::type_of(object) };
+        if ty.is_null() {
+            // Raw allocations carry no type until `PyObject_Init` runs.
+            continue;
+        }
         // SAFETY: the slot read is within the type object.
         if let Some(clear) = unsafe { (*ty).tp_clear } {
             // SAFETY: the clear call takes the dead object.

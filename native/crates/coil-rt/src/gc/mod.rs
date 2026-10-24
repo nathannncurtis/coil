@@ -140,7 +140,7 @@ fn run_collection() -> usize {
     // Phase 2: process the zero-count tables — every R object whose two
     // counts reached zero gets its stack walk and, when nothing holds
     // it, its `tp_dealloc` — before any liveness is decided.
-    counted::process_zct_for_collection();
+    let mut freed = counted::process_zct_for_collection();
 
     // Phase 4's preparation: clear the mark bits and gather the object
     // list once.
@@ -205,7 +205,6 @@ fn run_collection() -> usize {
     // before this point; allocation during the sweep is in the
     // born-marked list, and the sweep's queued frees flush right after.
     let mut live_bytes = 0u64;
-    let mut freed = 0usize;
     for addr in &objects {
         match mark::is_marked(*addr) {
             Some(true) => {
@@ -321,7 +320,7 @@ pub fn get_objects() -> *mut PyObject {
     for page in &pages {
         walk_page_objects(page, &mut |addr| objects.push(addr as *mut PyObject));
     }
-    crate::types::tuple::from_array(&objects)
+    crate::types::tuple::from_array_untracked(&objects)
 }
 
 /// `gc.get_referents()`: the objects `object` references directly, through
@@ -349,7 +348,7 @@ pub unsafe fn get_referents(object: *mut PyObject) -> *mut PyObject {
             &mut referents as *mut Vec<*mut PyObject> as *mut c_void,
         );
     };
-    crate::types::tuple::from_array(&referents)
+    crate::types::tuple::from_array_untracked(&referents)
 }
 
 /// `get_referents`' visitor.

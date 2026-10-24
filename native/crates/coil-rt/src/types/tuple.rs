@@ -83,6 +83,24 @@ fn tuple_alloc(size: isize) -> *mut PyTupleObject {
     tuple
 }
 
+/// Build a tuple copying `items` with no accounting at all: the slots
+/// hold borrowed pointers, the way the gc module's diagnostic lists
+/// report the heap without pinning or escape-marking what they list.
+pub(crate) fn from_array_untracked(items: &[*mut PyObject]) -> *mut PyObject {
+    if items.is_empty() {
+        return empty_tuple();
+    }
+    let tuple = tuple_alloc(items.len() as isize);
+    if tuple.is_null() {
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the fresh block holds `items.len()` slots.
+    unsafe {
+        core::ptr::copy_nonoverlapping(items.as_ptr(), (*tuple).ob_item.as_mut_ptr(), items.len());
+    }
+    tuple.cast()
+}
+
 /// Build a tuple copying `items`; the empty case returns the singleton
 /// (CPython's `_PyTuple_FromArray`). The tuple is not a counted
 /// container — the caller keeps its own references — so every store goes
