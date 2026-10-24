@@ -737,3 +737,118 @@ fn error_handlers_match_the_oracle() {
     }
     finish("codecs_handlers.tsv", mismatches);
 }
+
+// ------------------------------------------------- hand-written registry state
+
+/// A callable-shaped object: a static type with `tp_call` set, never
+/// actually called by these tests.
+unsafe extern "C" fn noop_call(
+    _slf: *mut PyObject,
+    _args: *mut PyObject,
+    _kwargs: *mut PyObject,
+) -> *mut PyObject {
+    core::ptr::null_mut()
+}
+
+static mut CALLABLE_TYPE: PyTypeObject = {
+    let mut ty = typeobject::zero_type();
+    ty.tp_name = c"coil-test-callable".as_ptr();
+    ty.tp_call = Some(noop_call);
+    ty
+};
+
+static mut CALLABLE: PyObject = PyObject {
+    ob_refcnt: header::IMMORTAL_REFCNT,
+    ob_type: &raw mut CALLABLE_TYPE,
+};
+
+fn expect_error(want: &str) {
+    // An error is pending by each call site's construction.
+    assert_eq!(error_text(), want);
+}
+
+#[test]
+fn registry_state_matches_the_interim_contract() {
+    init();
+    let utf8 = CString::new("utf-8").unwrap();
+    let nosuch = CString::new("nosuchencoding").unwrap();
+    let handler = CString::new("nosuchhandler").unwrap();
+    // SAFETY: the static objects and C strings follow the C API
+    // contract; nothing here runs a call protocol.
+    unsafe {
+        // Lookup of a native name: the CodecInfo object is what is
+        // missing, not the codec.
+        assert!(codecs::_PyCodec_Lookup(utf8.as_ptr()).is_null());
+        expect_error(
+            "e:SystemError:coil: building CodecInfo objects needs the container runtime",
+        );
+        assert!(codecs::_PyCodec_Lookup(nosuch.as_ptr()).is_null());
+        expect_error("e:LookupError:no codec search functions registered: can't find encoding");
+
+        // KnownEncoding consults the native table and clears its own
+        // error state.
+        assert_eq!(codecs::PyCodec_KnownEncoding(utf8.as_ptr()), 1);
+        assert!(tstate::occurred().is_null());
+        assert_eq!(codecs::PyCodec_KnownEncoding(nosuch.as_ptr()), 0);
+        assert!(tstate::occurred().is_null());
+
+        // Register rejects non-callables, accepts callables, and a
+        // registered search function turns the empty-path LookupError
+        // into the typed error for calling it.
+        assert_eq!(codecs::PyCodec_Register(long::PyLong_FromLong(1)), -1);
+        expect_error("e:TypeError:argument must be callable");
+        assert_eq!(codecs::PyCodec_Register(&raw mut CALLABLE), 0);
+        assert!(codecs::_PyCodec_Lookup(nosuch.as_ptr()).is_null());
+        expect_error("e:SystemError:coil: calling codec search functions needs the container runtime");
+        assert_eq!(codecs::PyCodec_Unregister(&raw mut CALLABLE), 0);
+        assert!(codecs::_PyCodec_Lookup(nosuch.as_ptr()).is_null());
+        expect_error("e:LookupError:no codec search functions registered: can't find encoding");
+
+        // The error-handler registry: callable checked, lookups of the
+        // built-ins and registered names need the container runtime,
+        // unknown names are CPython's LookupError.
+        assert_eq!(
+            codecs::PyCodec_RegisterError(handler.as_ptr(), long::PyLong_FromLong(1)),
+            -1
+        );
+        expect_error("e:TypeError:handler must be callable");
+        assert_eq!(
+            codecs::PyCodec_RegisterError(handler.as_ptr(), &raw mut CALLABLE),
+            0
+        );
+        assert!(codecs::PyCodec_LookupError(handler.as_ptr()).is_null());
+        expect_error("e:SystemError:coil: returning an error handler object needs the container runtime");
+        assert!(codecs::PyCodec_LookupError(utf8.as_ptr()).is_null());
+        expect_error("e:LookupError:unknown error handler name 'utf-8'");
+        assert!(codecs::PyCodec_LookupError(core::ptr::null()).is_null());
+        expect_error(
+            "e:SystemError:coil: returning the strict error handler as an object needs the container runtime",
+        );
+
+        // namereplace needs the unicodedata name tables.
+        let exc = exceptions::PyUnicodeDecodeError_Create(
+            utf8.as_ptr(),
+            b"\xff".as_ptr() as *const c_char,
+            1,
+            0,
+            1,
+            c"invalid start byte".as_ptr(),
+        );
+        assert!(codecs::PyCodec_NameReplaceErrors(exc).is_null());
+        expect_error("e:SystemError:coil: the 'namereplace' error handler needs the unicodedata name tables");
+
+        // The Windows code pages are absent off Windows.
+        let mbcs = CString::new("mbcs").unwrap();
+        let oem = CString::new("oem").unwrap();
+        let text = str_object(&unescape("abc"));
+        if cfg!(target_os = "windows") {
+            assert!(!codecs::PyCodec_Encode(text, mbcs.as_ptr(), core::ptr::null()).is_null());
+            tstate::clear();
+        } else {
+            assert!(codecs::PyCodec_Encode(text, mbcs.as_ptr(), core::ptr::null()).is_null());
+            expect_error("e:SystemError:coil: the 'mbcs' codec needs Windows code pages");
+            assert!(codecs::PyCodec_Encode(text, oem.as_ptr(), core::ptr::null()).is_null());
+            expect_error("e:SystemError:coil: the 'oem' codec needs Windows code pages");
+        }
+    }
+}
