@@ -343,20 +343,23 @@ fn rooted_objects_survive_and_unrooted_objects_die() {
 #[test]
 fn unreachable_cycles_are_collected() {
     let _serial = init();
-    // A two-node cycle through tp_traverse slots.
+    // A two-node cycle through tp_traverse slots. The nodes die as
+    // compiled-code objects: no C references, lifetime by reachability.
     let a = new_node();
     let b = new_node();
     set_slot(a, SLOT0, b);
     set_slot(b, SLOT0, a);
     unpin(a);
     unpin(b);
-    // A self-referential list.
+    // A self-referential list. `PyList_SetItem` steals the caller's
+    // reference, so the list's own count of one is the slot's; the
+    // subtraction of internal references (spec 9.3 phase 3) is what
+    // frees it, and its dealloc drops the slot's reference to itself.
     let list_object = list::PyList_New(1);
     // SAFETY: the list was built with one empty slot.
     unsafe {
         assert_eq!(list::PyList_SetItem(list_object, 0, list_object), 0);
     }
-    unpin(list_object);
 
     assert_eq!(gc::collect(), 3);
     assert!(!live(a) && !live(b) && !live(list_object));
@@ -749,11 +752,12 @@ fn atexit_registrations_are_roots() {
     let callback = new_callback();
     let args = tuple::PyTuple_New(1);
     let value = int(44_444_444);
-    // SAFETY: the tuple was built with one empty slot.
+    // SAFETY: the tuple was built with one empty slot; `SetItem` steals
+    // the constructor's reference to `value`, so the slot now owns the
+    // int's count of one and the tuple's death will drop it.
     unsafe {
         assert_eq!(tuple::PyTuple_SetItem(args, 0, value), 0);
     }
-    unpin(value);
     unpin(args);
     unpin(callback);
     let handle = roots::atexit_register(callback, args);
@@ -913,7 +917,9 @@ fn get_objects_and_get_referents_report_the_heap() {
     let a = int(1_000_000);
     let b = int(2_000_000);
     let pair = tuple::PyTuple_New(2);
-    // SAFETY: the tuple was built with two empty slots.
+    // SAFETY: the tuple was built with two empty slots; `SetItem` steals
+    // the constructor's reference to each item, so the slots own the
+    // counts of one.
     unsafe {
         assert_eq!(tuple::PyTuple_SetItem(pair, 0, a), 0);
         assert_eq!(tuple::PyTuple_SetItem(pair, 1, b), 0);
@@ -935,8 +941,6 @@ fn get_objects_and_get_referents_report_the_heap() {
         (*objects).ob_refcnt = 0;
         (*referents).ob_refcnt = 0;
     }
-    unpin(a);
-    unpin(b);
     unpin(pair);
     assert_eq!(
         gc::collect(),
@@ -1029,7 +1033,8 @@ fn threads_allocate_and_collect_concurrently() {
                         let inner = list::PyList_New(0);
                         assert_eq!(list::PyList_SetItem(list_object, 0, inner), 0);
                         assert_eq!(list::PyList_SetItem(list_object, 1, list_object), 0);
-                        unpin(inner);
+                        // `SetItem` steals: the outer list's slots own
+                        // `inner`'s and its own counts of one now.
                         unpin(list_object);
                         if round % 25 == 0 {
                             gc::collect();
