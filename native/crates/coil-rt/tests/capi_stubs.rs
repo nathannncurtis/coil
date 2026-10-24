@@ -23,8 +23,14 @@ fn every_export_is_a_stub_until_the_export_layer_lands() {
     for name in ["PyArg_ParseTuple", "PyFloat_Type", "_Py_Dealloc"] {
         assert_eq!(capi::is_stub(name), Some(true), "{name} must be a stub");
     }
-    assert_eq!(capi::stub_names().len(), exports.len());
-    assert_eq!(capi::coil_rt_stub_count(), exports.len());
+    assert_eq!(
+        capi::stub_names().len(),
+        exports.len() - capi::implemented_count()
+    );
+    assert_eq!(
+        capi::coil_rt_stub_count(),
+        exports.len() - capi::implemented_count()
+    );
 }
 
 #[test]

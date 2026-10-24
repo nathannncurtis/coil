@@ -12,7 +12,19 @@ use coil_capi_sys::PYTHON312_EXPORTS;
 // export layer lands incrementally (spec section 10.1 orders the work by
 // tools/capi_usage.py), so it starts empty and every entry of the export
 // list is still a stub; names move here as they are implemented.
-const IMPLEMENTED: &[&str] = &[];
+const IMPLEMENTED: &[&str] = &[
+    // object/attr.rs
+    "PyObject_GetAttrString",
+    "PyObject_SetAttrString",
+    // types/dict.rs
+    "PyDict_SetItemString",
+    "PyDict_GetItemString",
+];
+
+/// How many C API exports are implemented natively (not stubs).
+pub fn implemented_count() -> usize {
+    IMPLEMENTED.len()
+}
 
 /// Every C API name this runtime still answers with a stub.
 pub fn stub_names() -> &'static HashSet<&'static str> {
