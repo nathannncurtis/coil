@@ -131,6 +131,9 @@ pub unsafe fn attach(tstate: *mut ThreadState) {
     unsafe { take_gil(tstate) };
     // SAFETY: the caller's contract.
     unsafe { (*tstate).attached = true };
+    // The eval-breaker tick's stand-in: a thread picking the GIL up
+    // again processes any waiting zero-count entries (section 9.3).
+    crate::gc::counted::zct_tick();
 }
 
 /// Detach `tstate`: mark it detached and drop the GIL.

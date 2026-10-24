@@ -2,17 +2,16 @@
 //! table, mark and sweep, stack-map walks, pacing, finalisation and weak
 //! references (spec sections 9.2 to 9.6).
 //!
-//! This task owns the tracing side: the full collection's phases 1, 4, 5,
-//! 6 and 9 — stop, mark from all roots, finalise (PEP 442), clear weak
-//! references and run their callbacks in `handle_weakrefs` order, and
-//! free every dead block, with nothing reused before that point and
-//! objects allocated during the finalizer and callback phases born
-//! marked. The ZCT processing, the shadow-count subtraction, `tp_clear`
-//! and the `tp_dealloc` passes (phases 2, 3, 7, 8) belong to the counted
-//! regime's task; until it lands, the sweep frees dead blocks without
-//! calling destructors, so a dead container's plain-allocator aux memory
-//! (a list's item array) is retained rather than released.
+//! The full collection's phases: 1 stop, 2 the ZCT pass, 3 the
+//! shadow-count subtraction, 4 mark from all roots, 5 finalise (PEP 442),
+//! 6 clear weak references and run their callbacks in `handle_weakrefs`
+//! order, 7 `tp_clear`, 8 `tp_dealloc` once on the dead counted-regime
+//! and C-created objects, 9 free every dead block, with nothing reused
+//! before that point and objects allocated during the destructor phases
+//! born marked. `counted.rs` owns the regime machinery phases 2, 3, 7
+//! and 8 lean on; the sweep frees what no destructor claimed.
 
+pub mod counted;
 pub mod finalize;
 pub mod mark;
 pub mod pacing;
@@ -125,34 +124,53 @@ pub(crate) fn heap_object_was_freed(addr: usize) -> bool {
     }
 }
 
-/// One full collection: phases 1, 4, 5, 6 and 9 of section 9.3.
+/// One full collection: phases 1 through 9 of section 9.3.
 fn run_collection() -> usize {
+    // The debug-heap quarantine of the previous cycle gives its blocks
+    // back before this one's walk.
+    #[cfg(feature = "debug-heap")]
+    counted::release_quarantine();
+
     // Phase 1, stop: with the GIL the collecting thread is the only
     // attached thread; every other thread's last compiled frame is
     // recorded in its thread state, which the roots walk reads. The
     // collection mutex serialises collections process-wide.
     let pages = crate::alloc::pool::snapshot_pages();
 
-    // Phase 4's preparation: clear the mark bits and gather the pin
-    // roots — objects the counted regime or a C reference count holds
-    // (section 9.3's "positive count" rule ahead of the subtraction the
-    // counted-regime task adds).
+    // Phase 2: process the zero-count tables — every R object whose two
+    // counts reached zero gets its stack walk and, when nothing holds
+    // it, its `tp_dealloc` — before any liveness is decided.
+    counted::process_zct_for_collection();
+
+    // Phase 4's preparation: clear the mark bits and gather the object
+    // list once.
     let mut marks = MarkState::new();
-    let mut pins: Vec<*mut PyObject> = Vec::new();
     let mut objects: Vec<usize> = Vec::new();
     for page in &pages {
         let base = page.base();
         walk_page_objects(page, &mut |addr| {
             page.clear_mark(page.granule_of(base, addr));
             objects.push(addr);
-            if is_pinned(page, addr) {
-                pins.push(addr as *mut PyObject);
-            }
         });
     }
 
-    // Phase 4: mark from all roots. The positive-count pins go first —
-    // they are the roots the allocation path itself vouches for.
+    // The debug-heap recomputation of `heap_refs` from a heap walk,
+    // before any phase can move or free anything.
+    #[cfg(feature = "debug-heap")]
+    // SAFETY: every address is a live object of this allocator.
+    unsafe {
+        counted::verify_heap_refs(&objects)
+    };
+
+    // Phase 3: the subtraction — a shadow `ob_refcnt`, the real count
+    // less the references other objects' counted slots and GC-tracked
+    // counted objects hold, decides which objects a positive count still
+    // pins; an R object is also held by any heap reference or ZCT entry.
+    // SAFETY: every address is a live object of this allocator.
+    let pins = unsafe { counted::subtract(&objects) };
+
+    // Phase 4: mark from all roots. The positive-shadow-count pins go
+    // first — they are the roots the counts themselves vouch for.
     marks.mark_all(&pins);
     mark_all(&mut marks);
 
@@ -163,14 +181,29 @@ fn run_collection() -> usize {
         .copied()
         .filter(|addr| mark::is_marked(*addr) == Some(false))
         .collect();
+    // From here through phase 8 destructors run: `tp_free` queues the
+    // block instead of freeing, so the walk's page bits stay honest.
+    counted::begin_sweep();
     finalize::finalize_dead(&dead);
     mark_all(&mut marks);
 
     // Phase 6: clear weak references to the dead and run their callbacks.
     weakref::handle_weakrefs(&mut marks);
 
-    // Phase 9: free every dead block. Nothing was reused before this
-    // point; allocation during phases 5 and 6 is in the born-marked list.
+    // Phase 7: `tp_clear` every dead GC-tracked counted object, breaking
+    // the cycles its own refcounts cannot.
+    // SAFETY: every address is a dead heap object of this allocator.
+    unsafe { counted::clear_pass(&dead) };
+
+    // Phase 8: `tp_dealloc` once on every dead R object and every dead
+    // C-created T object, after the dead traced T objects nothing will
+    // run a destructor for give up their `heap_refs`.
+    // SAFETY: as `clear_pass`.
+    unsafe { counted::dealloc_pass(&dead) };
+
+    // Phase 9: free every remaining dead block. Nothing was reused
+    // before this point; allocation during the sweep is in the
+    // born-marked list, and the sweep's queued frees flush right after.
     let mut live_bytes = 0u64;
     let mut freed = 0usize;
     for addr in &objects {
@@ -182,13 +215,16 @@ fn run_collection() -> usize {
                     live_bytes += capacity as u64;
                 }
             }
-            Some(false) => {
+            // Objects phase 8 deallocated are already queued.
+            Some(false) if !counted::is_claimed(*addr) => {
                 sweep_object(*addr);
                 freed += 1;
             }
+            Some(false) => {}
             None => {}
         }
     }
+    freed += counted::end_sweep(&dead);
     weakref::purge_dead_rows();
     born_marked()
         .lock()
@@ -216,35 +252,6 @@ pub(crate) fn mark_all(marks: &mut MarkState) {
     }
 }
 
-/// Whether the object at `addr` is pinned: a counted-regime object with a
-/// C reference count or heap references, or a tracing-regime object with
-/// a C reference count (section 9.3).
-fn is_pinned(page: &'static PageHeader, addr: usize) -> bool {
-    let granule = page.granule_of(page.base(), addr);
-    // SAFETY: the object header is the first 16 bytes of the object.
-    let object = addr as *mut PyObject;
-    let refcnt = unsafe { header::refcnt(object) };
-    if page.regime(granule) {
-        let mut held = refcnt > 0;
-        if !held
-            && granule
-                .checked_sub(1)
-                .is_some_and(|prev| page.has_prehdr(prev))
-        {
-            // The 16-byte pre-header's first word is `heap_refs`; the
-            // store barrier of section 9.3 maintains it.
-            // SAFETY: the pre-header is the 16 bytes before the object.
-            let heap_refs = unsafe {
-                core::ptr::read_unaligned((addr - crate::alloc::PREHEADER) as *const isize)
-            };
-            held = heap_refs > 0;
-        }
-        held
-    } else {
-        refcnt > 0
-    }
-}
-
 /// Visit every live object of `page` (an allocated block whose first
 /// granule is an object start): small pages block by block, a large run's
 /// single object at its data offset, after the 16-byte pre-header when it
@@ -264,7 +271,10 @@ fn walk_page_objects(page: &'static PageHeader, visit: &mut dyn FnMut(usize)) {
     let blocks = crate::alloc::page::DATA_BYTES / block_size;
     for i in 0..blocks {
         let g0 = i * (block_size / crate::alloc::page::GRANULE);
-        if page.allocated(g0) && page.is_object(g0) {
+        if !page.allocated(g0) {
+            continue;
+        }
+        if page.is_object(g0) {
             visit(page.granule_addr(base, g0));
         } else if page.has_prehdr(g0) && page.is_object(g0 + 1) {
             // A counted-regime block: the object sits one granule in,
@@ -296,40 +306,11 @@ fn sweep_object(addr: usize) {
             unsafe { crate::alloc::free_block(name) };
         }
     }
-    #[cfg(feature = "debug-heap")]
-    poison(addr);
+    // The `--features debug-heap` poisoning and the counted-regime
+    // quarantine ride in `free_block` itself, so every free path shares
+    // them.
     // SAFETY: `addr` is a dead object address this allocator returned.
     unsafe { crate::alloc::free_block(addr as *mut u8) };
-}
-
-/// The `--features debug-heap` poisoning of a freed block's body: every
-/// byte but the first word, which `free_block`'s free-list link occupies.
-/// The fill spans the block — for a counted-regime object that starts one
-/// granule above the block base, behind its pre-header.
-#[cfg(feature = "debug-heap")]
-fn poison(addr: usize) {
-    let mut block = addr;
-    if let Some(page) = crate::alloc::page_of(addr) {
-        let granule = page.granule_of(page.base(), addr);
-        if granule
-            .checked_sub(1)
-            .is_some_and(|prev| page.has_prehdr(prev))
-        {
-            block = addr - crate::alloc::PREHEADER;
-        }
-    }
-    // SAFETY: the block is dead and exclusively the collector's.
-    let capacity = unsafe { crate::alloc::block_capacity(block as *const u8) }.unwrap_or(0);
-    if capacity > 8 {
-        // SAFETY: the body is `capacity` bytes at the block address.
-        unsafe {
-            core::ptr::write_bytes(
-                (block + 8) as *mut u8,
-                crate::alloc::page::POISON_BYTE,
-                capacity - 8,
-            )
-        };
-    }
 }
 
 /// `gc.get_objects()`: every GC-heap object as a tuple, in heap-walk

@@ -50,6 +50,10 @@ fn pacing() -> &'static Mutex<Pacing> {
 /// object being allocated; the collector's own allocations never
 /// re-enter (the collecting flag stops the trigger before it starts).
 pub(crate) fn on_gc_heap_request(bytes: usize) {
+    // The counted regime's allocation safepoint first: a full table is
+    // processed before this request takes the pacing lock, whose holder
+    // must never wait on a collection this call could start.
+    crate::gc::counted::zct_safepoint();
     let mut pacing = pacing().lock().expect("pacing state poisoned");
     pacing.allocated_total = pacing.allocated_total.saturating_add(bytes as u64);
     if !crate::gc::is_enabled() || crate::gc::is_collecting() {

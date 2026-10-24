@@ -15,7 +15,8 @@ name = "python312"
 crate-type = ["cdylib", "rlib"]
 
 [features]
-# Heap debugging of spec section 9.3: this task contributes the poisoning
-# of freed blocks; the quarantine and the count checks arrive with the
-# counted-regime task.
+# Heap debugging of spec section 9.3: poisoning freed blocks' bodies,
+# quarantining freed counted-regime objects for one collection, checking
+# `heap_refs` underflow, and recomputing `heap_refs` from a heap walk at
+# every collection.
 debug-heap = []

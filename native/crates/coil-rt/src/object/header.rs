@@ -40,7 +40,12 @@ pub unsafe fn c_init(object: *mut PyObject, ob_type: *mut PyTypeObject) {
         // (spec sections 9.2 and 9.3). Counted-regime objects sit 16
         // bytes into their block; the tag belongs at the object.
         if let Some(page) = crate::alloc::page_of(object as usize) {
-            page.set_is_object(page.granule_of(page.base(), object as usize));
+            let granule = page.granule_of(page.base(), object as usize);
+            page.set_is_object(granule);
+            // And it is C-created (section 9.3): a T object of this
+            // provenance whose reference count reaches zero without it
+            // having escaped into compiled code is freed at once.
+            page.set_c_created(granule);
         }
     }
 }

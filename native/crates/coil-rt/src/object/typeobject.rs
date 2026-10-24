@@ -400,9 +400,10 @@ unsafe extern "C" fn object_init(
     0
 }
 
-/// `PyType_GenericAlloc` for static sizes: a zeroed GC-heap block with the
-/// header written. GC bookkeeping for counted-regime objects is the memory
-/// task's; this path hands out tracing-regime memory (spec section 9).
+/// `PyType_GenericAlloc` for static sizes: a zeroed GC-heap block with
+/// the header written. The block follows the type's regime (spec section
+/// 9.3): a counted type's instances carry the 16-byte pre-header with
+/// `heap_refs`, everything else is tracing-regime memory.
 ///
 /// # Safety
 ///
@@ -418,7 +419,13 @@ pub unsafe extern "C" fn PyType_GenericAlloc(
         return core::ptr::null_mut();
     };
     let size = size as usize;
-    let block = crate::alloc::alloc_object(size);
+    // SAFETY: the regime read follows the readied type's dealloc slot.
+    let counted = unsafe { crate::gc::counted::type_is_counted(type_) };
+    let block = if counted {
+        crate::alloc::alloc_counted(size)
+    } else {
+        crate::alloc::alloc_object(size)
+    };
     if block.is_null() {
         crate::tstate::set_string(exceptions::memory_error(), b"");
         return core::ptr::null_mut();
@@ -1125,6 +1132,11 @@ pub fn init_static_types() -> c_int {
             if PyType_Ready(t) < 0 {
                 return -1;
             }
+            // Every type here is the runtime's own: its instances live
+            // under the tracing regime however their slots are filled
+            // (spec section 9.3).
+            // SAFETY: the outer block; readied once, before concurrency.
+            crate::gc::counted::note_coil_type(t);
         }
         if types::exc::init_exception_types() < 0 {
             return -1;
@@ -1133,6 +1145,19 @@ pub fn init_static_types() -> c_int {
             if PyType_Ready(t) < 0 {
                 return -1;
             }
+            // SAFETY: the outer block; readied once, before concurrency.
+            crate::gc::counted::note_coil_type(t);
+            // The dict views hold their mapping by `ob_refcnt`; the
+            // mapping types themselves store under the barrier.
+        }
+        // The traced containers of spec 9.3: dict and set instances are
+        // C-created, yet their slots carry barrier-accounted references.
+        for t in [
+            &raw mut types::dict::PyDict_Type,
+            &raw mut types::set::PySet_Type,
+            &raw mut types::set::PyFrozenSet_Type,
+        ] {
+            crate::gc::counted::note_barrier_container(t);
         }
         materialize_type_tuples();
     }
