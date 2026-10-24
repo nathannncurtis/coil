@@ -268,6 +268,7 @@ fn build_extension_windows(
     let mut k = tool.to_command();
     k.arg("/nologo")
         .arg("/DLL")
+        .arg("/ENTRY:DllMain")
         .arg(&obj_path)
         .arg(&lib_path)
         .arg(format!("/Fe:{}", out_path.display()));
@@ -346,6 +347,13 @@ fn report_error(
 
 const SINGLE_SRC: &str = r#"
 #include <stdint.h>
+#if defined(_WIN32)
+#include <windows.h>
+BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
+    (void)instance; (void)reason; (void)reserved;
+    return TRUE;
+}
+#endif
 typedef struct { int64_t ob_refcnt; void *ob_type; } PyObject;
 typedef struct { PyObject ob_base; void *m_init; int64_t m_index; PyObject *m_copy; } PyModuleDef_Base;
 typedef struct { int slot; void *value; } PyModuleDef_Slot;
@@ -367,6 +375,13 @@ PyObject *PyInit_expext_single(void) {
 
 const MULTI_SRC: &str = r#"
 #include <stdint.h>
+#if defined(_WIN32)
+#include <windows.h>
+BOOL WINAPI DllMain(HINSTANCE instance, DWORD reason, LPVOID reserved) {
+    (void)instance; (void)reason; (void)reserved;
+    return TRUE;
+}
+#endif
 typedef struct { int64_t ob_refcnt; void *ob_type; } PyObject;
 typedef struct { PyObject ob_base; void *m_init; int64_t m_index; PyObject *m_copy; } PyModuleDef_Base;
 typedef struct { int slot; void *value; } PyModuleDef_Slot;
