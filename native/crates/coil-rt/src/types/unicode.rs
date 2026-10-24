@@ -3029,58 +3029,6 @@ fn lookup_error_message(message: String) {
     crate::tstate::set_string(exceptions::lookup_error(), message.as_bytes());
 }
 
-/// The `UnicodeDecodeError.__str__` rendering, raised through the interim
-/// string exception state; the instances come with the exceptions task.
-/// A recoverable escape error under the built-in handlers, matching the
-/// live interpreter: `ignore` drops the escape, `replace` writes U+FFFD,
-/// `backslashreplace` re-escapes the raw bytes; every other handler
-/// raises and returns false.
-pub(crate) fn escape_error(
-    out: &mut Vec<u32>,
-    s: &[u8],
-    start: isize,
-    end: isize,
-    handler: ErrHandler,
-    encoding: &str,
-    message: &str,
-) -> bool {
-    let from = start.max(0) as usize;
-    let to = (end.max(0) as usize).min(s.len());
-    match handler {
-        ErrHandler::Ignore => true,
-        ErrHandler::Replace => {
-            out.push(0xFFFD);
-            true
-        }
-        ErrHandler::BackslashReplace => {
-            for &b in &s[from..to] {
-                out.push(b'\\' as u32);
-                out.push(b'x' as u32);
-                out.push(HEX_DIGITS[(b >> 4) as usize] as u32);
-                out.push(HEX_DIGITS[(b & 0xf) as usize] as u32);
-            }
-            true
-        }
-        ErrHandler::XmlCharRefReplace => {
-            // `PyCodec_XMLCharRefReplaceErrors` rejects decode
-            // exceptions outright.
-            crate::tstate::set_string(
-                exceptions::type_error(),
-                b"don't know how to handle UnicodeDecodeError in error callback",
-            );
-            false
-        }
-        ErrHandler::Named(name) => {
-            named_handler_error(name);
-            false
-        }
-        _ => {
-            raise_decode_error(encoding, s, start, end, message);
-            false
-        }
-    }
-}
-
 /// The registry's generic decode-error path (`PyCodec_*Errors` applied
 /// to a decode exception over `[start, end)` of `s`): the built-in
 /// handlers' effect on `out` and the new input position, or the raised
@@ -3112,8 +3060,9 @@ pub(crate) fn generic_decode_error(
             Some(end)
         }
         ErrHandler::SurrogateEscape => {
-            // Up to four non-ASCII bytes map to U+DC80..; an ASCII byte
-            // re-raises the original error.
+            // Up to four bytes per call, stopping at an ASCII byte; no
+            // byte mapped re-raises the original error
+            // (`PyCodec_SurrogateEscapeErrors`).
             let mut consumed = 0usize;
             while consumed < 4 && from + consumed < to && s[from + consumed] >= 128 {
                 out.push(0xDC00 + s[from + consumed] as u32);
@@ -3126,6 +3075,18 @@ pub(crate) fn generic_decode_error(
                 Some(start + consumed as isize)
             }
         }
+        ErrHandler::SurrogatePass => match surrogatepass_decode(encoding, s, from) {
+            Some((ch, bytelen)) => {
+                out.push(ch);
+                Some(start + bytelen as isize)
+            }
+            // Not a standard encoding name or not a whole surrogate
+            // unit: re-raise.
+            None => {
+                raise_decode_error(encoding, s, start, end, reason);
+                None
+            }
+        },
         ErrHandler::XmlCharRefReplace => {
             crate::tstate::set_string(
                 exceptions::type_error(),
@@ -3133,15 +3094,153 @@ pub(crate) fn generic_decode_error(
             );
             None
         }
-        // Strict, and surrogatepass over a non-standard encoding name,
-        // which re-raises the original exception.
-        ErrHandler::Strict | ErrHandler::SurrogatePass => {
+        // Strict re-raises the original exception.
+        ErrHandler::Strict => {
             raise_decode_error(encoding, s, start, end, reason);
             None
         }
         ErrHandler::Named(name) => {
             named_handler_error(name);
             None
+        }
+    }
+}
+
+/// What an encode error handler produces for the failing character:
+/// replacement code points the caller re-encodes in the target
+/// encoding, or the raw bytes the surrogate-aware handlers emit.
+enum EncodeReplacement {
+    Chars(Vec<u32>),
+    Bytes(Vec<u8>),
+}
+
+/// The surrogatepass handler's decode side: one whole unit at `from`
+/// for the standard encoding names, when it decodes to a surrogate
+/// (`PyCodec_SurrogatePassErrors`).
+fn surrogatepass_decode(encoding: &str, s: &[u8], from: usize) -> Option<(u32, usize)> {
+    let unit = match encoding {
+        "utf-8" => {
+            if s.len() - from < 3
+                || (s[from] & 0xf0) != 0xe0
+                || (s[from + 1] & 0xc0) != 0x80
+                || (s[from + 2] & 0xc0) != 0x80
+            {
+                return None;
+            }
+            (
+                (((s[from] & 0x0f) as u32) << 12)
+                    + (((s[from + 1] & 0x3f) as u32) << 6)
+                    + ((s[from + 2] & 0x3f) as u32),
+                3,
+            )
+        }
+        "utf-16-le" if s.len() - from >= 2 => {
+            (u16::from_le_bytes([s[from], s[from + 1]]) as u32, 2)
+        }
+        "utf-16-be" if s.len() - from >= 2 => {
+            (u16::from_be_bytes([s[from], s[from + 1]]) as u32, 2)
+        }
+        "utf-32-le" if s.len() - from >= 4 => (
+            u32::from_le_bytes([s[from], s[from + 1], s[from + 2], s[from + 3]]),
+            4,
+        ),
+        "utf-32-be" if s.len() - from >= 4 => (
+            u32::from_be_bytes([s[from], s[from + 1], s[from + 2], s[from + 3]]),
+            4,
+        ),
+        _ => return None,
+    };
+    if is_surrogate(unit.0) {
+        Some(unit)
+    } else {
+        None
+    }
+}
+
+/// The surrogatepass handler's encoded form of a surrogate for the
+/// standard encoding names it knows (`get_standard_encoding`); the
+/// BOM-form names resolve to the native byte order.
+fn surrogatepass_bytes(encoding: &str, ch: u32) -> Option<Vec<u8>> {
+    let unit = ch as u16;
+    let native16 = if cfg!(target_endian = "little") {
+        unit.to_le_bytes()
+    } else {
+        unit.to_be_bytes()
+    };
+    let native32 = if cfg!(target_endian = "little") {
+        ch.to_le_bytes()
+    } else {
+        ch.to_be_bytes()
+    };
+    Some(match encoding {
+        "utf-8" => vec![
+            (0xE0 | (ch >> 12)) as u8,
+            (0x80 | ((ch >> 6) & 0x3F)) as u8,
+            (0x80 | (ch & 0x3F)) as u8,
+        ],
+        "utf-16-le" => unit.to_le_bytes().to_vec(),
+        "utf-16-be" => unit.to_be_bytes().to_vec(),
+        "utf-32-le" => ch.to_le_bytes().to_vec(),
+        "utf-32-be" => ch.to_be_bytes().to_vec(),
+        "utf-16" => native16.to_vec(),
+        "utf-32" => native32.to_vec(),
+        _ => return None,
+    })
+}
+
+/// The registry's generic encode-error path (`PyCodec_*Errors` applied
+/// to an encode exception over `[start, start+1)`, one surrogate):
+/// the replacement, or `None` with the error pending. `strict` and an
+/// unknown surrogatepass encoding re-raise; `surrogateescape` passes
+/// only U+DC80..U+DCFF through as one byte.
+fn generic_encode_error(
+    encoding: &str,
+    chars: &[u32],
+    start: isize,
+    handler: ErrHandler,
+    reason: &str,
+) -> Option<EncodeReplacement> {
+    let ch = chars[start as usize];
+    match handler {
+        ErrHandler::Strict => {
+            raise_encode_error(encoding, chars, start, start + 1, reason);
+            None
+        }
+        ErrHandler::Named(name) => {
+            named_handler_error(name);
+            None
+        }
+        ErrHandler::Ignore => Some(EncodeReplacement::Chars(Vec::new())),
+        ErrHandler::Replace => Some(EncodeReplacement::Chars(vec![b'?' as u32])),
+        ErrHandler::BackslashReplace => {
+            let text = if ch >= 0x10000 {
+                format!("\\U{ch:08x}")
+            } else if ch >= 0x100 {
+                format!("\\u{ch:04x}")
+            } else {
+                format!("\\x{ch:02x}")
+            };
+            Some(EncodeReplacement::Chars(
+                text.chars().map(|c| c as u32).collect(),
+            ))
+        }
+        ErrHandler::XmlCharRefReplace => Some(EncodeReplacement::Chars(
+            format!("&#{};", ch).chars().map(|c| c as u32).collect(),
+        )),
+        ErrHandler::SurrogatePass => match surrogatepass_bytes(encoding, ch) {
+            Some(bytes) if is_surrogate(ch) => Some(EncodeReplacement::Bytes(bytes)),
+            _ => {
+                raise_encode_error(encoding, chars, start, start + 1, reason);
+                None
+            }
+        },
+        ErrHandler::SurrogateEscape => {
+            if (0xDC80..=0xDCFF).contains(&ch) {
+                Some(EncodeReplacement::Bytes(vec![ch as u8]))
+            } else {
+                raise_encode_error(encoding, chars, start, start + 1, reason);
+                None
+            }
         }
     }
 }
@@ -3426,9 +3525,11 @@ pub(crate) fn decode_utf8_bytes(
             // The trailing bytes form a truncated sequence.
             TRUNCATED => (pos as isize, s.len() as isize, "unexpected end of data"),
             -1 => (pos as isize, pos as isize + 1, "invalid start byte"),
+            // `code` is minus the sequence length: the range covers the
+            // bytes examined (`endinpos = startinpos + ch - 1`).
             code => (
                 pos as isize,
-                pos as isize + code as isize - 1,
+                pos as isize - code as isize - 1,
                 "invalid continuation byte",
             ),
         };
@@ -3456,14 +3557,18 @@ pub(crate) fn decode_utf8_bytes(
                 pos = end as usize;
             }
             ErrHandler::SurrogateEscape => {
+                // The inline fast path maps every byte of the range,
+                // ASCII included (`PyUnicode_DecodeUTF8Stateful`).
                 for i in start..end {
                     out.push(s[i as usize] as u32 + 0xDC00);
                 }
                 pos = end as usize;
             }
-            _ => {
-                raise_decode_error("utf-8", s, start, end, reason);
-                return None;
+            // strict, backslashreplace, surrogatepass and
+            // xmlcharrefreplace go through the registered handler.
+            handler => {
+                pos = generic_decode_error(&mut out, s, start, end, handler, "utf-8", reason)?
+                    .max(0) as usize;
             }
         }
     }
@@ -3576,47 +3681,87 @@ pub(crate) fn encode_ucs1(chars: &[u32], limit: u32, handler: ErrHandler) -> Opt
     Some(out)
 }
 
-/// The UTF-8 encoder (`utf8_encode` in `codecs.h`): strict rejects lone
-/// surrogates, `surrogatepass` writes their three-byte form.
+/// The UTF-8 encoder (`utf8_encode` in `codecs.h`): the whole
+/// consecutive surrogate run goes through the handler at once, so
+/// `strict` errors cover it and `replace` writes one `?` per
+/// surrogate; `surrogatepass` writes their three-byte form.
 pub(crate) fn encode_utf8_bytes(chars: &[u32], handler: ErrHandler) -> Option<Vec<u8>> {
     let mut out = Vec::with_capacity(chars.len());
-    for (pos, &ch) in chars.iter().enumerate() {
-        if is_surrogate(ch) {
-            match handler {
-                ErrHandler::Named(name) => {
-                    named_handler_error(name);
-                    return None;
+    let mut pos = 0usize;
+    while pos < chars.len() {
+        let ch = chars[pos];
+        if !is_surrogate(ch) {
+            utf8_encode_one(&mut out, ch);
+            pos += 1;
+            continue;
+        }
+        let start = pos;
+        let mut end = pos + 1;
+        while end < chars.len() && is_surrogate(chars[end]) {
+            end += 1;
+        }
+        match handler {
+            ErrHandler::Named(name) => {
+                named_handler_error(name);
+                return None;
+            }
+            ErrHandler::SurrogatePass => {
+                for &c in &chars[start..end] {
+                    out.push(0xE0 | (c >> 12) as u8);
+                    out.push(0x80 | ((c >> 6) & 0x3F) as u8);
+                    out.push(0x80 | (c & 0x3F) as u8);
                 }
-                ErrHandler::SurrogatePass => {
-                    out.push(0xE0 | (ch >> 12) as u8);
-                    out.push(0x80 | ((ch >> 6) & 0x3F) as u8);
-                    out.push(0x80 | (ch & 0x3F) as u8);
-                }
-                ErrHandler::Ignore => {}
-                ErrHandler::BackslashReplace => {
+            }
+            ErrHandler::Ignore => {}
+            ErrHandler::Replace => out.extend(core::iter::repeat_n(b'?', end - start)),
+            ErrHandler::BackslashReplace => {
+                for &c in &chars[start..end] {
                     out.push(b'\\');
-                    if ch >= 0x10000 {
+                    if c >= 0x10000 {
                         out.push(b'U');
-                        push_hex(&mut out, ch, 8);
+                        push_hex(&mut out, c, 8);
                     } else {
                         out.push(b'u');
-                        push_hex(&mut out, ch, 4);
+                        push_hex(&mut out, c, 4);
                     }
                 }
-                _ => {
+            }
+            ErrHandler::XmlCharRefReplace => {
+                for &c in &chars[start..end] {
+                    out.extend_from_slice(format!("&#{};", c).as_bytes());
+                }
+            }
+            ErrHandler::SurrogateEscape => {
+                // Leading U+DC80..U+DCFF pass through as single bytes;
+                // the first unmappable surrogate raises from there.
+                let mut k = start;
+                while k < end && (0xDC80..=0xDCFF).contains(&chars[k]) {
+                    out.push(chars[k] as u8);
+                    k += 1;
+                }
+                if k < end {
                     raise_encode_error(
                         "utf-8",
                         chars,
-                        pos as isize,
-                        pos as isize + 1,
+                        k as isize,
+                        end as isize,
                         "surrogates not allowed",
                     );
                     return None;
                 }
             }
-        } else {
-            utf8_encode_one(&mut out, ch);
+            ErrHandler::Strict => {
+                raise_encode_error(
+                    "utf-8",
+                    chars,
+                    start as isize,
+                    end as isize,
+                    "surrogates not allowed",
+                );
+                return None;
+            }
         }
+        pos = end;
     }
     Some(out)
 }
@@ -3645,28 +3790,38 @@ pub unsafe extern "C" fn PyUnicode_DecodeASCII(
 
 pub(crate) fn decode_ascii_bytes(s: &[u8], handler: ErrHandler) -> Option<Vec<u32>> {
     let mut chars: Vec<u32> = Vec::with_capacity(s.len());
-    for (pos, &byte) in s.iter().enumerate() {
+    let mut pos = 0usize;
+    while pos < s.len() {
+        let byte = s[pos];
         if byte < 0x80 {
             chars.push(byte as u32);
+            pos += 1;
             continue;
         }
         match handler {
-            ErrHandler::Named(name) => {
-                named_handler_error(name);
-                return None;
+            ErrHandler::Ignore => pos += 1,
+            ErrHandler::Replace => {
+                chars.push(0xFFFD);
+                pos += 1;
             }
-            ErrHandler::Ignore => {}
-            ErrHandler::Replace => chars.push(0xFFFD),
-            ErrHandler::SurrogateEscape => chars.push(0xDC00 + byte as u32),
-            _ => {
-                raise_decode_error(
-                    "ascii",
+            ErrHandler::SurrogateEscape => {
+                chars.push(0xDC00 + byte as u32);
+                pos += 1;
+            }
+            // strict, backslashreplace, surrogatepass, xmlcharrefreplace
+            // and registered handlers go through the error handler, one
+            // byte at a time.
+            handler => {
+                pos = generic_decode_error(
+                    &mut chars,
                     s,
                     pos as isize,
                     pos as isize + 1,
+                    handler,
+                    "ascii",
                     "ordinal not in range(128)",
-                );
-                return None;
+                )?
+                .max(0) as usize;
             }
         }
     }
@@ -3763,7 +3918,7 @@ pub(crate) fn decode_unicode_escape(
                 *consumed = startinpos;
                 break;
             }
-            if !escape_error(
+            pos = generic_decode_error(
                 &mut out,
                 s,
                 startinpos,
@@ -3771,9 +3926,8 @@ pub(crate) fn decode_unicode_escape(
                 handler,
                 "unicodeescape",
                 "\\ at end of string",
-            ) {
-                return None;
-            }
+            )?
+            .max(0) as usize;
             continue;
         }
         let c = s[pos];
@@ -3840,7 +3994,7 @@ pub(crate) fn decode_unicode_escape(
                         *consumed = startinpos;
                         break;
                     }
-                    if !escape_error(
+                    pos = generic_decode_error(
                         &mut out,
                         s,
                         startinpos,
@@ -3848,15 +4002,14 @@ pub(crate) fn decode_unicode_escape(
                         handler,
                         "unicodeescape",
                         message,
-                    ) {
-                        return None;
-                    }
+                    )?
+                    .max(0) as usize;
                     continue;
                 }
                 if ch >= MAX_UNICODE {
                     // Lone surrogates stay legal here; only points beyond
                     // Unicode are the error CPython reports.
-                    if !escape_error(
+                    pos = generic_decode_error(
                         &mut out,
                         s,
                         startinpos,
@@ -3864,9 +4017,8 @@ pub(crate) fn decode_unicode_escape(
                         handler,
                         "unicodeescape",
                         "illegal Unicode character",
-                    ) {
-                        return None;
-                    }
+                    )?
+                    .max(0) as usize;
                     continue;
                 }
                 out.push(ch);
@@ -4051,73 +4203,81 @@ pub(crate) fn decode_raw_unicode_escape(
     while pos < s.len() {
         let c = s[pos];
         pos += 1;
-        if c != b'\\' || pos >= s.len() {
+        // A trailing backslash is a literal in final input; stateful
+        // input holds it for the next chunk.
+        if c != b'\\' || (pos >= s.len() && consumed.is_none()) {
             out.push(c as u32);
             continue;
+        }
+        let startinpos = pos as isize - 1;
+        if pos >= s.len() {
+            let Some(consumed) = consumed else {
+                unreachable!("a trailing backslash in final input is a literal");
+            };
+            *consumed = startinpos;
+            break;
         }
         let c = s[pos];
         pos += 1;
-        if c != b'u' && c != b'U' {
-            out.push(b'\\' as u32);
-            out.push(c as u32);
-            continue;
-        }
-        let count = if c == b'u' { 4 } else { 8 };
+        let (count, message) = match c {
+            b'u' => (4, "truncated \\uXXXX escape"),
+            b'U' => (8, "truncated \\UXXXXXXXX escape"),
+            _ => {
+                out.push(b'\\' as u32);
+                out.push(c as u32);
+                continue;
+            }
+        };
         let mut ch: u32 = 0;
-        let mut complete = true;
+        // 0 = all digits read, 1 = input ended, 2 = a non-hex byte.
+        let mut outcome = 0;
         for _ in 0..count {
             if pos >= s.len() {
-                complete = false;
+                outcome = 1;
                 break;
             }
             let digit = s[pos];
-            ch <<= 4;
-            match digit {
-                b'0'..=b'9' => ch += (digit - b'0') as u32,
-                b'a'..=b'f' => ch += (digit - b'a' + 10) as u32,
-                b'A'..=b'F' => ch += (digit - b'A' + 10) as u32,
+            let value = match digit {
+                b'0'..=b'9' => (digit - b'0') as u32,
+                b'a'..=b'f' => (digit - b'a' + 10) as u32,
+                b'A'..=b'F' => (digit - b'A' + 10) as u32,
                 _ => {
-                    complete = false;
+                    outcome = 2;
                     break;
                 }
-            }
+            };
+            ch = (ch << 4) + value;
             pos += 1;
         }
-        if !complete {
-            // The error range starts at the backslash.
-            let startinpos = pos as isize - 2;
-            if let Some(consumed) = consumed {
-                *consumed = startinpos;
-                break;
+        let reason = match outcome {
+            0 => {
+                if ch < MAX_UNICODE {
+                    out.push(ch);
+                    continue;
+                }
+                "\\Uxxxxxxxx out of range"
             }
-            if !escape_error(
-                &mut out,
-                s,
-                startinpos,
-                pos as isize,
-                handler,
-                "rawunicodeescape",
-                "truncated \\uXXXX escape",
-            ) {
-                return None;
+            1 => {
+                // Stateful input keeps the partial escape for the next
+                // chunk.
+                if let Some(consumed) = consumed {
+                    *consumed = startinpos;
+                    break;
+                }
+                message
             }
-            continue;
-        }
-        if ch >= MAX_UNICODE {
-            if !escape_error(
-                &mut out,
-                s,
-                pos as isize - 2 - count as isize,
-                pos as isize,
-                handler,
-                "rawunicodeescape",
-                "\\Uxxxxxxxx out of range",
-            ) {
-                return None;
-            }
-            continue;
-        }
-        out.push(ch);
+            _ => message,
+        };
+        pos = generic_decode_error(
+            &mut out,
+            s,
+            startinpos,
+            pos as isize,
+            handler,
+            "rawunicodeescape",
+            reason,
+        )?
+        .max(0) as usize;
     }
     Some(out)
 }
@@ -4229,9 +4389,12 @@ fn decode_direct(ch: u8) -> bool {
 }
 
 fn encode_direct(ch: u32, direct_o: bool, direct_ws: bool) -> bool {
-    let category = UTF7_CATEGORY[ch as usize];
-    (0 < ch && ch < 128)
-        && (category == 0 || (direct_ws && category == 2) || (direct_o && category == 1))
+    // The category index stays inside the table: C's `SPECIAL` macro
+    // short-circuits the same way.
+    (0 < ch && ch < 128) && {
+        let category = UTF7_CATEGORY[ch as usize];
+        category == 0 || (direct_ws && category == 2) || (direct_o && category == 1)
+    }
 }
 
 /// The UTF-7 decoder (`PyUnicode_DecodeUTF7Stateful`): a base-64 state
@@ -4300,7 +4463,7 @@ pub(crate) fn decode_utf7_bytes(
                     startinpos as isize,
                     pos as isize,
                     handler,
-                    "utf-7",
+                    "utf7",
                     reason,
                 )?;
                 pos = resume.max(0) as usize;
@@ -4329,7 +4492,7 @@ pub(crate) fn decode_utf7_bytes(
                     startinpos as isize,
                     pos as isize,
                     handler,
-                    "utf-7",
+                    "utf7",
                     "ill-formed sequence",
                 )?;
                 pos = resume.max(0) as usize;
@@ -4355,7 +4518,7 @@ pub(crate) fn decode_utf7_bytes(
             startinpos as isize,
             pos as isize,
             handler,
-            "utf-7",
+            "utf7",
             "unexpected special character",
         )?;
         pos = resume.max(0) as usize;
@@ -4370,7 +4533,7 @@ pub(crate) fn decode_utf7_bytes(
                 startinpos as isize,
                 s.len() as isize,
                 handler,
-                "utf-7",
+                "utf7",
                 "unterminated shift sequence",
             )?;
             pos = resume.max(0) as usize;
@@ -4603,13 +4766,6 @@ pub(crate) fn decode_utf16_bytes(
     } else {
         "utf-16-be"
     };
-    let read_unit = |at: usize| -> u32 {
-        if native_ordering {
-            ((s[at + 1] as u32) << 8) | s[at] as u32
-        } else {
-            ((s[at] as u32) << 8) | s[at + 1] as u32
-        }
-    };
     let mut out: Vec<u32> = Vec::with_capacity(rest.len() / 2);
     let mut pos = 0usize;
     loop {
@@ -4633,27 +4789,16 @@ pub(crate) fn decode_utf16_bytes(
                     **consumed = (offset + pos) as isize;
                     break;
                 }
-                match handler {
-                    ErrHandler::Named(name) => {
-                        named_handler_error(name);
-                        return None;
-                    }
-                    ErrHandler::Ignore => break,
-                    ErrHandler::Replace => {
-                        out.push(0xFFFD);
-                        break;
-                    }
-                    _ => {
-                        raise_decode_error(
-                            encoding,
-                            s,
-                            s.len() as isize - 1,
-                            s.len() as isize,
-                            "truncated data",
-                        );
-                        return None;
-                    }
-                }
+                pos = ((generic_decode_error(
+                    &mut out,
+                    s,
+                    (offset + pos) as isize,
+                    s.len() as isize,
+                    handler,
+                    encoding,
+                    "truncated data",
+                )? - offset as isize)
+                    .max(0)) as usize;
             }
             -1 => {
                 // The 2-byte unit at `pos` is a high surrogate with no
@@ -4662,77 +4807,40 @@ pub(crate) fn decode_utf16_bytes(
                     **consumed = (offset + pos) as isize;
                     break;
                 }
-                match handler {
-                    ErrHandler::Named(name) => {
-                        named_handler_error(name);
-                        return None;
-                    }
-                    ErrHandler::Ignore => break,
-                    ErrHandler::Replace => {
-                        out.push(0xFFFD);
-                        break;
-                    }
-                    _ => {
-                        raise_decode_error(
-                            encoding,
-                            s,
-                            (offset + pos) as isize,
-                            s.len() as isize,
-                            "unexpected end of data",
-                        );
-                        return None;
-                    }
-                }
+                pos = ((generic_decode_error(
+                    &mut out,
+                    s,
+                    (offset + pos) as isize,
+                    s.len() as isize,
+                    handler,
+                    encoding,
+                    "unexpected end of data",
+                )? - offset as isize)
+                    .max(0)) as usize;
             }
             -2 => {
-                let start = (offset + pos) as isize;
-                match handler {
-                    ErrHandler::Named(name) => {
-                        named_handler_error(name);
-                        return None;
-                    }
-                    ErrHandler::Ignore => pos += 2,
-                    ErrHandler::Replace => {
-                        out.push(0xFFFD);
-                        pos += 2;
-                    }
-                    ErrHandler::SurrogatePass => {
-                        out.push(read_unit(start as usize));
-                        pos += 2;
-                    }
-                    _ => {
-                        raise_decode_error(encoding, s, start, start + 2, "illegal encoding");
-                        return None;
-                    }
-                }
+                pos = ((generic_decode_error(
+                    &mut out,
+                    s,
+                    (offset + pos) as isize,
+                    (offset + pos + 2) as isize,
+                    handler,
+                    encoding,
+                    "illegal encoding",
+                )? - offset as isize)
+                    .max(0)) as usize;
             }
             -3 => {
-                let start = (offset + pos) as isize;
-                match handler {
-                    ErrHandler::Named(name) => {
-                        named_handler_error(name);
-                        return None;
-                    }
-                    ErrHandler::Ignore => pos += 2,
-                    ErrHandler::Replace => {
-                        out.push(0xFFFD);
-                        pos += 2;
-                    }
-                    ErrHandler::SurrogatePass => {
-                        out.push(read_unit(start as usize));
-                        pos += 2;
-                    }
-                    _ => {
-                        raise_decode_error(
-                            encoding,
-                            s,
-                            start,
-                            start + 2,
-                            "illegal UTF-16 surrogate",
-                        );
-                        return None;
-                    }
-                }
+                pos = ((generic_decode_error(
+                    &mut out,
+                    s,
+                    (offset + pos) as isize,
+                    (offset + pos + 2) as isize,
+                    handler,
+                    encoding,
+                    "illegal UTF-16 surrogate",
+                )? - offset as isize)
+                    .max(0)) as usize;
             }
             _ => unreachable!("utf16_scan_one returns -3..0"),
         }
@@ -4832,6 +4940,13 @@ pub(crate) fn encode_utf16_bytes(
     } else {
         byteorder < 0
     };
+    let encoding = if byteorder < 0 {
+        "utf-16-le"
+    } else if byteorder > 0 {
+        "utf-16-be"
+    } else {
+        "utf-16"
+    };
     let mut out: Vec<u8> = Vec::with_capacity(chars.len() * 2 + 2);
     if byteorder == 0 {
         // Native byte order writes the BOM.
@@ -4850,29 +4965,33 @@ pub(crate) fn encode_utf16_bytes(
             }
         };
         if is_surrogate(ch) {
-            match handler {
-                ErrHandler::Named(name) => {
-                    named_handler_error(name);
-                    return None;
+            // One surrogate at a time goes through the handler
+            // (`_PyUnicode_EncodeUTF16`): a replacement string is
+            // re-encoded as units, raw bytes must be whole units.
+            match generic_encode_error(
+                encoding,
+                chars,
+                pos as isize,
+                handler,
+                "surrogates not allowed",
+            )? {
+                EncodeReplacement::Chars(replacement) => {
+                    for c in replacement {
+                        write_unit(&mut out, c);
+                    }
                 }
-                ErrHandler::SurrogatePass => write_unit(&mut out, ch),
-                ErrHandler::Ignore => {}
-                ErrHandler::BackslashReplace => {
-                    let mut escaped = Vec::new();
-                    out.push(b'\\');
-                    out.push(b'u');
-                    push_hex(&mut escaped, ch, 4);
-                    out.extend_from_slice(&escaped);
-                }
-                _ => {
-                    raise_encode_error(
-                        "utf-16",
-                        chars,
-                        pos as isize,
-                        pos as isize + 1,
-                        "surrogates not allowed",
-                    );
-                    return None;
+                EncodeReplacement::Bytes(bytes) => {
+                    if bytes.len() % 2 != 0 {
+                        raise_encode_error(
+                            encoding,
+                            chars,
+                            pos as isize,
+                            pos as isize + 1,
+                            "surrogates not allowed",
+                        );
+                        return None;
+                    }
+                    out.extend_from_slice(&bytes);
                 }
             }
         } else if ch < 0x10000 {
@@ -5016,50 +5135,36 @@ pub(crate) fn decode_utf32_bytes(
         } else {
             None
         };
-        match (bad, handler) {
-            (None, _) => {
+        match bad {
+            None => {
                 out.push(ch);
                 pos += 4;
             }
-            (Some(_), ErrHandler::Ignore) => pos += 4,
-            (Some(_), ErrHandler::Replace) => {
-                out.push(0xFFFD);
-                pos += 4;
-            }
-            (Some(_), ErrHandler::SurrogatePass) if is_surrogate(ch) => {
-                out.push(ch);
-                pos += 4;
-            }
-            (Some(reason), _) => {
-                raise_decode_error(encoding, s, start, end, reason);
-                return None;
+            Some(reason) => {
+                pos = ((generic_decode_error(&mut out, s, start, end, handler, encoding, reason)?
+                    - offset as isize)
+                    .max(0)) as usize;
             }
         }
     }
-    if pos < rest.len() {
-        // A partial code unit at the end: final input calls the handler,
-        // stateful input keeps it for the next chunk.
+    while pos < rest.len() {
+        // A partial code unit at the end: stateful input keeps it for
+        // the next chunk; final input calls the handler, which may
+        // resume before the end and get called again.
         if let Some(consumed) = consumed.as_mut() {
             **consumed = (offset + pos) as isize;
             return Some(out);
         }
-        match handler {
-            ErrHandler::Named(name) => {
-                named_handler_error(name);
-                return None;
-            }
-            ErrHandler::Ignore | ErrHandler::Replace => {}
-            _ => {
-                raise_decode_error(
-                    encoding,
-                    s,
-                    (offset + pos) as isize,
-                    s.len() as isize,
-                    "truncated data",
-                );
-                return None;
-            }
-        }
+        pos = ((generic_decode_error(
+            &mut out,
+            s,
+            (offset + pos) as isize,
+            s.len() as isize,
+            handler,
+            encoding,
+            "truncated data",
+        )? - offset as isize)
+            .max(0)) as usize;
     }
     if let Some(consumed) = consumed {
         *consumed = (offset + pos) as isize;
@@ -5150,7 +5255,14 @@ pub(crate) fn encode_utf32_bytes(
     } else {
         byteorder < 0
     };
-    let mut out: Vec<u8> = Vec::with_capacity(chars.len() * 4 + 4);
+    let encoding = if byteorder < 0 {
+        "utf-32-le"
+    } else if byteorder > 0 {
+        "utf-32-be"
+    } else {
+        "utf-32"
+    };
+    let mut out = Vec::with_capacity(chars.len() * 4 + 4);
     if byteorder == 0 {
         if little {
             out.extend_from_slice(&0xFEFF_u32.to_le_bytes());
@@ -5159,24 +5271,45 @@ pub(crate) fn encode_utf32_bytes(
         }
     }
     for (pos, &ch) in chars.iter().enumerate() {
-        if is_surrogate(ch) && !matches!(handler, ErrHandler::SurrogatePass) {
-            if matches!(handler, ErrHandler::Ignore) {
-                continue;
+        let write_unit = |out: &mut Vec<u8>, unit: u32| {
+            if little {
+                out.extend_from_slice(&unit.to_le_bytes());
+            } else {
+                out.extend_from_slice(&unit.to_be_bytes());
             }
-            raise_encode_error(
-                "utf-32",
+        };
+        if is_surrogate(ch) {
+            // One surrogate at a time goes through the handler
+            // (`_PyUnicode_EncodeUTF32`); raw replacements must be
+            // whole 4-byte units.
+            match generic_encode_error(
+                encoding,
                 chars,
                 pos as isize,
-                pos as isize + 1,
-                "code point in surrogate code point range(0xd800, 0xe000)",
-            );
-            return None;
-        }
-        let unit = ch;
-        if little {
-            out.extend_from_slice(&unit.to_le_bytes());
+                handler,
+                "surrogates not allowed",
+            )? {
+                EncodeReplacement::Chars(replacement) => {
+                    for c in replacement {
+                        write_unit(&mut out, c);
+                    }
+                }
+                EncodeReplacement::Bytes(bytes) => {
+                    if bytes.len() % 4 != 0 {
+                        raise_encode_error(
+                            encoding,
+                            chars,
+                            pos as isize,
+                            pos as isize + 1,
+                            "surrogates not allowed",
+                        );
+                        return None;
+                    }
+                    out.extend_from_slice(&bytes);
+                }
+            }
         } else {
-            out.extend_from_slice(&unit.to_be_bytes());
+            write_unit(&mut out, ch);
         }
     }
     Some(out)
@@ -5754,17 +5887,22 @@ pub unsafe extern "C" fn PyUnicode_BuildEncodingMap(string: *mut PyObject) -> *m
 /// `_Py_normalize_encoding`: lowercased, blanks removed, `-` folded to
 /// `_`, truncated to `buflen - 1`.
 pub(crate) fn normalize_encoding(name: &str, buflen: usize) -> String {
+    // `_Py_normalize_encoding`: alphanumerics and the dot stay,
+    // lowercased; a run of any other characters collapses into one
+    // underscore, which never leads.
     let mut out = String::with_capacity(buflen - 1);
+    let mut punct = false;
     for c in name.chars() {
-        let mapped = if c == ' ' || c == '\t' {
-            continue;
-        } else if c == '-' {
-            '_'
+        if c.is_ascii_alphanumeric() || c == '.' {
+            if punct && !out.is_empty() && out.len() < buflen - 1 {
+                out.push('_');
+            }
+            punct = false;
+            if out.len() + c.len_utf8() < buflen {
+                out.push(c.to_ascii_lowercase());
+            }
         } else {
-            c.to_ascii_lowercase()
-        };
-        if out.len() + mapped.len_utf8() < buflen {
-            out.push(mapped);
+            punct = true;
         }
     }
     out
@@ -5778,7 +5916,7 @@ pub(crate) fn decode_by_name(
     handler: ErrHandler,
 ) -> Option<Vec<u32>> {
     match name {
-        None | Some("utf8") | Some("utf_8") => decode_utf8_bytes(bytes, handler, None),
+        None | Some("utf8") | Some("utf_8") | Some("u8") => decode_utf8_bytes(bytes, handler, None),
         Some("utf7") | Some("utf_7") | Some("u7") => decode_utf7_bytes(bytes, handler, None),
         Some("utf16") | Some("utf_16") | Some("u16") => {
             let mut order = 0i32;
@@ -5858,7 +5996,7 @@ pub unsafe extern "C" fn PyUnicode_Decode(
 /// The built-in encode codec set (see `PyUnicode_AsEncodedString`).
 pub(crate) fn encode_by_name(name: &str, chars: &[u32], handler: ErrHandler) -> Option<Vec<u8>> {
     match name {
-        "utf8" | "utf_8" => encode_utf8_bytes(chars, handler),
+        "utf8" | "utf_8" | "u8" => encode_utf8_bytes(chars, handler),
         "utf7" | "utf_7" | "u7" => Some(encode_utf7_bytes(chars, false, false)),
         "utf16" | "utf_16" | "u16" => encode_utf16_bytes(chars, 0, handler),
         "utf32" | "utf_32" | "u32" => encode_utf32_bytes(chars, 0, handler),
@@ -8798,9 +8936,25 @@ pub(crate) unsafe fn is_exception_instance(exc: *mut PyObject, expected: *mut Py
     }
 }
 
+/// The object field's length: bytes for decode errors, characters for
+/// encode ones, the way CPython's `GetStart`/`GetEnd` clamp.
+fn error_object_size(object: *mut PyObject, bytes_object: bool) -> isize {
+    if object.is_null() {
+        return 0;
+    }
+    if bytes_object {
+        // SAFETY: the field holds a bytes object.
+        unsafe { crate::types::bytes::size(object) }
+    } else {
+        // SAFETY: the field holds a string.
+        unsafe { PyUnicode_GetLength(object) }
+    }
+}
+
 macro_rules! unicode_error_accessors {
     ($get_encoding:ident, $get_object:ident, $get_start:ident, $set_start:ident,
-     $get_end:ident, $set_end:ident, $get_reason:ident, $set_reason:ident, $acc:ident) => {
+     $get_end:ident, $set_end:ident, $get_reason:ident, $set_reason:ident, $acc:ident,
+     $bytes_object:literal) => {
         /// CPython's `GetEncoding`: a new reference to the encoding, or
         /// null with `SystemError` set for a foreign object.
         ///
@@ -8859,6 +9013,16 @@ macro_rules! unicode_error_accessors {
                     (exc as *const u8).add(coil_rt_abi::cp312::unicode_error::START)
                         as *const isize,
                 );
+                // CPython clamps into the object's range; a clamp of
+                // an empty object lands at -1.
+                let object = (*(exc as *mut PyUnicodeErrorObject)).object;
+                let size = error_object_size(object, $bytes_object);
+                if *start < 0 {
+                    *start = 0;
+                }
+                if *start >= size {
+                    *start = size - 1;
+                }
                 0
             }
         }
@@ -8900,6 +9064,16 @@ macro_rules! unicode_error_accessors {
                 *end = core::ptr::read(
                     (exc as *const u8).add(coil_rt_abi::cp312::unicode_error::END) as *const isize,
                 );
+                // CPython clamps to at least one and at most the
+                // object's size.
+                let object = (*(exc as *mut PyUnicodeErrorObject)).object;
+                let size = error_object_size(object, $bytes_object);
+                if *end < 1 {
+                    *end = 1;
+                }
+                if *end > size {
+                    *end = size;
+                }
                 0
             }
         }
@@ -8981,7 +9155,8 @@ unicode_error_accessors!(
     PyUnicodeDecodeError_SetEnd,
     PyUnicodeDecodeError_GetReason,
     PyUnicodeDecodeError_SetReason,
-    unicode_decode_error
+    unicode_decode_error,
+    true
 );
 unicode_error_accessors!(
     PyUnicodeEncodeError_GetEncoding,
@@ -8992,7 +9167,8 @@ unicode_error_accessors!(
     PyUnicodeEncodeError_SetEnd,
     PyUnicodeEncodeError_GetReason,
     PyUnicodeEncodeError_SetReason,
-    unicode_encode_error
+    unicode_encode_error,
+    false
 );
 
 /// CPython's `PyUnicodeTranslateError_GetObject`.
@@ -9034,6 +9210,14 @@ pub unsafe extern "C" fn PyUnicodeTranslateError_GetStart(
         *start = core::ptr::read(
             (exc as *const u8).add(coil_rt_abi::cp312::unicode_error::START) as *const isize,
         );
+        let object = (*(exc as *mut PyUnicodeErrorObject)).object;
+        let size = error_object_size(object, false);
+        if *start < 0 {
+            *start = 0;
+        }
+        if *start >= size {
+            *start = size - 1;
+        }
         0
     }
 }
@@ -9081,6 +9265,14 @@ pub unsafe extern "C" fn PyUnicodeTranslateError_GetEnd(
         *end = core::ptr::read(
             (exc as *const u8).add(coil_rt_abi::cp312::unicode_error::END) as *const isize,
         );
+        let object = (*(exc as *mut PyUnicodeErrorObject)).object;
+        let size = error_object_size(object, false);
+        if *end < 1 {
+            *end = 1;
+        }
+        if *end > size {
+            *end = size;
+        }
         0
     }
 }

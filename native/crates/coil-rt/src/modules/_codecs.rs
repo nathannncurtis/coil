@@ -71,26 +71,30 @@ fn install() {
 /// registry loads dispatches to these, and the type errors its wrappers
 /// surface name them.
 fn codec_function_prefix(name: &str) -> Option<&'static str> {
-    Some(match name {
-        "utf8" | "u8" | "utf_8" => "utf_8",
-        "utf7" | "u7" | "utf_7" => "utf_7",
-        "utf16" | "u16" | "utf_16" => "utf_16",
-        "utf_16le" | "utf_16_le" => "utf_16_le",
-        "utf_16be" | "utf_16_be" => "utf_16_be",
-        "utf32" | "u32" | "utf_32" => "utf_32",
-        "utf_32le" | "utf_32_le" => "utf_32_le",
-        "utf_32be" | "utf_32_be" => "utf_32_be",
-        "ascii" | "us_ascii" | "646" | "ansi_x34_1968" | "ansi_x3_4_1968" => "ascii",
-        "latin" | "latin1" | "l1" | "8859" | "cp819" | "iso8859_1" | "iso_8859_1" | "latin_1" => {
-            "latin_1"
-        }
-        "unicode_escape" => "unicode_escape",
-        "raw_unicode_escape" => "raw_unicode_escape",
-        "charmap" => "charmap",
-        "mbcs" => "mbcs",
-        "oem" => "oem",
-        _ => return None,
-    })
+    // `encodings.search_function` resolves an alias under the
+    // normalized name and then under its dot-replaced form.
+    fn lookup(name: &str) -> Option<&'static str> {
+        Some(match name {
+            "utf8" | "u8" | "utf_8" => "utf_8",
+            "utf7" | "u7" | "utf_7" => "utf_7",
+            "utf16" | "u16" | "utf_16" => "utf_16",
+            "utf_16le" | "utf_16_le" => "utf_16_le",
+            "utf_16be" | "utf_16_be" => "utf_16_be",
+            "utf32" | "u32" | "utf_32" => "utf_32",
+            "utf_32le" | "utf_32_le" => "utf_32_le",
+            "utf_32be" | "utf_32_be" => "utf_32_be",
+            "ascii" | "us_ascii" | "646" | "ansi_x34_1968" | "ansi_x3_4_1968" => "ascii",
+            "latin" | "latin1" | "l1" | "8859" | "cp819" | "iso8859_1" | "iso_8859_1"
+            | "latin_1" => "latin_1",
+            "unicode_escape" => "unicode_escape",
+            "raw_unicode_escape" => "raw_unicode_escape",
+            "charmap" => "charmap",
+            "mbcs" => "mbcs",
+            "oem" => "oem",
+            _ => return None,
+        })
+    }
+    lookup(name).or_else(|| lookup(&name.replace('.', "_")))
 }
 
 /// `_PyCodec_Lookup`'s failure over a normalized name, the one every
@@ -248,7 +252,10 @@ pub unsafe extern "C" fn PyCodec_KnownEncoding(encoding: *const c_char) -> c_int
 unsafe fn decode_input(object: *mut PyObject, prefix: &str) -> Option<Vec<u8>> {
     // SAFETY: type reads and contents stay within the object.
     unsafe {
-        if rt_bytes::check(object) || rt_bytes::bytearray_check(object) {
+        if rt_bytes::bytearray_check(object) {
+            return Some(rt_bytes::bytearray_bytes(object).to_vec());
+        }
+        if rt_bytes::check(object) {
             let (size, contents) = rt_bytes::as_string_parts(object);
             return Some(
                 core::slice::from_raw_parts(contents.cast::<u8>(), size.max(0) as usize).to_vec(),
@@ -298,7 +305,9 @@ pub unsafe extern "C" fn PyCodec_Decode(
             return decode_windows_codec(prefix, &data, errors);
         }
         let handler = unicode::error_handler(unicode::errors_arg(errors));
-        let Some(chars) = unicode::decode_by_name(Some(&name), &data, handler) else {
+        // The prefix is the alias-resolved canonical name, the key the
+        // codec table matches.
+        let Some(chars) = unicode::decode_by_name(Some(prefix), &data, handler) else {
             return core::ptr::null_mut();
         };
         unicode::chars_to_object(&chars, 0)
@@ -341,7 +350,7 @@ pub unsafe extern "C" fn PyCodec_Encode(
             return core::ptr::null_mut();
         };
         let handler = unicode::error_handler(unicode::errors_arg(errors));
-        let Some(out) = unicode::encode_by_name(&name, &chars.as_vec(), handler) else {
+        let Some(out) = unicode::encode_by_name(prefix, &chars.as_vec(), handler) else {
             return core::ptr::null_mut();
         };
         match rt_bytes::from_vec(Some(out)) {
@@ -397,7 +406,11 @@ unsafe fn encode_windows_codec(
             let Some(chars) = unicode::as_chars(object) else {
                 return core::ptr::null_mut();
             };
-            let out = encode(code_page as i32, &chars.as_vec(), unicode::errors_arg(errors));
+            let out = encode(
+                code_page as i32,
+                &chars.as_vec(),
+                unicode::errors_arg(errors),
+            );
             match out {
                 Some(out) => match rt_bytes::from_vec(Some(out)) {
                     Some(object) => object,
@@ -784,12 +797,16 @@ pub unsafe extern "C" fn PyCodec_ReplaceErrors(exc: *mut PyObject) -> *mut PyObj
             return core::ptr::null_mut();
         };
         let replacement = match kind {
-            ErrorKind::Encode | ErrorKind::Translate => {
+            ErrorKind::Encode => {
                 let chars = vec![b'?' as u32; (end - start).max(0) as usize];
                 unicode::chars_to_object(&chars, b'?' as u32)
             }
             // `Py_BuildValue("(Cn)", 0xFFFD, end)`: one character.
             ErrorKind::Decode => unicode::chars_to_object(&[0xFFFD], 0xFFFD),
+            ErrorKind::Translate => {
+                let chars = vec![0xFFFD; (end - start).max(0) as usize];
+                unicode::chars_to_object(&chars, 0xFFFD)
+            }
         };
         if replacement.is_null() {
             return core::ptr::null_mut();
@@ -880,21 +897,24 @@ pub unsafe extern "C" fn PyCodec_BackslashReplaceErrors(exc: *mut PyObject) -> *
             while i < end.min(length) {
                 let ch = unicode::PyUnicode_ReadChar(object, i);
                 out.push(b'\\');
-                if ch >= 0x10000 {
-                    out.push(b'U');
-                    out.push(unicode::HEX_DIGITS[((ch >> 28) & 0xf) as usize]);
-                    out.push(unicode::HEX_DIGITS[((ch >> 24) & 0xf) as usize]);
-                    out.push(unicode::HEX_DIGITS[((ch >> 20) & 0xf) as usize]);
-                    out.push(unicode::HEX_DIGITS[((ch >> 16) & 0xf) as usize]);
-                    out.push(unicode::HEX_DIGITS[((ch >> 12) & 0xf) as usize]);
+                // `\xXX`, `\uXXXX`, `\UXXXXXXXX`, most-significant
+                // nibble first.
+                let (prefix, bits) = if ch >= 0x10000 {
+                    (b'U', 32)
                 } else if ch >= 0x100 {
-                    out.push(b'u');
-                    out.push(unicode::HEX_DIGITS[((ch >> 12) & 0xf) as usize]);
+                    (b'u', 16)
                 } else {
-                    out.push(b'x');
+                    (b'x', 8)
+                };
+                out.push(prefix);
+                let mut shift = bits - 4;
+                loop {
+                    out.push(unicode::HEX_DIGITS[((ch >> shift) & 0xf) as usize]);
+                    if shift == 0 {
+                        break;
+                    }
+                    shift -= 4;
                 }
-                out.push(unicode::HEX_DIGITS[((ch >> 4) & 0xf) as usize]);
-                out.push(unicode::HEX_DIGITS[(ch & 0xf) as usize]);
                 i += 1;
             }
         }
