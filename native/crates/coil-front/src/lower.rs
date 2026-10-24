@@ -1735,6 +1735,13 @@ impl<'a, 'b> FnLower<'a, 'b> {
             }
             Stmt::Assert { test, msg, .. } => {
                 if self.low.optimize > 0 {
+                    // The statement is gone but its sub-expressions still
+                    // own slots in the child cursor (a genexp, a lambda);
+                    // skip them so the next definition binds its own scope.
+                    let n = expr_scopes(test) + msg.as_deref().map(expr_scopes).unwrap_or(0);
+                    for _ in 0..n {
+                        self.take_child();
+                    }
                     return Ok(());
                 }
                 let pos = stmt_pos(s);
@@ -2585,6 +2592,18 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 frame.saved.push((key, v));
             }
         }
+        // CPython's SETUP_FINALLY in push_inlined_comprehension_state: an
+        // exception escaping the comprehension must still restore the
+        // pushed locals, so handlers and finallys see the pre-comprehension
+        // values.
+        let cleanup = if frame.saved.is_empty() {
+            None
+        } else {
+            let cleanup = self.new_block()?;
+            self.handlers.push(cleanup);
+            Some(cleanup)
+        };
+        let saved = frame.saved.clone();
         self.comp_frames.push(frame);
         let container = match kind {
             CompKind::List => self.build_list(Vec::new(), pos)?,
@@ -2608,13 +2627,35 @@ impl<'a, 'b> FnLower<'a, 'b> {
             pos,
         )?;
         let frame = self.comp_frames.pop().expect("frame pushed above");
-        // CPython's pop_inlined_comprehension_state.
+        if cleanup.is_some() {
+            self.handlers.pop();
+        }
+        // CPython's pop_inlined_comprehension_state. The cell swap is a
+        // lowering-time edit, so both exits restore it here; the SSA saves
+        // need writes on each path.
         for (name, old) in frame.saved_cells {
             self.cells.insert(name, old);
         }
-        for (name, v) in frame.saved {
-            let sym = self.pool(&name);
-            self.write_var_at_current(sym, v)?;
+        for (name, v) in &saved {
+            let sym = self.pool(name);
+            self.write_var_at_current(sym, *v)?;
+        }
+        if let Some(cleanup) = cleanup {
+            let back = self
+                .b
+                .current_block()
+                .ok_or(LowerError::Build(BuildError::NoCurrentBlock))?;
+            let back_terminated = self.terminated;
+            self.terminated = false;
+            self.b.switch_to(cleanup)?;
+            for (name, v) in &saved {
+                let sym = self.pool(name);
+                self.write_var_at_current(sym, *v)?;
+            }
+            self.b.set_term(cleanup, Terminator::Reraise)?;
+            self.terminated = true;
+            self.terminated = back_terminated;
+            self.b.switch_to(back)?;
         }
         Ok(container)
     }

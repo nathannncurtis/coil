@@ -1696,3 +1696,49 @@ fn compile_stage_rejections_match_cpython() {
         }
     }
 }
+
+#[test]
+fn dropped_assert_still_consumes_its_sub_scopes() {
+    // At -O the assert is gone, but its genexp still owns a child scope:
+    // `f` must bind its own (empty) scope, not the genexp's, and the next
+    // def must still find one.
+    let out = lower_opt(
+        "assert all(x for x in y)\ndef f():\n    pass\ndef g():\n    pass\n",
+        1,
+    )
+    .expect("lowering failed");
+    let f = fn_by_qualname(&out, "f");
+    assert_eq!(f.flags, FnFlags(0));
+    assert!(f.locals.is_empty());
+    assert!(fn_by_qualname(&out, "g").locals.is_empty());
+}
+
+#[test]
+fn comprehension_targets_restore_on_escaping_exceptions() {
+    // CPython's cleanup handler: an exception out of an inlined
+    // comprehension still restores the pushed locals, so the except sees
+    // the pre-comprehension value of x.
+    let out = lower(
+        r#"
+def f(s):
+    x = 1
+    try:
+        [x for x in s if 1/0]
+    except ZeroDivisionError:
+        pass
+    return x
+"#,
+    );
+    let f = fn_by_qualname(&out, "f");
+    let ret = f
+        .blocks
+        .iter()
+        .find_map(|b| match b.term {
+            Terminator::Return { value } => Some(value),
+            _ => None,
+        })
+        .expect("f returns");
+    // The restored value is the entry-time `x = 1` constant, not a merge of
+    // the comprehension's iteration writes.
+    assert!(matches!(const_of(f, &out, ret), Some(Const::Int(1))));
+}
