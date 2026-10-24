@@ -66,6 +66,9 @@ pub struct ThreadState {
     pub eval_breaker: core::sync::atomic::AtomicI64,
     /// The top compiled frame while detached, for the stack walk of 9.4.
     pub frame: *mut PyObject,
+    /// The anchors pushed below `frame`: each compiled-code entry through
+    /// C adds one, so a walk covers every live segment, not just the top.
+    pub frame_parents: Vec<usize>,
     /// `PyGILState_Ensure`'s nesting counter.
     pub gilstate_counter: u32,
     /// The current context object (the contextvars machinery is a later task).
@@ -92,6 +95,7 @@ impl ThreadState {
             recursion_depth: 0,
             eval_breaker: core::sync::atomic::AtomicI64::new(0),
             frame: core::ptr::null_mut(),
+            frame_parents: Vec::new(),
             gilstate_counter: 0,
             context: core::ptr::null_mut(),
             alloc_cache: crate::alloc::thread_cache::cache_ptr().cast(),

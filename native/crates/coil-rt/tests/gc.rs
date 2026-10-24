@@ -226,6 +226,48 @@ fn new_resurrector() -> *mut PyObject {
     unsafe { typeobject::PyType_GenericAlloc(&raw mut RESURRECTOR_TYPE, 0) }
 }
 
+/// The sibling weakref the observing callback reads through the public
+/// entry point during phase 6, and what that read reported: the GetRef
+/// return code, and whether it handed back NULL.
+static SIBLING_WEAK: Mutex<usize> = Mutex::new(0);
+static SIBLING_SEEN: Mutex<(core::ffi::c_int, bool)> = Mutex::new((0, false));
+
+unsafe extern "C" fn observing_call(
+    _self: *mut PyObject,
+    _args: *mut PyObject,
+    _kwds: *mut PyObject,
+) -> *mut PyObject {
+    let sibling = *SIBLING_WEAK.lock().unwrap();
+    if sibling != 0 {
+        let mut got = core::ptr::null_mut();
+        // SAFETY: the static holds a live weakref of this runtime.
+        let rc = unsafe { weakref::PyWeakref_GetRef(sibling as *mut PyObject, &mut got) };
+        let handed_null = got.is_null();
+        if rc == 1 {
+            // SAFETY: the strong reference the contract hands back.
+            unsafe { (*got).ob_refcnt -= 1 };
+        }
+        *SIBLING_SEEN.lock().unwrap() = (rc, handed_null);
+    }
+    singletons::none()
+}
+
+const fn observing_callback_type() -> PyTypeObject {
+    let mut t = typeobject::zero_type();
+    t.tp_name = c"gc_test_observer".as_ptr();
+    t.tp_basicsize = coil_rt_abi::cp312::object::SIZEOF as isize;
+    t.tp_call = Some(observing_call);
+    t
+}
+
+#[unsafe(no_mangle)]
+static mut OBSERVER_TYPE: PyTypeObject = observing_callback_type();
+
+fn new_observer() -> *mut PyObject {
+    // SAFETY: as `new_node`.
+    unsafe { typeobject::PyType_GenericAlloc(&raw mut OBSERVER_TYPE, 0) }
+}
+
 // ------------------------------------------------- the tests' root mechanism
 
 /// A one-slot module table, registered as a root: the tests' stand-in for
@@ -267,11 +309,12 @@ fn weakref_get(weak: *mut PyObject) -> *mut PyObject {
     let mut got = core::ptr::null_mut();
     // SAFETY: the tests only pass weakrefs.
     unsafe {
-        assert_eq!(weakref::PyWeakref_GetRef(weak, &mut got), 0);
-        // Drop the strong reference the contract hands back; the `None`
-        // singleton is immortal and needs no release.
-        if !core::ptr::eq(got, singletons::none()) {
-            (*got).ob_refcnt -= 1;
+        match weakref::PyWeakref_GetRef(weak, &mut got) {
+            // 1: the referent lives and the call handed back a strong
+            // reference, which the tests return; 0: cleared, `got` NULL.
+            1 => (*got).ob_refcnt -= 1,
+            0 => {}
+            other => panic!("PyWeakref_GetRef failed: {other}"),
         }
     }
     got
@@ -442,21 +485,18 @@ fn weakrefs_clear_and_callbacks_run_in_creation_order() {
 
     // Drop both targets: the callbacks run in creation order — the two on
     // the first target, then the one on the second — and every weakref
-    // reads back `None`.
+    // reads back dead. The tests keep the weakrefs' constructor
+    // references, so only the two targets free.
     unpin(target);
     unpin(second);
     table.set(core::ptr::null_mut());
     second_table.set(core::ptr::null_mut());
-    assert_eq!(
-        gc::collect(),
-        2,
-        "the two targets; the weakrefs stay table roots"
-    );
+    assert_eq!(gc::collect(), 2, "the two targets");
     let log = CALLBACK_LOG.lock().unwrap();
     assert_eq!(log.as_slice(), [w1 as usize, w2 as usize, w3 as usize]);
     drop(log);
     for weak in [w1, w2, w3, plain] {
-        assert!(core::ptr::eq(weakref_get(weak), singletons::none()));
+        assert!(weakref_get(weak).is_null(), "cleared reads back dead");
     }
 }
 
@@ -482,12 +522,194 @@ fn a_weakref_callback_resurrects_the_weakref() {
     assert_eq!(gc::collect(), 1);
     assert!(live(weak), "the callback's store re-marked the weakref");
     assert_eq!(table.get() as usize, weak as usize);
-    assert!(core::ptr::eq(weakref_get(weak), singletons::none()));
+    assert!(weakref_get(weak).is_null(), "cleared reads back dead");
 
     *RESURRECT_SLOT.lock().unwrap() = 0;
     table.set(core::ptr::null_mut());
     assert_eq!(gc::collect(), 2, "the weakref and its callback");
     assert!(!live(weak) && !live(callback) && !live(target));
+}
+
+#[test]
+fn a_deallocated_weakref_leaves_no_stale_row() {
+    let _serial = init();
+    CALLBACK_LOG.lock().unwrap().clear();
+    RESURRECT_NODE.store(false, Ordering::Relaxed);
+    let target = new_node();
+    unpin(target);
+    let callback = new_callback();
+    unpin(callback);
+    // SAFETY: the target supports weakrefs and the callback is callable.
+    let weak = unsafe { weakref::PyWeakref_NewRef(target, callback) };
+    assert!(!weak.is_null());
+
+    // Deallocation through the public contract: the last reference drops
+    // and the type's own dealloc runs, as it would from C. The row must
+    // go with the block — a stale row survives into a later phase 6,
+    // where the recycled address turns the clear and the callback call
+    // into writes into a foreign object.
+    unpin(weak);
+    // SAFETY: the weakref is dead by reference count and its type's
+    // dealloc is the runtime's own.
+    unsafe {
+        let dealloc = (*(*weak).ob_type).tp_dealloc.unwrap();
+        dealloc(weak);
+    }
+
+    // The freed block is exactly a node's size class: the next same-class
+    // allocation reuses it deterministically (the cache's free list is
+    // LIFO and the suite is serialised).
+    let node = new_node();
+    assert_eq!(
+        node as usize, weak as usize,
+        "the freed weakref's block was reused"
+    );
+    let held = int(987_654_321);
+    unpin(held);
+    set_slot(node, SLOT0, held); // +16: where a stale row reads wr_object
+    set_slot(node, SLOT1, callback); // +24: where a stale row reads wr_callback
+
+    // The node keeps its constructor's reference, so it and everything
+    // its slots reach survive; a stale row would overwrite SLOT0 with
+    // None and call the callback with the node as its "weakref".
+    assert_eq!(gc::collect(), 1, "only the dead target frees");
+    assert!(
+        core::ptr::eq(slot(node, SLOT0), held),
+        "the slot was not cleared"
+    );
+    assert_eq!(CALLBACK_LOG.lock().unwrap().len(), 0, "no callback ran");
+    assert!(live(node) && live(held) && live(callback));
+}
+
+#[test]
+fn a_callback_sees_sibling_weakrefs_already_cleared() {
+    let _serial = init();
+    RESURRECT_NODE.store(false, Ordering::Relaxed);
+    let target = new_node();
+    unpin(target);
+    let callback = new_observer();
+    unpin(callback);
+    *SIBLING_WEAK.lock().unwrap() = 0;
+    *SIBLING_SEEN.lock().unwrap() = (0, false);
+    // The observer comes first, so its callback runs before the sibling
+    // has fired and observes it mid-phase-6.
+    // SAFETY: the target supports weakrefs and the callback is callable.
+    let observing = unsafe { weakref::PyWeakref_NewRef(target, callback) };
+    // SAFETY: a plain sibling weakref to the same target.
+    let sibling = unsafe { weakref::PyWeakref_NewRef(target, core::ptr::null_mut()) };
+    assert!(!observing.is_null() && !sibling.is_null());
+    *SIBLING_WEAK.lock().unwrap() = sibling as usize;
+
+    // Phase 6 clears every weakref to a dead object before any callback
+    // runs (CPython's two passes): the sibling must read back dead, not
+    // hand its referent out for the sweep to free under the caller.
+    assert_eq!(gc::collect(), 1, "only the target frees");
+    *SIBLING_WEAK.lock().unwrap() = 0;
+    assert_eq!(
+        *SIBLING_SEEN.lock().unwrap(),
+        (0, true),
+        "the sibling was cleared before its elder's callback ran"
+    );
+}
+
+#[test]
+fn an_unreferenced_weakref_fires_and_dies_with_its_callback() {
+    let _serial = init();
+    CALLBACK_LOG.lock().unwrap().clear();
+    RESURRECT_NODE.store(false, Ordering::Relaxed);
+    let target = new_node();
+    unpin(target);
+    let callback = new_callback();
+    unpin(callback);
+    // SAFETY: the target supports weakrefs and the callback is callable.
+    let weak = unsafe { weakref::PyWeakref_NewRef(target, callback) };
+    assert!(!weak.is_null());
+    unpin(weak);
+
+    // Nothing references the weakref — the table's rows link, they do not
+    // own — yet phase 6 still owes it a call: the pair lives exactly
+    // through the callback, then frees with the target.
+    assert_eq!(gc::collect(), 3, "the target, the weakref and its callback");
+    assert_eq!(CALLBACK_LOG.lock().unwrap().as_slice(), [weak as usize]);
+    assert!(!live(target) && !live(callback));
+}
+
+#[test]
+fn counted_regime_objects_join_the_heap_walk() {
+    let _serial = init();
+    // A counted-regime block's object sits one granule in, behind its
+    // pre-header: the heap walk must visit it there, or it is never
+    // marked, swept or reported.
+    let dead = python312::alloc::alloc_counted(100) as *mut PyObject;
+    let held = python312::alloc::alloc_counted(100) as *mut PyObject;
+    assert!(!dead.is_null() && !held.is_null());
+    // One heap reference in the pre-header's first word: the pin rule of
+    // section 9.3.
+    // SAFETY: the pre-header is the 16 bytes before the object.
+    unsafe {
+        core::ptr::write_unaligned(
+            (held as usize - python312::alloc::PREHEADER) as *mut isize,
+            1,
+        )
+    };
+
+    assert!(live(held), "the held counted object is reported live");
+    assert_eq!(gc::collect(), 1, "the unheld counted object frees");
+    assert!(!live(dead));
+    assert!(live(held));
+
+    #[cfg(feature = "debug-heap")]
+    {
+        // The poisoning spans the freed block from its base: the
+        // pre-header's last 8 bytes are inside the fill, whereas a fill
+        // measured from the object address would leave them zeroed and
+        // run 16 bytes past the block's end instead.
+        let block = dead as usize - python312::alloc::PREHEADER;
+        // SAFETY: the reads stay inside the dead block, which is
+        // exclusively the collector's.
+        unsafe {
+            assert_eq!(
+                core::ptr::read((block + 8) as *const u8),
+                python312::alloc::page::POISON_BYTE
+            );
+        }
+    }
+}
+
+#[test]
+fn weakref_get_ref_follows_the_c_api_contract() {
+    let _serial = init();
+    let target = new_node();
+    // SAFETY: the target supports weak references.
+    let weak = unsafe { weakref::PyWeakref_NewRef(target, core::ptr::null_mut()) };
+    assert!(!weak.is_null());
+
+    // Alive: 1 and a new strong reference, which alone keeps the referent
+    // alive across a collection.
+    let mut got = core::ptr::null_mut();
+    // SAFETY: a weakref of this runtime and the caller's out-parameter.
+    unsafe {
+        assert_eq!(weakref::PyWeakref_GetRef(weak, &mut got), 1);
+        assert!(core::ptr::eq(got, target));
+    }
+    // Drop the constructor's reference but keep the one GetRef handed
+    // back: the object lives by that alone.
+    // SAFETY: the header write returns the constructor's reference.
+    unsafe { (*target).ob_refcnt -= 1 };
+    assert_eq!(gc::collect(), 0, "the handed-back reference pins");
+    assert!(live(got));
+
+    // Dead: 0 and NULL — never a borrowed `None`.
+    // SAFETY: dropping the reference the entry point handed back.
+    unsafe { (*got).ob_refcnt -= 1 };
+    assert_eq!(gc::collect(), 1);
+    assert!(!live(target));
+    let mut got = core::ptr::null_mut();
+    // SAFETY: the weakref still lives by the test's own reference.
+    unsafe {
+        assert_eq!(weakref::PyWeakref_GetRef(weak, &mut got), 0);
+        assert!(got.is_null());
+    }
 }
 
 #[test]
@@ -602,17 +824,87 @@ fn registered_frames_mark_their_slots() {
             ),
             0
         );
-        stack::coil_rt_set_frame(rbp as *mut core::ffi::c_void);
+        stack::coil_rt_push_frame(rbp as *mut core::ffi::c_void);
     }
 
     assert_eq!(gc::collect(), 0);
     assert!(live(held) && live(also_held));
 
     // Without the frame, the same objects are unreachable.
-    // SAFETY: null clears the thread's anchor.
-    unsafe { stack::coil_rt_set_frame(core::ptr::null_mut()) };
+    // SAFETY: the matching pop drops the thread's anchor.
+    unsafe { stack::coil_rt_pop_frame() };
     assert_eq!(gc::collect(), 2);
     assert!(!live(held) && !live(also_held));
+}
+
+#[test]
+fn nested_frame_anchors_cover_reentry_through_c() {
+    let _serial = init();
+    // Two synthetic frames of one code unit: the outer segment called
+    // into C, which re-entered compiled code — the inner frame. The
+    // C return address between them is uncovered, so a single-anchor
+    // walk stops at it; every anchor on the chain must be walked.
+    let code: &'static [u8] = Box::leak(vec![0xCC; 64].into_boxed_slice());
+    let outer_held = new_node();
+    let inner_held = new_node();
+    unpin(outer_held);
+    unpin(inner_held);
+
+    // Each frame: slot 0 at rbp-16 holds its object, the return address
+    // sits in the code buffer, and a null caller rbp ends that anchor's
+    // own walk.
+    let outer: &'static mut [usize; 8] = Box::leak(Box::new([0; 8]));
+    outer[5] = code.as_ptr() as usize + 8; // [rbp+8]: return address
+    outer[2] = outer_held as usize; // [rbp-16]: slot 0
+    let inner: &'static mut [usize; 8] = Box::leak(Box::new([0; 8]));
+    inner[5] = code.as_ptr() as usize + 24;
+    inner[2] = inner_held as usize;
+    let outer_rbp = outer.as_ptr() as usize + 4 * 8;
+    let inner_rbp = inner.as_ptr() as usize + 4 * 8;
+
+    // Two stack-map entries, ascending by ret_addr as the format requires.
+    let mut maps: Vec<u8> = Vec::new();
+    maps.extend_from_slice(&0x504D_5343u32.to_le_bytes()); // 'CSMP'
+    maps.extend_from_slice(&1u32.to_le_bytes());
+    maps.extend_from_slice(&2u64.to_le_bytes());
+    maps.extend_from_slice(&((code.as_ptr() as usize + 8) as u64).to_le_bytes());
+    maps.extend_from_slice(&1u32.to_le_bytes());
+    maps.extend_from_slice(&1u32.to_le_bytes());
+    maps.extend_from_slice(&0b1u64.to_le_bytes());
+    maps.extend_from_slice(&((code.as_ptr() as usize + 24) as u64).to_le_bytes());
+    maps.extend_from_slice(&1u32.to_le_bytes());
+    maps.extend_from_slice(&1u32.to_le_bytes());
+    maps.extend_from_slice(&0b1u64.to_le_bytes());
+    let maps: &'static [u8] = Box::leak(maps.into_boxed_slice());
+    // SAFETY: the buffers are leaked and the table follows the format.
+    unsafe {
+        assert_eq!(
+            stack::coil_rt_register_code(
+                code.as_ptr() as *const core::ffi::c_void,
+                code.as_ptr().add(code.len()) as *const core::ffi::c_void,
+                maps.as_ptr() as *const core::ffi::c_void,
+            ),
+            0
+        );
+        stack::coil_rt_push_frame(outer_rbp as *mut core::ffi::c_void);
+        stack::coil_rt_push_frame(inner_rbp as *mut core::ffi::c_void);
+    }
+
+    assert_eq!(gc::collect(), 0);
+    assert!(live(outer_held) && live(inner_held));
+
+    // The inner segment returned through C: its anchor pops and only its
+    // object dies.
+    // SAFETY: the matching pop of the inner push.
+    unsafe { stack::coil_rt_pop_frame() };
+    assert_eq!(gc::collect(), 1);
+    assert!(live(outer_held));
+    assert!(!live(inner_held));
+
+    // SAFETY: the matching pop of the outer push.
+    unsafe { stack::coil_rt_pop_frame() };
+    assert_eq!(gc::collect(), 1);
+    assert!(!live(outer_held));
 }
 
 #[test]

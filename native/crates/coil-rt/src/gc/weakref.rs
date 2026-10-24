@@ -90,8 +90,14 @@ unsafe extern "C" fn weakref_traverse(
 }
 
 unsafe extern "C" fn weakref_dealloc(object: *mut PyObject) {
-    // The collector owns the block; the sweep frees weakrefs like any
-    // other dead object, and the next collection purges their rows.
+    // CPython's `weakref_dealloc` unlinks the weakref from its referent's
+    // list; the table's analogue is dropping the row. A row that outlives
+    // its block would hand phase 6 a recycled address.
+    table()
+        .lock()
+        .expect("weak-reference table poisoned")
+        .rows
+        .retain(|row| row.weakref != object as usize);
     // SAFETY: the object came from `PyType_GenericAlloc`.
     unsafe { crate::alloc::free_block(object.cast()) };
 }
@@ -222,19 +228,21 @@ pub unsafe extern "C" fn PyWeakref_GetRef(
     }
     // SAFETY: the field read is within the weakref.
     let referent = unsafe { (*reference.cast::<PyWeakReference>()).wr_object };
-    // SAFETY: as above.
-    unsafe {
-        if referent.is_null() {
-            *pref = crate::object::singletons::none();
-        } else {
-            // The contract of CPython 3.12: a new strong reference, so a
-            // live referent cannot die under the caller. An immortal
-            // referent skips the count.
-            crate::types::exc::retain_object(referent);
-            *pref = referent;
-        }
+    // A cleared weakref — `wr_object` never set, or turned to `None` by
+    // phase 6 — is dead: 0 with `*pref` left NULL, CPython 3.12's
+    // contract, not a None borrowed out of the weakref.
+    if referent.is_null() || core::ptr::eq(referent, crate::object::singletons::none()) {
+        return 0;
     }
-    0
+    // SAFETY: the referent is a live object of this runtime between
+    // collections.
+    unsafe {
+        // 1 plus a new strong reference, so a live referent cannot die
+        // under the caller. An immortal referent skips the count.
+        crate::types::exc::retain_object(referent);
+        *pref = referent;
+    }
+    1
 }
 
 /// See the CPython 3.12 contract for this entry point.
@@ -256,20 +264,6 @@ pub unsafe extern "C" fn PyWeakref_NewProxy(
     core::ptr::null_mut()
 }
 
-/// Mark the weak-reference table's weakrefs — the section 9.2 root that
-/// keeps weakrefs, and through `tp_traverse` their callbacks, alive until
-/// they have fired.
-pub(crate) fn mark_table(marks: &mut MarkState) {
-    for row in table()
-        .lock()
-        .expect("weak-reference table poisoned")
-        .rows
-        .iter()
-    {
-        marks.mark(row.weakref as *mut PyObject);
-    }
-}
-
 /// Drop every row whose weakref was swept, or whose referent was swept
 /// this collection. Runs after the sweep, inside the collection: no
 /// allocation can recycle a freed referent's address first, and rows whose
@@ -285,16 +279,25 @@ pub(crate) fn purge_dead_rows() {
         });
 }
 
-/// Phase 6 (section 9.3): clear the weak references to every dead object
-/// and run their callbacks, in `handle_weakrefs` order — the table's
-/// creation order — with resurrections re-marked after each callback.
-/// The sweep's dead set reads the mark bits this leaves.
+/// Phase 6 (section 9.3): clear the weak references to every dead object,
+/// then run their callbacks — CPython's `handle_weakrefs` does the two
+/// passes separately so a callback reading a sibling weakref sees it
+/// cleared, and the sweep's dead set reads the mark bits this leaves.
+///
+/// A weakref lives by external references alone (the table's rows are
+/// links, not owners), so a callback-bearing weakref to a dead referent is
+/// pinned by a strong reference for exactly its call — CPython holds the
+/// callback on its own list the same way — and released right after.
 pub(crate) fn handle_weakrefs(marks: &mut MarkState) {
     let rows = table()
         .lock()
         .expect("weak-reference table poisoned")
         .rows
         .clone();
+    // Pass 1: clear. No callback runs yet, so every weakref to a dead
+    // referent turns `wr_object` to `None` before any user code observes
+    // the heap.
+    let mut pending: Vec<(*mut PyObject, *mut PyObject)> = Vec::new();
     for row in rows {
         // The weakref must still be a live allocation: one swept in an
         // earlier collection left a row that `purge_dead_rows` clears.
@@ -324,11 +327,40 @@ pub(crate) fn handle_weakrefs(marks: &mut MarkState) {
         // hash a cleared weakref keeps is `None`'s.
         unsafe { (*wr).wr_object = crate::object::singletons::none() };
         if !callback.is_null() {
-            call_callback(callback, weakref);
-            // A callback may resurrect the referent or anything else;
-            // re-mark before the next row reads mark bits.
-            marks.mark(weakref);
-            crate::gc::mark_all(marks);
+            // SAFETY: both are live objects of this runtime and the
+            // references are released after the call.
+            unsafe {
+                crate::types::exc::retain_object(weakref);
+                crate::types::exc::retain_object(callback);
+            }
+            pending.push((weakref, callback));
+        }
+    }
+    // Pass 2: call, in the table's creation order. A callback may
+    // resurrect the referent or anything else, so the marks are recomputed
+    // from the roots after each call.
+    for (weakref, callback) in pending {
+        call_callback(callback, weakref);
+        // Drop the hold without the dealloc a reference drop would run: a
+        // resurrection store carries no count, so survival past the call
+        // is the mark decision of the re-trace below, never the count's.
+        // SAFETY: both holds were taken in pass 1 on live objects.
+        unsafe {
+            drop_hold(weakref);
+            drop_hold(callback);
+        }
+        crate::gc::mark_all(marks);
+    }
+}
+
+/// Drop one of pass 1's holds, restoring the count it found — the mirror
+/// of the `retain_object` that took it, minus the dealloc at zero, which
+/// is the sweep's decision to make.
+unsafe fn drop_hold(object: *mut PyObject) {
+    // SAFETY: the hold was taken on this object in pass 1.
+    unsafe {
+        if !header::is_immortal(object) {
+            (*object).ob_refcnt -= 1;
         }
     }
 }

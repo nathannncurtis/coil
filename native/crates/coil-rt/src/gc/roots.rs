@@ -194,8 +194,14 @@ pub(crate) fn mark_all_roots(marks: &mut MarkState) {
                 marks.mark(item.exc_value);
                 marks.mark(item.exc_traceback);
             }
+            // Every anchor on the chain gets its own walk: re-entry through
+            // C nests segments whose frames the top anchor's chain cannot
+            // reach (the C return address between them is uncovered).
             if !state.frame.is_null() {
                 stack::mark_frames(state.frame as usize, marks);
+            }
+            for parent in &state.frame_parents {
+                stack::mark_frames(*parent, marks);
             }
         }
     }

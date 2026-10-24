@@ -198,13 +198,14 @@ fn run_collection() -> usize {
     freed
 }
 
-/// Every root, marked: the registries of `roots.rs`, the weak-reference
-/// table, the finalizer queue, and the objects born during this
-/// collection. Idempotent under the mark bits, so the phases that can
-/// resurrect call it again.
+/// Every root, marked: the registries of `roots.rs`, the finalizer queue,
+/// and the objects born during this collection. The weak-reference table
+/// is deliberately absent — its rows link, they do not own, so a weakref
+/// lives by external references alone and phase 6 pins the ones whose
+/// callbacks it still owes. Idempotent under the mark bits, so the phases
+/// that can resurrect call it again.
 pub(crate) fn mark_all(marks: &mut MarkState) {
     roots::mark_all_roots(marks);
-    weakref::mark_table(marks);
     finalize::mark_queue(marks);
     let born: Vec<usize> = born_marked()
         .lock()
@@ -225,7 +226,11 @@ fn is_pinned(page: &'static PageHeader, addr: usize) -> bool {
     let refcnt = unsafe { header::refcnt(object) };
     if page.regime(granule) {
         let mut held = refcnt > 0;
-        if !held && page.has_prehdr(granule - 1) {
+        if !held
+            && granule
+                .checked_sub(1)
+                .is_some_and(|prev| page.has_prehdr(prev))
+        {
             // The 16-byte pre-header's first word is `heap_refs`; the
             // store barrier of section 9.3 maintains it.
             // SAFETY: the pre-header is the 16 bytes before the object.
@@ -261,6 +266,10 @@ fn walk_page_objects(page: &'static PageHeader, visit: &mut dyn FnMut(usize)) {
         let g0 = i * (block_size / crate::alloc::page::GRANULE);
         if page.allocated(g0) && page.is_object(g0) {
             visit(page.granule_addr(base, g0));
+        } else if page.has_prehdr(g0) && page.is_object(g0 + 1) {
+            // A counted-regime block: the object sits one granule in,
+            // behind its 16-byte pre-header.
+            visit(page.granule_addr(base, g0 + 1));
         }
     }
 }
@@ -295,15 +304,27 @@ fn sweep_object(addr: usize) {
 
 /// The `--features debug-heap` poisoning of a freed block's body: every
 /// byte but the first word, which `free_block`'s free-list link occupies.
+/// The fill spans the block — for a counted-regime object that starts one
+/// granule above the block base, behind its pre-header.
 #[cfg(feature = "debug-heap")]
 fn poison(addr: usize) {
+    let mut block = addr;
+    if let Some(page) = crate::alloc::page_of(addr) {
+        let granule = page.granule_of(page.base(), addr);
+        if granule
+            .checked_sub(1)
+            .is_some_and(|prev| page.has_prehdr(prev))
+        {
+            block = addr - crate::alloc::PREHEADER;
+        }
+    }
     // SAFETY: the block is dead and exclusively the collector's.
-    let capacity = unsafe { crate::alloc::block_capacity(addr as *const u8) }.unwrap_or(0);
+    let capacity = unsafe { crate::alloc::block_capacity(block as *const u8) }.unwrap_or(0);
     if capacity > 8 {
-        // SAFETY: the body is `capacity` bytes at the object address.
+        // SAFETY: the body is `capacity` bytes at the block address.
         unsafe {
             core::ptr::write_bytes(
-                (addr + 8) as *mut u8,
+                (block + 8) as *mut u8,
                 crate::alloc::page::POISON_BYTE,
                 capacity - 8,
             )

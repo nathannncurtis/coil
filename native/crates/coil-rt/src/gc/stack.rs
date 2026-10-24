@@ -190,24 +190,54 @@ pub unsafe extern "C" fn coil_rt_register_code(
     }
 }
 
-/// `coil_rt_set_frame` (abi.toml `[functions]`): record the current
-/// thread's top compiled frame — the anchor its stack walk starts from.
+/// `coil_rt_push_frame` (abi.toml `[functions]`): record the current
+/// thread's top compiled frame — the anchor a stack walk starts from.
 /// Compiled code's entry trampolines call this on every runtime entry that
 /// may allocate; the value stays recorded for the detached-thread roots of
-/// section 9.2 when the thread drops into C.
+/// section 9.2 when the thread drops into C. Re-entry through C (a
+/// `tp_call` into more compiled code, a comparison callback) nests, so
+/// each entry pushes rather than overwrites; the anchors chain exactly
+/// like CPython's `tstate->frame`.
 ///
 /// # Safety
 ///
 /// `frame` must be null or the calling compiled frame's rbp value, a
-/// frame that is live on this thread's stack.
+/// frame that is live on this thread's stack, and the matching
+/// `coil_rt_pop_frame` must run while it still is.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn coil_rt_set_frame(frame: *mut c_void) {
+pub unsafe extern "C" fn coil_rt_push_frame(frame: *mut c_void) {
     // SAFETY: `current` returns this thread's own state.
     let state = tstate::current();
     // SAFETY: the state is this thread's own; the frame pointer is read
     // only at a collection, and with the GIL the collecting thread is the
     // only attached thread.
-    unsafe { (*state).frame = frame.cast() };
+    unsafe {
+        if !(*state).frame.is_null() {
+            (*state).frame_parents.push((*state).frame as usize);
+        }
+        (*state).frame = frame.cast();
+    }
+}
+
+/// `coil_rt_pop_frame` (abi.toml `[functions]`): drop the anchor the
+/// matching `coil_rt_push_frame` recorded, restoring the one below it.
+///
+/// # Safety
+///
+/// Only the thread that pushed the anchor may pop it, and only once per
+/// push.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn coil_rt_pop_frame() {
+    // SAFETY: `current` returns this thread's own state.
+    let state = tstate::current();
+    // SAFETY: the state is this thread's own, and the matching push put
+    // the parent anchor there.
+    unsafe {
+        (*state).frame = (*state)
+            .frame_parents
+            .pop()
+            .map_or(core::ptr::null_mut(), |parent| parent as *mut PyObject);
+    }
 }
 
 /// Mark the reference slots the stack map for `ret_addr` names in the

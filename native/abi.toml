@@ -37,14 +37,22 @@ coil_rt_register_module_table = { ret = "int", args = [
     "size_t count",
 ] }
 
-coil_rt_set_frame = { ret = "void", args = ["void *frame"] }
+# The frame-anchor pair of section 9.4: a compiled-code entry trampoline
+# pushes its frame on entry and pops on exit. Compiled code reached
+# through C (a tp_call, a comparison callback, any extension re-entry)
+# nests, so each anchor covers one compiled segment and the collector
+# walks every anchor on the chain.
+coil_rt_push_frame = { ret = "void", args = ["void *frame"] }
+coil_rt_pop_frame = { ret = "void", args = [] }
 
 # Offsets into runtime structs that compiled code reads or writes
 # directly instead of calling an entry point, in bytes. A compiled frame
 # keeps rbp chained (section 9.4): saved rbp at [rbp], the return
 # address at [rbp+8], the function descriptor pointer 8 bytes below rbp,
 # and the frame's reference slots stepping down from 16 bytes below it —
-# stack-map bitmap bit i covers the slot at rbp + slot_base - i*slot_stride.
+# stack-map bitmap bit i covers the slot at rbp + slot_base - i*slot_stride
+# (slot 0 at rbp-16, slot 1 at rbp-24, ...; the descending direction
+# keeps slots clear of the descriptor at rbp-8 and of saved rbp).
 [offsets]
 
 [offsets.compiled_frame]

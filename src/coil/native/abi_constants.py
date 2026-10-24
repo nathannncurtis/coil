@@ -9,14 +9,15 @@ ABI_FORMAT_VERSION: int = 2
 # SHA-256 of native/abi.toml's content (LF line endings) when this
 # file was generated. The driver embeds it in compiled executables
 # and the runtime refuses a mismatch (section 2).
-ABI_SHA256: bytes = bytes.fromhex("62e20f8022b3c1a1a45082368653576ca5b8342d79baf44fb75c8bffe58d00f5")
+ABI_SHA256: bytes = bytes.fromhex("dbe3d48bd1dbb270d8824ded66f1e288e66974ed5a699a48fc27651dd73c81da")
 
 # The coil_rt_* entry points compiled code may call: name to
 # (return type, argument types), C-spelled (abi.toml [functions]).
 ABI_FUNCTIONS: dict[str, tuple[str, list[str]]] = {
     "coil_rt_register_code": ("int", ["const void *code_start", "const void *code_end", "const void *stack_maps"]),
     "coil_rt_register_module_table": ("int", ["PyObject **table", "size_t count"]),
-    "coil_rt_set_frame": ("void", ["void *frame"]),
+    "coil_rt_push_frame": ("void", ["void *frame"]),
+    "coil_rt_pop_frame": ("void", []),
 }
 
 # Struct offsets compiled code touches directly: `group.field` to
@@ -40,6 +41,6 @@ ABI_FORMATS: dict[str, dict[str, str]] = {
         "entry.ret_addr": "u64: absolute return address inside the unit's code",
         "entry.nslots": "u32: number of reference slots the frame has",
         "entry.bitmap_words": "u32: ceil(nslots / 64)",
-        "entry.bitmap": "u64 × bitmap_words: bit i covers slot i",
+        "entry.bitmap": "u64 × bitmap_words: bit i covers the slot at rbp + slot_base - i*slot_stride",
     },
 }

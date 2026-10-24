@@ -9,10 +9,10 @@ pub const ABI_FORMAT_VERSION: u32 = 2;
 /// `coil_rt_init` refuses a mismatch (section 2).
 #[rustfmt::skip]
 pub static ABI_SHA256: [u8; 32] = [
-    0x62, 0xe2, 0x0f, 0x80, 0x22, 0xb3, 0xc1, 0xa1,
-    0xa4, 0x50, 0x82, 0x36, 0x86, 0x53, 0x57, 0x6c,
-    0xa5, 0xb8, 0x34, 0x2d, 0x79, 0xba, 0xf4, 0x4f,
-    0xb7, 0x5c, 0x8b, 0xff, 0xe5, 0x8d, 0x00, 0xf5,
+    0xdb, 0xe3, 0xd4, 0x8b, 0xd1, 0xdb, 0xb2, 0x70,
+    0xd8, 0x82, 0x4d, 0xed, 0x66, 0xf1, 0xe2, 0x88,
+    0xe6, 0x69, 0x74, 0xed, 0x5a, 0x69, 0x9a, 0x48,
+    0xfc, 0x27, 0x65, 0x1d, 0xd7, 0x3c, 0x81, 0xda,
 ];
 
 /// The `coil_rt_*` entry points compiled code may call, with their
@@ -21,7 +21,8 @@ pub static ABI_SHA256: [u8; 32] = [
 pub static ABI_FUNCTIONS: &[(&str, &str, &[&str])] = &[
     ("coil_rt_register_code", "int", &["const void *code_start", "const void *code_end", "const void *stack_maps"]),
     ("coil_rt_register_module_table", "int", &["PyObject **table", "size_t count"]),
-    ("coil_rt_set_frame", "void", &["void *frame"]),
+    ("coil_rt_push_frame", "void", &["void *frame"]),
+    ("coil_rt_pop_frame", "void", &[]),
 ];
 
 /// Struct offsets compiled code touches directly, flattened as
@@ -40,5 +41,5 @@ pub static ABI_OFFSETS: &[(&str, isize)] = &[
 /// loads, each field described (abi.toml [formats]).
 #[rustfmt::skip]
 pub static ABI_FORMATS: &[(&str, &[(&str, &str)])] = &[
-    ("stackmap", &[("magic", "u32: 0x504D5343 ('CSMP')"), ("version", "u32: 1"), ("entry_count", "u64: number of entries that follow"), ("entry.ret_addr", "u64: absolute return address inside the unit's code"), ("entry.nslots", "u32: number of reference slots the frame has"), ("entry.bitmap_words", "u32: ceil(nslots / 64)"), ("entry.bitmap", "u64 × bitmap_words: bit i covers slot i")]),
+    ("stackmap", &[("magic", "u32: 0x504D5343 ('CSMP')"), ("version", "u32: 1"), ("entry_count", "u64: number of entries that follow"), ("entry.ret_addr", "u64: absolute return address inside the unit's code"), ("entry.nslots", "u32: number of reference slots the frame has"), ("entry.bitmap_words", "u32: ceil(nslots / 64)"), ("entry.bitmap", "u64 × bitmap_words: bit i covers the slot at rbp + slot_base - i*slot_stride")]),
 ];
