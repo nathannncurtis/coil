@@ -13,12 +13,59 @@ use coil_capi_sys::PYTHON312_EXPORTS;
 // tools/capi_usage.py), so it starts empty and every entry of the export
 // list is still a stub; names move here as they are implemented.
 const IMPLEMENTED: &[&str] = &[
+    // modules/mod.rs
+    "PyModule_AddFunctions",
+    "PyModule_AddIntConstant",
+    "PyModule_AddObject",
+    "PyModule_AddObjectRef",
+    "PyModule_AddStringConstant",
+    "PyModule_AddType",
+    "PyModule_Create2",
+    "PyModule_ExecDef",
+    "PyModule_FromDefAndSpec2",
+    "PyModule_GetDef",
+    "PyModule_GetDict",
+    "PyModule_GetFilename",
+    "PyModule_GetFilenameObject",
+    "PyModule_GetName",
+    "PyModule_GetNameObject",
+    "PyModule_GetState",
+    "PyModule_New",
+    "PyModule_NewObject",
+    "PyModule_SetDocString",
+    "PyModule_Type",
+    "PyModuleDef_Init",
+    "PyModuleDef_Type",
+    "PyState_AddModule",
+    "PyState_FindModule",
+    "PyState_RemoveModule",
+    "_PyModule_Add",
+    "_PyModule_Clear",
+    "_PyModule_ClearDict",
+    "_PyModule_CreateInitialized",
+    "_PyModuleSpec_IsInitializing",
+    "_PyState_AddModule",
+    // modules/cfunc.rs
+    "PyCFunction_New",
+    "PyCFunction_NewEx",
+    "PyCFunction_GetFunction",
+    "PyCFunction_GetSelf",
+    "PyCFunction_GetFlags",
+    "PyCFunction_Type",
     // object/attr.rs
     "PyObject_GetAttrString",
     "PyObject_SetAttrString",
     // types/dict.rs
     "PyDict_SetItemString",
     "PyDict_GetItemString",
+    // import.rs
+    "PyImport_GetModuleDict",
+    "PyImport_AddModuleObject",
+    "PyImport_AddModule",
+    "_PyImport_SetModuleString",
+    "_PyImport_FixupExtensionObject",
+    "_PyImport_FixupBuiltin",
+    "_PyImport_IsInitialized",
 ];
 
 /// How many C API exports are implemented natively (not stubs).

@@ -26,3 +26,16 @@ pub mod util;
 pub extern "C" fn coil_rt_abi_sha256() -> *const u8 {
     abi_generated::ABI_SHA256.as_ptr()
 }
+
+/// Initialize the runtime: the static types and the import machinery
+/// (`sys.modules`, `sys`, `builtins`, `_imp`). Idempotent; 0 on success.
+///
+/// The ABI-hash and module-table registration arrive with compiled code and
+/// are not part of this bootstrap.
+#[unsafe(no_mangle)]
+pub extern "C" fn coil_rt_init() -> core::ffi::c_int {
+    if crate::object::typeobject::init_static_types() < 0 {
+        return -1;
+    }
+    crate::import::init()
+}

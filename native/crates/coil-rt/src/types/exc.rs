@@ -395,7 +395,7 @@ pub(crate) const fn module_exception_type(
 
 /// The static exception subtype list: read-only raw pointers behind a
 /// `Sync` wrapper the macro fills in.
-pub(crate) struct SubtypeList(&'static [*mut PyTypeObject]);
+pub(crate) struct SubtypeList(pub(crate) &'static [*mut PyTypeObject]);
 // SAFETY: the list is written once by `init_exception_types` before any
 // other thread can observe it, and read-only afterwards.
 unsafe impl Sync for SubtypeList {}
