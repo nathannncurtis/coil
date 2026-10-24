@@ -2,15 +2,44 @@
 // rerun the generator instead.
 
 /// Format version of the runtime/compiled-code contract (abi.toml [meta]).
-pub const ABI_FORMAT_VERSION: u32 = 1;
+pub const ABI_FORMAT_VERSION: u32 = 2;
 
 /// SHA-256 of native/abi.toml's content (LF line endings) when this
 /// file was generated. Compiled code embeds the same value;
 /// `coil_rt_init` refuses a mismatch (section 2).
 #[rustfmt::skip]
 pub static ABI_SHA256: [u8; 32] = [
-    0x82, 0x91, 0x43, 0x32, 0x5d, 0x69, 0xe5, 0x46,
-    0x1c, 0x5f, 0x33, 0xbd, 0x78, 0x21, 0xb2, 0x08,
-    0x1c, 0xc7, 0x45, 0xc0, 0x65, 0x1e, 0xe8, 0x27,
-    0x4a, 0x33, 0x00, 0x03, 0xd5, 0xbf, 0xa4, 0x15,
+    0xdb, 0xe3, 0xd4, 0x8b, 0xd1, 0xdb, 0xb2, 0x70,
+    0xd8, 0x82, 0x4d, 0xed, 0x66, 0xf1, 0xe2, 0x88,
+    0xe6, 0x69, 0x74, 0xed, 0x5a, 0x69, 0x9a, 0x48,
+    0xfc, 0x27, 0x65, 0x1d, 0xd7, 0x3c, 0x81, 0xda,
+];
+
+/// The `coil_rt_*` entry points compiled code may call, with their
+/// C-spelled signatures (abi.toml [functions]).
+#[rustfmt::skip]
+pub static ABI_FUNCTIONS: &[(&str, &str, &[&str])] = &[
+    ("coil_rt_register_code", "int", &["const void *code_start", "const void *code_end", "const void *stack_maps"]),
+    ("coil_rt_register_module_table", "int", &["PyObject **table", "size_t count"]),
+    ("coil_rt_push_frame", "void", &["void *frame"]),
+    ("coil_rt_pop_frame", "void", &[]),
+];
+
+/// Struct offsets compiled code touches directly, flattened as
+/// `group.field` (abi.toml [offsets]).
+#[rustfmt::skip]
+pub static ABI_OFFSETS: &[(&str, isize)] = &[
+    ("compiled_frame.saved_rbp", 0),
+    ("compiled_frame.return_address", 8),
+    ("compiled_frame.function_descriptor", -8),
+    ("compiled_frame.slot_base", -16),
+    ("compiled_frame.slot_stride", 8),
+    ("thread_state.eval_breaker", 56),
+];
+
+/// The binary table formats the compiler emits and the runtime
+/// loads, each field described (abi.toml [formats]).
+#[rustfmt::skip]
+pub static ABI_FORMATS: &[(&str, &[(&str, &str)])] = &[
+    ("stackmap", &[("magic", "u32: 0x504D5343 ('CSMP')"), ("version", "u32: 1"), ("entry_count", "u64: number of entries that follow"), ("entry.ret_addr", "u64: absolute return address inside the unit's code"), ("entry.nslots", "u32: number of reference slots the frame has"), ("entry.bitmap_words", "u32: ceil(nslots / 64)"), ("entry.bitmap", "u64 × bitmap_words: bit i covers the slot at rbp + slot_base - i*slot_stride")]),
 ];

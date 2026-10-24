@@ -13,3 +13,9 @@ coil-capi-sys = { path = "../coil-capi-sys" }
 # The cdylib is the runtime DLL named for the impersonated ABI (section 10.1).
 name = "python312"
 crate-type = ["cdylib", "rlib"]
+
+[features]
+# Heap debugging of spec section 9.3: this task contributes the poisoning
+# of freed blocks; the quarantine and the count checks arrive with the
+# counted-regime task.
+debug-heap = []

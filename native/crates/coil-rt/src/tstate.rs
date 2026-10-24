@@ -66,6 +66,9 @@ pub struct ThreadState {
     pub eval_breaker: core::sync::atomic::AtomicI64,
     /// The top compiled frame while detached, for the stack walk of 9.4.
     pub frame: *mut PyObject,
+    /// The anchors pushed below `frame`: each compiled-code entry through
+    /// C adds one, so a walk covers every live segment, not just the top.
+    pub frame_parents: Vec<usize>,
     /// `PyGILState_Ensure`'s nesting counter.
     pub gilstate_counter: u32,
     /// The current context object (the contextvars machinery is a later task).
@@ -92,6 +95,7 @@ impl ThreadState {
             recursion_depth: 0,
             eval_breaker: core::sync::atomic::AtomicI64::new(0),
             frame: core::ptr::null_mut(),
+            frame_parents: Vec::new(),
             gilstate_counter: 0,
             context: core::ptr::null_mut(),
             alloc_cache: crate::alloc::thread_cache::cache_ptr().cast(),
@@ -211,7 +215,40 @@ pub fn current() -> *mut ThreadState {
     }
     let state = Box::into_raw(Box::new(ThreadState::new()));
     slot::set(state);
+    registry::register(state);
     state
+}
+
+/// The registry of every live thread state: what the collector walks for
+/// the thread-state roots of section 9.2 (pending exceptions, `exc_info`
+/// stacks, contexts, saved frame pointers). States are created once and
+/// never freed, so entries are only added; addresses, not typed pointers,
+/// so the registry is `Send`.
+pub mod registry {
+    use super::ThreadState;
+    use std::sync::{Mutex, OnceLock};
+
+    fn states() -> &'static Mutex<Vec<usize>> {
+        static STATES: OnceLock<Mutex<Vec<usize>>> = OnceLock::new();
+        STATES.get_or_init(|| Mutex::new(Vec::new()))
+    }
+
+    pub(super) fn register(state: *mut ThreadState) {
+        states()
+            .lock()
+            .expect("thread-state registry poisoned")
+            .push(state as usize);
+    }
+
+    /// Every live thread state, in creation order.
+    pub fn all() -> Vec<*mut ThreadState> {
+        states()
+            .lock()
+            .expect("thread-state registry poisoned")
+            .iter()
+            .map(|addr| *addr as *mut ThreadState)
+            .collect()
+    }
 }
 
 /// The current thread's state, or null before first use; for paths that must

@@ -6,6 +6,15 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use python312::alloc::{
     self, alloc_block, alloc_counted, alloc_object, contains, object_start, page_of,
 };
+use python312::gc;
+
+// These tests hold raw blocks no root reaches, so the collector must not
+// run under them: automatic pacing off (an explicit gc.collect() is the
+// collector suite's business). One call per test keeps it true however
+// the binary's tests are ordered or re-run.
+fn no_auto_gc() {
+    gc::disable();
+}
 
 // Test-level wrappers for the unsafe allocator entry points: every
 // pointer handed to them in this file comes from the same allocator and
@@ -32,6 +41,7 @@ fn block_capacity(ptr: *const u8) -> Option<usize> {
 
 #[test]
 fn alloc_object_is_zeroed_and_marked() {
+    no_auto_gc();
     let ptr = alloc_object(40);
     assert!(!ptr.is_null());
     let header = page_of(ptr as usize).expect("object in heap");
@@ -53,6 +63,7 @@ fn alloc_object_is_zeroed_and_marked() {
 
 #[test]
 fn bitmap_bookkeeping_survives_free() {
+    no_auto_gc();
     let ptr = alloc_object(200);
     let header = page_of(ptr as usize).unwrap();
     let base = header.base();
@@ -94,6 +105,7 @@ fn bitmap_bookkeeping_survives_free() {
 
 #[test]
 fn counted_objects_carry_a_preheader() {
+    no_auto_gc();
     let _guard = LARGE_RUN_LOCK.lock().unwrap();
     let ptr = alloc_counted(100);
     assert!(!ptr.is_null());
@@ -135,6 +147,7 @@ fn counted_objects_carry_a_preheader() {
 
 #[test]
 fn counted_objects_are_marked_counted_regime() {
+    no_auto_gc();
     let _guard = LARGE_RUN_LOCK.lock().unwrap();
     // Small counted object: the regime bit (1 = counted, spec 9.1) sits at
     // the object granule — where the store barrier of 9.3 tests it — next
@@ -176,6 +189,7 @@ fn counted_objects_are_marked_counted_regime() {
 
 #[test]
 fn page_table_lookups() {
+    no_auto_gc();
     let ptr = alloc_object(64);
     assert!(contains(ptr as usize));
     let header = page_of(ptr as usize).unwrap();
@@ -202,6 +216,7 @@ fn page_table_lookups() {
 
 #[test]
 fn large_objects() {
+    no_auto_gc();
     let _guard = LARGE_RUN_LOCK.lock().unwrap();
     // A multi-page run: lookups on interior pages resolve through the run
     // head.
@@ -248,6 +263,7 @@ fn large_objects() {
 
 #[test]
 fn memory_is_reused_after_free() {
+    no_auto_gc();
     // Same thread, same class: the freed block tops the local free list.
     let a = alloc_object(700);
     assert!(free(a));
@@ -286,6 +302,7 @@ fn memory_is_reused_after_free() {
 
 #[test]
 fn allocation_survives_thread_cache_teardown() {
+    no_auto_gc();
     static OUTCOME: AtomicUsize = AtomicUsize::new(0);
     // Registered before the allocator's TLS slot on the worker thread, so
     // its destructor runs after the cache is destroyed: it must still be
@@ -328,6 +345,7 @@ fn allocation_survives_thread_cache_teardown() {
 
 #[test]
 fn abandoned_pages_are_readopted() {
+    no_auto_gc();
     let _guard = LARGE_RUN_LOCK.lock().unwrap();
     // Class 2048: exactly 28 blocks per page, and — under the lock — no
     // other test uses this class.
@@ -377,6 +395,7 @@ fn abandoned_pages_are_readopted() {
 
 #[test]
 fn realloc_moves_and_preserves() {
+    no_auto_gc();
     let ptr = alloc_block(64);
     for i in 0..64 {
         unsafe { *ptr.add(i) = i as u8 };
@@ -394,6 +413,7 @@ fn realloc_moves_and_preserves() {
 
 #[test]
 fn realloc_zero_resizes_without_freeing() {
+    no_auto_gc();
     let _guard = PYMEM_OVERRIDE_LOCK.lock().unwrap();
     unsafe extern "C" {
         fn PyMem_RawMalloc(size: usize) -> *mut core::ffi::c_void;
@@ -445,6 +465,7 @@ fn realloc_zero_resizes_without_freeing() {
 
 #[test]
 fn huge_sizes_return_null_instead_of_wrapping() {
+    no_auto_gc();
     unsafe extern "C" {
         fn PyMem_RawMalloc(size: usize) -> *mut core::ffi::c_void;
         fn PyMem_RawCalloc(nelem: usize, elsize: usize) -> *mut core::ffi::c_void;
@@ -503,6 +524,7 @@ static PYMEM_OVERRIDE_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[test]
 fn pymem_plain_allocator() {
+    no_auto_gc();
     let _guard = PYMEM_OVERRIDE_LOCK.lock().unwrap();
     unsafe extern "C" {
         fn PyMem_RawMalloc(size: usize) -> *mut core::ffi::c_void;
@@ -547,6 +569,7 @@ fn pymem_plain_allocator() {
 
 #[test]
 fn foreign_object_table() {
+    no_auto_gc();
     let ptr = alloc_object(16);
     let foreign = &ptr as *const *mut u8 as usize;
     alloc::foreign::register(foreign);
@@ -558,6 +581,7 @@ fn foreign_object_table() {
 
 #[test]
 fn pymem_set_and_get_allocator() {
+    no_auto_gc();
     let _guard = PYMEM_OVERRIDE_LOCK.lock().unwrap();
     static CALLS: AtomicUsize = AtomicUsize::new(0);
     unsafe extern "C" {
@@ -650,6 +674,7 @@ impl Rng {
 
 #[test]
 fn eight_threads_mixed_sizes_cross_thread_frees() {
+    no_auto_gc();
     let _guard = LARGE_RUN_LOCK.lock().unwrap();
     const THREADS: usize = 8;
     const ITERS: usize = 30_000;

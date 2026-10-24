@@ -13,6 +13,10 @@ pub const PAGE_SIZE: usize = 64 * 1024;
 /// Bitmaps and object addresses advance in 16-byte granules.
 pub const GRANULE: usize = 16;
 
+/// The byte a `--features debug-heap` build writes over a freed block's
+/// body (spec section 9.3).
+pub const POISON_BYTE: u8 = 0xDC;
+
 /// The header and bitmaps occupy the first 8 KiB of every page.
 pub const DATA_OFFSET: usize = 8192;
 

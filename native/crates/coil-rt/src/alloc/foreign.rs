@@ -35,3 +35,15 @@ pub fn contains(ptr: usize) -> bool {
         .expect("foreign-object table poisoned")
         .contains(&ptr)
 }
+
+/// Run `f` over every registered foreign object; the collector's walk of
+/// the foreign-object roots (section 9.2).
+pub fn each(f: &mut dyn FnMut(usize)) {
+    for ptr in table()
+        .lock()
+        .expect("foreign-object table poisoned")
+        .iter()
+    {
+        f(*ptr);
+    }
+}
