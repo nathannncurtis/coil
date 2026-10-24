@@ -31,8 +31,10 @@ arguments are tuples; the encoding is shared with the Rust reader:
 Float functions whose C implementation is the platform libm (exp, log,
 pow, the trigonometric and hyperbolic families, erf/erfc through their
 internal exp, gamma/lgamma likewise) are not bit-reproducible across
-platforms; the Rust harness compares those rows with a one-ulp allowance
-per component and every other row exactly, as gen_number_oracle.py does.
+platforms; the Rust harness compares those rows with an ulp allowance
+per component (four ulp of the larger magnitude or an absolute 1e-13,
+whichever is looser — see tests/common's `close`) and every other row
+exactly, as gen_number_oracle.py does.
 """
 
 import math

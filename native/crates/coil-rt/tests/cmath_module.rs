@@ -1,10 +1,11 @@
 //! Oracle-driven tests for the `cmath` module (spec 10.6), over the
 //! C99 Annex G lattice of `cmath_module.tsv` (CPython 3.12 via
 //! `tools/gen_module_oracle.py`). Functions whose results come from the
-//! platform libm components carry a one-ulp allowance per part
-//! (`common::close`); the predicates, the errors, and every signed zero
-//! and NaN component match exactly (a signed zero may stand in for the
-//! same-sign subnormal another platform's atan2 keeps).
+//! platform libm components get the documented `common::close` latitude
+//! per part (four ulp of the larger magnitude or an absolute 1e-13,
+//! whichever is looser; a signed zero may stand in for the same-sign
+//! subnormal another platform's atan2 keeps). The predicates, the
+//! errors, and every signed zero and NaN component match exactly.
 
 mod common;
 
@@ -45,4 +46,20 @@ fn cmath_module_matches_cpython() {
         }
     }
     assert!(mismatches.is_empty(), "\n{}", mismatches.join("\n"));
+}
+
+/// The ulp latitude never relaxes the zero signs or NaNs: IEEE
+/// equality compares +0.0 and -0.0 equal, so the allowance must be
+/// checked against the bit patterns, and a zero may stand in only for
+/// a same-sign subnormal (the MSVC atan2 underflow).
+#[test]
+fn ulp_latitude_keeps_zeros_and_nans_exact() {
+    assert!(common::close(0.0, 0.0));
+    assert!(common::close(-0.0, -0.0));
+    assert!(!common::close(0.0, -0.0));
+    assert!(!common::close(-0.0, 0.0));
+    assert!(common::close(0.0, f64::from_bits(1)));
+    assert!(common::close(-0.0, -f64::from_bits(1)));
+    assert!(!common::close(f64::NAN, f64::NAN));
+    assert!(!common::close(1.0, -1.0));
 }

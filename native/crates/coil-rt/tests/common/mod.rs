@@ -241,8 +241,11 @@ pub fn ulp_of(x: f64) -> f64 {
 /// input the macOS build keeps subnormal — and NaN, infinities, zero
 /// signs and every error stay exact.
 pub fn close(got: f64, want: f64) -> bool {
-    if got == want {
-        return true;
+    // Bit equality, not `==`: IEEE arithmetic compares opposite signed
+    // zeros equal, and the sign of a zero is part of the answer. A NaN
+    // never agrees here — NaN rows are decided on their tokens.
+    if got.to_bits() == want.to_bits() {
+        return !got.is_nan();
     }
     if !got.is_finite() || !want.is_finite() {
         return false;

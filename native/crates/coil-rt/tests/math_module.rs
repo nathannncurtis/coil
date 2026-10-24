@@ -2,8 +2,10 @@
 //! `math_module.tsv` was computed by CPython 3.12 through
 //! `tools/gen_module_oracle.py`; the encodings of the argument and result
 //! columns are shared with that script. Functions whose C implementation
-//! is the platform libm carry a one-ulp allowance (see `common::close`);
-//! every other row must match bit for bit, error messages included.
+//! is the platform libm get the documented `common::close` latitude
+//! (four ulp of the larger magnitude or an absolute 1e-13, whichever is
+//! looser); every other row must match bit for bit, error messages
+//! included.
 
 mod common;
 
