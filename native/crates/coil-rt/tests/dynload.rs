@@ -57,7 +57,13 @@ mod dl {
     use std::path::Path;
 
     const RTLD_NOW: c_int = 0x0002;
+    // `RTLD_GLOBAL` differs by platform: `0x8` on Darwin, `0x100` on glibc
+    // (where `0x8` is `RTLD_DEEPBIND`). Loading the cdylib without it keeps
+    // its symbols out of the global scope, so the extension's imports fail.
+    #[cfg(target_os = "macos")]
     const RTLD_GLOBAL: c_int = 0x0008;
+    #[cfg(not(target_os = "macos"))]
+    const RTLD_GLOBAL: c_int = 0x0100;
 
     unsafe extern "C" {
         fn dlopen(filename: *const c_char, flags: c_int) -> *mut c_void;
