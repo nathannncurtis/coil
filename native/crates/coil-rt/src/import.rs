@@ -645,9 +645,13 @@ unsafe fn format_load_error(path: *const c_char) -> String {
     }
     #[cfg(windows)]
     {
+        // SAFETY: `GetLastError` reads the calling thread's last-error code,
+        // set by the failed `LoadLibraryExW` in `open_library`.
+        let code = unsafe { GetLastError() };
         format!(
-            "cannot load module at {}",
-            unsafe { core::ffi::CStr::from_ptr(path) }.to_string_lossy()
+            "cannot load module at {} (Windows error {})",
+            unsafe { core::ffi::CStr::from_ptr(path) }.to_string_lossy(),
+            code
         )
     }
 }
@@ -1055,6 +1059,14 @@ unsafe extern "C" {
     ) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, procname: *const c_char) -> *mut c_void;
     fn AddDllDirectory(directory: *const u16) -> *mut c_void;
+}
+
+// Matches the `extern "system"` declaration in `types/exc.rs`; a `#[link]`
+// attribute is required on the block, so it cannot join the `extern "C"` one.
+#[cfg(windows)]
+#[link(name = "kernel32")]
+unsafe extern "system" {
+    fn GetLastError() -> u32;
 }
 
 #[cfg(windows)]
