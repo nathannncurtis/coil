@@ -1059,14 +1059,6 @@ unsafe extern "C" {
     ) -> *mut c_void;
     fn GetProcAddress(module: *mut c_void, procname: *const c_char) -> *mut c_void;
     fn AddDllDirectory(directory: *const u16) -> *mut c_void;
-    fn GetModuleFileNameW(module: *mut c_void, filename: *mut u16, size: u32) -> u32;
-}
-
-// TEMP CI diagnostic: render a wide buffer up to its first NUL.
-#[cfg(windows)]
-fn diag_wide(buf: &[u16]) -> String {
-    let len = buf.iter().position(|&c| c == 0).unwrap_or(buf.len());
-    String::from_utf16_lossy(&buf[..len])
 }
 
 // Matches the `extern "system"` declaration in `types/exc.rs`; a `#[link]`
@@ -1083,7 +1075,7 @@ unsafe fn extern_load_library(path: *const c_char) -> Library {
     let wide = unsafe { utf8_to_wide(path) };
     // SAFETY: `wide` is a NUL-terminated wide string; the flags match the
     // spec's search set.
-    let handle = unsafe {
+    unsafe {
         LoadLibraryExW(
             wide,
             core::ptr::null_mut(),
@@ -1091,40 +1083,14 @@ unsafe fn extern_load_library(path: *const c_char) -> Library {
                 | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS
                 | LOAD_LIBRARY_SEARCH_USER_DIRS,
         )
-    };
-    // TEMP CI diagnostic: identify what module the handle actually points to.
-    let mut name = [0u16; 32768];
-    let n = if handle.is_null() {
-        0
-    } else {
-        // SAFETY: `handle` is non-null and `name` is a writable buffer of
-        // `name.len()` wide chars.
-        unsafe { GetModuleFileNameW(handle, name.as_mut_ptr(), name.len() as u32) }
-    };
-    eprintln!(
-        "coil-rt-diag: LoadLibraryExW({}) -> handle {:p}, module file {:?} (len {})",
-        unsafe { core::ffi::CStr::from_ptr(path) }.to_string_lossy(),
-        handle,
-        diag_wide(&name[..n as usize]),
-        n
-    );
-    handle
+    }
 }
 
 #[cfg(windows)]
 unsafe fn extern_get_proc_address(handle: Library, symbol: *const c_char) -> *mut c_void {
     // SAFETY: `handle` is a loaded library and `symbol` a NUL-terminated
     // name.
-    let result = unsafe { GetProcAddress(handle, symbol) };
-    // TEMP CI diagnostic.
-    eprintln!(
-        "coil-rt-diag: GetProcAddress(handle {:p}, {}) -> {:p} (err {})",
-        handle,
-        unsafe { core::ffi::CStr::from_ptr(symbol) }.to_string_lossy(),
-        result,
-        unsafe { GetLastError() }
-    );
-    result
+    unsafe { GetProcAddress(handle, symbol) }
 }
 
 #[cfg(windows)]
