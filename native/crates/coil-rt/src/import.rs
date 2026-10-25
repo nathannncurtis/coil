@@ -1057,7 +1057,9 @@ unsafe extern "C" {
         modulehandle: *mut c_void,
         dwflags: u32,
     ) -> *mut c_void;
-    fn GetProcAddress(module: *mut c_void, procname: *const c_char) -> *mut c_void;
+    // The exact ANSI export; the unsuffixed `GetProcAddress` is a C-header
+    // macro, not a kernel32 symbol, so it must not be referenced by name.
+    fn GetProcAddressA(module: *mut c_void, procname: *const c_char) -> *mut c_void;
     fn AddDllDirectory(directory: *const u16) -> *mut c_void;
 }
 
@@ -1090,7 +1092,7 @@ unsafe fn extern_load_library(path: *const c_char) -> Library {
 unsafe fn extern_get_proc_address(handle: Library, symbol: *const c_char) -> *mut c_void {
     // SAFETY: `handle` is a loaded library and `symbol` a NUL-terminated
     // name.
-    unsafe { GetProcAddress(handle, symbol) }
+    unsafe { GetProcAddressA(handle, symbol) }
 }
 
 #[cfg(windows)]
