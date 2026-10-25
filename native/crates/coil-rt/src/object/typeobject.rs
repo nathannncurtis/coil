@@ -591,7 +591,7 @@ fn fix_type_self_reference() {
 /// # Safety
 ///
 /// `t` must be null or a pointer to a `PyTypeObject`.
-unsafe fn is_ready(t: *mut PyTypeObject) -> bool {
+pub(crate) unsafe fn is_ready(t: *mut PyTypeObject) -> bool {
     // SAFETY: the flag read is within the type object.
     !t.is_null() && unsafe { (*t).tp_flags } & Py_TPFLAGS_READY != 0
 }

@@ -2584,11 +2584,6 @@ pub extern "C" fn PyTraceMalloc_Untrack() -> isize {
     -1
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyTuple_Pack() -> *mut c_void {
-    raise("PyTuple_Pack");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyType_AddWatcher() -> isize {
     raise("PyType_AddWatcher");
     -1
@@ -2602,26 +2597,6 @@ pub extern "C" fn PyType_ClearCache() -> isize {
 pub extern "C" fn PyType_ClearWatcher() -> isize {
     raise("PyType_ClearWatcher");
     -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyType_FromMetaclass() -> *mut c_void {
-    raise("PyType_FromMetaclass");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyType_FromModuleAndSpec() -> *mut c_void {
-    raise("PyType_FromModuleAndSpec");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyType_FromSpec() -> *mut c_void {
-    raise("PyType_FromSpec");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyType_FromSpecWithBases() -> *mut c_void {
-    raise("PyType_FromSpecWithBases");
-    core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn PyType_GenericNew() -> *mut c_void {
