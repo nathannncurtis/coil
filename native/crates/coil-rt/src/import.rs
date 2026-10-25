@@ -1044,11 +1044,11 @@ unsafe fn extern_dlerror() -> *mut c_char {
 
 #[cfg(windows)]
 const LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR: u32 = 0x0000_0010;
-// `APPLICATION_DIR | SYSTEM32 | USER_DIRS`; a composite, not a single bit.
+// A single bit that enables the application, system32 and user directories.
 #[cfg(windows)]
-const LOAD_LIBRARY_SEARCH_DEFAULT_DIRS: u32 = 0x0000_0902;
+const LOAD_LIBRARY_SEARCH_DEFAULT_DIRS: u32 = 0x0000_1000;
 #[cfg(windows)]
-const LOAD_LIBRARY_SEARCH_USER_DIRS: u32 = 0x0000_0002;
+const LOAD_LIBRARY_SEARCH_USER_DIRS: u32 = 0x0000_0008;
 
 #[cfg(windows)]
 unsafe extern "C" {
@@ -1057,9 +1057,7 @@ unsafe extern "C" {
         modulehandle: *mut c_void,
         dwflags: u32,
     ) -> *mut c_void;
-    // The exact ANSI export; the unsuffixed `GetProcAddress` is a C-header
-    // macro, not a kernel32 symbol, so it must not be referenced by name.
-    fn GetProcAddressA(module: *mut c_void, procname: *const c_char) -> *mut c_void;
+    fn GetProcAddress(module: *mut c_void, procname: *const c_char) -> *mut c_void;
     fn AddDllDirectory(directory: *const u16) -> *mut c_void;
 }
 
@@ -1092,7 +1090,7 @@ unsafe fn extern_load_library(path: *const c_char) -> Library {
 unsafe fn extern_get_proc_address(handle: Library, symbol: *const c_char) -> *mut c_void {
     // SAFETY: `handle` is a loaded library and `symbol` a NUL-terminated
     // name.
-    unsafe { GetProcAddressA(handle, symbol) }
+    unsafe { GetProcAddress(handle, symbol) }
 }
 
 #[cfg(windows)]
