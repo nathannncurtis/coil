@@ -33,6 +33,7 @@ type FnGetDict = unsafe extern "C" fn(PyObj) -> PyObj;
 type FnDecRef = unsafe extern "C" fn(PyObj);
 type FnErrOccurred = unsafe extern "C" fn() -> PyObj;
 type FnErrFetch = unsafe extern "C" fn(*mut PyObj, *mut PyObj, *mut PyObj);
+type FnWriteUnraisable = unsafe extern "C" fn(PyObj);
 type CFunc = unsafe extern "C" fn(PyObj, PyObj) -> PyObj;
 
 /// The first five fields of `PyModuleDef` (its `m_base`), enough to read
@@ -450,6 +451,8 @@ fn loads_extension_through_both_init_styles() {
     let dec_ref: FnDecRef = resolve!(handle, "Py_DecRef" => FnDecRef);
     let err_occurred: FnErrOccurred = resolve!(handle, "PyErr_Occurred" => FnErrOccurred);
     let err_fetch: FnErrFetch = resolve!(handle, "PyErr_Fetch" => FnErrFetch);
+    let write_unraisable: FnWriteUnraisable =
+        resolve!(handle, "PyErr_WriteUnraisable" => FnWriteUnraisable);
 
     assert_eq!(unsafe { init() }, 0, "coil_rt_init failed");
 
@@ -486,6 +489,9 @@ fn loads_extension_through_both_init_styles() {
     );
     let module = unsafe { create_dyn(imp, spec) };
     if module.is_null() {
+        // `PyErr_WriteUnraisable` reads the message sidecar, which
+        // `report_error`'s fetch would clear, so print it first.
+        unsafe { write_unraisable(std::ptr::null_mut()) };
         report_error(err_occurred, err_fetch, get_attr, as_utf8, dec_ref);
     }
     assert!(!module.is_null(), "single-phase create_dynamic failed");
@@ -515,6 +521,7 @@ fn loads_extension_through_both_init_styles() {
     );
     let module = unsafe { create_dyn(imp, spec) };
     if module.is_null() {
+        unsafe { write_unraisable(std::ptr::null_mut()) };
         report_error(err_occurred, err_fetch, get_attr, as_utf8, dec_ref);
     }
     assert!(!module.is_null(), "multi-phase create_dynamic failed");
@@ -522,6 +529,7 @@ fn loads_extension_through_both_init_styles() {
     assert!(state_before.is_null(), "state is not null before exec");
     let exec_result = unsafe { exec_dyn(imp, module) };
     if exec_result.is_null() {
+        unsafe { write_unraisable(std::ptr::null_mut()) };
         report_error(err_occurred, err_fetch, get_attr, as_utf8, dec_ref);
     }
     assert!(!exec_result.is_null(), "exec_dynamic failed");
