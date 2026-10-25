@@ -124,14 +124,6 @@ mod dl {
         handle
     }
 
-    /// Like `open_global` but returns null instead of panicking, for the
-    /// failure diagnostic.
-    pub fn open_raw(path: &Path) -> *mut c_void {
-        let wide = to_wide(path);
-        // SAFETY: `wide` is a NUL-terminated wide string.
-        unsafe { LoadLibraryW(wide.as_ptr()) }
-    }
-
     pub fn sym(handle: *mut c_void, name: &str) -> *mut c_void {
         let cname = CString::new(name).expect("symbol has NUL byte");
         unsafe { GetProcAddress(handle, cname.as_ptr()) }
@@ -274,8 +266,8 @@ fn build_extension_windows(
         .arg(format!("/out:{}", lib_path.display()));
     run(&mut l, "generate import library");
 
-    // Export `PyInit_<name>` by name via a module DEF, the mechanism CPython's
-    // own build uses, so the loader's `GetProcAddress` finds it.
+    // Export `PyInit_<name>` by name via a module DEF, in addition to the
+    // source's `__declspec(dllexport)`, so the loader's `GetProcAddress` finds it.
     let module_def_path = out_dir.join(format!("{name}.def"));
     std::fs::write(
         &module_def_path,
@@ -388,37 +380,6 @@ fn report_error(
         if !p.is_null() {
             unsafe { dec_ref(p) };
         }
-    }
-}
-
-/// On a failed load, print whether the built module actually exports its
-/// `PyInit` symbol (checked with the test's own `GetProcAddress`, which is
-/// known good) and dump its export table, to separate a missing export from a
-/// loader-side lookup failure.
-#[cfg(windows)]
-fn diagnose_export(path: &Path, symbol: &str) {
-    let handle = dl::open_raw(path);
-    if handle.is_null() {
-        eprintln!("diagnose: LoadLibrary({}) failed", path.display());
-        return;
-    }
-    eprintln!(
-        "diagnose: GetProcAddress({}, {}) found={}",
-        path.display(),
-        symbol,
-        !dl::sym(handle, symbol).is_null()
-    );
-    if let Ok(out) = Command::new("dumpbin")
-        .arg("/nologo")
-        .arg("/exports")
-        .arg(path)
-        .output()
-    {
-        eprintln!(
-            "diagnose: dumpbin /exports {}:\n{}",
-            path.display(),
-            String::from_utf8_lossy(&out.stdout)
-        );
     }
 }
 
@@ -542,8 +503,6 @@ fn loads_extension_through_both_init_styles() {
         // `report_error`'s fetch would clear, so print it first.
         unsafe { write_unraisable(std::ptr::null_mut()) };
         report_error(err_occurred, err_fetch, get_attr, as_utf8, dec_ref);
-        #[cfg(windows)]
-        diagnose_export(&single_so, "PyInit_expext_single");
     }
     assert!(!module.is_null(), "single-phase create_dynamic failed");
     let def = unsafe { get_def(module) };
@@ -574,8 +533,6 @@ fn loads_extension_through_both_init_styles() {
     if module.is_null() {
         unsafe { write_unraisable(std::ptr::null_mut()) };
         report_error(err_occurred, err_fetch, get_attr, as_utf8, dec_ref);
-        #[cfg(windows)]
-        diagnose_export(&multi_so, "PyInit_expext_multi");
     }
     assert!(!module.is_null(), "multi-phase create_dynamic failed");
     let state_before = unsafe { get_state(module) };
