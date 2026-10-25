@@ -258,6 +258,35 @@ pub fn try_current() -> *mut ThreadState {
     slot::get()
 }
 
+// ------------------------------------------------- the calling module
+
+thread_local! {
+    /// The extension module whose `PyInit_*` entry point is running on this
+    /// thread, if any. Raising stubs name it in their `SystemError` message
+    /// (spec section 10.1).
+    static CALLING_MODULE: std::cell::RefCell<String> =
+        const { std::cell::RefCell::new(String::new()) };
+}
+
+/// Name the module being imported on this thread; the import machinery
+/// calls this around each `PyInit_*` entry point.
+pub fn set_calling_module(name: &str) {
+    CALLING_MODULE.with(|slot| *slot.borrow_mut() = name.to_owned());
+}
+
+/// Drop the calling-module name after the `PyInit_*` entry point returns.
+pub fn clear_calling_module() {
+    CALLING_MODULE.with(|slot| slot.borrow_mut().clear());
+}
+
+/// The module being imported on this thread, if any.
+pub fn calling_module() -> Option<String> {
+    CALLING_MODULE.with(|slot| {
+        let slot = slot.borrow();
+        (!slot.is_empty()).then(|| slot.clone())
+    })
+}
+
 // ------------------------------------------------- the r05 error-state surface
 
 /// Record `exc`'s instance with `message` as the pending exception. This is
