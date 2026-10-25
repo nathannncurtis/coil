@@ -636,6 +636,29 @@ pub unsafe extern "C" fn PyDict_GetItemWithError(
     }
 }
 
+/// `PyDict_GetItemString`: a borrowed value for an interned C-string key,
+/// the error left in place.
+///
+/// # Safety
+///
+/// `mp` must be a dict object; `key` a NUL-terminated string.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyDict_GetItemString(
+    mp: *mut PyObject,
+    key: *const core::ffi::c_char,
+) -> *mut PyObject {
+    // SAFETY: the C string is NUL-terminated per contract.
+    let key = unsafe { crate::types::unicode::PyUnicode_InternFromString(key) };
+    if key.is_null() {
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the dict and interned-key contracts.
+    let value = unsafe { PyDict_GetItemWithError(mp, key) };
+    // SAFETY: our own interned reference.
+    unsafe { crate::gc::counted::Py_DecRef(key) };
+    value
+}
+
 /// See the CPython 3.12 contract for this entry point.
 ///
 /// # Safety
@@ -667,6 +690,30 @@ pub unsafe extern "C" fn PyDict_SetItem(
         }
     }
     0
+}
+
+/// `PyDict_SetItemString`: store `item` under an interned C-string key.
+///
+/// # Safety
+///
+/// `mp` must be a dict object; `key` a NUL-terminated string; `item` a
+/// valid object.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyDict_SetItemString(
+    mp: *mut PyObject,
+    key: *const core::ffi::c_char,
+    item: *mut PyObject,
+) -> c_int {
+    // SAFETY: the C string is NUL-terminated per contract.
+    let key = unsafe { crate::types::unicode::PyUnicode_InternFromString(key) };
+    if key.is_null() {
+        return -1;
+    }
+    // SAFETY: the dict, interned-key and value contracts.
+    let res = unsafe { PyDict_SetItem(mp, key, item) };
+    // SAFETY: our own interned reference.
+    unsafe { crate::gc::counted::Py_DecRef(key) };
+    res
 }
 
 /// `PyDict_DelItem`; missing keys raise `KeyError` with the key as its

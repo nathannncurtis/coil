@@ -1154,6 +1154,14 @@ pub fn init_static_types() -> c_int {
             // The dict views hold their mapping by `ob_refcnt`; the
             // mapping types themselves store under the barrier.
         }
+        // The module types (spec section 10.4).
+        for t in crate::modules::static_types() {
+            if PyType_Ready(t) < 0 {
+                return -1;
+            }
+            // SAFETY: the outer block; readied once, before concurrency.
+            crate::gc::counted::note_coil_type(t);
+        }
         // The traced containers of spec 9.3: dict and set instances are
         // C-created, yet their slots carry barrier-accounted references.
         for t in [
