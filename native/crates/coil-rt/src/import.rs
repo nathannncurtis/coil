@@ -1040,8 +1040,9 @@ unsafe fn extern_dlerror() -> *mut c_char {
 
 #[cfg(windows)]
 const LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR: u32 = 0x0000_0010;
+// `APPLICATION_DIR | SYSTEM32 | USER_DIRS`; a composite, not a single bit.
 #[cfg(windows)]
-const LOAD_LIBRARY_SEARCH_DEFAULT_DIRS: u32 = 0x0000_1000;
+const LOAD_LIBRARY_SEARCH_DEFAULT_DIRS: u32 = 0x0000_0902;
 #[cfg(windows)]
 const LOAD_LIBRARY_SEARCH_USER_DIRS: u32 = 0x0000_0002;
 
