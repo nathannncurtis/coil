@@ -23,6 +23,7 @@ jobs:
       python: ${{ steps.f.outputs.python }}
       native: ${{ steps.f.outputs.native }}
       rust: ${{ steps.f.outputs.rust }}
+      testcapi: ${{ steps.f.outputs.testcapi }}
       docs: ${{ steps.f.outputs.docs }}
       compat: ${{ steps.f.outputs.compat }}
     steps:
@@ -58,6 +59,11 @@ jobs:
               - 'tools/fetch_cpython_src.py'
               - 'tools/layout_oracle.c'
               - 'tools/layout_oracle.py'
+              - '.github/workflows/ci.yml'
+            testcapi:
+              - 'native/crates/coil-rt/tests/capi/**'
+              - 'native/crates/coil-rt/src/**'
+              - 'tools/build_testcapi.py'
               - '.github/workflows/ci.yml'
             compat:
               - 'tests/compat/**'
@@ -281,6 +287,45 @@ jobs:
             throw "python312.dll does not export coil_rt_abi_sha256"
           }
 
+  testcapi:
+    needs: changes
+    if: needs.changes.outputs.testcapi == 'true'
+    # Builds CPython's _testcapi extension against coil's python312 cdylib and
+    # runs the early conformance suite (spec section 14, decision 14). Windows
+    # only: the extension is built with MSVC against the python312 import lib.
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.12"
+      - uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756 # v1.13.0
+        with:
+          arch: x64
+      - name: Install the pinned Rust toolchain
+        working-directory: native
+        run: rustup show
+      - name: Cache cargo registry and build artifacts
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.cargo/registry
+            native/target
+          key: rust-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}
+          restore-keys: |
+            rust-${{ runner.os }}-
+      - name: Build the python312 cdylib and its import library
+        working-directory: native
+        run: cargo build --lib -p coil-rt
+      - name: Build the _testcapi extension against the cdylib
+        run: python tools/build_testcapi.py
+      - name: Run the _testcapi conformance suite
+        working-directory: native
+        env:
+          COIL_TESTCAPI_PYD: ${{ github.workspace }}/build/testcapi/_testcapi.pyd
+        run: cargo test -p coil-rt --test capi
+
   front-diff:
     needs: changes
     if: needs.changes.outputs.rust == 'true'
@@ -351,7 +396,7 @@ jobs:
           fail: true
 
   ci-ok:
-    needs: [changes, rules, windows-executables, supported-build-hosts, python-audit, native, rust, front-diff, compat, docs]
+    needs: [changes, rules, windows-executables, supported-build-hosts, python-audit, native, rust, testcapi, front-diff, compat, docs]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
