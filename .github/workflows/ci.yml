@@ -309,10 +309,9 @@ jobs:
       - name: Cache cargo registry and build artifacts
         uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
-          # native/target is deliberately not restored: a target dir saved by
-          # a differently-shaped cargo invocation makes rustc's cdylib codegen
-          # report duplicate symbols that a clean build does not.
-          path: ~/.cargo/registry
+          path: |
+            ~/.cargo/registry
+            native/target
           key: rust-${{ runner.os }}-${{ hashFiles('native/Cargo.lock', 'native/rust-toolchain.toml') }}
           restore-keys: |
             rust-${{ runner.os }}-
