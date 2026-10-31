@@ -50,18 +50,20 @@ def find_python_lib(explicit: Path | None) -> Path:
     if explicit is not None:
         lib = explicit.resolve()
     else:
+        # Cargo links the cdylib through deps/python312.dll.lib; only the dll
+        # itself is copied up into the profile directory.
         lib = None
         for profile in ("release", "debug"):
-            candidate = ROOT / "native" / "target" / profile / "python312.lib"
+            candidate = ROOT / "native" / "target" / profile / "deps" / "python312.dll.lib"
             if candidate.is_file():
                 lib = candidate
                 break
         if lib is None:
             raise SystemExit(
-                "python312.lib not found; run cargo build -p coil-rt or pass --python-lib"
+                "python312.dll.lib not found; run cargo build -p coil-rt or pass --python-lib"
             )
     if not lib.is_file():
-        raise SystemExit(f"python312.lib not found: {lib}")
+        raise SystemExit(f"python312 import library not found: {lib}")
     return lib
 
 
@@ -84,6 +86,13 @@ def main() -> None:
     archive = build_dir / f"Python-{VERSION}.tar.xz"
     modules = prepare_module_sources(archive, build_dir)
     python_lib = find_python_lib(args.python_lib)
+    # pyconfig.h nominates python312.lib via #pragma comment(lib, ...); stage
+    # the cargo import library under that name and put it on the lib path so
+    # the pragma resolves to the same archive we pass explicitly.
+    staged_lib = build_dir / "python312.lib"
+    if python_lib != staged_lib.resolve():
+        shutil.copyfile(python_lib, staged_lib)
+        python_lib = staged_lib
     include_flags = [
         f"/I{headers}",
         f"/I{headers / 'internal'}",
@@ -111,7 +120,8 @@ def main() -> None:
     subprocess.run(
         [compiler, *flags, "/DLL", *map(str, objects), str(python_lib),
          f"/Fe{output}", "/link", "/SUBSYSTEM:WINDOWS", "/MACHINE:X64",
-         "/DYNAMICBASE", "/NXCOMPAT", "/HIGHENTROPYVA", "/Brepro"],
+         "/DYNAMICBASE", "/NXCOMPAT", "/HIGHENTROPYVA", "/Brepro",
+         f"/LIBPATH:{build_dir}"],
         cwd=build_dir, env=environment, check=True,
     )
     print(f"Wrote {output}", flush=True)
