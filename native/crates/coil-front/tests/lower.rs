@@ -99,6 +99,7 @@ fn parameter_kinds_fill_params() {
         f.params,
         Params {
             positional: vec![sym_of(&out, "a"), sym_of(&out, "b"), sym_of(&out, "c")],
+            posonly: 2,
             vararg: Some(sym_of(&out, "d")),
             kwonly: vec![sym_of(&out, "e")],
             kwarg: Some(sym_of(&out, "g")),
