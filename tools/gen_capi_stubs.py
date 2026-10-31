@@ -34,7 +34,7 @@ CPYTHON_VERSION = "3.12.10"
 NO_MANGLE = re.compile(r"#\[unsafe\(no_mangle\)\]\s*\n")
 MACRO_DEF = re.compile(r"macro_rules!\s*\w+\s*\{")
 ITEM = re.compile(
-    r"\s*(?:\s*#\[[^\]]*\]\s*)*"
+    r"\s*(?:#\[[^\]]*\]\s*)*"
     r"(?:pub(?:\([^)]*\))?\s+)?(?:unsafe\s+)?(?:extern\s+\"C\"\s+)?(fn|static(?:\s+mut)?|const)\s+([A-Za-z_]\w*)"
 )
 IDENTS = re.compile(r"[A-Za-z_]\w*")
