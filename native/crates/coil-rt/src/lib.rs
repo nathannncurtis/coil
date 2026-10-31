@@ -9,6 +9,7 @@ pub mod abi_generated;
 pub mod alloc;
 pub mod arch;
 pub mod capi;
+mod capi_stubs;
 pub mod eval_breaker;
 pub mod gc;
 pub mod gil;

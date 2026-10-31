@@ -2,6 +2,7 @@
 //! type objects and their initialisation (spec sections 8.1, 8.2 and 8.5).
 
 pub mod attr;
+pub mod fromspec;
 pub mod header;
 pub mod lock;
 pub mod singletons;

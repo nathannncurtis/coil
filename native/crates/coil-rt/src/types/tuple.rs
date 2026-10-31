@@ -818,3 +818,48 @@ unsafe extern "C" fn tuple_iter(seq: *mut PyObject) -> *mut PyObject {
     }
     it.cast()
 }
+
+/// See the CPython 3.12 contract for this entry point: build a tuple from
+/// the first `size` items, each of which is incref'd. CPython declares this
+/// as `PyTuple_Pack(Py_ssize_t, ...)`, so the items arrive as a C `va_list`
+/// and this entry point is variadic to match that calling convention.
+///
+/// # Safety
+///
+/// `size` must be >= 0; the caller must pass at least `size` valid object
+/// pointers as variadic arguments.
+#[unsafe(no_mangle)]
+pub unsafe extern "C" fn PyTuple_Pack(size: isize, mut args: ...) -> *mut PyObject {
+    if size < 0 {
+        crate::tstate::set_string(
+            exceptions::system_error(),
+            b"bad argument to internal function",
+        );
+        return core::ptr::null_mut();
+    }
+    let tuple = PyTuple_New(size);
+    if tuple.is_null() {
+        return core::ptr::null_mut();
+    }
+    // SAFETY: `tuple` is a fresh tuple with `size` counted slots; the caller
+    // passed `size` valid object pointers as variadic arguments.
+    unsafe {
+        for i in 0..size {
+            let item = args.next_arg::<*mut PyObject>();
+            if item.is_null() {
+                exceptions::release_object(tuple);
+                crate::tstate::set_string(
+                    exceptions::system_error(),
+                    b"PyTuple_Pack: item is NULL",
+                );
+                return core::ptr::null_mut();
+            }
+            exceptions::retain_object(item);
+            *(*tuple.cast::<PyTupleObject>())
+                .ob_item
+                .as_mut_ptr()
+                .add(i as usize) = item;
+        }
+    }
+    tuple
+}

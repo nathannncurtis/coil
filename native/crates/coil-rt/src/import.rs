@@ -472,7 +472,9 @@ unsafe fn import_find_extension(name: *mut PyObject, filename: *mut PyObject) ->
             return core::ptr::null_mut();
         }
         // SAFETY: `init` is a valid module-init function.
+        tstate::set_calling_module(&object_to_string(name));
         let module = unsafe { (init.unwrap())() };
+        tstate::clear_calling_module();
         if module.is_null() {
             return core::ptr::null_mut();
         }
@@ -703,7 +705,9 @@ pub unsafe fn load_dynamic(spec: *mut PyObject) -> *mut PyObject {
         }
     };
     // SAFETY: `init` is a valid module-init function.
+    tstate::set_calling_module(&object_to_string(name));
     let result = unsafe { init() };
+    tstate::clear_calling_module();
     if result.is_null() {
         // SAFETY: `name` and `path` are live objects.
         unsafe {
