@@ -723,13 +723,15 @@ fn corpus_matches_cpython_and_covers_every_instruction() {
             for tag in vm.coverage.covered() {
                 covered[tag] = true;
             }
-            let coil_out = model.take_output();
+            // CPython's text-mode stdout translates newlines to \r\n on
+            // Windows pipes; compare content, not platform line endings.
+            let coil_out = model.take_output().replace("\r\n", "\n");
             let coil_exc = uncaught.and_then(|e| exc_type(&model.format_uncaught(&e)));
             let py_run = std::process::Command::new(py)
                 .arg(path)
                 .output()
                 .unwrap_or_else(|e| panic!("run {}: {e}", path.display()));
-            let py_out = String::from_utf8_lossy(&py_run.stdout).into_owned();
+            let py_out = String::from_utf8_lossy(&py_run.stdout).replace("\r\n", "\n");
             let py_exc = exc_type(&String::from_utf8_lossy(&py_run.stderr));
             let name = path.file_name().unwrap().to_string_lossy();
             let mut why: Vec<String> = Vec::new();
