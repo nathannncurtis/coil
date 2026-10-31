@@ -56,6 +56,11 @@ pub enum Error {
         instr: InstrId,
         value: Value,
     },
+    /// A non-empty facts table not parallel to the types table.
+    RaggedFacts {
+        types: u32,
+        facts: u32,
+    },
     OperandNotDominated {
         block: BlockId,
         instr: InstrId,
@@ -191,6 +196,9 @@ impl fmt::Display for Error {
                 at(*block, *instr),
                 value.0
             ),
+            Error::RaggedFacts { types, facts } => {
+                write!(f, "facts table holds {facts} entries against {types} types")
+            }
             Error::OperandNotDominated {
                 block,
                 instr,
@@ -366,6 +374,14 @@ pub fn verify_function(f: &Function, classes: &[ClassDesc]) -> Result<(), Error>
             block: f.entry,
             instr: InstrId(0),
             value: Value(f.types.len() as u32),
+        });
+    }
+    // Facts index the same `Value` space as types when present (spec
+    // section 7); a ragged side table is a pass bug.
+    if !f.facts.is_empty() && f.facts.len() != f.types.len() {
+        return Err(Error::RaggedFacts {
+            types: f.types.len() as u32,
+            facts: f.facts.len() as u32,
         });
     }
     for v in 0..arity {

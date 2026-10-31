@@ -508,6 +508,7 @@ impl<'a> Lowerer<'a> {
             locals: Vec::new(),
             flags: FnFlags(0),
             types: Vec::new(),
+            facts: Vec::new(),
             lines: Vec::new(),
         });
         FnId(self.functions.len() as u32 - 1)

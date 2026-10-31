@@ -51,6 +51,7 @@ fn module() -> Module {
         locals: vec![],
         flags: FnFlags(0),
         types: vec![Type::None],
+        facts: Vec::new(),
         lines: vec![(InstrId(0), 1, 1)],
     };
 
@@ -140,6 +141,7 @@ fn module() -> Module {
             Type::BigInt,
             Type::BigInt,
         ],
+        facts: Vec::new(),
         lines: vec![
             (InstrId(0), 1, 11),
             (InstrId(1), 1, 14),
@@ -225,6 +227,7 @@ fn module() -> Module {
             Type::Top,
             Type::Str,
         ],
+        facts: Vec::new(),
         lines: vec![
             (InstrId(0), 1, 4),
             (InstrId(1), 1, 4),
@@ -277,6 +280,7 @@ fn module() -> Module {
         }],
         flags: FnFlags::GENERATOR.union(FnFlags::HAS_CELLS),
         types: vec![Type::Top, Type::BigInt, Type::Top, Type::Top, Type::Top],
+        facts: Vec::new(),
         lines: vec![
             (InstrId(0), 1, 15),
             (InstrId(1), 1, 15),
@@ -914,6 +918,7 @@ fn every_instruction_roundtrips() {
                     Type::Str,
                     Type::Tuple(vec![].into()),
                 ],
+                facts: Vec::new(),
                 lines: vec![(InstrId(0), 1, 1), (InstrId(82), 9, 99)],
             }],
             classes: vec![coil_ir::ir::ClassDesc {

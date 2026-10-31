@@ -1,15 +1,19 @@
 //! Type inference over whole programs (spec section 7): a corpus of small
-//! programs asserting the per-value types in text form - arithmetic loops,
+//! programs asserting the per-value facts in text form - arithmetic loops,
 //! class attribute types, per-tuple clones, the `Top` fallback, guard
 //! narrowing, defaults and integer overflow - and the pinned standard
 //! library run through inference without panics or fixpoint failures,
-//! with the timing printed.
+//! with the timing printed, and still verifying afterwards: the analysis
+//! view lives in `Function::facts`, `Function::types` keeps the
+//! representation view.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use coil_ir::print::print_module_facts;
 use coil_ir::types::{ClassId, FnId};
+use coil_ir::verify;
 use coilc::analysis::callgraph;
 use coilc::analysis::infer::{self, ATy, Inference};
 use coilc::analysis::shapes::Shapes;
@@ -49,7 +53,7 @@ impl Drop for Tree {
 }
 
 /// Compile a single-module program and run the analyses over it: the
-/// program with every `Function::types` filled, plus the inference tables.
+/// program with every `Function::facts` filled, plus the inference tables.
 fn one_module(tag: &str, source: &str) -> (Program, Inference) {
     let tree = Tree::new(tag);
     let cache = tree.path("cache");
@@ -82,6 +86,19 @@ fn fn_of(program: &Program, qualname: &str) -> FnRef {
     }
 }
 
+/// The IR text with every value annotated by its analysis facts - the
+/// inference's view, where `Int64` means "fits in 64 bits" - rather than
+/// its representation type.
+fn facts_text(program: &Program) -> String {
+    let mut out = String::new();
+    for module in &program.modules {
+        if let Some(ir) = &module.ir {
+            out.push_str(&print_module_facts(ir));
+        }
+    }
+    out
+}
+
 #[test]
 fn loop_indices_stay_int64_and_sums_widen() {
     let (program, _) = one_module(
@@ -93,7 +110,7 @@ for i in range(n):
     s = s + i
 ",
     );
-    let text = program.dump_ir();
+    let text = facts_text(&program);
     assert!(
         text.contains(":Int64 = next "),
         "range elements should type Int64:\n{text}"
@@ -141,7 +158,7 @@ b = p.y
         "self.y = 1.5 should record the float:\n{}",
         inference.dump(&program)
     );
-    let text = program.dump_ir();
+    let text = facts_text(&program);
     assert!(
         text.contains(":Int64 = getattr "),
         "p.x should read back the int:\n{text}"
@@ -269,7 +286,7 @@ for v in (1, \"s\"):
         "one call site through the union:\n{}",
         inference.dump(&program)
     );
-    let text = program.dump_ir();
+    let text = facts_text(&program);
     assert!(
         text.contains(":BigInt = binop add, "),
         "x + 1 under the guard should add unboxed ints:\n{text}"
@@ -286,7 +303,7 @@ b = 2 ** 10
 m = 7 % 3
 ",
     );
-    let text = program.dump_ir();
+    let text = facts_text(&program);
     assert!(
         text.contains(":BigInt = binop pow, "),
         "2 ** 64 does not fit in 64 bits:\n{text}"
@@ -441,6 +458,75 @@ fn stdlib_modules_infer_without_panicking() {
     // imports resolve: the shim files the manifest points at are not
     // checked in yet and unix built-ins (`posix` and friends) are outside
     // the manifest, so the rest are rejected before inference runs.
+    assert!(
+        built >= 100,
+        "the front end should still build a real corpus ({built} of {})",
+        entries.len()
+    );
+}
+
+#[test]
+fn stdlib_modules_verify_after_infer() {
+    let Some(lib) = stdlib_lib() else {
+        eprintln!("skipping: the pinned Lib/ tree is not under the coil cache");
+        return;
+    };
+    let (manifest_path, _shims) = manifest::discover().expect("the checked-in manifest");
+    let manifest = Manifest::load(&manifest_path).expect("the manifest parses");
+    let entries = stdlib_entries(&lib, &manifest);
+    let tree = Tree::new("stdlib-verify");
+    let cache = tree.path("cache");
+    let start = Instant::now();
+    let mut built = 0usize;
+    let mut verified = 0usize;
+    let mut skipped = 0usize;
+    let mut failures: Vec<String> = Vec::new();
+    for name in &entries {
+        tree.write(
+            "job.json",
+            &format!(
+                r#"{{"entries": ["{name}"], "source_roots": [], "stdlib_source_root": "{}",
+                    "abi": "cp312", "optimize": 0, "output": "app.exe"}}"#,
+                lib.display()
+            ),
+        );
+        let job = job::load(&tree.path("job.json")).unwrap();
+        // A module the front end rejects never reaches inference (or the
+        // verifier); it is that module's answer, not a verification failure.
+        let Ok(mut outcome) = build::program(&job, &cache) else {
+            skipped += 1;
+            continue;
+        };
+        built += 1;
+        let reflective = callgraph::reflective(&outcome.program);
+        let shapes = Shapes::analyze(&outcome.program, &reflective);
+        let graph = callgraph::build(&outcome.program, &shapes);
+        infer::analyze(&mut outcome.program, &shapes, &graph);
+        let mut module_ok = true;
+        for module in outcome.program.modules.iter() {
+            let Some(ir) = &module.ir else {
+                continue;
+            };
+            if let Err(e) = verify::verify_module(ir) {
+                module_ok = false;
+                if failures.len() < 10 {
+                    failures.push(format!("{name} / {}: {e}", module.name));
+                }
+            }
+        }
+        if module_ok {
+            verified += 1;
+        }
+    }
+    let elapsed = start.elapsed();
+    println!(
+        "coilc: {verified}/{built} stdlib modules verify after inference in {elapsed:.1?} ({skipped} rejected by the front end)",
+    );
+    assert!(
+        verified == built,
+        "every built module should verify after inference:\n{}",
+        failures.join("\n")
+    );
     assert!(
         built >= 100,
         "the front end should still build a real corpus ({built} of {})",
