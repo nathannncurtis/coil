@@ -4,6 +4,8 @@
 use std::path::Path;
 use std::process::ExitCode;
 
+use coilc::analysis::shapes::Shapes;
+use coilc::analysis::{callgraph, infer};
 use coilc::build;
 use coilc::job;
 
@@ -31,7 +33,11 @@ fn build_command(job_path: &Path) -> ExitCode {
         Err(error) => return fail(&error),
     };
     match build::program(&job, &cache_root) {
-        Ok(outcome) => {
+        Ok(mut outcome) => {
+            let reflective = callgraph::reflective(&outcome.program);
+            let shapes = Shapes::analyze(&outcome.program, &reflective);
+            let graph = callgraph::build(&outcome.program, &shapes);
+            infer::analyze(&mut outcome.program, &shapes, &graph);
             if job.emit == Some(job::Emit::Ir) {
                 print!("{}", outcome.program.dump_ir());
             }
