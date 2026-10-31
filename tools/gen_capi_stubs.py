@@ -142,6 +142,10 @@ def view_type_names(body: str) -> set[str]:
     return {IDENTS.search(strip_comments(body)).group(0)}
 
 
+def codec_entry_names(body: str) -> set[str]:
+    return set(re.findall(r"\bfn\s+([A-Za-z_]\w*)\s*\(", strip_comments(body)))
+
+
 def exception_type_names(body: str) -> set[str]:
     names = set()
     for entry in strip_comments(body).split(";"):
@@ -161,7 +165,11 @@ MACRO_EXTRACTORS = {
     "unicode_error_accessors": unicode_error_accessor_names,
     "view_type": view_type_names,
     "iter_type": view_type_names,
+    "unary_number_func": view_type_names,
+    "binary_number_func": view_type_names,
+    "inplace_number_func": view_type_names,
     "exception_types": exception_type_names,
+    "codec_object_entry": codec_entry_names,
 }
 # The macro definitions attach #[unsafe(no_mangle)] to the items they expand
 # to, so the invocations themselves carry no attribute; find them by name.

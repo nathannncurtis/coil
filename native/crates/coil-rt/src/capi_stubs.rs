@@ -32,11 +32,6 @@ fn raise(name: &str) {
 use core::ffi::{c_char, c_ulong, c_void};
 // --- functions ---
 #[unsafe(no_mangle)]
-pub extern "C" fn PyAIter_Check() -> isize {
-    raise("PyAIter_Check");
-    -1
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyArg_Parse() -> isize {
     raise("PyArg_Parse");
     -1
@@ -77,35 +72,6 @@ pub extern "C" fn PyAsyncGen_New() -> *mut c_void {
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyBuffer_FillContiguousStrides() {
-    raise("PyBuffer_FillContiguousStrides");
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyBuffer_FromContiguous() -> isize {
-    raise("PyBuffer_FromContiguous");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyBuffer_GetPointer() -> *mut c_void {
-    raise("PyBuffer_GetPointer");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyBuffer_IsContiguous() -> isize {
-    raise("PyBuffer_IsContiguous");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyBuffer_SizeFromFormat() -> isize {
-    raise("PyBuffer_SizeFromFormat");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyBuffer_ToContiguous() -> isize {
-    raise("PyBuffer_ToContiguous");
-    -1
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyCFunction_Call() -> *mut c_void {
     raise("PyCFunction_Call");
     core::ptr::null_mut()
@@ -114,71 +80,6 @@ pub extern "C" fn PyCFunction_Call() -> *mut c_void {
 pub extern "C" fn PyCMethod_New() -> *mut c_void {
     raise("PyCMethod_New");
     core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCallIter_New() -> *mut c_void {
-    raise("PyCallIter_New");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCallable_Check() -> isize {
-    raise("PyCallable_Check");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_GetContext() -> *mut c_void {
-    raise("PyCapsule_GetContext");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_GetDestructor() -> isize {
-    raise("PyCapsule_GetDestructor");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_GetName() -> *mut c_void {
-    raise("PyCapsule_GetName");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_GetPointer() -> *mut c_void {
-    raise("PyCapsule_GetPointer");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_Import() -> *mut c_void {
-    raise("PyCapsule_Import");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_IsValid() -> isize {
-    raise("PyCapsule_IsValid");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_New() -> *mut c_void {
-    raise("PyCapsule_New");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_SetContext() -> isize {
-    raise("PyCapsule_SetContext");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_SetDestructor() -> isize {
-    raise("PyCapsule_SetDestructor");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_SetName() -> isize {
-    raise("PyCapsule_SetName");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCapsule_SetPointer() -> isize {
-    raise("PyCapsule_SetPointer");
-    -1
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn PyCell_Get() -> *mut c_void {
@@ -248,101 +149,6 @@ pub extern "C" fn PyCode_NewEmpty() -> *mut c_void {
 #[unsafe(no_mangle)]
 pub extern "C" fn PyCode_Optimize() -> *mut c_void {
     raise("PyCode_Optimize");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_BackslashReplaceErrors() -> *mut c_void {
-    raise("PyCodec_BackslashReplaceErrors");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_Decode() -> *mut c_void {
-    raise("PyCodec_Decode");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_Decoder() -> *mut c_void {
-    raise("PyCodec_Decoder");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_Encode() -> *mut c_void {
-    raise("PyCodec_Encode");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_Encoder() -> *mut c_void {
-    raise("PyCodec_Encoder");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_IgnoreErrors() -> *mut c_void {
-    raise("PyCodec_IgnoreErrors");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_IncrementalDecoder() -> *mut c_void {
-    raise("PyCodec_IncrementalDecoder");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_IncrementalEncoder() -> *mut c_void {
-    raise("PyCodec_IncrementalEncoder");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_KnownEncoding() -> isize {
-    raise("PyCodec_KnownEncoding");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_LookupError() -> *mut c_void {
-    raise("PyCodec_LookupError");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_NameReplaceErrors() -> *mut c_void {
-    raise("PyCodec_NameReplaceErrors");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_Register() -> isize {
-    raise("PyCodec_Register");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_RegisterError() -> isize {
-    raise("PyCodec_RegisterError");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_ReplaceErrors() -> *mut c_void {
-    raise("PyCodec_ReplaceErrors");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_StreamReader() -> *mut c_void {
-    raise("PyCodec_StreamReader");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_StreamWriter() -> *mut c_void {
-    raise("PyCodec_StreamWriter");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_StrictErrors() -> *mut c_void {
-    raise("PyCodec_StrictErrors");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_Unregister() -> isize {
-    raise("PyCodec_Unregister");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyCodec_XMLCharRefReplaceErrors() -> *mut c_void {
-    raise("PyCodec_XMLCharRefReplaceErrors");
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
@@ -1176,11 +982,6 @@ pub extern "C" fn PyImport_ReloadModule() -> *mut c_void {
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyIndex_Check() -> isize {
-    raise("PyIndex_Check");
-    -1
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyInstanceMethod_Function() -> *mut c_void {
     raise("PyInstanceMethod_Function");
     core::ptr::null_mut()
@@ -1239,71 +1040,6 @@ pub extern "C" fn PyInterpreterState_ThreadHead() -> *mut c_void {
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyIter_Check() -> isize {
-    raise("PyIter_Check");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyIter_Next() -> *mut c_void {
-    raise("PyIter_Next");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyIter_Send() -> isize {
-    raise("PyIter_Send");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_Check() -> isize {
-    raise("PyMapping_Check");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_GetItemString() -> *mut c_void {
-    raise("PyMapping_GetItemString");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_HasKey() -> isize {
-    raise("PyMapping_HasKey");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_HasKeyString() -> isize {
-    raise("PyMapping_HasKeyString");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_Items() -> *mut c_void {
-    raise("PyMapping_Items");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_Keys() -> *mut c_void {
-    raise("PyMapping_Keys");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_Length() -> isize {
-    raise("PyMapping_Length");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_SetItemString() -> isize {
-    raise("PyMapping_SetItemString");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_Size() -> isize {
-    raise("PyMapping_Size");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMapping_Values() -> *mut c_void {
-    raise("PyMapping_Values");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyMarshal_ReadLastObjectFromFile() -> *mut c_void {
     raise("PyMarshal_ReadLastObjectFromFile");
     core::ptr::null_mut()
@@ -1356,26 +1092,6 @@ pub extern "C" fn PyMember_SetOne() -> isize {
     -1
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyMemoryView_FromBuffer() -> *mut c_void {
-    raise("PyMemoryView_FromBuffer");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMemoryView_FromMemory() -> *mut c_void {
-    raise("PyMemoryView_FromMemory");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMemoryView_FromObject() -> *mut c_void {
-    raise("PyMemoryView_FromObject");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyMemoryView_GetContiguous() -> *mut c_void {
-    raise("PyMemoryView_GetContiguous");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyMethod_Function() -> *mut c_void {
     raise("PyMethod_Function");
     core::ptr::null_mut()
@@ -1388,191 +1104,6 @@ pub extern "C" fn PyMethod_New() -> *mut c_void {
 #[unsafe(no_mangle)]
 pub extern "C" fn PyMethod_Self() -> *mut c_void {
     raise("PyMethod_Self");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Absolute() -> *mut c_void {
-    raise("PyNumber_Absolute");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Add() -> *mut c_void {
-    raise("PyNumber_Add");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_And() -> *mut c_void {
-    raise("PyNumber_And");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_AsSsize_t() -> isize {
-    raise("PyNumber_AsSsize_t");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Check() -> isize {
-    raise("PyNumber_Check");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Divmod() -> *mut c_void {
-    raise("PyNumber_Divmod");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Float() -> *mut c_void {
-    raise("PyNumber_Float");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_FloorDivide() -> *mut c_void {
-    raise("PyNumber_FloorDivide");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceAdd() -> *mut c_void {
-    raise("PyNumber_InPlaceAdd");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceAnd() -> *mut c_void {
-    raise("PyNumber_InPlaceAnd");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceFloorDivide() -> *mut c_void {
-    raise("PyNumber_InPlaceFloorDivide");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceLshift() -> *mut c_void {
-    raise("PyNumber_InPlaceLshift");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceMatrixMultiply() -> *mut c_void {
-    raise("PyNumber_InPlaceMatrixMultiply");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceMultiply() -> *mut c_void {
-    raise("PyNumber_InPlaceMultiply");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceOr() -> *mut c_void {
-    raise("PyNumber_InPlaceOr");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlacePower() -> *mut c_void {
-    raise("PyNumber_InPlacePower");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceRemainder() -> *mut c_void {
-    raise("PyNumber_InPlaceRemainder");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceRshift() -> *mut c_void {
-    raise("PyNumber_InPlaceRshift");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceSubtract() -> *mut c_void {
-    raise("PyNumber_InPlaceSubtract");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceTrueDivide() -> *mut c_void {
-    raise("PyNumber_InPlaceTrueDivide");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_InPlaceXor() -> *mut c_void {
-    raise("PyNumber_InPlaceXor");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Index() -> *mut c_void {
-    raise("PyNumber_Index");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Invert() -> *mut c_void {
-    raise("PyNumber_Invert");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Long() -> *mut c_void {
-    raise("PyNumber_Long");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Lshift() -> *mut c_void {
-    raise("PyNumber_Lshift");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_MatrixMultiply() -> *mut c_void {
-    raise("PyNumber_MatrixMultiply");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Multiply() -> *mut c_void {
-    raise("PyNumber_Multiply");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Negative() -> *mut c_void {
-    raise("PyNumber_Negative");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Or() -> *mut c_void {
-    raise("PyNumber_Or");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Positive() -> *mut c_void {
-    raise("PyNumber_Positive");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Power() -> *mut c_void {
-    raise("PyNumber_Power");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Remainder() -> *mut c_void {
-    raise("PyNumber_Remainder");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Rshift() -> *mut c_void {
-    raise("PyNumber_Rshift");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Subtract() -> *mut c_void {
-    raise("PyNumber_Subtract");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_ToBase() -> *mut c_void {
-    raise("PyNumber_ToBase");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_TrueDivide() -> *mut c_void {
-    raise("PyNumber_TrueDivide");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyNumber_Xor() -> *mut c_void {
-    raise("PyNumber_Xor");
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
@@ -1660,11 +1191,6 @@ pub extern "C" fn PyObject_AsCharBuffer() -> isize {
     -1
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyObject_AsFileDescriptor() -> isize {
-    raise("PyObject_AsFileDescriptor");
-    -1
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyObject_AsReadBuffer() -> isize {
     raise("PyObject_AsReadBuffer");
     -1
@@ -1675,67 +1201,9 @@ pub extern "C" fn PyObject_AsWriteBuffer() -> isize {
     -1
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Call() -> *mut c_void {
-    raise("PyObject_Call");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallFinalizer() {
-    raise("PyObject_CallFinalizer");
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallFinalizerFromDealloc() -> isize {
-    raise("PyObject_CallFinalizerFromDealloc");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallFunction() -> *mut c_void {
-    raise("PyObject_CallFunction");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallFunctionObjArgs() -> *mut c_void {
-    raise("PyObject_CallFunctionObjArgs");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallMethod() -> *mut c_void {
-    raise("PyObject_CallMethod");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallMethodObjArgs() -> *mut c_void {
-    raise("PyObject_CallMethodObjArgs");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallNoArgs() -> *mut c_void {
-    raise("PyObject_CallNoArgs");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallObject() -> *mut c_void {
-    raise("PyObject_CallObject");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CallOneArg() -> *mut c_void {
-    raise("PyObject_CallOneArg");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_CheckBuffer() -> isize {
-    raise("PyObject_CheckBuffer");
-    -1
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyObject_CheckReadBuffer() -> isize {
     raise("PyObject_CheckReadBuffer");
     -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_ClearWeakRefs() {
-    raise("PyObject_ClearWeakRefs");
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn PyObject_CopyData() -> isize {
@@ -1743,75 +1211,8 @@ pub extern "C" fn PyObject_CopyData() -> isize {
     -1
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyObject_DelItem() -> isize {
-    raise("PyObject_DelItem");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_DelItemString() -> isize {
-    raise("PyObject_DelItemString");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Dir() -> *mut c_void {
-    raise("PyObject_Dir");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Format() -> *mut c_void {
-    raise("PyObject_Format");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GC_Del() {
-    raise("PyObject_GC_Del");
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GC_IsFinalized() -> isize {
-    raise("PyObject_GC_IsFinalized");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GC_IsTracked() -> isize {
-    raise("PyObject_GC_IsTracked");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GC_Track() {
-    raise("PyObject_GC_Track");
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GC_UnTrack() {
-    raise("PyObject_GC_UnTrack");
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyObject_GET_WEAKREFS_LISTPTR() -> *mut c_void {
     raise("PyObject_GET_WEAKREFS_LISTPTR");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GenericGetAttr() -> *mut c_void {
-    raise("PyObject_GenericGetAttr");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GenericGetDict() -> *mut c_void {
-    raise("PyObject_GenericGetDict");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GenericSetAttr() -> isize {
-    raise("PyObject_GenericSetAttr");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GenericSetDict() -> isize {
-    raise("PyObject_GenericSetDict");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GetAIter() -> *mut c_void {
-    raise("PyObject_GetAIter");
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
@@ -1819,23 +1220,8 @@ pub extern "C" fn PyObject_GetArenaAllocator() {
     raise("PyObject_GetArenaAllocator");
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GetAttr() -> *mut c_void {
-    raise("PyObject_GetAttr");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GetItem() -> *mut c_void {
-    raise("PyObject_GetItem");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyObject_GetItemData() -> *mut c_void {
     raise("PyObject_GetItemData");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_GetIter() -> *mut c_void {
-    raise("PyObject_GetIter");
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
@@ -1844,118 +1230,8 @@ pub extern "C" fn PyObject_GetTypeData() -> *mut c_void {
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyObject_HasAttr() -> isize {
-    raise("PyObject_HasAttr");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_HasAttrString() -> isize {
-    raise("PyObject_HasAttrString");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Hash() -> isize {
-    raise("PyObject_Hash");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_IS_GC() -> isize {
-    raise("PyObject_IS_GC");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_InitVar() -> *mut c_void {
-    raise("PyObject_InitVar");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_IsInstance() -> isize {
-    raise("PyObject_IsInstance");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_IsSubclass() -> isize {
-    raise("PyObject_IsSubclass");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_IsTrue() -> isize {
-    raise("PyObject_IsTrue");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Length() -> isize {
-    raise("PyObject_Length");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_LengthHint() -> isize {
-    raise("PyObject_LengthHint");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Not() -> isize {
-    raise("PyObject_Not");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Print() -> isize {
-    raise("PyObject_Print");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_RichCompare() -> *mut c_void {
-    raise("PyObject_RichCompare");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_RichCompareBool() -> isize {
-    raise("PyObject_RichCompareBool");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_SelfIter() -> *mut c_void {
-    raise("PyObject_SelfIter");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyObject_SetArenaAllocator() {
     raise("PyObject_SetArenaAllocator");
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_SetAttr() -> isize {
-    raise("PyObject_SetAttr");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_SetItem() -> isize {
-    raise("PyObject_SetItem");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Size() -> isize {
-    raise("PyObject_Size");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Type() -> *mut c_void {
-    raise("PyObject_Type");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_Vectorcall() -> *mut c_void {
-    raise("PyObject_Vectorcall");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_VectorcallDict() -> *mut c_void {
-    raise("PyObject_VectorcallDict");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyObject_VectorcallMethod() -> *mut c_void {
-    raise("PyObject_VectorcallMethod");
-    core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn PyPickleBuffer_FromObject() -> *mut c_void {
@@ -2078,111 +1354,6 @@ pub extern "C" fn PyRun_String() -> *mut c_void {
 #[unsafe(no_mangle)]
 pub extern "C" fn PyRun_StringFlags() -> *mut c_void {
     raise("PyRun_StringFlags");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySeqIter_New() -> *mut c_void {
-    raise("PySeqIter_New");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Check() -> isize {
-    raise("PySequence_Check");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Concat() -> *mut c_void {
-    raise("PySequence_Concat");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Contains() -> isize {
-    raise("PySequence_Contains");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Count() -> isize {
-    raise("PySequence_Count");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_DelItem() -> isize {
-    raise("PySequence_DelItem");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_DelSlice() -> isize {
-    raise("PySequence_DelSlice");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Fast() -> *mut c_void {
-    raise("PySequence_Fast");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_GetItem() -> *mut c_void {
-    raise("PySequence_GetItem");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_GetSlice() -> *mut c_void {
-    raise("PySequence_GetSlice");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_In() -> isize {
-    raise("PySequence_In");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_InPlaceConcat() -> *mut c_void {
-    raise("PySequence_InPlaceConcat");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_InPlaceRepeat() -> *mut c_void {
-    raise("PySequence_InPlaceRepeat");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Index() -> isize {
-    raise("PySequence_Index");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Length() -> isize {
-    raise("PySequence_Length");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_List() -> *mut c_void {
-    raise("PySequence_List");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Repeat() -> *mut c_void {
-    raise("PySequence_Repeat");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_SetItem() -> isize {
-    raise("PySequence_SetItem");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_SetSlice() -> isize {
-    raise("PySequence_SetSlice");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Size() -> isize {
-    raise("PySequence_Size");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PySequence_Tuple() -> *mut c_void {
-    raise("PySequence_Tuple");
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
@@ -2786,21 +1957,6 @@ pub extern "C" fn PyUnstable_WritePerfMapEntry() -> isize {
     -1
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn PyVectorcall_Call() -> *mut c_void {
-    raise("PyVectorcall_Call");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyVectorcall_Function() -> isize {
-    raise("PyVectorcall_Function");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn PyVectorcall_NARGS() -> isize {
-    raise("PyVectorcall_NARGS");
-    -1
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn PyWeakref_GetObject() -> *mut c_void {
     raise("PyWeakref_GetObject");
     core::ptr::null_mut()
@@ -3341,36 +2497,6 @@ pub extern "C" fn _PyCode_New() -> *mut c_void {
 pub extern "C" fn _PyCode_Validate() -> isize {
     raise("_PyCode_Validate");
     -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyCodecInfo_GetIncrementalDecoder() -> *mut c_void {
-    raise("_PyCodecInfo_GetIncrementalDecoder");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyCodecInfo_GetIncrementalEncoder() -> *mut c_void {
-    raise("_PyCodecInfo_GetIncrementalEncoder");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyCodec_DecodeText() -> *mut c_void {
-    raise("_PyCodec_DecodeText");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyCodec_EncodeText() -> *mut c_void {
-    raise("_PyCodec_EncodeText");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyCodec_Lookup() -> *mut c_void {
-    raise("_PyCodec_Lookup");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyCodec_LookupTextEncoding() -> *mut c_void {
-    raise("_PyCodec_LookupTextEncoding");
-    core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn _PyCompile_Assemble() -> *mut c_void {
@@ -4118,11 +3244,6 @@ pub extern "C" fn _PyNamespace_New() -> *mut c_void {
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn _PyNumber_Index() -> *mut c_void {
-    raise("_PyNumber_Index");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn _PyOS_InterruptOccurred() -> isize {
     raise("_PyOS_InterruptOccurred");
     -1
@@ -4152,21 +3273,6 @@ pub extern "C" fn _PyObject_AssertFailed() {
     raise("_PyObject_AssertFailed");
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_Call() -> *mut c_void {
-    raise("_PyObject_Call");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_CallFunction_SizeT() -> *mut c_void {
-    raise("_PyObject_CallFunction_SizeT");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_CallMethod() -> *mut c_void {
-    raise("_PyObject_CallMethod");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_CallMethodId() -> *mut c_void {
     raise("_PyObject_CallMethodId");
     core::ptr::null_mut()
@@ -4182,16 +3288,6 @@ pub extern "C" fn _PyObject_CallMethodId_SizeT() -> *mut c_void {
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_CallMethod_SizeT() -> *mut c_void {
-    raise("_PyObject_CallMethod_SizeT");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_Call_Prepend() -> *mut c_void {
-    raise("_PyObject_Call_Prepend");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_CheckConsistency() -> isize {
     raise("_PyObject_CheckConsistency");
     -1
@@ -4200,10 +3296,6 @@ pub extern "C" fn _PyObject_CheckConsistency() -> isize {
 pub extern "C" fn _PyObject_CheckCrossInterpreterData() -> isize {
     raise("_PyObject_CheckCrossInterpreterData");
     -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_ClearManagedDict() {
-    raise("_PyObject_ClearManagedDict");
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_DebugMallocStats() -> isize {
@@ -4219,11 +3311,6 @@ pub extern "C" fn _PyObject_Dump() {
     raise("_PyObject_Dump");
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_FastCall() -> *mut c_void {
-    raise("_PyObject_FastCall");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_FastCallDictTstate() -> *mut c_void {
     raise("_PyObject_FastCallDictTstate");
     core::ptr::null_mut()
@@ -4234,29 +3321,9 @@ pub extern "C" fn _PyObject_FunctionStr() -> *mut c_void {
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_GC_New() -> *mut c_void {
-    raise("_PyObject_GC_New");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_GC_NewVar() -> *mut c_void {
-    raise("_PyObject_GC_NewVar");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_GC_Resize() -> *mut c_void {
     raise("_PyObject_GC_Resize");
     core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_GenericGetAttrWithDict() -> *mut c_void {
-    raise("_PyObject_GenericGetAttrWithDict");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_GenericSetAttrWithDict() -> isize {
-    raise("_PyObject_GenericSetAttrWithDict");
-    -1
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_GetAttrId() -> *mut c_void {
@@ -4266,16 +3333,6 @@ pub extern "C" fn _PyObject_GetAttrId() -> *mut c_void {
 #[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_GetCrossInterpreterData() -> isize {
     raise("_PyObject_GetCrossInterpreterData");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_GetDictPtr() -> *mut c_void {
-    raise("_PyObject_GetDictPtr");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_GetMethod() -> isize {
-    raise("_PyObject_GetMethod");
     -1
 }
 #[unsafe(no_mangle)]
@@ -4299,19 +3356,9 @@ pub extern "C" fn _PyObject_IsFreed() -> isize {
     -1
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_LookupAttr() -> isize {
-    raise("_PyObject_LookupAttr");
-    -1
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_LookupAttrId() -> isize {
     raise("_PyObject_LookupAttrId");
     -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_LookupSpecial() -> *mut c_void {
-    raise("_PyObject_LookupSpecial");
-    core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_LookupSpecialId() -> *mut c_void {
@@ -4319,38 +3366,8 @@ pub extern "C" fn _PyObject_LookupSpecialId() -> *mut c_void {
     core::ptr::null_mut()
 }
 #[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_MakeTpCall() -> *mut c_void {
-    raise("_PyObject_MakeTpCall");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_NewVar() -> *mut c_void {
-    raise("_PyObject_NewVar");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_NextNotImplemented() -> *mut c_void {
-    raise("_PyObject_NextNotImplemented");
-    core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_RealIsInstance() -> isize {
-    raise("_PyObject_RealIsInstance");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_RealIsSubclass() -> isize {
-    raise("_PyObject_RealIsSubclass");
-    -1
-}
-#[unsafe(no_mangle)]
 pub extern "C" fn _PyObject_SetAttrId() -> isize {
     raise("_PyObject_SetAttrId");
-    -1
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PyObject_VisitManagedDict() -> isize {
-    raise("_PyObject_VisitManagedDict");
     -1
 }
 #[unsafe(no_mangle)]
@@ -4408,11 +3425,6 @@ pub extern "C" fn _PyRuntime_Initialize() -> PyStatusStub {
 pub extern "C" fn _PySequence_BytesToCharpArray() -> *mut c_void {
     raise("_PySequence_BytesToCharpArray");
     core::ptr::null_mut()
-}
-#[unsafe(no_mangle)]
-pub extern "C" fn _PySequence_IterSearch() -> isize {
-    raise("_PySequence_IterSearch");
-    -1
 }
 #[unsafe(no_mangle)]
 pub extern "C" fn _PySlice_FromIndices() -> *mut c_void {
@@ -5427,16 +4439,6 @@ pub static mut PyCMethod_Type: PyTypeObject = {
     unsafe { core::mem::zeroed() }
 };
 #[unsafe(no_mangle)]
-pub static mut PyCallIter_Type: PyTypeObject = {
-    // SAFETY: zero is a valid bit pattern for PyTypeObject.
-    unsafe { core::mem::zeroed() }
-};
-#[unsafe(no_mangle)]
-pub static mut PyCapsule_Type: PyTypeObject = {
-    // SAFETY: zero is a valid bit pattern for PyTypeObject.
-    unsafe { core::mem::zeroed() }
-};
-#[unsafe(no_mangle)]
 pub static mut PyCell_Type: PyTypeObject = {
     // SAFETY: zero is a valid bit pattern for PyTypeObject.
     unsafe { core::mem::zeroed() }
@@ -5561,11 +4563,6 @@ pub static mut PyMemberDescr_Type: PyTypeObject = {
     unsafe { core::mem::zeroed() }
 };
 #[unsafe(no_mangle)]
-pub static mut PyMemoryView_Type: PyTypeObject = {
-    // SAFETY: zero is a valid bit pattern for PyTypeObject.
-    unsafe { core::mem::zeroed() }
-};
-#[unsafe(no_mangle)]
 pub static mut PyMethodDescr_Type: PyTypeObject = {
     // SAFETY: zero is a valid bit pattern for PyTypeObject.
     unsafe { core::mem::zeroed() }
@@ -5628,11 +4625,6 @@ pub static mut PyRange_Type: PyTypeObject = {
 };
 #[unsafe(no_mangle)]
 pub static mut PyReversed_Type: PyTypeObject = {
-    // SAFETY: zero is a valid bit pattern for PyTypeObject.
-    unsafe { core::mem::zeroed() }
-};
-#[unsafe(no_mangle)]
-pub static mut PySeqIter_Type: PyTypeObject = {
     // SAFETY: zero is a valid bit pattern for PyTypeObject.
     unsafe { core::mem::zeroed() }
 };
