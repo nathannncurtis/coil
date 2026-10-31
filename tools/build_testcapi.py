@@ -123,8 +123,8 @@ def main() -> None:
         objects.append(obj)
     output = build_dir / "_testcapi.pyd"
     subprocess.run(
-        [compiler, *flags, "/DLL", *map(str, objects), str(python_lib),
-         f"/Fe{output}", "/link", "/SUBSYSTEM:WINDOWS", "/MACHINE:X64",
+        [compiler, *flags, *map(str, objects), str(python_lib),
+         f"/Fe{output}", "/link", "/DLL", "/SUBSYSTEM:WINDOWS", "/MACHINE:X64",
          "/DYNAMICBASE", "/NXCOMPAT", "/HIGHENTROPYVA", "/Brepro",
          f"/LIBPATH:{build_dir}"],
         cwd=build_dir, env=environment, check=True,
