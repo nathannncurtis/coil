@@ -1538,8 +1538,12 @@ pub unsafe extern "C" fn _PyLong_Frexp(a: *mut PyObject, e: *mut isize) -> f64 {
 pub unsafe extern "C" fn PyLong_AsDouble(v: *mut PyObject) -> f64 {
     // SAFETY: the conversion only reads the object's digits.
     unsafe {
-        if v.is_null() || !is_long(v) {
-            crate::tstate::set_string(exceptions::type_error(), b"an integer is required");
+        if v.is_null() {
+            bad_internal_call();
+            return -1.0;
+        }
+        if !is_long(v) {
+            not_an_integer();
             return -1.0;
         }
         let v = v.cast::<PyLongObject>();
@@ -2489,6 +2493,15 @@ fn not_an_integer() {
     crate::tstate::set_string(exceptions::type_error(), b"an integer is required");
 }
 
+/// SystemError for an extractor handed a null pointer (CPython's
+/// `PyErr_BadInternalCall`).
+fn bad_internal_call() {
+    crate::tstate::set_string(
+        exceptions::system_error(),
+        b"bad argument to internal function",
+    );
+}
+
 /// `PyLong_AsLongAndOverflow`'s shared body over a 64-bit range.
 ///
 /// # Safety
@@ -2498,6 +2511,10 @@ unsafe fn as_i64_and_overflow(vv: *mut PyObject, overflow: *mut c_int) -> i64 {
     // SAFETY: the object is read as an int after the type check.
     unsafe {
         *overflow = 0;
+        if vv.is_null() {
+            bad_internal_call();
+            return -1;
+        }
         if !is_long(vv) {
             type_error_cannot_interpret(vv);
             return -1;
@@ -2627,7 +2644,11 @@ pub unsafe extern "C" fn PyLong_AsLongLong(obj: *mut PyObject) -> c_longlong {
 pub unsafe extern "C" fn PyLong_AsSsize_t(vv: *mut PyObject) -> isize {
     // SAFETY: the object is read as an int after the type check.
     unsafe {
-        if vv.is_null() || !is_long(vv) {
+        if vv.is_null() {
+            bad_internal_call();
+            return -1;
+        }
+        if !is_long(vv) {
             not_an_integer();
             return -1;
         }
@@ -2659,7 +2680,11 @@ pub unsafe extern "C" fn PyLong_AsSsize_t(vv: *mut PyObject) -> isize {
 pub unsafe extern "C" fn PyLong_AsSize_t(vv: *mut PyObject) -> usize {
     // SAFETY: the object is read as an int after the type check.
     unsafe {
-        if vv.is_null() || !is_long(vv) {
+        if vv.is_null() {
+            bad_internal_call();
+            return usize::MAX;
+        }
+        if !is_long(vv) {
             not_an_integer();
             return usize::MAX;
         }
@@ -2694,7 +2719,11 @@ pub unsafe extern "C" fn PyLong_AsSize_t(vv: *mut PyObject) -> usize {
 pub unsafe extern "C" fn PyLong_AsUnsignedLong(vv: *mut PyObject) -> c_ulong {
     // SAFETY: the object is read as an int after the type check.
     unsafe {
-        if vv.is_null() || !is_long(vv) {
+        if vv.is_null() {
+            bad_internal_call();
+            return c_ulong::MAX;
+        }
+        if !is_long(vv) {
             not_an_integer();
             return c_ulong::MAX;
         }
@@ -2722,7 +2751,11 @@ pub unsafe extern "C" fn PyLong_AsUnsignedLong(vv: *mut PyObject) -> c_ulong {
 pub unsafe extern "C" fn PyLong_AsUnsignedLongLong(vv: *mut PyObject) -> c_ulonglong {
     // SAFETY: the object is read as an int after the type check.
     unsafe {
-        if vv.is_null() || !is_long(vv) {
+        if vv.is_null() {
+            bad_internal_call();
+            return c_ulonglong::MAX;
+        }
+        if !is_long(vv) {
             not_an_integer();
             return c_ulonglong::MAX;
         }
@@ -2749,7 +2782,11 @@ pub unsafe extern "C" fn PyLong_AsUnsignedLongLong(vv: *mut PyObject) -> c_ulong
 unsafe fn as_mask(vv: *mut PyObject, bits: u32) -> u128 {
     // SAFETY: the object is read as an int after the type check.
     unsafe {
-        if vv.is_null() || !is_long(vv) {
+        if vv.is_null() {
+            bad_internal_call();
+            return (1u128 << bits) - 1;
+        }
+        if !is_long(vv) {
             not_an_integer();
             return (1u128 << bits) - 1;
         }
