@@ -25,14 +25,33 @@ static INIT: Once = Once::new();
 /// the GIL tests do.
 static SERIAL: Mutex<()> = Mutex::new(());
 
-fn init() -> MutexGuard<'static, ()> {
+/// What `init` hands out: the serialization hold plus the thread's
+/// `PyGILState_Ensure` reference, given back when the test ends. The
+/// `--features debug-heap` entry-point assertions make attachment part
+/// of every test's setup.
+struct Serial {
+    _lock: MutexGuard<'static, ()>,
+    gil: core::ffi::c_int,
+}
+
+impl Drop for Serial {
+    fn drop(&mut self) {
+        // The state is this thread's own, attached by `init`.
+        python312::gil::PyGILState_Release(self.gil);
+    }
+}
+
+fn init() -> Serial {
     INIT.call_once(|| {
         assert_eq!(typeobject::init_static_types(), 0);
         // Explicit collections only: pacing has its own test, which
         // re-enables the switch around its allocations.
         gc::disable();
     });
-    SERIAL.lock().unwrap()
+    Serial {
+        _lock: SERIAL.lock().unwrap(),
+        gil: python312::gil::PyGILState_Ensure(),
+    }
 }
 
 /// Drop the reference count a C API constructor left: the object becomes
@@ -1023,7 +1042,7 @@ fn pacing_decisions_follow_the_spec() {
 
 #[test]
 fn threads_allocate_and_collect_concurrently() {
-    let _serial = init();
+    let serial = init();
     let before = gc::pacing::collections();
     let threads: Vec<_> = (0..4)
         .map(|_| {
@@ -1050,9 +1069,14 @@ fn threads_allocate_and_collect_concurrently() {
             })
         })
         .collect();
+    // Give the GIL up for the workers' attaches: joining while holding
+    // it would leave every thread waiting for this one. The state is
+    // this thread's own, attached by `init`.
+    python312::gil::PyGILState_Release(serial.gil);
     for thread in threads {
         thread.join().expect("allocator thread panicked");
     }
+    python312::gil::PyGILState_Ensure();
     assert!(gc::pacing::collections() > before);
     // The heap settles: everything the threads left is gone.
     assert!(gc::collect() > 0);
