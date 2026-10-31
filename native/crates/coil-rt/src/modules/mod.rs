@@ -1,8 +1,9 @@
 //! The native built-in modules of the Rust column (spec section 10.6):
 //! `builtins`, `sys`, `_imp`, `_struct`, `math`, `cmath`, `_collections`,
-//! `itertools`, `array`, `binascii`, `zlib`, `audioop`, `_codecs` and
-//! `_sre`, each a C-API-shaped surface over the exact layouts and the
-//! shared helpers below.
+//! `itertools`, `array`, `binascii`, `zlib`, `audioop`, `_codecs`,
+//! `_multibytecodec` with the `_codecs_*` CJK codecs, and `_sre`, each
+//! a C-API-shaped surface over the exact layouts and the shared helpers
+//! below.
 //!
 //! The module object machinery every one of them — and every `.pyd` —
 //! initialises through (spec section 10.4): `PyModuleDef_Init`, PEP 489
@@ -14,6 +15,7 @@
 //! gives non-str keys.
 
 pub mod _codecs;
+pub mod _multibytecodec;
 pub mod _sre;
 pub mod binascii;
 pub mod builtins;

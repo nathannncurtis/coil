@@ -2976,7 +2976,7 @@ pub fn translate_core(
 /// needs unicodedata's name database) come with their own tasks; any
 /// other name raises `LookupError` like an unregistered handler.
 #[derive(Clone, Copy, PartialEq)]
-pub(crate) enum ErrHandler {
+pub enum ErrHandler {
     Strict,
     Ignore,
     Replace,

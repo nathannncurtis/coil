@@ -1176,6 +1176,11 @@ pub fn init_static_types() -> c_int {
                 return -1;
             }
         }
+        for t in crate::modules::_multibytecodec::static_types() {
+            if PyType_Ready(t) < 0 {
+                return -1;
+            }
+        }
         materialize_type_tuples();
     }
     0
