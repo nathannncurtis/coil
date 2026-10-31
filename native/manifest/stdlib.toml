@@ -1,0 +1,306 @@
+# The stdlib manifest (spec sections 10.6 and 11.1): how a compiled build
+# provides every module of the embeddable CPython 3.12.10 runtime. `coilc`
+# consults this table while growing the closed-world module set.
+#
+# kind is one of:
+#   compiled      pure Python, compiled from the pinned Lib/ tree
+#   shim          provided by a Python file under native/shims/
+#   native        provided by the Rust runtime in python312.dll; a leaf
+#   pyd           CPython's own extension from the embeddable zip; a leaf
+#   unsupported   has no compiled-build implementation; statically importing
+#                 one is a build error naming the module and the reason
+#
+# The 67 built-ins are the pinned 3.12.10 sources' PC/config.c
+# _PyImport_Inittab; the .pyd list is the embeddable zip's contents; coilc's
+# tests assert the built-in names are all covered.
+
+# Provided by Rust in coil-rt (spec section 10.6).
+[_ast]
+kind = "native"
+
+[_codecs]
+kind = "native"
+
+[_codecs_cn]
+kind = "native"
+
+[_codecs_hk]
+kind = "native"
+
+[_codecs_iso2022]
+kind = "native"
+
+[_codecs_jp]
+kind = "native"
+
+[_codecs_kr]
+kind = "native"
+
+[_codecs_tw]
+kind = "native"
+
+[_collections]
+kind = "native"
+
+[_contextvars]
+kind = "native"
+
+[_imp]
+kind = "native"
+
+[_locale]
+kind = "native"
+
+[_multibytecodec]
+kind = "native"
+
+[_random]
+kind = "native"
+
+[_signal]
+kind = "native"
+
+[_sre]
+kind = "native"
+
+[_string]
+kind = "native"
+
+[_struct]
+kind = "native"
+
+[_thread]
+kind = "native"
+
+[_tracemalloc]
+kind = "native"
+
+[_typing]
+kind = "native"
+
+[_weakref]
+kind = "native"
+
+[_winapi]
+kind = "native"
+
+[array]
+kind = "native"
+
+[atexit]
+kind = "native"
+
+[audioop]
+kind = "native"
+
+[binascii]
+kind = "native"
+
+[builtins]
+kind = "native"
+
+[cmath]
+kind = "native"
+
+[errno]
+kind = "native"
+
+[faulthandler]
+kind = "native"
+
+[gc]
+kind = "native"
+
+[itertools]
+kind = "native"
+
+[marshal]
+kind = "native"
+
+[math]
+kind = "native"
+
+[mmap]
+kind = "native"
+
+[msvcrt]
+kind = "native"
+
+[nt]
+kind = "native"
+
+[sys]
+kind = "native"
+
+[time]
+kind = "native"
+
+[winreg]
+kind = "native"
+
+[zlib]
+kind = "native"
+
+# Pure Python standing in for built-in modules (spec section 10.6): the
+# stdlib's own fallbacks and shims. Each names a file under native/shims/
+# (which may import the compiled fallback below it).
+[_abc]
+kind = "shim"
+
+[_bisect]
+kind = "shim"
+
+[_csv]
+kind = "shim"
+
+[_datetime]
+kind = "shim"
+
+[_functools]
+kind = "shim"
+
+[_heapq]
+kind = "shim"
+
+[_io]
+kind = "shim"
+
+[_json]
+kind = "shim"
+
+[_opcode]
+kind = "shim"
+
+[_operator]
+kind = "shim"
+
+[_pickle]
+kind = "shim"
+
+[_stat]
+kind = "shim"
+
+[_statistics]
+kind = "shim"
+
+[_tokenize]
+kind = "shim"
+
+[_warnings]
+kind = "shim"
+
+# The stdlib's own pure-Python fallbacks, compiled from the pinned Lib/ tree.
+[_py_abc]
+kind = "compiled"
+
+[_pydatetime]
+kind = "compiled"
+
+[_pyio]
+kind = "compiled"
+
+# CPython's own extension modules, loaded through the C API layer
+# (spec section 10.6).
+[_asyncio]
+kind = "pyd"
+
+[_bz2]
+kind = "pyd"
+
+[_ctypes]
+kind = "pyd"
+
+[_decimal]
+kind = "pyd"
+
+[_elementtree]
+kind = "pyd"
+
+[_hashlib]
+kind = "pyd"
+
+[_lzma]
+kind = "pyd"
+
+[_msi]
+kind = "pyd"
+
+[_multiprocessing]
+kind = "pyd"
+
+[_overlapped]
+kind = "pyd"
+
+[_queue]
+kind = "pyd"
+
+[_socket]
+kind = "pyd"
+
+[_sqlite3]
+kind = "pyd"
+
+[_ssl]
+kind = "pyd"
+
+[_uuid]
+kind = "pyd"
+
+[_wmi]
+kind = "pyd"
+
+[_zoneinfo]
+kind = "pyd"
+
+[pyexpat]
+kind = "pyd"
+
+[select]
+kind = "pyd"
+
+[unicodedata]
+kind = "pyd"
+
+[winsound]
+kind = "pyd"
+
+# No compiled-build implementation (spec section 10.6).
+[_blake2]
+kind = "unsupported"
+reason = "hashlib uses _hashlib.pyd and tolerates the absence of the built-in hash modules"
+
+[_lsprof]
+kind = "unsupported"
+reason = "cProfile needs profiling, which compiled builds do not support (sys.setprofile is unsupported)"
+
+[_md5]
+kind = "unsupported"
+reason = "hashlib uses _hashlib.pyd and tolerates the absence of the built-in hash modules"
+
+[_sha1]
+kind = "unsupported"
+reason = "hashlib uses _hashlib.pyd and tolerates the absence of the built-in hash modules"
+
+[_sha2]
+kind = "unsupported"
+reason = "hashlib uses _hashlib.pyd and tolerates the absence of the built-in hash modules"
+
+[_sha3]
+kind = "unsupported"
+reason = "hashlib uses _hashlib.pyd and tolerates the absence of the built-in hash modules"
+
+[_symtable]
+kind = "unsupported"
+reason = "introspection of CPython's own symtable; Coil's symtable is not CPython's"
+
+[_xxinterpchannels]
+kind = "unsupported"
+reason = "sub-interpreter channels are not implemented by the coil runtime"
+
+[_xxsubinterpreters]
+kind = "unsupported"
+reason = "sub-interpreters are not implemented by the coil runtime"
+
+[xxsubtype]
+kind = "unsupported"
+reason = "CPython's test-only example type module"
