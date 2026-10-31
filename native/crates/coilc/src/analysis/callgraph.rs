@@ -210,6 +210,57 @@ impl CallGraph {
     }
 }
 
+/// The class hierarchy of the program: each class's resolved bases and C3
+/// linearisation, computed the way `build` resolves its method edges. The
+/// later analyses - inference's attribute walk and method routing (spec
+/// section 7) - resolve against the same linearisation.
+pub struct Hierarchy {
+    mros: HashMap<ClassRef, Option<Vec<ClassRef>>>,
+}
+
+/// The class hierarchy: resolved bases from each class's `MakeClass` site,
+/// then the C3 linearisation of every class in the program.
+pub fn hierarchy(program: &Program) -> Hierarchy {
+    let self_of = shapes::self_params(program);
+    let scan = Scan::new(program).run(&self_of);
+    let mut mros: HashMap<ClassRef, Option<Vec<ClassRef>>> = HashMap::new();
+    for &cls in &program.classes {
+        let mut visiting = BTreeSet::new();
+        let linearized = mro(&scan.bases, cls, &mut mros, &mut visiting);
+        mros.insert(cls, linearized);
+    }
+    Hierarchy { mros }
+}
+
+impl Hierarchy {
+    /// A class's linearisation, the class first; `None` when a base is not a
+    /// program class or the hierarchy is inconsistent.
+    pub fn mro(&self, cls: ClassRef) -> Option<&[ClassRef]> {
+        self.mros.get(&cls)?.as_deref()
+    }
+
+    /// The function a method call of `name` on an instance of `cls` runs: the
+    /// first definition along the MRO. Sealing is the caller's concern - an
+    /// unsealed class's instances may run a subclass override instead.
+    pub fn method(&self, program: &Program, cls: ClassRef, name: &str) -> Option<FnRef> {
+        for cr in self.mro(cls)? {
+            let ir = program.modules[cr.module as usize]
+                .ir
+                .as_ref()
+                .expect("classes only exist in compiled modules");
+            for (method, fid) in &ir.classes[cr.class.0 as usize].methods {
+                if ir.consts.sym_str(*method) == name {
+                    return Some(FnRef {
+                        module: cr.module,
+                        function: *fid,
+                    });
+                }
+            }
+        }
+        None
+    }
+}
+
 /// `<module>.<qualname>`, the dump's name for a function.
 fn label(program: &Program, fr: FnRef) -> String {
     let state = &program.modules[fr.module as usize];
