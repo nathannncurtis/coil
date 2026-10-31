@@ -228,7 +228,10 @@ fn a_missing_shim_names_the_path() {
     let message = error.to_string();
     assert!(message.contains("module '_json'"), "error: {message}");
     assert!(message.contains("needs a shim"), "error: {message}");
-    assert!(message.contains("shims/_json.py"), "error: {message}");
+    assert!(
+        message.contains(&format!("shims{}_json.py", std::path::MAIN_SEPARATOR)),
+        "error: {message}"
+    );
 }
 
 #[test]
