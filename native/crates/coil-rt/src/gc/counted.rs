@@ -87,7 +87,7 @@ pub(crate) unsafe fn type_is_counted(ty: *mut PyTypeObject) -> bool {
 }
 
 /// The page and object granule of a heap address, when it has both.
-fn object_page(addr: usize) -> Option<(&'static PageHeader, usize)> {
+pub(crate) fn object_page(addr: usize) -> Option<(&'static PageHeader, usize)> {
     let page = crate::alloc::page_of(addr)?;
     Some((page, page.granule_of(page.base(), addr)))
 }
@@ -128,6 +128,15 @@ struct SideEntry {
 fn side_counts() -> &'static Mutex<HashMap<usize, SideEntry>> {
     static MAP: OnceLock<Mutex<HashMap<usize, SideEntry>>> = OnceLock::new();
     MAP.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+/// Drop an address's side-count row, if any — the bookkeeping
+/// `dealloc_object` clears before it frees a block.
+pub(crate) fn drop_side_counts(addr: usize) {
+    side_counts()
+        .lock()
+        .expect("side-count map poisoned")
+        .remove(&addr);
 }
 
 /// The pre-header's second word is free per spec 9.3; its bit 0 says the

@@ -9,7 +9,7 @@ use core::ffi::c_int;
 
 use coil_capi_sys::{
     Py_TPFLAGS_BASETYPE, Py_TPFLAGS_DEFAULT, Py_TPFLAGS_HAVE_GC, Py_TPFLAGS_LIST_SUBCLASS,
-    Py_TPFLAGS_SEQUENCE, PyObject, PyTypeObject, PyVarObject,
+    Py_TPFLAGS_SEQUENCE, PyObject, PySequenceMethods, PyTypeObject, PyVarObject,
 };
 
 use crate::object::header;
@@ -17,7 +17,7 @@ use crate::object::lock;
 use crate::object::typeobject::_Py_TPFLAGS_MATCH_SELF;
 use crate::object::typeobject::{Py_LT, PyType_GenericAlloc, zero_type};
 use crate::types::exc as exceptions;
-use crate::types::{Cmp, rich_compare};
+use crate::types::{Cmp, objects_equal, rich_compare};
 
 /// CPython 3.12's `PyListObject` with the Coil tail: the var-object
 /// header, the item array pointer and over-allocation count of
@@ -225,6 +225,326 @@ unsafe extern "C" fn list_traverse(
     0
 }
 
+/// `list_length` (`tp_as_sequence.sq_length`).
+unsafe extern "C" fn list_length(op: *mut PyObject) -> isize {
+    // SAFETY: the size field is within the list.
+    unsafe { (*op.cast::<PyListObject>()).ob_base.ob_size }
+}
+
+/// `list_item` (`tp_as_sequence.sq_item`): a new reference with negative
+/// indices wrapping, `IndexError` outside the bounds.
+unsafe extern "C" fn list_item(op: *mut PyObject, i: isize) -> *mut PyObject {
+    let list = op.cast::<PyListObject>();
+    // SAFETY: the size read is within the list.
+    let size = unsafe { (*list).ob_base.ob_size };
+    let i = if i < 0 { i + size } else { i };
+    if i < 0 || i >= size {
+        crate::tstate::set_string(exceptions::index_error(), b"list index out of range");
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the bounds check precedes the item read.
+    unsafe {
+        let item = *(*list).ob_item.add(i as usize);
+        if crate::gc::counted::slots_are_counted(op) {
+            crate::gc::counted::note_read_from_counted(item);
+        }
+        // The slot hands out a reference C owns.
+        crate::gc::counted::Py_IncRef(item);
+        item
+    }
+}
+
+/// `list_ass_item` (`tp_as_sequence.sq_ass_item`): replace the item, or
+/// delete it when the value is null.
+unsafe extern "C" fn list_ass_item(op: *mut PyObject, i: isize, v: *mut PyObject) -> c_int {
+    let list = op.cast::<PyListObject>();
+    // SAFETY: the size read is within the list.
+    let size = unsafe { (*list).ob_base.ob_size };
+    let i = if i < 0 { i + size } else { i };
+    if i < 0 || i >= size {
+        crate::tstate::set_string(
+            exceptions::index_error(),
+            b"list assignment index out of range",
+        );
+        return -1;
+    }
+    // SAFETY: both arms follow the C entry points' contracts; the
+    // caller's value is borrowed, so the slot supplies the reference
+    // `PyList_SetItem` steals.
+    unsafe {
+        if v.is_null() {
+            PyList_SetSlice(op, i, i + 1, core::ptr::null_mut())
+        } else {
+            crate::gc::counted::Py_IncRef(v);
+            PyList_SetItem(op, i, v)
+        }
+    }
+}
+
+/// The `%.200s` type name of `object`.
+fn type_name(object: *mut PyObject) -> &'static str {
+    // SAFETY: the type pointer and name are the type object's own.
+    unsafe { crate::util::cstr((*header::type_of(object)).tp_name) }
+}
+
+/// `list_concat` (`tp_as_sequence.sq_concat`): a fresh list holding both
+/// operands' items.
+unsafe extern "C" fn list_concat(a: *mut PyObject, bb: *mut PyObject) -> *mut PyObject {
+    if !(unsafe { is_list(bb) }) {
+        crate::tstate::set_string(
+            exceptions::type_error(),
+            format!(
+                "can only concatenate list (not \"{}\") to list",
+                type_name(bb)
+            )
+            .as_bytes(),
+        );
+        return core::ptr::null_mut();
+    }
+    // SAFETY: both operands are lists; the sizes are within them.
+    let asize = unsafe { list_length(a) };
+    let bsize = unsafe { list_length(bb) };
+    if bsize > 0 && asize > isize::MAX - bsize {
+        crate::tstate::set_string(exceptions::memory_error(), b"");
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the fresh list's slots are written below its exposure.
+    let result = PyList_New(asize + bsize);
+    if result.is_null() {
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the new list's item-array pointer read is within it.
+    let dst = unsafe { (*result.cast::<PyListObject>()).ob_item };
+    // SAFETY: the sources' slices are within their arrays; the result
+    // was allocated for exactly this many slots.
+    unsafe {
+        core::ptr::copy_nonoverlapping((*a.cast::<PyListObject>()).ob_item, dst, asize as usize);
+        core::ptr::copy_nonoverlapping(
+            (*bb.cast::<PyListObject>()).ob_item,
+            dst.add(asize as usize),
+            bsize as usize,
+        );
+        // The result is a fresh list: its slots are counted references,
+        // so each stored item is retained as CPython's `list_concat`
+        // retains its copies.
+        for i in 0..(asize + bsize) as usize {
+            crate::gc::counted::_Py_IncRef(*dst.add(i));
+        }
+    }
+    result
+}
+
+/// `list_repeat` (`tp_as_sequence.sq_repeat`).
+unsafe extern "C" fn list_repeat(op: *mut PyObject, n: isize) -> *mut PyObject {
+    let n = n.max(0);
+    // SAFETY: the operand is a list.
+    let size = unsafe { list_length(op) };
+    if size > 0 && n > isize::MAX / size {
+        crate::tstate::set_string(exceptions::memory_error(), b"");
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the fresh list's slots are written below its exposure.
+    let result = PyList_New(size * n);
+    if result.is_null() {
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the new list's item-array pointer read is within it.
+    let dst = unsafe { (*result.cast::<PyListObject>()).ob_item };
+    // SAFETY: each round copies within both arrays.
+    unsafe {
+        let src = (*op.cast::<PyListObject>()).ob_item;
+        for round in 0..n as usize {
+            core::ptr::copy_nonoverlapping(src, dst.add(round * size as usize), size as usize);
+        }
+        for i in 0..(size * n) as usize {
+            crate::gc::counted::_Py_IncRef(*dst.add(i));
+        }
+    }
+    result
+}
+
+/// `list_contains` (`tp_as_sequence.sq_contains`).
+unsafe extern "C" fn list_contains(op: *mut PyObject, el: *mut PyObject) -> c_int {
+    let list = op.cast::<PyListObject>();
+    // SAFETY: the size read is within the list.
+    let size = unsafe { (*list).ob_base.ob_size };
+    for i in 0..size {
+        // SAFETY: the item read is within the list's array.
+        let item = unsafe { *(*list).ob_item.add(i as usize) };
+        // SAFETY: both are valid objects.
+        match unsafe { objects_equal(item, el) } {
+            Ok(true) => return 1,
+            Ok(false) => {}
+            Err(()) => return -1,
+        }
+    }
+    0
+}
+
+/// `list_inplace_concat` (`tp_as_sequence.sq_inplace_concat`): extend in
+/// place and return the same list.
+unsafe extern "C" fn list_inplace_concat(op: *mut PyObject, other: *mut PyObject) -> *mut PyObject {
+    if !(unsafe { is_list(other) }) {
+        crate::tstate::set_string(
+            exceptions::type_error(),
+            format!(
+                "can only concatenate list (not \"{}\") to list",
+                type_name(other)
+            )
+            .as_bytes(),
+        );
+        return core::ptr::null_mut();
+    }
+    // SAFETY: appending the operand's items at the end is `extend`.
+    unsafe {
+        let size = list_length(op);
+        if PyList_SetSlice(op, size, size, other) < 0 {
+            return core::ptr::null_mut();
+        }
+        crate::gc::counted::Py_IncRef(op);
+        op
+    }
+}
+
+/// `list_inplace_repeat` (`tp_as_sequence.sq_inplace_repeat`): repeat
+/// the items in place and return the same list.
+unsafe extern "C" fn list_inplace_repeat(op: *mut PyObject, n: isize) -> *mut PyObject {
+    let list = op.cast::<PyListObject>();
+    // SAFETY: the guard covers the resize and item moves; the size and
+    // item reads are within the list.
+    unsafe {
+        let _guard = locked(op);
+        let size = (*list).ob_base.ob_size;
+        if size > 0 && n > isize::MAX / size {
+            crate::tstate::set_string(exceptions::memory_error(), b"");
+            return core::ptr::null_mut();
+        }
+        let counted = crate::gc::counted::slots_are_counted(op);
+        if n <= 0 {
+            for i in 0..size {
+                let old = *(*list).ob_item.add(i as usize);
+                if counted {
+                    crate::gc::counted::decref_unless_claimed(old);
+                } else {
+                    crate::gc::counted::barrier(old, core::ptr::null_mut());
+                }
+            }
+            if !list_resize(list, 0) {
+                return core::ptr::null_mut();
+            }
+        } else if n > 1 {
+            // SAFETY: the item reads are within the list's array.
+            let src: Vec<*mut PyObject> =
+                core::slice::from_raw_parts((*list).ob_item, size as usize).to_vec();
+            if !list_resize(list, size * n) {
+                return core::ptr::null_mut();
+            }
+            let dst = (*list).ob_item;
+            // The first copy already holds its references; each extra
+            // round stores fresh slots that take their own.
+            for round in 1..n as usize {
+                for (i, item) in src.iter().enumerate() {
+                    *dst.add(round * size as usize + i) = *item;
+                    if counted {
+                        crate::gc::counted::_Py_IncRef(*item);
+                    } else {
+                        crate::gc::counted::barrier(core::ptr::null_mut(), *item);
+                    }
+                }
+            }
+        }
+        crate::gc::counted::Py_IncRef(op);
+        op
+    }
+}
+
+static mut LIST_AS_SEQUENCE: PySequenceMethods = PySequenceMethods {
+    sq_length: Some(list_length),
+    sq_concat: Some(list_concat),
+    sq_repeat: Some(list_repeat),
+    sq_item: Some(list_item),
+    was_sq_slice: core::ptr::null_mut(),
+    sq_ass_item: Some(list_ass_item),
+    was_sq_ass_slice: core::ptr::null_mut(),
+    sq_contains: Some(list_contains),
+    sq_inplace_concat: Some(list_inplace_concat),
+    sq_inplace_repeat: Some(list_inplace_repeat),
+};
+
+/// `list_subscript` (`tp_as_mapping.mp_subscript`): an index reaches the
+/// item slot; slice objects are this runtime's documented gap, so only
+/// the index and error arms exist.
+unsafe extern "C" fn list_subscript(op: *mut PyObject, item: *mut PyObject) -> *mut PyObject {
+    // SAFETY: the index probe respects the object's type.
+    if unsafe { crate::capi::r#abstract::PyIndex_Check(item) } != 0 {
+        // SAFETY: `PyNumber_AsSsize_t` follows its contract; a failed
+        // conversion leaves the index error pending.
+        let i =
+            unsafe { crate::capi::r#abstract::PyNumber_AsSsize_t(item, exceptions::index_error()) };
+        if i == -1 && !crate::tstate::occurred().is_null() {
+            return core::ptr::null_mut();
+        }
+        // SAFETY: the negative wrap precedes the slot's own bounds
+        // handling, as CPython's `list_subscript` does.
+        let i = if i < 0 {
+            i + unsafe { list_length(op) }
+        } else {
+            i
+        };
+        unsafe { list_item(op, i) }
+    } else {
+        crate::tstate::set_string(
+            exceptions::type_error(),
+            format!(
+                "list indices must be integers or slices, not {}",
+                type_name(item)
+            )
+            .as_bytes(),
+        );
+        core::ptr::null_mut()
+    }
+}
+
+/// `list_ass_subscript` (`tp_as_mapping.mp_ass_subscript`): assign or,
+/// with a null value, delete.
+unsafe extern "C" fn list_ass_subscript(
+    op: *mut PyObject,
+    item: *mut PyObject,
+    value: *mut PyObject,
+) -> c_int {
+    // SAFETY: the index probe respects the object's type.
+    if unsafe { crate::capi::r#abstract::PyIndex_Check(item) } != 0 {
+        // SAFETY: as `list_subscript`.
+        let i =
+            unsafe { crate::capi::r#abstract::PyNumber_AsSsize_t(item, exceptions::index_error()) };
+        if i == -1 && !crate::tstate::occurred().is_null() {
+            return -1;
+        }
+        let i = if i < 0 {
+            i + unsafe { list_length(op) }
+        } else {
+            i
+        };
+        unsafe { list_ass_item(op, i, value) }
+    } else {
+        crate::tstate::set_string(
+            exceptions::type_error(),
+            format!(
+                "list indices must be integers or slices, not {}",
+                type_name(item)
+            )
+            .as_bytes(),
+        );
+        -1
+    }
+}
+
+static mut LIST_AS_MAPPING: coil_capi_sys::PyMappingMethods = coil_capi_sys::PyMappingMethods {
+    mp_length: Some(list_length),
+    mp_subscript: Some(list_subscript),
+    mp_ass_subscript: Some(list_ass_subscript),
+};
+
 const fn list_type() -> PyTypeObject {
     let mut t = zero_type();
     t.tp_name = c"list".as_ptr();
@@ -238,6 +558,11 @@ const fn list_type() -> PyTypeObject {
         | _Py_TPFLAGS_MATCH_SELF;
     t.tp_traverse = Some(list_traverse);
     t.tp_iter = Some(list_iter);
+    // CPython's `PyList_Type` pins this explicitly so slot inheritance
+    // cannot make lists hashable.
+    t.tp_hash = Some(crate::object::typeobject::PyObject_HashNotImplemented);
+    t.tp_as_sequence = &raw mut LIST_AS_SEQUENCE;
+    t.tp_as_mapping = &raw mut LIST_AS_MAPPING;
     t.tp_alloc = Some(PyType_GenericAlloc);
     t.tp_free = Some(crate::alloc::pymem::PyObject_Free);
     t

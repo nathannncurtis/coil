@@ -510,6 +510,10 @@ const fn object_type() -> PyTypeObject {
     t.tp_name = c"object".as_ptr();
     t.tp_basicsize = coil_rt_abi::cp312::object::SIZEOF as isize;
     t.tp_dealloc = Some(object_dealloc);
+    // CPython's `PyBaseObject_Type` carries the generic attribute slots, so
+    // slot inheritance gives every plain type `getattr`/`setattr` semantics.
+    t.tp_getattro = Some(crate::capi::object::PyObject_GenericGetAttr);
+    t.tp_setattro = Some(crate::capi::object::PyObject_GenericSetAttr);
     t.tp_richcompare = Some(object_identity_richcompare);
     t.tp_flags = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE;
     t.tp_hash = Some(hash_pointer);
@@ -1161,6 +1165,16 @@ pub fn init_static_types() -> c_int {
             }
             // SAFETY: the outer block; readied once, before concurrency.
             crate::gc::counted::note_coil_type(t);
+        }
+        // The C API's own static types (spec section 10.1).
+        if crate::capi::iterobject::init() < 0 {
+            return -1;
+        }
+        if crate::capi::memoryobject::init() < 0 {
+            return -1;
+        }
+        if crate::capi::capsule::init() < 0 {
+            return -1;
         }
         // The traced containers of spec 9.3: dict and set instances are
         // C-created, yet their slots carry barrier-accounted references.

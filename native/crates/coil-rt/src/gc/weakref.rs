@@ -279,6 +279,53 @@ pub(crate) fn purge_dead_rows() {
         });
 }
 
+/// `PyObject_ClearWeakRefs`'s body: clear every weakref to `referent`,
+/// then run the callbacks, in creation order — the dealloc-time single
+/// referent case of what phase 6 does for the whole dead set. Runs
+/// outside a collection, so no marking follows the calls.
+///
+/// # Safety
+///
+/// `referent` must be a valid object whose deallocation has begun.
+pub(crate) unsafe fn clear_weakrefs(referent: *mut PyObject) {
+    let rows = table()
+        .lock()
+        .expect("weak-reference table poisoned")
+        .rows
+        .clone();
+    let mut pending: Vec<(*mut PyObject, *mut PyObject)> = Vec::new();
+    for row in rows {
+        if !crate::gc::block_is_live_object(row.weakref) {
+            continue;
+        }
+        let weakref = row.weakref as *mut PyObject;
+        let wr = weakref.cast::<PyWeakReference>();
+        // SAFETY: the weakref is a live object of this runtime.
+        if !core::ptr::eq(unsafe { (*wr).wr_object }, referent) {
+            continue;
+        }
+        // SAFETY: as `handle_weakrefs`'s clearing pass.
+        let callback = unsafe { (*wr).wr_callback };
+        unsafe { (*wr).wr_object = crate::object::singletons::none() };
+        if !callback.is_null() {
+            // SAFETY: as `handle_weakrefs`'s holds.
+            unsafe {
+                crate::types::exc::retain_object(weakref);
+                crate::types::exc::retain_object(callback);
+            }
+            pending.push((weakref, callback));
+        }
+    }
+    for (weakref, callback) in pending {
+        call_callback(callback, weakref);
+        // SAFETY: as `handle_weakrefs`'s releases.
+        unsafe {
+            drop_hold(weakref);
+            drop_hold(callback);
+        }
+    }
+}
+
 /// Phase 6 (section 9.3): clear the weak references to every dead object,
 /// then run their callbacks — CPython's `handle_weakrefs` does the two
 /// passes separately so a callback reading a sibling weakref sees it

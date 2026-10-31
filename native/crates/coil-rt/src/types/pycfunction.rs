@@ -114,8 +114,13 @@ pub(crate) unsafe fn vectorcall(
     }
     // SAFETY: the function pointer read is within the definition.
     let meth = unsafe { (*ml).ml_meth };
-    // SAFETY: `args` covers `nargs` object pointers.
-    let slice = unsafe { core::slice::from_raw_parts(args, nargs as usize) };
+    // SAFETY: `args` covers `nargs` object pointers; a zero-count call
+    // may pass null, which the empty slice spells.
+    let slice: &[*mut PyObject] = if nargs > 0 {
+        unsafe { core::slice::from_raw_parts(args, nargs as usize) }
+    } else {
+        &[]
+    };
     // SAFETY: the flags were validated at construction; the function
     // pointer matches the calling convention the flags select.
     unsafe {
@@ -166,6 +171,28 @@ pub(crate) unsafe fn vectorcall(
                 core::ptr::null_mut()
             }
         }
+    }
+}
+
+/// `cfunction_vectorcall_FASTCALL` and its siblings: one trampoline the
+/// `PyCFunction_NewEx` convention check installs. It adapts the
+/// `vectorcallfunc` signature — `nargsf`, with the offset flag in its
+/// top bit — to the plain count the dispatcher takes.
+unsafe extern "C" fn cfunction_vectorcall_trampoline(
+    func: *mut PyObject,
+    args: *const *mut PyObject,
+    nargsf: usize,
+    kwnames: *mut PyObject,
+) -> *mut PyObject {
+    const PY_VECTORCALL_ARGUMENTS_OFFSET: usize = 1usize << 63;
+    // SAFETY: the delegate follows the vectorcall protocol's contract.
+    unsafe {
+        vectorcall(
+            func,
+            args,
+            (nargsf & !PY_VECTORCALL_ARGUMENTS_OFFSET) as isize,
+            kwnames,
+        )
     }
 }
 
@@ -321,8 +348,16 @@ pub unsafe extern "C" fn PyCFunction_NewEx(
         exceptions::retain_object(self_);
         (*func).m_module = module;
         exceptions::retain_object(module);
-        // METH_VARARGS goes through tp_call alone, as in CPython.
-        (*func).vectorcall = None;
+        // `PyCMethod_New`'s trampoline choice: METH_VARARGS functions
+        // are more efficient through tp_call, everything else gets the
+        // per-convention vectorcall.
+        let flags = (*ml).ml_flags;
+        let convention = flags & (METH_VARARGS | METH_FASTCALL | METH_NOARGS | METH_O);
+        (*func).vectorcall = if convention == METH_VARARGS {
+            None
+        } else {
+            Some(cfunction_vectorcall_trampoline)
+        };
     }
     object
 }

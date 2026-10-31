@@ -542,6 +542,53 @@ unsafe extern "C" fn dict_traverse(
     0
 }
 
+/// `dict_length` (`tp_as_mapping.mp_length`).
+unsafe extern "C" fn dict_length(mp: *mut PyObject) -> isize {
+    // SAFETY: the prefix field is within the dict.
+    unsafe { (*mp.cast::<PyDictObject>()).ma_used }
+}
+
+/// `dict_subscript` (`tp_as_mapping.mp_subscript`): a new reference to
+/// the value, `KeyError` for a missing key. A `__missing__` hook needs
+/// the class machinery, which this runtime does not grow here.
+unsafe extern "C" fn dict_subscript(mp: *mut PyObject, key: *mut PyObject) -> *mut PyObject {
+    // SAFETY: the lookup follows `PyDict_GetItemWithError`'s contract.
+    let value = unsafe { PyDict_GetItemWithError(mp, key) };
+    if value.is_null() {
+        if crate::tstate::occurred().is_null() {
+            // SAFETY: a missing key names itself in the error.
+            unsafe { set_key_error(key) };
+        }
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the slot hands out a new reference.
+    unsafe { crate::gc::counted::Py_IncRef(value) };
+    value
+}
+
+/// `dict_ass_sub` (`tp_as_mapping.mp_ass_subscript`): assign, or delete
+/// when the value is null.
+unsafe extern "C" fn dict_ass_sub(
+    mp: *mut PyObject,
+    key: *mut PyObject,
+    value: *mut PyObject,
+) -> c_int {
+    // SAFETY: both arms follow the C API contracts.
+    unsafe {
+        if value.is_null() {
+            PyDict_DelItem(mp, key)
+        } else {
+            PyDict_SetItem(mp, key, value)
+        }
+    }
+}
+
+static mut DICT_AS_MAPPING: PyMappingMethods = PyMappingMethods {
+    mp_length: Some(dict_length),
+    mp_subscript: Some(dict_subscript),
+    mp_ass_subscript: Some(dict_ass_sub),
+};
+
 const fn dict_type() -> PyTypeObject {
     let mut t = zero_type();
     t.tp_name = c"dict".as_ptr();
@@ -554,6 +601,10 @@ const fn dict_type() -> PyTypeObject {
         | PY_TPFLAGS_MATCH_SELF;
     t.tp_traverse = Some(dict_traverse);
     t.tp_iter = Some(dict_iter_key);
+    // CPython's `PyDict_Type` pins this explicitly so slot inheritance
+    // cannot make dicts hashable.
+    t.tp_hash = Some(crate::object::typeobject::PyObject_HashNotImplemented);
+    t.tp_as_mapping = &raw mut DICT_AS_MAPPING;
     t.tp_alloc = Some(PyType_GenericAlloc);
     t.tp_free = Some(crate::alloc::pymem::PyObject_Free);
     t

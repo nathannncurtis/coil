@@ -263,6 +263,17 @@ fn from_stwo_digits(x: i64) -> *mut PyObject {
     from_i64(x)
 }
 
+/// `_PyLong_Copy`'s body: an exact `int` with `v`'s value.
+///
+/// # Safety
+///
+/// `v` must point to a `PyLongObject`.
+pub(crate) unsafe fn exact_copy(v: *const PyLongObject) -> *mut PyObject {
+    let sign = if unsafe { is_negative(v) } { -1 } else { 1 };
+    // SAFETY: the digit slice is within the object.
+    unsafe { from_mag(sign, digits(v)) }
+}
+
 /// `_PyLong_FromMedium`: a one-digit non-small value.
 fn from_medium(x: i64) -> *mut PyObject {
     // SAFETY: a single in-range digit.
@@ -2033,6 +2044,26 @@ unsafe extern "C" fn long_mod(a: *mut PyObject, b: *mut PyObject) -> *mut PyObje
     }
 }
 
+unsafe extern "C" fn long_divmod(a: *mut PyObject, b: *mut PyObject) -> *mut PyObject {
+    // SAFETY: the objects are read as ints after the type check; the
+    // pair the helper returns are owned references the tuple keeps a
+    // traced reference to, so the owned ones are released after.
+    unsafe {
+        if !check_binop(a, b) {
+            return singletons::not_implemented();
+        }
+        match l_divmod(a.cast(), b.cast()) {
+            Some((div, rem)) => {
+                let pair = crate::types::tuple::from_array(&[div, rem]);
+                exceptions::release_object(div);
+                exceptions::release_object(rem);
+                pair
+            }
+            None => core::ptr::null_mut(),
+        }
+    }
+}
+
 unsafe extern "C" fn long_true_divide(a: *mut PyObject, b: *mut PyObject) -> *mut PyObject {
     // SAFETY: the objects are read as ints after the type check.
     unsafe {
@@ -2260,14 +2291,13 @@ const fn long_type() -> PyTypeObject {
     t
 }
 
-/// `int`'s number slots: everything CPython's `long_as_number` defines
-/// except `nb_divmod`, which needs tuples and arrives with them.
+/// `int`'s number slots: everything CPython's `long_as_number` defines.
 static mut LONG_AS_NUMBER: PyNumberMethods = PyNumberMethods {
     nb_add: Some(long_add),
     nb_subtract: Some(long_sub),
     nb_multiply: Some(long_mul),
     nb_remainder: Some(long_mod),
-    nb_divmod: None,
+    nb_divmod: Some(long_divmod),
     nb_power: Some(long_pow),
     nb_negative: Some(long_neg),
     nb_positive: Some(long_long_op),
