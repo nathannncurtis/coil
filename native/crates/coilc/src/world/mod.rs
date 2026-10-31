@@ -123,6 +123,10 @@ pub struct Program {
     /// a provably plain metaclass: candidates for direct calls (spec
     /// section 6).
     pub seal_candidates: std::collections::BTreeSet<ClassRef>,
+    /// Each module's top-level namespace, parallel to `modules`: the names
+    /// its body binds, for the analyses to resolve global and module
+    /// attribute loads against. Empty for the runtime-provided leaves.
+    pub(crate) namespaces: Vec<reach::Namespace>,
 }
 
 impl Program {
