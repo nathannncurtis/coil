@@ -1,0 +1,456 @@
+# fn input errors mapping result
+charmap_decode			97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:0
+charmap_decode		strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:0
+charmap_decode		ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:0
+charmap_decode		replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:0
+charmap_decode		backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:0
+charmap_decode		surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:0
+charmap_decode		surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:0
+charmap_decode		xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:0
+charmap_decode	abc		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 2: character maps to <undefined>
+charmap_decode	abc	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 2: character maps to <undefined>
+charmap_decode	abc	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:A☾	i:3
+charmap_decode	abc	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:A☾�	i:3
+charmap_decode	abc	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:A☾\\x63	i:3
+charmap_decode	abc	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 2: character maps to <undefined>
+charmap_decode	abc	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 2: character maps to <undefined>
+charmap_decode	abc	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	abcde		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 2: character maps to <undefined>
+charmap_decode	abcde	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 2: character maps to <undefined>
+charmap_decode	abcde	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:A☾Bxy	i:5
+charmap_decode	abcde	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:A☾�Bxy	i:5
+charmap_decode	abcde	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:A☾\\x63Bxy	i:5
+charmap_decode	abcde	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 2: character maps to <undefined>
+charmap_decode	abcde	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 2: character maps to <undefined>
+charmap_decode	abcde	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	\x00\xff		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:	i:2
+charmap_decode	\x00\xff	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:��	i:2
+charmap_decode	\x00\xff	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:\\x00\\xff	i:2
+charmap_decode	\x00\xff	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	ce		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:xy	i:2
+charmap_decode	ce	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:�xy	i:2
+charmap_decode	ce	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:\\x63xy	i:2
+charmap_decode	ce	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	`ab		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:A☾	i:3
+charmap_decode	`ab	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:�A☾	i:3
+charmap_decode	`ab	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	s:\\x60A☾	i:3
+charmap_decode	`ab	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_encode	a		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:1
+charmap_encode	a	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:1
+charmap_encode	a	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:1
+charmap_encode	a	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:1
+charmap_encode	a	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:1
+charmap_encode	a	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:1
+charmap_encode	a	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:1
+charmap_encode	a	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:1
+charmap_encode	abcde		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	abcde	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	abcde	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	abcde	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	abcde	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	abcde	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	abcde	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	abcde	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	ac		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x63' in position 1: character maps to <undefined>
+charmap_encode	ac	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x63' in position 1: character maps to <undefined>
+charmap_encode	ac	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:A	i:2
+charmap_encode	ac	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x63' in position 1: character maps to <undefined>
+charmap_encode	ac	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x63' in position 1: character maps to <undefined>
+charmap_encode	ac	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x63' in position 1: character maps to <undefined>
+charmap_encode	ac	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x63' in position 1: character maps to <undefined>
+charmap_encode	ac	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x63' in position 1: character maps to <undefined>
+charmap_encode	€		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:	i:1
+charmap_encode	€	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	ÿ		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	L:2	B:	i:1
+charmap_encode	ÿ	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ce		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	ce	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	ce	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	ce	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	ce	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	ce	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	ce	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	ce	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	cff		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	cff	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	cff	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	cff	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	cff	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	cff	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	cff	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	cff	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must be in range(256)
+charmap_encode	de		97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	de	strict	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	de	ignore	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	de	replace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	de	backslashreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	de	surrogateescape	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	de	surrogatepass	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_encode	de	xmlcharrefreplace	97=i:65,98=i:9790,99=n,100=s:B,101=s:xy,102=i:1114112,103=i:-1	e:TypeError:character mapping must return integer, bytes or None, not str
+charmap_decode			0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:0
+charmap_decode		strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:0
+charmap_decode		ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:0
+charmap_decode		replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:0
+charmap_decode		backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:0
+charmap_decode		surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:0
+charmap_decode		surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:0
+charmap_decode		xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:0
+charmap_decode	abc		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abc	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abc	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:3
+charmap_decode	abc	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:���	i:3
+charmap_decode	abc	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:\\x61\\x62\\x63	i:3
+charmap_decode	abc	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abc	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abc	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	abcde		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abcde	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abcde	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:5
+charmap_decode	abcde	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:�����	i:5
+charmap_decode	abcde	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:\\x61\\x62\\x63\\x64\\x65	i:5
+charmap_decode	abcde	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abcde	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abcde	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	\x00\xff		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:2
+charmap_decode	\x00\xff	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:��	i:2
+charmap_decode	\x00\xff	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:\\x00\\xff	i:2
+charmap_decode	\x00\xff	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	ce		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:2
+charmap_decode	ce	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:��	i:2
+charmap_decode	ce	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:\\x63\\x65	i:2
+charmap_decode	ce	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	`ab		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:	i:3
+charmap_decode	`ab	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:���	i:3
+charmap_decode	`ab	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	s:\\x60\\x61\\x62	i:3
+charmap_decode	`ab	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_encode	a		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	B:	i:1
+charmap_encode	a	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	abcde		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	B:	i:5
+charmap_encode	abcde	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	ac		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	B:	i:2
+charmap_encode	ac	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	€		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	B:	i:1
+charmap_encode	€	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	ÿ		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	B:	i:1
+charmap_encode	ÿ	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ce		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	B:	i:2
+charmap_encode	ce	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	cff		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	B:	i:3
+charmap_encode	cff	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	de		0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	strict	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	ignore	0=n,1=i:49,65=s:€,128=i:8364,255=n	L:2	B:	i:2
+charmap_encode	de	replace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	backslashreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	surrogateescape	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	surrogatepass	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	xmlcharrefreplace	0=n,1=i:49,65=s:€,128=i:8364,255=n	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_decode			97=B:4142,98=B:,99=i:200	L:2	s:	i:0
+charmap_decode		strict	97=B:4142,98=B:,99=i:200	L:2	s:	i:0
+charmap_decode		ignore	97=B:4142,98=B:,99=i:200	L:2	s:	i:0
+charmap_decode		replace	97=B:4142,98=B:,99=i:200	L:2	s:	i:0
+charmap_decode		backslashreplace	97=B:4142,98=B:,99=i:200	L:2	s:	i:0
+charmap_decode		surrogateescape	97=B:4142,98=B:,99=i:200	L:2	s:	i:0
+charmap_decode		surrogatepass	97=B:4142,98=B:,99=i:200	L:2	s:	i:0
+charmap_decode		xmlcharrefreplace	97=B:4142,98=B:,99=i:200	L:2	s:	i:0
+charmap_decode	abc		97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abc	strict	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abc	ignore	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abc	replace	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abc	backslashreplace	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abc	surrogateescape	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abc	surrogatepass	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abc	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abcde		97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abcde	strict	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abcde	ignore	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abcde	replace	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abcde	backslashreplace	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abcde	surrogateescape	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abcde	surrogatepass	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	abcde	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	\x00\xff		97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	strict	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	ignore	97=B:4142,98=B:,99=i:200	L:2	s:	i:2
+charmap_decode	\x00\xff	replace	97=B:4142,98=B:,99=i:200	L:2	s:��	i:2
+charmap_decode	\x00\xff	backslashreplace	97=B:4142,98=B:,99=i:200	L:2	s:\\x00\\xff	i:2
+charmap_decode	\x00\xff	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x00 in position 0: character maps to <undefined>
+charmap_decode	\x00\xff	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	ce		97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x65 in position 1: character maps to <undefined>
+charmap_decode	ce	strict	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x65 in position 1: character maps to <undefined>
+charmap_decode	ce	ignore	97=B:4142,98=B:,99=i:200	L:2	s:È	i:2
+charmap_decode	ce	replace	97=B:4142,98=B:,99=i:200	L:2	s:È�	i:2
+charmap_decode	ce	backslashreplace	97=B:4142,98=B:,99=i:200	L:2	s:È\\x65	i:2
+charmap_decode	ce	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x65 in position 1: character maps to <undefined>
+charmap_decode	ce	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x65 in position 1: character maps to <undefined>
+charmap_decode	ce	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	`ab		97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	strict	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	ignore	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	`ab	replace	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	`ab	backslashreplace	97=B:4142,98=B:,99=i:200	e:TypeError:character mapping must return integer, None or str
+charmap_decode	`ab	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_encode	a		97=B:4142,98=B:,99=i:200	L:2	B:AB	i:1
+charmap_encode	a	strict	97=B:4142,98=B:,99=i:200	L:2	B:AB	i:1
+charmap_encode	a	ignore	97=B:4142,98=B:,99=i:200	L:2	B:AB	i:1
+charmap_encode	a	replace	97=B:4142,98=B:,99=i:200	L:2	B:AB	i:1
+charmap_encode	a	backslashreplace	97=B:4142,98=B:,99=i:200	L:2	B:AB	i:1
+charmap_encode	a	surrogateescape	97=B:4142,98=B:,99=i:200	L:2	B:AB	i:1
+charmap_encode	a	surrogatepass	97=B:4142,98=B:,99=i:200	L:2	B:AB	i:1
+charmap_encode	a	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	L:2	B:AB	i:1
+charmap_encode	abcde		97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 3-4: character maps to <undefined>
+charmap_encode	abcde	strict	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 3-4: character maps to <undefined>
+charmap_encode	abcde	ignore	97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:5
+charmap_encode	abcde	replace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 3-4: character maps to <undefined>
+charmap_encode	abcde	backslashreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 3-4: character maps to <undefined>
+charmap_encode	abcde	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 3-4: character maps to <undefined>
+charmap_encode	abcde	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 3-4: character maps to <undefined>
+charmap_encode	abcde	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 3-4: character maps to <undefined>
+charmap_encode	ac		97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:2
+charmap_encode	ac	strict	97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:2
+charmap_encode	ac	ignore	97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:2
+charmap_encode	ac	replace	97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:2
+charmap_encode	ac	backslashreplace	97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:2
+charmap_encode	ac	surrogateescape	97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:2
+charmap_encode	ac	surrogatepass	97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:2
+charmap_encode	ac	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	L:2	B:AB\xc8	i:2
+charmap_encode	€		97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	strict	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	ignore	97=B:4142,98=B:,99=i:200	L:2	B:	i:1
+charmap_encode	€	replace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	backslashreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	ÿ		97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	strict	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	ignore	97=B:4142,98=B:,99=i:200	L:2	B:	i:1
+charmap_encode	ÿ	replace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	backslashreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ce		97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x65' in position 1: character maps to <undefined>
+charmap_encode	ce	strict	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x65' in position 1: character maps to <undefined>
+charmap_encode	ce	ignore	97=B:4142,98=B:,99=i:200	L:2	B:\xc8	i:2
+charmap_encode	ce	replace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x65' in position 1: character maps to <undefined>
+charmap_encode	ce	backslashreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x65' in position 1: character maps to <undefined>
+charmap_encode	ce	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x65' in position 1: character maps to <undefined>
+charmap_encode	ce	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x65' in position 1: character maps to <undefined>
+charmap_encode	ce	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x65' in position 1: character maps to <undefined>
+charmap_encode	cff		97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 1-2: character maps to <undefined>
+charmap_encode	cff	strict	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 1-2: character maps to <undefined>
+charmap_encode	cff	ignore	97=B:4142,98=B:,99=i:200	L:2	B:\xc8	i:3
+charmap_encode	cff	replace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 1-2: character maps to <undefined>
+charmap_encode	cff	backslashreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 1-2: character maps to <undefined>
+charmap_encode	cff	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 1-2: character maps to <undefined>
+charmap_encode	cff	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 1-2: character maps to <undefined>
+charmap_encode	cff	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 1-2: character maps to <undefined>
+charmap_encode	de		97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	strict	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	ignore	97=B:4142,98=B:,99=i:200	L:2	B:	i:2
+charmap_encode	de	replace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	backslashreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	surrogateescape	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	surrogatepass	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	xmlcharrefreplace	97=B:4142,98=B:,99=i:200	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_decode			0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:0
+charmap_decode		strict	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:0
+charmap_decode		ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:0
+charmap_decode		replace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:0
+charmap_decode		backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:0
+charmap_decode		surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:0
+charmap_decode		surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:0
+charmap_decode		xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:0
+charmap_decode	abc		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abc	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abc	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:3
+charmap_decode	abc	replace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:���	i:3
+charmap_decode	abc	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:\\x61\\x62\\x63	i:3
+charmap_decode	abc	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abc	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abc	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	abcde		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abcde	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abcde	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:5
+charmap_decode	abcde	replace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:�����	i:5
+charmap_decode	abcde	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:\\x61\\x62\\x63\\x64\\x65	i:5
+charmap_decode	abcde	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abcde	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x61 in position 0: character maps to <undefined>
+charmap_decode	abcde	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	\x00\xff		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0xff in position 1: character maps to <undefined>
+charmap_decode	\x00\xff	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0xff in position 1: character maps to <undefined>
+charmap_decode	\x00\xff	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s: 	i:2
+charmap_decode	\x00\xff	replace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s: �	i:2
+charmap_decode	\x00\xff	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s: \\xff	i:2
+charmap_decode	\x00\xff	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s: \udcff	i:2
+charmap_decode	\x00\xff	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0xff in position 1: character maps to <undefined>
+charmap_decode	\x00\xff	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	ce		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:2
+charmap_decode	ce	replace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:��	i:2
+charmap_decode	ce	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:\\x63\\x65	i:2
+charmap_decode	ce	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x63 in position 0: character maps to <undefined>
+charmap_decode	ce	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_decode	`ab		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:	i:3
+charmap_decode	`ab	replace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:���	i:3
+charmap_decode	`ab	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	L:2	s:\\x60\\x61\\x62	i:3
+charmap_decode	`ab	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeDecodeError:'charmap' codec can't decode byte 0x60 in position 0: character maps to <undefined>
+charmap_decode	`ab	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+charmap_encode	a		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	B:	i:1
+charmap_encode	a	replace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	a	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\x61' in position 0: character maps to <undefined>
+charmap_encode	abcde		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	B:	i:5
+charmap_encode	abcde	replace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	abcde	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-4: character maps to <undefined>
+charmap_encode	ac		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	B:	i:2
+charmap_encode	ac	replace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ac	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	€		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	B:	i:1
+charmap_encode	€	replace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	€	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\u20ac' in position 0: character maps to <undefined>
+charmap_encode	ÿ		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	B:	i:1
+charmap_encode	ÿ	replace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ÿ	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode character '\\xff' in position 0: character maps to <undefined>
+charmap_encode	ce		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	B:	i:2
+charmap_encode	ce	replace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	ce	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	cff		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	B:	i:3
+charmap_encode	cff	replace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	cff	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-2: character maps to <undefined>
+charmap_encode	de		0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	strict	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	ignore	0=i:0,127=i:127,128=s:,160=s:xy	L:2	B:	i:2
+charmap_encode	de	replace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	backslashreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	surrogateescape	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	surrogatepass	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_encode	de	xmlcharrefreplace	0=i:0,127=i:127,128=s:,160=s:xy	e:UnicodeEncodeError:'charmap' codec can't encode characters in position 0-1: character maps to <undefined>
+charmap_build		-	-	e:TypeError:bad argument type for built-in operation
+charmap_build	a	-	-	L:1	L:2	i:97	i:0
+charmap_build	abc	-	-	L:3	L:2	i:97	i:0	L:2	i:98	i:1	L:2	i:99	i:2
+charmap_build	ÿ€	-	-	L:2	L:2	i:255	i:0	L:2	i:8364	i:1
+charmap_build	Ā😀	-	-	L:2	L:2	i:256	i:0	L:2	i:128512	i:1
+charmap_build	aaab	-	-	L:2	L:2	i:97	i:2	L:2	i:98	i:3
+charmap_build	xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx	-	-	L:1	L:2	i:120	i:255

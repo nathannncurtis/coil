@@ -1,0 +1,26 @@
+# RustPython's sre-engine 0.4.3, vendored from crates.io with one fix
+# (see src/engine.rs, charset_loc_ignore); the spec's `_sre` base (10.6).
+[package]
+name = "sre-engine"
+version = "0.4.3"
+authors = ["Kangzhi Shi <shikangzhi@gmail.com>", "RustPython Team"]
+description = "A low-level implementation of Python's SRE regex engine"
+repository = "https://github.com/RustPython/sre-engine"
+license = "MIT"
+edition = "2021"
+keywords = ["regex"]
+
+[dependencies]
+num_enum = "0.5.9"
+bitflags = "2"
+optional = "0.5"
+
+[lints.clippy]
+# Upstream code kept as published except the one engine.rs fix; these
+# lints fire on 2021-era upstream style, not on the fix.
+unnecessary_cast = "allow"
+legacy_numeric_constants = "allow"
+needless_lifetimes = "allow"
+
+[lints.rust]
+deprecated = "allow"

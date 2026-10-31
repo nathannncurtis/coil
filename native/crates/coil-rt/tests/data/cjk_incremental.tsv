@@ -1,0 +1,32 @@
+# encoding errors op result ...
+euc_jisx0213	strict	E|0|か	B:	EG	i:2340545283	E|1|゚	B:\xa4\xf7	EG	i:0	E|0|a	B:a	EG	i:0
+shift_jisx0213	strict	E|0|か	B:	E|1|゚	B:\x82\xf5	E|1|	B:
+euc_jisx0213	strict	E|0|か	B:	EG	i:2340545283	ESR	T:	E|1|゚	B:\xa4\xf7	EG	i:0
+euc_jisx0213	strict	E|0|か	B:	ER	T:	E|0|゚	e:UnicodeEncodeError:'euc_jisx0213' codec can't encode character '\\u309a' in position 0: illegal multibyte sequence
+euc_jisx0213	strict	E|0|か	B:	E|1|a	B:\xa4\xaba	EG	i:0
+euc_jisx0213	replace	E|0|か	B:	E|1|a	B:\xa4\xaba
+gbk	strict	D|0|\xd6	s:	DG	L:2	B:\xd6	i:0	D|1|\xd0	s:中	DG	L:2	B:	i:0
+gbk	strict	D|0|\xd6	s:	DG	L:2	B:\xd6	i:0	DSR	T:	D|1|\xd0	s:中
+gb18030	strict	D|0|\x810\x81	s:	D|1|0	s:	DG	L:2	B:	i:0
+big5hkscs	strict	D|0|\x88	s:	D|0|b	s:Ê̄	D|1|	s:
+euc_jp	strict	D|0|\x8f	s:	D|1|\xa4\xa1	e:UnicodeDecodeError:'euc_jp' codec can't decode byte 0x8f in position 0: illegal multibyte sequence
+cp932	strict	D|0|\x82	s:	D|1|\xa0	s:あ
+johab	strict	D|0|\x84	s:	D|1|A	s:　
+iso2022_jp	strict	E|0|中	B:\x1b$BCf	E|0|a	B:\x1b(Ba	ER	T:	E|0|中	B:\x1b$BCf	E|1|a	B:\x1b(Ba
+iso2022_jp	strict	D|0|\x1b$B$+	s:か	DR	T:	D|0|a	s:a	D|1|	s:
+iso2022_kr	strict	E|0|가	B:\x1b$)C\x0e0!	EG	i:1099524424192	ESR	T:	E|0|a	B:\x0fa	E|0|가	B:\x0e0!	E|1|	B:\x0f
+iso2022_jp_3	strict	E|0|鬝	B:\x1b$(P};	EG	i:4378624	E|0|a	B:\x1b(Ba	E|1|	B:
+iso2022_jp_ext	strict	E|0|俸	B:\x1b$BJp	E|0|a	B:\x1b(Ba	E|1|	B:
+iso2022_jp_2	strict	D|0|\x1b$B$+	s:か	DG	L:2	B:	i:4342466	DSR	T:	D|1|\x1b(B	s:
+hz	strict	E|0|中	B:~{VP	E|0|a	B:~}a	ER	T:	E|0|中	B:~{VP	E|1|	B:~}
+hz	strict	D|0|~{\xd6\xd0	e:UnicodeDecodeError:'hz' codec can't decode byte 0xd6 in position 2: illegal multibyte sequence	DG	L:2	B:	i:1	D|0|~}	s:	D|0|a	s:a	D|1|	s:
+hz	replace	D|0|~!	s:�!	D|1|~	s:�
+iso2022_jp	strict	ES|0	T:	E|0|a	B:\x1b(Ba	ES|1	T:	E|0|中	B:\x1b(B\x00\x1b$BCf	E|1|a	B:\x1b(Ba
+hz	strict	ES|0	T:	E|0|a	B:a	D|0|a	s:a	D|1|	s:
+gbk	strict	ES|0	T:	E|0|a	B:a	EG	i:0
+gbk	replace	D|0|\xd6\xd6\xd0	s:种	D|1|	s:�
+gbk	ignore	D|0|\xd6\xd6\xd0	s:种	D|1|	s:
+cp932	backslashreplace	D|0|\x81@	s:　	D|1|	s:
+euc_jisx0213	backslashreplace	E|0|�	B:\\ufffd	E|1|	B:
+big5	replace	D|0|\xa4	s:	D|1|\xa4\xa4	s:中�
+cp949	strict	E|0|𠀀	e:UnicodeEncodeError:'cp949' codec can't encode character '\\U00020000' in position 0: illegal multibyte sequence	E|0|a	B:a	E|1|	B:

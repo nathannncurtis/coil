@@ -1,0 +1,37 @@
+# module name result
+cn	gb2312	b:1
+cn	gbk	b:1
+cn	gb18030	b:1
+cn	hz	b:1
+cn	utf-8	e:LookupError:no such codec is supported.
+cn	shift_jis	e:LookupError:no such codec is supported.
+hk	big5hkscs	b:1
+hk	utf-8	e:LookupError:no such codec is supported.
+hk	big5	e:LookupError:no such codec is supported.
+iso2022	iso2022_jp	b:1
+iso2022	iso2022_jp_1	b:1
+iso2022	iso2022_jp_2	b:1
+iso2022	iso2022_jp_2004	b:1
+iso2022	iso2022_jp_3	b:1
+iso2022	iso2022_jp_ext	b:1
+iso2022	iso2022_kr	b:1
+iso2022	utf-8	e:LookupError:no such codec is supported.
+iso2022	gbk	e:LookupError:no such codec is supported.
+jp	cp932	b:1
+jp	euc_jis_2004	b:1
+jp	euc_jisx0213	b:1
+jp	euc_jp	b:1
+jp	shift_jis	b:1
+jp	shift_jis_2004	b:1
+jp	shift_jisx0213	b:1
+jp	utf-8	e:LookupError:no such codec is supported.
+jp	gbk	e:LookupError:no such codec is supported.
+kr	cp949	b:1
+kr	euc_kr	b:1
+kr	johab	b:1
+kr	utf-8	e:LookupError:no such codec is supported.
+kr	euc_jp	e:LookupError:no such codec is supported.
+tw	big5	b:1
+tw	cp950	b:1
+tw	utf-8	e:LookupError:no such codec is supported.
+tw	gb2312	e:LookupError:no such codec is supported.

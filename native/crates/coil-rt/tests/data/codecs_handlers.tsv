@@ -1,0 +1,52 @@
+# kind p1 p2 p3 p4 p5 handler result
+decode	utf-8	a\xff\xc3\x80b	i:0	i:1	invalid start byte	ignore	L:2	s:	i:1
+decode	utf-8	a\xff\xc3\x80b	i:0	i:1	invalid start byte	replace	L:2	s:�	i:1
+decode	utf-8	a\xff\xc3\x80b	i:0	i:1	invalid start byte	backslashreplace	L:2	s:\\x61	i:1
+decode	utf-8	a\xff\xc3\x80b	i:0	i:1	invalid start byte	xmlcharrefreplace	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+decode	utf-8	a\xff\xc3\x80b	i:0	i:1	invalid start byte	strict	e:UnicodeDecodeError:'utf-8' codec can't decode byte 0x61 in position 0: invalid start byte
+decode	utf-8	a\xff\xc3\x80b	i:1	i:3	invalid continuation byte	ignore	L:2	s:	i:3
+decode	utf-8	a\xff\xc3\x80b	i:1	i:3	invalid continuation byte	replace	L:2	s:�	i:3
+decode	utf-8	a\xff\xc3\x80b	i:1	i:3	invalid continuation byte	backslashreplace	L:2	s:\\xff\\xc3	i:3
+decode	utf-8	a\xff\xc3\x80b	i:1	i:3	invalid continuation byte	xmlcharrefreplace	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+decode	utf-8	a\xff\xc3\x80b	i:1	i:3	invalid continuation byte	strict	e:UnicodeDecodeError:'utf-8' codec can't decode bytes in position 1-2: invalid continuation byte
+decode	latin-1	ab	i:0	i:0	ordinal not in range	ignore	L:2	s:	i:1
+decode	latin-1	ab	i:0	i:0	ordinal not in range	replace	L:2	s:�	i:1
+decode	latin-1	ab	i:0	i:0	ordinal not in range	backslashreplace	L:2	s:\\x61	i:1
+decode	latin-1	ab	i:0	i:0	ordinal not in range	xmlcharrefreplace	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+decode	latin-1	ab	i:0	i:0	ordinal not in range	strict	e:UnicodeDecodeError:'latin-1' codec can't decode bytes in position 0--1: ordinal not in range
+decode	ascii	a\xffb\xffc	i:1	i:4	ordinal not in range(128)	ignore	L:2	s:	i:4
+decode	ascii	a\xffb\xffc	i:1	i:4	ordinal not in range(128)	replace	L:2	s:�	i:4
+decode	ascii	a\xffb\xffc	i:1	i:4	ordinal not in range(128)	backslashreplace	L:2	s:\\xff\\x62\\xff	i:4
+decode	ascii	a\xffb\xffc	i:1	i:4	ordinal not in range(128)	xmlcharrefreplace	e:TypeError:don't know how to handle UnicodeDecodeError in error callback
+decode	ascii	a\xffb\xffc	i:1	i:4	ordinal not in range(128)	strict	e:UnicodeDecodeError:'ascii' codec can't decode bytes in position 1-3: ordinal not in range(128)
+encode	ascii_encode	aÿb€c	-	-	-	ignore	L:2	s:	i:2
+encode	ascii_encode	aÿb€c	-	-	-	replace	L:2	s:?	i:2
+encode	ascii_encode	aÿb€c	-	-	-	backslashreplace	L:2	s:\\xff	i:2
+encode	ascii_encode	aÿb€c	-	-	-	xmlcharrefreplace	L:2	s:&#255;	i:2
+encode	ascii_encode	aÿb€c	-	-	-	strict	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 1: ordinal not in range(128)
+encode	latin_1_encode	aÿ€b	-	-	-	ignore	L:2	s:	i:3
+encode	latin_1_encode	aÿ€b	-	-	-	replace	L:2	s:?	i:3
+encode	latin_1_encode	aÿ€b	-	-	-	backslashreplace	L:2	s:\\u20ac	i:3
+encode	latin_1_encode	aÿ€b	-	-	-	xmlcharrefreplace	L:2	s:&#8364;	i:3
+encode	latin_1_encode	aÿ€b	-	-	-	strict	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u20ac' in position 2: ordinal not in range(256)
+encode	utf_8_encode	a\ud800b	-	-	-	ignore	L:2	s:	i:2
+encode	utf_8_encode	a\ud800b	-	-	-	replace	L:2	s:?	i:2
+encode	utf_8_encode	a\ud800b	-	-	-	backslashreplace	L:2	s:\\ud800	i:2
+encode	utf_8_encode	a\ud800b	-	-	-	xmlcharrefreplace	L:2	s:&#55296;	i:2
+encode	utf_8_encode	a\ud800b	-	-	-	strict	e:UnicodeEncodeError:'utf-8' codec can't encode character '\\ud800' in position 1: surrogates not allowed
+translate	a€b	i:0	i:1	character maps to <undefined>	-	ignore	L:2	s:	i:1
+translate	a€b	i:0	i:1	character maps to <undefined>	-	replace	L:2	s:�	i:1
+translate	a€b	i:0	i:1	character maps to <undefined>	-	backslashreplace	L:2	s:\\x61	i:1
+translate	a€b	i:0	i:1	character maps to <undefined>	-	xmlcharrefreplace	e:TypeError:don't know how to handle UnicodeTranslateError in error callback
+translate	a€b	i:0	i:1	character maps to <undefined>	-	strict	e:UnicodeTranslateError:can't translate character '\\x61' in position 0: character maps to <undefined>
+translate	abc	i:1	i:3	undefined	-	ignore	L:2	s:	i:3
+translate	abc	i:1	i:3	undefined	-	replace	L:2	s:��	i:3
+translate	abc	i:1	i:3	undefined	-	backslashreplace	L:2	s:\\x62\\x63	i:3
+translate	abc	i:1	i:3	undefined	-	xmlcharrefreplace	e:TypeError:don't know how to handle UnicodeTranslateError in error callback
+translate	abc	i:1	i:3	undefined	-	strict	e:UnicodeTranslateError:can't translate characters in position 1-2: undefined
+value	-	-	-	-	-	ignore	e:TypeError:don't know how to handle ValueError in error callback
+value	-	-	-	-	-	replace	e:TypeError:don't know how to handle ValueError in error callback
+value	-	-	-	-	-	backslashreplace	e:TypeError:don't know how to handle ValueError in error callback
+value	-	-	-	-	-	xmlcharrefreplace	e:TypeError:don't know how to handle ValueError in error callback
+value	-	-	-	-	-	strict	e:ValueError:boom
+cross	utf-8	\xff	i:0	i:1	invalid start byte	xmlcharrefreplace	e:TypeError:don't know how to handle UnicodeDecodeError in error callback

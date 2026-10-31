@@ -1,0 +1,1803 @@
+# fn input errors byteorder result
+utf_7_encode			-	L:2	B:	i:0
+utf_7_encode		strict	-	L:2	B:	i:0
+utf_7_encode		ignore	-	L:2	B:	i:0
+utf_7_encode		replace	-	L:2	B:	i:0
+utf_7_encode		backslashreplace	-	L:2	B:	i:0
+utf_7_encode		surrogateescape	-	L:2	B:	i:0
+utf_7_encode		surrogatepass	-	L:2	B:	i:0
+utf_7_encode		xmlcharrefreplace	-	L:2	B:	i:0
+utf_7_encode	a		-	L:2	B:a	i:1
+utf_7_encode	a	strict	-	L:2	B:a	i:1
+utf_7_encode	a	ignore	-	L:2	B:a	i:1
+utf_7_encode	a	replace	-	L:2	B:a	i:1
+utf_7_encode	a	backslashreplace	-	L:2	B:a	i:1
+utf_7_encode	a	surrogateescape	-	L:2	B:a	i:1
+utf_7_encode	a	surrogatepass	-	L:2	B:a	i:1
+utf_7_encode	a	xmlcharrefreplace	-	L:2	B:a	i:1
+utf_7_encode	café		-	L:2	B:caf+AOk-	i:4
+utf_7_encode	café	strict	-	L:2	B:caf+AOk-	i:4
+utf_7_encode	café	ignore	-	L:2	B:caf+AOk-	i:4
+utf_7_encode	café	replace	-	L:2	B:caf+AOk-	i:4
+utf_7_encode	café	backslashreplace	-	L:2	B:caf+AOk-	i:4
+utf_7_encode	café	surrogateescape	-	L:2	B:caf+AOk-	i:4
+utf_7_encode	café	surrogatepass	-	L:2	B:caf+AOk-	i:4
+utf_7_encode	café	xmlcharrefreplace	-	L:2	B:caf+AOk-	i:4
+utf_7_encode	ÿ		-	L:2	B:+AP8-	i:1
+utf_7_encode	ÿ	strict	-	L:2	B:+AP8-	i:1
+utf_7_encode	ÿ	ignore	-	L:2	B:+AP8-	i:1
+utf_7_encode	ÿ	replace	-	L:2	B:+AP8-	i:1
+utf_7_encode	ÿ	backslashreplace	-	L:2	B:+AP8-	i:1
+utf_7_encode	ÿ	surrogateescape	-	L:2	B:+AP8-	i:1
+utf_7_encode	ÿ	surrogatepass	-	L:2	B:+AP8-	i:1
+utf_7_encode	ÿ	xmlcharrefreplace	-	L:2	B:+AP8-	i:1
+utf_7_encode	Ā		-	L:2	B:+AQA-	i:1
+utf_7_encode	Ā	strict	-	L:2	B:+AQA-	i:1
+utf_7_encode	Ā	ignore	-	L:2	B:+AQA-	i:1
+utf_7_encode	Ā	replace	-	L:2	B:+AQA-	i:1
+utf_7_encode	Ā	backslashreplace	-	L:2	B:+AQA-	i:1
+utf_7_encode	Ā	surrogateescape	-	L:2	B:+AQA-	i:1
+utf_7_encode	Ā	surrogatepass	-	L:2	B:+AQA-	i:1
+utf_7_encode	Ā	xmlcharrefreplace	-	L:2	B:+AQA-	i:1
+utf_7_encode	€		-	L:2	B:+IKw-	i:1
+utf_7_encode	€	strict	-	L:2	B:+IKw-	i:1
+utf_7_encode	€	ignore	-	L:2	B:+IKw-	i:1
+utf_7_encode	€	replace	-	L:2	B:+IKw-	i:1
+utf_7_encode	€	backslashreplace	-	L:2	B:+IKw-	i:1
+utf_7_encode	€	surrogateescape	-	L:2	B:+IKw-	i:1
+utf_7_encode	€	surrogatepass	-	L:2	B:+IKw-	i:1
+utf_7_encode	€	xmlcharrefreplace	-	L:2	B:+IKw-	i:1
+utf_7_encode	😀		-	L:2	B:+2D3eAA-	i:1
+utf_7_encode	😀	strict	-	L:2	B:+2D3eAA-	i:1
+utf_7_encode	😀	ignore	-	L:2	B:+2D3eAA-	i:1
+utf_7_encode	😀	replace	-	L:2	B:+2D3eAA-	i:1
+utf_7_encode	😀	backslashreplace	-	L:2	B:+2D3eAA-	i:1
+utf_7_encode	😀	surrogateescape	-	L:2	B:+2D3eAA-	i:1
+utf_7_encode	😀	surrogatepass	-	L:2	B:+2D3eAA-	i:1
+utf_7_encode	😀	xmlcharrefreplace	-	L:2	B:+2D3eAA-	i:1
+utf_7_encode	a𝐀c		-	L:2	B:a+2DXcAA-c	i:3
+utf_7_encode	a𝐀c	strict	-	L:2	B:a+2DXcAA-c	i:3
+utf_7_encode	a𝐀c	ignore	-	L:2	B:a+2DXcAA-c	i:3
+utf_7_encode	a𝐀c	replace	-	L:2	B:a+2DXcAA-c	i:3
+utf_7_encode	a𝐀c	backslashreplace	-	L:2	B:a+2DXcAA-c	i:3
+utf_7_encode	a𝐀c	surrogateescape	-	L:2	B:a+2DXcAA-c	i:3
+utf_7_encode	a𝐀c	surrogatepass	-	L:2	B:a+2DXcAA-c	i:3
+utf_7_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:a+2DXcAA-c	i:3
+utf_7_encode			-	L:2	B:+AIA-	i:1
+utf_7_encode		strict	-	L:2	B:+AIA-	i:1
+utf_7_encode		ignore	-	L:2	B:+AIA-	i:1
+utf_7_encode		replace	-	L:2	B:+AIA-	i:1
+utf_7_encode		backslashreplace	-	L:2	B:+AIA-	i:1
+utf_7_encode		surrogateescape	-	L:2	B:+AIA-	i:1
+utf_7_encode		surrogatepass	-	L:2	B:+AIA-	i:1
+utf_7_encode		xmlcharrefreplace	-	L:2	B:+AIA-	i:1
+utf_7_encode	'\\\t\n\r		-	L:2	B:'+AFw\t\n\r	i:5
+utf_7_encode	'\\\t\n\r	strict	-	L:2	B:'+AFw\t\n\r	i:5
+utf_7_encode	'\\\t\n\r	ignore	-	L:2	B:'+AFw\t\n\r	i:5
+utf_7_encode	'\\\t\n\r	replace	-	L:2	B:'+AFw\t\n\r	i:5
+utf_7_encode	'\\\t\n\r	backslashreplace	-	L:2	B:'+AFw\t\n\r	i:5
+utf_7_encode	'\\\t\n\r	surrogateescape	-	L:2	B:'+AFw\t\n\r	i:5
+utf_7_encode	'\\\t\n\r	surrogatepass	-	L:2	B:'+AFw\t\n\r	i:5
+utf_7_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:'+AFw\t\n\r	i:5
+utf_7_encode	a\udcffb		-	L:2	B:a+3P8-b	i:3
+utf_7_encode	a\udcffb	strict	-	L:2	B:a+3P8-b	i:3
+utf_7_encode	a\udcffb	ignore	-	L:2	B:a+3P8-b	i:3
+utf_7_encode	a\udcffb	replace	-	L:2	B:a+3P8-b	i:3
+utf_7_encode	a\udcffb	backslashreplace	-	L:2	B:a+3P8-b	i:3
+utf_7_encode	a\udcffb	surrogateescape	-	L:2	B:a+3P8-b	i:3
+utf_7_encode	a\udcffb	surrogatepass	-	L:2	B:a+3P8-b	i:3
+utf_7_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:a+3P8-b	i:3
+utf_7_encode	\ud800		-	L:2	B:+2AA-	i:1
+utf_7_encode	\ud800	strict	-	L:2	B:+2AA-	i:1
+utf_7_encode	\ud800	ignore	-	L:2	B:+2AA-	i:1
+utf_7_encode	\ud800	replace	-	L:2	B:+2AA-	i:1
+utf_7_encode	\ud800	backslashreplace	-	L:2	B:+2AA-	i:1
+utf_7_encode	\ud800	surrogateescape	-	L:2	B:+2AA-	i:1
+utf_7_encode	\ud800	surrogatepass	-	L:2	B:+2AA-	i:1
+utf_7_encode	\ud800	xmlcharrefreplace	-	L:2	B:+2AA-	i:1
+utf_7_encode	a b		-	L:2	B:a+ICg-b	i:3
+utf_7_encode	a b	strict	-	L:2	B:a+ICg-b	i:3
+utf_7_encode	a b	ignore	-	L:2	B:a+ICg-b	i:3
+utf_7_encode	a b	replace	-	L:2	B:a+ICg-b	i:3
+utf_7_encode	a b	backslashreplace	-	L:2	B:a+ICg-b	i:3
+utf_7_encode	a b	surrogateescape	-	L:2	B:a+ICg-b	i:3
+utf_7_encode	a b	surrogatepass	-	L:2	B:a+ICg-b	i:3
+utf_7_encode	a b	xmlcharrefreplace	-	L:2	B:a+ICg-b	i:3
+utf_7_encode	İ		-	L:2	B:+ATA-	i:1
+utf_7_encode	İ	strict	-	L:2	B:+ATA-	i:1
+utf_7_encode	İ	ignore	-	L:2	B:+ATA-	i:1
+utf_7_encode	İ	replace	-	L:2	B:+ATA-	i:1
+utf_7_encode	İ	backslashreplace	-	L:2	B:+ATA-	i:1
+utf_7_encode	İ	surrogateescape	-	L:2	B:+ATA-	i:1
+utf_7_encode	İ	surrogatepass	-	L:2	B:+ATA-	i:1
+utf_7_encode	İ	xmlcharrefreplace	-	L:2	B:+ATA-	i:1
+utf_8_encode			-	L:2	B:	i:0
+utf_8_encode		strict	-	L:2	B:	i:0
+utf_8_encode		ignore	-	L:2	B:	i:0
+utf_8_encode		replace	-	L:2	B:	i:0
+utf_8_encode		backslashreplace	-	L:2	B:	i:0
+utf_8_encode		surrogateescape	-	L:2	B:	i:0
+utf_8_encode		surrogatepass	-	L:2	B:	i:0
+utf_8_encode		xmlcharrefreplace	-	L:2	B:	i:0
+utf_8_encode	a		-	L:2	B:a	i:1
+utf_8_encode	a	strict	-	L:2	B:a	i:1
+utf_8_encode	a	ignore	-	L:2	B:a	i:1
+utf_8_encode	a	replace	-	L:2	B:a	i:1
+utf_8_encode	a	backslashreplace	-	L:2	B:a	i:1
+utf_8_encode	a	surrogateescape	-	L:2	B:a	i:1
+utf_8_encode	a	surrogatepass	-	L:2	B:a	i:1
+utf_8_encode	a	xmlcharrefreplace	-	L:2	B:a	i:1
+utf_8_encode	café		-	L:2	B:caf\xc3\xa9	i:4
+utf_8_encode	café	strict	-	L:2	B:caf\xc3\xa9	i:4
+utf_8_encode	café	ignore	-	L:2	B:caf\xc3\xa9	i:4
+utf_8_encode	café	replace	-	L:2	B:caf\xc3\xa9	i:4
+utf_8_encode	café	backslashreplace	-	L:2	B:caf\xc3\xa9	i:4
+utf_8_encode	café	surrogateescape	-	L:2	B:caf\xc3\xa9	i:4
+utf_8_encode	café	surrogatepass	-	L:2	B:caf\xc3\xa9	i:4
+utf_8_encode	café	xmlcharrefreplace	-	L:2	B:caf\xc3\xa9	i:4
+utf_8_encode	ÿ		-	L:2	B:\xc3\xbf	i:1
+utf_8_encode	ÿ	strict	-	L:2	B:\xc3\xbf	i:1
+utf_8_encode	ÿ	ignore	-	L:2	B:\xc3\xbf	i:1
+utf_8_encode	ÿ	replace	-	L:2	B:\xc3\xbf	i:1
+utf_8_encode	ÿ	backslashreplace	-	L:2	B:\xc3\xbf	i:1
+utf_8_encode	ÿ	surrogateescape	-	L:2	B:\xc3\xbf	i:1
+utf_8_encode	ÿ	surrogatepass	-	L:2	B:\xc3\xbf	i:1
+utf_8_encode	ÿ	xmlcharrefreplace	-	L:2	B:\xc3\xbf	i:1
+utf_8_encode	Ā		-	L:2	B:\xc4\x80	i:1
+utf_8_encode	Ā	strict	-	L:2	B:\xc4\x80	i:1
+utf_8_encode	Ā	ignore	-	L:2	B:\xc4\x80	i:1
+utf_8_encode	Ā	replace	-	L:2	B:\xc4\x80	i:1
+utf_8_encode	Ā	backslashreplace	-	L:2	B:\xc4\x80	i:1
+utf_8_encode	Ā	surrogateescape	-	L:2	B:\xc4\x80	i:1
+utf_8_encode	Ā	surrogatepass	-	L:2	B:\xc4\x80	i:1
+utf_8_encode	Ā	xmlcharrefreplace	-	L:2	B:\xc4\x80	i:1
+utf_8_encode	€		-	L:2	B:\xe2\x82\xac	i:1
+utf_8_encode	€	strict	-	L:2	B:\xe2\x82\xac	i:1
+utf_8_encode	€	ignore	-	L:2	B:\xe2\x82\xac	i:1
+utf_8_encode	€	replace	-	L:2	B:\xe2\x82\xac	i:1
+utf_8_encode	€	backslashreplace	-	L:2	B:\xe2\x82\xac	i:1
+utf_8_encode	€	surrogateescape	-	L:2	B:\xe2\x82\xac	i:1
+utf_8_encode	€	surrogatepass	-	L:2	B:\xe2\x82\xac	i:1
+utf_8_encode	€	xmlcharrefreplace	-	L:2	B:\xe2\x82\xac	i:1
+utf_8_encode	😀		-	L:2	B:\xf0\x9f\x98\x80	i:1
+utf_8_encode	😀	strict	-	L:2	B:\xf0\x9f\x98\x80	i:1
+utf_8_encode	😀	ignore	-	L:2	B:\xf0\x9f\x98\x80	i:1
+utf_8_encode	😀	replace	-	L:2	B:\xf0\x9f\x98\x80	i:1
+utf_8_encode	😀	backslashreplace	-	L:2	B:\xf0\x9f\x98\x80	i:1
+utf_8_encode	😀	surrogateescape	-	L:2	B:\xf0\x9f\x98\x80	i:1
+utf_8_encode	😀	surrogatepass	-	L:2	B:\xf0\x9f\x98\x80	i:1
+utf_8_encode	😀	xmlcharrefreplace	-	L:2	B:\xf0\x9f\x98\x80	i:1
+utf_8_encode	a𝐀c		-	L:2	B:a\xf0\x9d\x90\x80c	i:3
+utf_8_encode	a𝐀c	strict	-	L:2	B:a\xf0\x9d\x90\x80c	i:3
+utf_8_encode	a𝐀c	ignore	-	L:2	B:a\xf0\x9d\x90\x80c	i:3
+utf_8_encode	a𝐀c	replace	-	L:2	B:a\xf0\x9d\x90\x80c	i:3
+utf_8_encode	a𝐀c	backslashreplace	-	L:2	B:a\xf0\x9d\x90\x80c	i:3
+utf_8_encode	a𝐀c	surrogateescape	-	L:2	B:a\xf0\x9d\x90\x80c	i:3
+utf_8_encode	a𝐀c	surrogatepass	-	L:2	B:a\xf0\x9d\x90\x80c	i:3
+utf_8_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:a\xf0\x9d\x90\x80c	i:3
+utf_8_encode			-	L:2	B:\xc2\x80	i:1
+utf_8_encode		strict	-	L:2	B:\xc2\x80	i:1
+utf_8_encode		ignore	-	L:2	B:\xc2\x80	i:1
+utf_8_encode		replace	-	L:2	B:\xc2\x80	i:1
+utf_8_encode		backslashreplace	-	L:2	B:\xc2\x80	i:1
+utf_8_encode		surrogateescape	-	L:2	B:\xc2\x80	i:1
+utf_8_encode		surrogatepass	-	L:2	B:\xc2\x80	i:1
+utf_8_encode		xmlcharrefreplace	-	L:2	B:\xc2\x80	i:1
+utf_8_encode	'\\\t\n\r		-	L:2	B:'\\\t\n\r	i:5
+utf_8_encode	'\\\t\n\r	strict	-	L:2	B:'\\\t\n\r	i:5
+utf_8_encode	'\\\t\n\r	ignore	-	L:2	B:'\\\t\n\r	i:5
+utf_8_encode	'\\\t\n\r	replace	-	L:2	B:'\\\t\n\r	i:5
+utf_8_encode	'\\\t\n\r	backslashreplace	-	L:2	B:'\\\t\n\r	i:5
+utf_8_encode	'\\\t\n\r	surrogateescape	-	L:2	B:'\\\t\n\r	i:5
+utf_8_encode	'\\\t\n\r	surrogatepass	-	L:2	B:'\\\t\n\r	i:5
+utf_8_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:'\\\t\n\r	i:5
+utf_8_encode	a\udcffb		-	e:UnicodeEncodeError:'utf-8' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_8_encode	a\udcffb	strict	-	e:UnicodeEncodeError:'utf-8' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_8_encode	a\udcffb	ignore	-	L:2	B:ab	i:3
+utf_8_encode	a\udcffb	replace	-	L:2	B:a?b	i:3
+utf_8_encode	a\udcffb	backslashreplace	-	L:2	B:a\\udcffb	i:3
+utf_8_encode	a\udcffb	surrogateescape	-	L:2	B:a\xffb	i:3
+utf_8_encode	a\udcffb	surrogatepass	-	L:2	B:a\xed\xb3\xbfb	i:3
+utf_8_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:a&#56575;b	i:3
+utf_8_encode	\ud800		-	e:UnicodeEncodeError:'utf-8' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_8_encode	\ud800	strict	-	e:UnicodeEncodeError:'utf-8' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_8_encode	\ud800	ignore	-	L:2	B:	i:1
+utf_8_encode	\ud800	replace	-	L:2	B:?	i:1
+utf_8_encode	\ud800	backslashreplace	-	L:2	B:\\ud800	i:1
+utf_8_encode	\ud800	surrogateescape	-	e:UnicodeEncodeError:'utf-8' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_8_encode	\ud800	surrogatepass	-	L:2	B:\xed\xa0\x80	i:1
+utf_8_encode	\ud800	xmlcharrefreplace	-	L:2	B:&#55296;	i:1
+utf_8_encode	a b		-	L:2	B:a\xe2\x80\xa8b	i:3
+utf_8_encode	a b	strict	-	L:2	B:a\xe2\x80\xa8b	i:3
+utf_8_encode	a b	ignore	-	L:2	B:a\xe2\x80\xa8b	i:3
+utf_8_encode	a b	replace	-	L:2	B:a\xe2\x80\xa8b	i:3
+utf_8_encode	a b	backslashreplace	-	L:2	B:a\xe2\x80\xa8b	i:3
+utf_8_encode	a b	surrogateescape	-	L:2	B:a\xe2\x80\xa8b	i:3
+utf_8_encode	a b	surrogatepass	-	L:2	B:a\xe2\x80\xa8b	i:3
+utf_8_encode	a b	xmlcharrefreplace	-	L:2	B:a\xe2\x80\xa8b	i:3
+utf_8_encode	İ		-	L:2	B:\xc4\xb0	i:1
+utf_8_encode	İ	strict	-	L:2	B:\xc4\xb0	i:1
+utf_8_encode	İ	ignore	-	L:2	B:\xc4\xb0	i:1
+utf_8_encode	İ	replace	-	L:2	B:\xc4\xb0	i:1
+utf_8_encode	İ	backslashreplace	-	L:2	B:\xc4\xb0	i:1
+utf_8_encode	İ	surrogateescape	-	L:2	B:\xc4\xb0	i:1
+utf_8_encode	İ	surrogatepass	-	L:2	B:\xc4\xb0	i:1
+utf_8_encode	İ	xmlcharrefreplace	-	L:2	B:\xc4\xb0	i:1
+utf_16_le_encode			-	L:2	B:	i:0
+utf_16_le_encode		strict	-	L:2	B:	i:0
+utf_16_le_encode		ignore	-	L:2	B:	i:0
+utf_16_le_encode		replace	-	L:2	B:	i:0
+utf_16_le_encode		backslashreplace	-	L:2	B:	i:0
+utf_16_le_encode		surrogateescape	-	L:2	B:	i:0
+utf_16_le_encode		surrogatepass	-	L:2	B:	i:0
+utf_16_le_encode		xmlcharrefreplace	-	L:2	B:	i:0
+utf_16_le_encode	a		-	L:2	B:a\x00	i:1
+utf_16_le_encode	a	strict	-	L:2	B:a\x00	i:1
+utf_16_le_encode	a	ignore	-	L:2	B:a\x00	i:1
+utf_16_le_encode	a	replace	-	L:2	B:a\x00	i:1
+utf_16_le_encode	a	backslashreplace	-	L:2	B:a\x00	i:1
+utf_16_le_encode	a	surrogateescape	-	L:2	B:a\x00	i:1
+utf_16_le_encode	a	surrogatepass	-	L:2	B:a\x00	i:1
+utf_16_le_encode	a	xmlcharrefreplace	-	L:2	B:a\x00	i:1
+utf_16_le_encode	café		-	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_le_encode	café	strict	-	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_le_encode	café	ignore	-	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_le_encode	café	replace	-	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_le_encode	café	backslashreplace	-	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_le_encode	café	surrogateescape	-	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_le_encode	café	surrogatepass	-	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_le_encode	café	xmlcharrefreplace	-	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_le_encode	ÿ		-	L:2	B:\xff\x00	i:1
+utf_16_le_encode	ÿ	strict	-	L:2	B:\xff\x00	i:1
+utf_16_le_encode	ÿ	ignore	-	L:2	B:\xff\x00	i:1
+utf_16_le_encode	ÿ	replace	-	L:2	B:\xff\x00	i:1
+utf_16_le_encode	ÿ	backslashreplace	-	L:2	B:\xff\x00	i:1
+utf_16_le_encode	ÿ	surrogateescape	-	L:2	B:\xff\x00	i:1
+utf_16_le_encode	ÿ	surrogatepass	-	L:2	B:\xff\x00	i:1
+utf_16_le_encode	ÿ	xmlcharrefreplace	-	L:2	B:\xff\x00	i:1
+utf_16_le_encode	Ā		-	L:2	B:\x00\x01	i:1
+utf_16_le_encode	Ā	strict	-	L:2	B:\x00\x01	i:1
+utf_16_le_encode	Ā	ignore	-	L:2	B:\x00\x01	i:1
+utf_16_le_encode	Ā	replace	-	L:2	B:\x00\x01	i:1
+utf_16_le_encode	Ā	backslashreplace	-	L:2	B:\x00\x01	i:1
+utf_16_le_encode	Ā	surrogateescape	-	L:2	B:\x00\x01	i:1
+utf_16_le_encode	Ā	surrogatepass	-	L:2	B:\x00\x01	i:1
+utf_16_le_encode	Ā	xmlcharrefreplace	-	L:2	B:\x00\x01	i:1
+utf_16_le_encode	€		-	L:2	B:\xac 	i:1
+utf_16_le_encode	€	strict	-	L:2	B:\xac 	i:1
+utf_16_le_encode	€	ignore	-	L:2	B:\xac 	i:1
+utf_16_le_encode	€	replace	-	L:2	B:\xac 	i:1
+utf_16_le_encode	€	backslashreplace	-	L:2	B:\xac 	i:1
+utf_16_le_encode	€	surrogateescape	-	L:2	B:\xac 	i:1
+utf_16_le_encode	€	surrogatepass	-	L:2	B:\xac 	i:1
+utf_16_le_encode	€	xmlcharrefreplace	-	L:2	B:\xac 	i:1
+utf_16_le_encode	😀		-	L:2	B:=\xd8\x00\xde	i:1
+utf_16_le_encode	😀	strict	-	L:2	B:=\xd8\x00\xde	i:1
+utf_16_le_encode	😀	ignore	-	L:2	B:=\xd8\x00\xde	i:1
+utf_16_le_encode	😀	replace	-	L:2	B:=\xd8\x00\xde	i:1
+utf_16_le_encode	😀	backslashreplace	-	L:2	B:=\xd8\x00\xde	i:1
+utf_16_le_encode	😀	surrogateescape	-	L:2	B:=\xd8\x00\xde	i:1
+utf_16_le_encode	😀	surrogatepass	-	L:2	B:=\xd8\x00\xde	i:1
+utf_16_le_encode	😀	xmlcharrefreplace	-	L:2	B:=\xd8\x00\xde	i:1
+utf_16_le_encode	a𝐀c		-	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_le_encode	a𝐀c	strict	-	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_le_encode	a𝐀c	ignore	-	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_le_encode	a𝐀c	replace	-	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_le_encode	a𝐀c	backslashreplace	-	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_le_encode	a𝐀c	surrogateescape	-	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_le_encode	a𝐀c	surrogatepass	-	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_le_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_le_encode			-	L:2	B:\x80\x00	i:1
+utf_16_le_encode		strict	-	L:2	B:\x80\x00	i:1
+utf_16_le_encode		ignore	-	L:2	B:\x80\x00	i:1
+utf_16_le_encode		replace	-	L:2	B:\x80\x00	i:1
+utf_16_le_encode		backslashreplace	-	L:2	B:\x80\x00	i:1
+utf_16_le_encode		surrogateescape	-	L:2	B:\x80\x00	i:1
+utf_16_le_encode		surrogatepass	-	L:2	B:\x80\x00	i:1
+utf_16_le_encode		xmlcharrefreplace	-	L:2	B:\x80\x00	i:1
+utf_16_le_encode	'\\\t\n\r		-	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_le_encode	'\\\t\n\r	strict	-	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_le_encode	'\\\t\n\r	ignore	-	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_le_encode	'\\\t\n\r	replace	-	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_le_encode	'\\\t\n\r	backslashreplace	-	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_le_encode	'\\\t\n\r	surrogateescape	-	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_le_encode	'\\\t\n\r	surrogatepass	-	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_le_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_le_encode	a\udcffb		-	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_le_encode	a\udcffb	strict	-	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_le_encode	a\udcffb	ignore	-	L:2	B:a\x00b\x00	i:3
+utf_16_le_encode	a\udcffb	replace	-	L:2	B:a\x00?\x00b\x00	i:3
+utf_16_le_encode	a\udcffb	backslashreplace	-	L:2	B:a\x00\\\x00u\x00d\x00c\x00f\x00f\x00b\x00	i:3
+utf_16_le_encode	a\udcffb	surrogateescape	-	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_le_encode	a\udcffb	surrogatepass	-	L:2	B:a\x00\xff\xdcb\x00	i:3
+utf_16_le_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:a\x00&\x00#\x005\x006\x005\x007\x005\x00;\x00b\x00	i:3
+utf_16_le_encode	\ud800		-	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_le_encode	\ud800	strict	-	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_le_encode	\ud800	ignore	-	L:2	B:	i:1
+utf_16_le_encode	\ud800	replace	-	L:2	B:?\x00	i:1
+utf_16_le_encode	\ud800	backslashreplace	-	L:2	B:\\\x00u\x00d\x008\x000\x000\x00	i:1
+utf_16_le_encode	\ud800	surrogateescape	-	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_le_encode	\ud800	surrogatepass	-	L:2	B:\x00\xd8	i:1
+utf_16_le_encode	\ud800	xmlcharrefreplace	-	L:2	B:&\x00#\x005\x005\x002\x009\x006\x00;\x00	i:1
+utf_16_le_encode	a b		-	L:2	B:a\x00( b\x00	i:3
+utf_16_le_encode	a b	strict	-	L:2	B:a\x00( b\x00	i:3
+utf_16_le_encode	a b	ignore	-	L:2	B:a\x00( b\x00	i:3
+utf_16_le_encode	a b	replace	-	L:2	B:a\x00( b\x00	i:3
+utf_16_le_encode	a b	backslashreplace	-	L:2	B:a\x00( b\x00	i:3
+utf_16_le_encode	a b	surrogateescape	-	L:2	B:a\x00( b\x00	i:3
+utf_16_le_encode	a b	surrogatepass	-	L:2	B:a\x00( b\x00	i:3
+utf_16_le_encode	a b	xmlcharrefreplace	-	L:2	B:a\x00( b\x00	i:3
+utf_16_le_encode	İ		-	L:2	B:0\x01	i:1
+utf_16_le_encode	İ	strict	-	L:2	B:0\x01	i:1
+utf_16_le_encode	İ	ignore	-	L:2	B:0\x01	i:1
+utf_16_le_encode	İ	replace	-	L:2	B:0\x01	i:1
+utf_16_le_encode	İ	backslashreplace	-	L:2	B:0\x01	i:1
+utf_16_le_encode	İ	surrogateescape	-	L:2	B:0\x01	i:1
+utf_16_le_encode	İ	surrogatepass	-	L:2	B:0\x01	i:1
+utf_16_le_encode	İ	xmlcharrefreplace	-	L:2	B:0\x01	i:1
+utf_16_be_encode			-	L:2	B:	i:0
+utf_16_be_encode		strict	-	L:2	B:	i:0
+utf_16_be_encode		ignore	-	L:2	B:	i:0
+utf_16_be_encode		replace	-	L:2	B:	i:0
+utf_16_be_encode		backslashreplace	-	L:2	B:	i:0
+utf_16_be_encode		surrogateescape	-	L:2	B:	i:0
+utf_16_be_encode		surrogatepass	-	L:2	B:	i:0
+utf_16_be_encode		xmlcharrefreplace	-	L:2	B:	i:0
+utf_16_be_encode	a		-	L:2	B:\x00a	i:1
+utf_16_be_encode	a	strict	-	L:2	B:\x00a	i:1
+utf_16_be_encode	a	ignore	-	L:2	B:\x00a	i:1
+utf_16_be_encode	a	replace	-	L:2	B:\x00a	i:1
+utf_16_be_encode	a	backslashreplace	-	L:2	B:\x00a	i:1
+utf_16_be_encode	a	surrogateescape	-	L:2	B:\x00a	i:1
+utf_16_be_encode	a	surrogatepass	-	L:2	B:\x00a	i:1
+utf_16_be_encode	a	xmlcharrefreplace	-	L:2	B:\x00a	i:1
+utf_16_be_encode	café		-	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_be_encode	café	strict	-	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_be_encode	café	ignore	-	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_be_encode	café	replace	-	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_be_encode	café	backslashreplace	-	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_be_encode	café	surrogateescape	-	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_be_encode	café	surrogatepass	-	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_be_encode	café	xmlcharrefreplace	-	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_be_encode	ÿ		-	L:2	B:\x00\xff	i:1
+utf_16_be_encode	ÿ	strict	-	L:2	B:\x00\xff	i:1
+utf_16_be_encode	ÿ	ignore	-	L:2	B:\x00\xff	i:1
+utf_16_be_encode	ÿ	replace	-	L:2	B:\x00\xff	i:1
+utf_16_be_encode	ÿ	backslashreplace	-	L:2	B:\x00\xff	i:1
+utf_16_be_encode	ÿ	surrogateescape	-	L:2	B:\x00\xff	i:1
+utf_16_be_encode	ÿ	surrogatepass	-	L:2	B:\x00\xff	i:1
+utf_16_be_encode	ÿ	xmlcharrefreplace	-	L:2	B:\x00\xff	i:1
+utf_16_be_encode	Ā		-	L:2	B:\x01\x00	i:1
+utf_16_be_encode	Ā	strict	-	L:2	B:\x01\x00	i:1
+utf_16_be_encode	Ā	ignore	-	L:2	B:\x01\x00	i:1
+utf_16_be_encode	Ā	replace	-	L:2	B:\x01\x00	i:1
+utf_16_be_encode	Ā	backslashreplace	-	L:2	B:\x01\x00	i:1
+utf_16_be_encode	Ā	surrogateescape	-	L:2	B:\x01\x00	i:1
+utf_16_be_encode	Ā	surrogatepass	-	L:2	B:\x01\x00	i:1
+utf_16_be_encode	Ā	xmlcharrefreplace	-	L:2	B:\x01\x00	i:1
+utf_16_be_encode	€		-	L:2	B: \xac	i:1
+utf_16_be_encode	€	strict	-	L:2	B: \xac	i:1
+utf_16_be_encode	€	ignore	-	L:2	B: \xac	i:1
+utf_16_be_encode	€	replace	-	L:2	B: \xac	i:1
+utf_16_be_encode	€	backslashreplace	-	L:2	B: \xac	i:1
+utf_16_be_encode	€	surrogateescape	-	L:2	B: \xac	i:1
+utf_16_be_encode	€	surrogatepass	-	L:2	B: \xac	i:1
+utf_16_be_encode	€	xmlcharrefreplace	-	L:2	B: \xac	i:1
+utf_16_be_encode	😀		-	L:2	B:\xd8=\xde\x00	i:1
+utf_16_be_encode	😀	strict	-	L:2	B:\xd8=\xde\x00	i:1
+utf_16_be_encode	😀	ignore	-	L:2	B:\xd8=\xde\x00	i:1
+utf_16_be_encode	😀	replace	-	L:2	B:\xd8=\xde\x00	i:1
+utf_16_be_encode	😀	backslashreplace	-	L:2	B:\xd8=\xde\x00	i:1
+utf_16_be_encode	😀	surrogateescape	-	L:2	B:\xd8=\xde\x00	i:1
+utf_16_be_encode	😀	surrogatepass	-	L:2	B:\xd8=\xde\x00	i:1
+utf_16_be_encode	😀	xmlcharrefreplace	-	L:2	B:\xd8=\xde\x00	i:1
+utf_16_be_encode	a𝐀c		-	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_be_encode	a𝐀c	strict	-	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_be_encode	a𝐀c	ignore	-	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_be_encode	a𝐀c	replace	-	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_be_encode	a𝐀c	backslashreplace	-	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_be_encode	a𝐀c	surrogateescape	-	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_be_encode	a𝐀c	surrogatepass	-	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_be_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_be_encode			-	L:2	B:\x00\x80	i:1
+utf_16_be_encode		strict	-	L:2	B:\x00\x80	i:1
+utf_16_be_encode		ignore	-	L:2	B:\x00\x80	i:1
+utf_16_be_encode		replace	-	L:2	B:\x00\x80	i:1
+utf_16_be_encode		backslashreplace	-	L:2	B:\x00\x80	i:1
+utf_16_be_encode		surrogateescape	-	L:2	B:\x00\x80	i:1
+utf_16_be_encode		surrogatepass	-	L:2	B:\x00\x80	i:1
+utf_16_be_encode		xmlcharrefreplace	-	L:2	B:\x00\x80	i:1
+utf_16_be_encode	'\\\t\n\r		-	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_be_encode	'\\\t\n\r	strict	-	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_be_encode	'\\\t\n\r	ignore	-	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_be_encode	'\\\t\n\r	replace	-	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_be_encode	'\\\t\n\r	backslashreplace	-	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_be_encode	'\\\t\n\r	surrogateescape	-	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_be_encode	'\\\t\n\r	surrogatepass	-	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_be_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_be_encode	a\udcffb		-	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_be_encode	a\udcffb	strict	-	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_be_encode	a\udcffb	ignore	-	L:2	B:\x00a\x00b	i:3
+utf_16_be_encode	a\udcffb	replace	-	L:2	B:\x00a\x00?\x00b	i:3
+utf_16_be_encode	a\udcffb	backslashreplace	-	L:2	B:\x00a\x00\\\x00u\x00d\x00c\x00f\x00f\x00b	i:3
+utf_16_be_encode	a\udcffb	surrogateescape	-	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_be_encode	a\udcffb	surrogatepass	-	L:2	B:\x00a\xdc\xff\x00b	i:3
+utf_16_be_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:\x00a\x00&\x00#\x005\x006\x005\x007\x005\x00;\x00b	i:3
+utf_16_be_encode	\ud800		-	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_be_encode	\ud800	strict	-	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_be_encode	\ud800	ignore	-	L:2	B:	i:1
+utf_16_be_encode	\ud800	replace	-	L:2	B:\x00?	i:1
+utf_16_be_encode	\ud800	backslashreplace	-	L:2	B:\x00\\\x00u\x00d\x008\x000\x000	i:1
+utf_16_be_encode	\ud800	surrogateescape	-	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_be_encode	\ud800	surrogatepass	-	L:2	B:\xd8\x00	i:1
+utf_16_be_encode	\ud800	xmlcharrefreplace	-	L:2	B:\x00&\x00#\x005\x005\x002\x009\x006\x00;	i:1
+utf_16_be_encode	a b		-	L:2	B:\x00a (\x00b	i:3
+utf_16_be_encode	a b	strict	-	L:2	B:\x00a (\x00b	i:3
+utf_16_be_encode	a b	ignore	-	L:2	B:\x00a (\x00b	i:3
+utf_16_be_encode	a b	replace	-	L:2	B:\x00a (\x00b	i:3
+utf_16_be_encode	a b	backslashreplace	-	L:2	B:\x00a (\x00b	i:3
+utf_16_be_encode	a b	surrogateescape	-	L:2	B:\x00a (\x00b	i:3
+utf_16_be_encode	a b	surrogatepass	-	L:2	B:\x00a (\x00b	i:3
+utf_16_be_encode	a b	xmlcharrefreplace	-	L:2	B:\x00a (\x00b	i:3
+utf_16_be_encode	İ		-	L:2	B:\x010	i:1
+utf_16_be_encode	İ	strict	-	L:2	B:\x010	i:1
+utf_16_be_encode	İ	ignore	-	L:2	B:\x010	i:1
+utf_16_be_encode	İ	replace	-	L:2	B:\x010	i:1
+utf_16_be_encode	İ	backslashreplace	-	L:2	B:\x010	i:1
+utf_16_be_encode	İ	surrogateescape	-	L:2	B:\x010	i:1
+utf_16_be_encode	İ	surrogatepass	-	L:2	B:\x010	i:1
+utf_16_be_encode	İ	xmlcharrefreplace	-	L:2	B:\x010	i:1
+utf_32_le_encode			-	L:2	B:	i:0
+utf_32_le_encode		strict	-	L:2	B:	i:0
+utf_32_le_encode		ignore	-	L:2	B:	i:0
+utf_32_le_encode		replace	-	L:2	B:	i:0
+utf_32_le_encode		backslashreplace	-	L:2	B:	i:0
+utf_32_le_encode		surrogateescape	-	L:2	B:	i:0
+utf_32_le_encode		surrogatepass	-	L:2	B:	i:0
+utf_32_le_encode		xmlcharrefreplace	-	L:2	B:	i:0
+utf_32_le_encode	a		-	L:2	B:a\x00\x00\x00	i:1
+utf_32_le_encode	a	strict	-	L:2	B:a\x00\x00\x00	i:1
+utf_32_le_encode	a	ignore	-	L:2	B:a\x00\x00\x00	i:1
+utf_32_le_encode	a	replace	-	L:2	B:a\x00\x00\x00	i:1
+utf_32_le_encode	a	backslashreplace	-	L:2	B:a\x00\x00\x00	i:1
+utf_32_le_encode	a	surrogateescape	-	L:2	B:a\x00\x00\x00	i:1
+utf_32_le_encode	a	surrogatepass	-	L:2	B:a\x00\x00\x00	i:1
+utf_32_le_encode	a	xmlcharrefreplace	-	L:2	B:a\x00\x00\x00	i:1
+utf_32_le_encode	café		-	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_le_encode	café	strict	-	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_le_encode	café	ignore	-	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_le_encode	café	replace	-	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_le_encode	café	backslashreplace	-	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_le_encode	café	surrogateescape	-	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_le_encode	café	surrogatepass	-	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_le_encode	café	xmlcharrefreplace	-	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_le_encode	ÿ		-	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_le_encode	ÿ	strict	-	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_le_encode	ÿ	ignore	-	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_le_encode	ÿ	replace	-	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_le_encode	ÿ	backslashreplace	-	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_le_encode	ÿ	surrogateescape	-	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_le_encode	ÿ	surrogatepass	-	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_le_encode	ÿ	xmlcharrefreplace	-	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_le_encode	Ā		-	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_le_encode	Ā	strict	-	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_le_encode	Ā	ignore	-	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_le_encode	Ā	replace	-	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_le_encode	Ā	backslashreplace	-	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_le_encode	Ā	surrogateescape	-	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_le_encode	Ā	surrogatepass	-	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_le_encode	Ā	xmlcharrefreplace	-	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_le_encode	€		-	L:2	B:\xac \x00\x00	i:1
+utf_32_le_encode	€	strict	-	L:2	B:\xac \x00\x00	i:1
+utf_32_le_encode	€	ignore	-	L:2	B:\xac \x00\x00	i:1
+utf_32_le_encode	€	replace	-	L:2	B:\xac \x00\x00	i:1
+utf_32_le_encode	€	backslashreplace	-	L:2	B:\xac \x00\x00	i:1
+utf_32_le_encode	€	surrogateescape	-	L:2	B:\xac \x00\x00	i:1
+utf_32_le_encode	€	surrogatepass	-	L:2	B:\xac \x00\x00	i:1
+utf_32_le_encode	€	xmlcharrefreplace	-	L:2	B:\xac \x00\x00	i:1
+utf_32_le_encode	😀		-	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_le_encode	😀	strict	-	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_le_encode	😀	ignore	-	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_le_encode	😀	replace	-	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_le_encode	😀	backslashreplace	-	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_le_encode	😀	surrogateescape	-	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_le_encode	😀	surrogatepass	-	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_le_encode	😀	xmlcharrefreplace	-	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_le_encode	a𝐀c		-	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_le_encode	a𝐀c	strict	-	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_le_encode	a𝐀c	ignore	-	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_le_encode	a𝐀c	replace	-	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_le_encode	a𝐀c	backslashreplace	-	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_le_encode	a𝐀c	surrogateescape	-	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_le_encode	a𝐀c	surrogatepass	-	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_le_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_le_encode			-	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_le_encode		strict	-	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_le_encode		ignore	-	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_le_encode		replace	-	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_le_encode		backslashreplace	-	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_le_encode		surrogateescape	-	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_le_encode		surrogatepass	-	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_le_encode		xmlcharrefreplace	-	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_le_encode	'\\\t\n\r		-	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_le_encode	'\\\t\n\r	strict	-	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_le_encode	'\\\t\n\r	ignore	-	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_le_encode	'\\\t\n\r	replace	-	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_le_encode	'\\\t\n\r	backslashreplace	-	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_le_encode	'\\\t\n\r	surrogateescape	-	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_le_encode	'\\\t\n\r	surrogatepass	-	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_le_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_le_encode	a\udcffb		-	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_le_encode	a\udcffb	strict	-	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_le_encode	a\udcffb	ignore	-	L:2	B:a\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a\udcffb	replace	-	L:2	B:a\x00\x00\x00?\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a\udcffb	backslashreplace	-	L:2	B:a\x00\x00\x00\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x00c\x00\x00\x00f\x00\x00\x00f\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a\udcffb	surrogateescape	-	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_le_encode	a\udcffb	surrogatepass	-	L:2	B:a\x00\x00\x00\xff\xdc\x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:a\x00\x00\x00&\x00\x00\x00#\x00\x00\x005\x00\x00\x006\x00\x00\x005\x00\x00\x007\x00\x00\x005\x00\x00\x00;\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	\ud800		-	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_le_encode	\ud800	strict	-	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_le_encode	\ud800	ignore	-	L:2	B:	i:1
+utf_32_le_encode	\ud800	replace	-	L:2	B:?\x00\x00\x00	i:1
+utf_32_le_encode	\ud800	backslashreplace	-	L:2	B:\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x008\x00\x00\x000\x00\x00\x000\x00\x00\x00	i:1
+utf_32_le_encode	\ud800	surrogateescape	-	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_le_encode	\ud800	surrogatepass	-	L:2	B:\x00\xd8\x00\x00	i:1
+utf_32_le_encode	\ud800	xmlcharrefreplace	-	L:2	B:&\x00\x00\x00#\x00\x00\x005\x00\x00\x005\x00\x00\x002\x00\x00\x009\x00\x00\x006\x00\x00\x00;\x00\x00\x00	i:1
+utf_32_le_encode	a b		-	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a b	strict	-	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a b	ignore	-	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a b	replace	-	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a b	backslashreplace	-	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a b	surrogateescape	-	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a b	surrogatepass	-	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	a b	xmlcharrefreplace	-	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_le_encode	İ		-	L:2	B:0\x01\x00\x00	i:1
+utf_32_le_encode	İ	strict	-	L:2	B:0\x01\x00\x00	i:1
+utf_32_le_encode	İ	ignore	-	L:2	B:0\x01\x00\x00	i:1
+utf_32_le_encode	İ	replace	-	L:2	B:0\x01\x00\x00	i:1
+utf_32_le_encode	İ	backslashreplace	-	L:2	B:0\x01\x00\x00	i:1
+utf_32_le_encode	İ	surrogateescape	-	L:2	B:0\x01\x00\x00	i:1
+utf_32_le_encode	İ	surrogatepass	-	L:2	B:0\x01\x00\x00	i:1
+utf_32_le_encode	İ	xmlcharrefreplace	-	L:2	B:0\x01\x00\x00	i:1
+utf_32_be_encode			-	L:2	B:	i:0
+utf_32_be_encode		strict	-	L:2	B:	i:0
+utf_32_be_encode		ignore	-	L:2	B:	i:0
+utf_32_be_encode		replace	-	L:2	B:	i:0
+utf_32_be_encode		backslashreplace	-	L:2	B:	i:0
+utf_32_be_encode		surrogateescape	-	L:2	B:	i:0
+utf_32_be_encode		surrogatepass	-	L:2	B:	i:0
+utf_32_be_encode		xmlcharrefreplace	-	L:2	B:	i:0
+utf_32_be_encode	a		-	L:2	B:\x00\x00\x00a	i:1
+utf_32_be_encode	a	strict	-	L:2	B:\x00\x00\x00a	i:1
+utf_32_be_encode	a	ignore	-	L:2	B:\x00\x00\x00a	i:1
+utf_32_be_encode	a	replace	-	L:2	B:\x00\x00\x00a	i:1
+utf_32_be_encode	a	backslashreplace	-	L:2	B:\x00\x00\x00a	i:1
+utf_32_be_encode	a	surrogateescape	-	L:2	B:\x00\x00\x00a	i:1
+utf_32_be_encode	a	surrogatepass	-	L:2	B:\x00\x00\x00a	i:1
+utf_32_be_encode	a	xmlcharrefreplace	-	L:2	B:\x00\x00\x00a	i:1
+utf_32_be_encode	café		-	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_be_encode	café	strict	-	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_be_encode	café	ignore	-	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_be_encode	café	replace	-	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_be_encode	café	backslashreplace	-	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_be_encode	café	surrogateescape	-	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_be_encode	café	surrogatepass	-	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_be_encode	café	xmlcharrefreplace	-	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_be_encode	ÿ		-	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_be_encode	ÿ	strict	-	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_be_encode	ÿ	ignore	-	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_be_encode	ÿ	replace	-	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_be_encode	ÿ	backslashreplace	-	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_be_encode	ÿ	surrogateescape	-	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_be_encode	ÿ	surrogatepass	-	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_be_encode	ÿ	xmlcharrefreplace	-	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_be_encode	Ā		-	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_be_encode	Ā	strict	-	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_be_encode	Ā	ignore	-	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_be_encode	Ā	replace	-	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_be_encode	Ā	backslashreplace	-	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_be_encode	Ā	surrogateescape	-	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_be_encode	Ā	surrogatepass	-	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_be_encode	Ā	xmlcharrefreplace	-	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_be_encode	€		-	L:2	B:\x00\x00 \xac	i:1
+utf_32_be_encode	€	strict	-	L:2	B:\x00\x00 \xac	i:1
+utf_32_be_encode	€	ignore	-	L:2	B:\x00\x00 \xac	i:1
+utf_32_be_encode	€	replace	-	L:2	B:\x00\x00 \xac	i:1
+utf_32_be_encode	€	backslashreplace	-	L:2	B:\x00\x00 \xac	i:1
+utf_32_be_encode	€	surrogateescape	-	L:2	B:\x00\x00 \xac	i:1
+utf_32_be_encode	€	surrogatepass	-	L:2	B:\x00\x00 \xac	i:1
+utf_32_be_encode	€	xmlcharrefreplace	-	L:2	B:\x00\x00 \xac	i:1
+utf_32_be_encode	😀		-	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_be_encode	😀	strict	-	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_be_encode	😀	ignore	-	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_be_encode	😀	replace	-	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_be_encode	😀	backslashreplace	-	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_be_encode	😀	surrogateescape	-	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_be_encode	😀	surrogatepass	-	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_be_encode	😀	xmlcharrefreplace	-	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_be_encode	a𝐀c		-	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_be_encode	a𝐀c	strict	-	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_be_encode	a𝐀c	ignore	-	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_be_encode	a𝐀c	replace	-	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_be_encode	a𝐀c	backslashreplace	-	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_be_encode	a𝐀c	surrogateescape	-	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_be_encode	a𝐀c	surrogatepass	-	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_be_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_be_encode			-	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_be_encode		strict	-	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_be_encode		ignore	-	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_be_encode		replace	-	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_be_encode		backslashreplace	-	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_be_encode		surrogateescape	-	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_be_encode		surrogatepass	-	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_be_encode		xmlcharrefreplace	-	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_be_encode	'\\\t\n\r		-	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_be_encode	'\\\t\n\r	strict	-	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_be_encode	'\\\t\n\r	ignore	-	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_be_encode	'\\\t\n\r	replace	-	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_be_encode	'\\\t\n\r	backslashreplace	-	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_be_encode	'\\\t\n\r	surrogateescape	-	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_be_encode	'\\\t\n\r	surrogatepass	-	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_be_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_be_encode	a\udcffb		-	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_be_encode	a\udcffb	strict	-	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_be_encode	a\udcffb	ignore	-	L:2	B:\x00\x00\x00a\x00\x00\x00b	i:3
+utf_32_be_encode	a\udcffb	replace	-	L:2	B:\x00\x00\x00a\x00\x00\x00?\x00\x00\x00b	i:3
+utf_32_be_encode	a\udcffb	backslashreplace	-	L:2	B:\x00\x00\x00a\x00\x00\x00\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x00c\x00\x00\x00f\x00\x00\x00f\x00\x00\x00b	i:3
+utf_32_be_encode	a\udcffb	surrogateescape	-	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_be_encode	a\udcffb	surrogatepass	-	L:2	B:\x00\x00\x00a\x00\x00\xdc\xff\x00\x00\x00b	i:3
+utf_32_be_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:\x00\x00\x00a\x00\x00\x00&\x00\x00\x00#\x00\x00\x005\x00\x00\x006\x00\x00\x005\x00\x00\x007\x00\x00\x005\x00\x00\x00;\x00\x00\x00b	i:3
+utf_32_be_encode	\ud800		-	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_be_encode	\ud800	strict	-	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_be_encode	\ud800	ignore	-	L:2	B:	i:1
+utf_32_be_encode	\ud800	replace	-	L:2	B:\x00\x00\x00?	i:1
+utf_32_be_encode	\ud800	backslashreplace	-	L:2	B:\x00\x00\x00\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x008\x00\x00\x000\x00\x00\x000	i:1
+utf_32_be_encode	\ud800	surrogateescape	-	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_be_encode	\ud800	surrogatepass	-	L:2	B:\x00\x00\xd8\x00	i:1
+utf_32_be_encode	\ud800	xmlcharrefreplace	-	L:2	B:\x00\x00\x00&\x00\x00\x00#\x00\x00\x005\x00\x00\x005\x00\x00\x002\x00\x00\x009\x00\x00\x006\x00\x00\x00;	i:1
+utf_32_be_encode	a b		-	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_be_encode	a b	strict	-	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_be_encode	a b	ignore	-	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_be_encode	a b	replace	-	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_be_encode	a b	backslashreplace	-	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_be_encode	a b	surrogateescape	-	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_be_encode	a b	surrogatepass	-	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_be_encode	a b	xmlcharrefreplace	-	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_be_encode	İ		-	L:2	B:\x00\x00\x010	i:1
+utf_32_be_encode	İ	strict	-	L:2	B:\x00\x00\x010	i:1
+utf_32_be_encode	İ	ignore	-	L:2	B:\x00\x00\x010	i:1
+utf_32_be_encode	İ	replace	-	L:2	B:\x00\x00\x010	i:1
+utf_32_be_encode	İ	backslashreplace	-	L:2	B:\x00\x00\x010	i:1
+utf_32_be_encode	İ	surrogateescape	-	L:2	B:\x00\x00\x010	i:1
+utf_32_be_encode	İ	surrogatepass	-	L:2	B:\x00\x00\x010	i:1
+utf_32_be_encode	İ	xmlcharrefreplace	-	L:2	B:\x00\x00\x010	i:1
+latin_1_encode			-	L:2	B:	i:0
+latin_1_encode		strict	-	L:2	B:	i:0
+latin_1_encode		ignore	-	L:2	B:	i:0
+latin_1_encode		replace	-	L:2	B:	i:0
+latin_1_encode		backslashreplace	-	L:2	B:	i:0
+latin_1_encode		surrogateescape	-	L:2	B:	i:0
+latin_1_encode		surrogatepass	-	L:2	B:	i:0
+latin_1_encode		xmlcharrefreplace	-	L:2	B:	i:0
+latin_1_encode	a		-	L:2	B:a	i:1
+latin_1_encode	a	strict	-	L:2	B:a	i:1
+latin_1_encode	a	ignore	-	L:2	B:a	i:1
+latin_1_encode	a	replace	-	L:2	B:a	i:1
+latin_1_encode	a	backslashreplace	-	L:2	B:a	i:1
+latin_1_encode	a	surrogateescape	-	L:2	B:a	i:1
+latin_1_encode	a	surrogatepass	-	L:2	B:a	i:1
+latin_1_encode	a	xmlcharrefreplace	-	L:2	B:a	i:1
+latin_1_encode	café		-	L:2	B:caf\xe9	i:4
+latin_1_encode	café	strict	-	L:2	B:caf\xe9	i:4
+latin_1_encode	café	ignore	-	L:2	B:caf\xe9	i:4
+latin_1_encode	café	replace	-	L:2	B:caf\xe9	i:4
+latin_1_encode	café	backslashreplace	-	L:2	B:caf\xe9	i:4
+latin_1_encode	café	surrogateescape	-	L:2	B:caf\xe9	i:4
+latin_1_encode	café	surrogatepass	-	L:2	B:caf\xe9	i:4
+latin_1_encode	café	xmlcharrefreplace	-	L:2	B:caf\xe9	i:4
+latin_1_encode	ÿ		-	L:2	B:\xff	i:1
+latin_1_encode	ÿ	strict	-	L:2	B:\xff	i:1
+latin_1_encode	ÿ	ignore	-	L:2	B:\xff	i:1
+latin_1_encode	ÿ	replace	-	L:2	B:\xff	i:1
+latin_1_encode	ÿ	backslashreplace	-	L:2	B:\xff	i:1
+latin_1_encode	ÿ	surrogateescape	-	L:2	B:\xff	i:1
+latin_1_encode	ÿ	surrogatepass	-	L:2	B:\xff	i:1
+latin_1_encode	ÿ	xmlcharrefreplace	-	L:2	B:\xff	i:1
+latin_1_encode	Ā		-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u0100' in position 0: ordinal not in range(256)
+latin_1_encode	Ā	strict	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u0100' in position 0: ordinal not in range(256)
+latin_1_encode	Ā	ignore	-	L:2	B:	i:1
+latin_1_encode	Ā	replace	-	L:2	B:?	i:1
+latin_1_encode	Ā	backslashreplace	-	L:2	B:\\u0100	i:1
+latin_1_encode	Ā	surrogateescape	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u0100' in position 0: ordinal not in range(256)
+latin_1_encode	Ā	surrogatepass	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u0100' in position 0: ordinal not in range(256)
+latin_1_encode	Ā	xmlcharrefreplace	-	L:2	B:&#256;	i:1
+latin_1_encode	€		-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u20ac' in position 0: ordinal not in range(256)
+latin_1_encode	€	strict	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u20ac' in position 0: ordinal not in range(256)
+latin_1_encode	€	ignore	-	L:2	B:	i:1
+latin_1_encode	€	replace	-	L:2	B:?	i:1
+latin_1_encode	€	backslashreplace	-	L:2	B:\\u20ac	i:1
+latin_1_encode	€	surrogateescape	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u20ac' in position 0: ordinal not in range(256)
+latin_1_encode	€	surrogatepass	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u20ac' in position 0: ordinal not in range(256)
+latin_1_encode	€	xmlcharrefreplace	-	L:2	B:&#8364;	i:1
+latin_1_encode	😀		-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(256)
+latin_1_encode	😀	strict	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(256)
+latin_1_encode	😀	ignore	-	L:2	B:	i:1
+latin_1_encode	😀	replace	-	L:2	B:?	i:1
+latin_1_encode	😀	backslashreplace	-	L:2	B:\\U0001f600	i:1
+latin_1_encode	😀	surrogateescape	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(256)
+latin_1_encode	😀	surrogatepass	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(256)
+latin_1_encode	😀	xmlcharrefreplace	-	L:2	B:&#128512;	i:1
+latin_1_encode	a𝐀c		-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001d400' in position 1: ordinal not in range(256)
+latin_1_encode	a𝐀c	strict	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001d400' in position 1: ordinal not in range(256)
+latin_1_encode	a𝐀c	ignore	-	L:2	B:ac	i:3
+latin_1_encode	a𝐀c	replace	-	L:2	B:a?c	i:3
+latin_1_encode	a𝐀c	backslashreplace	-	L:2	B:a\\U0001d400c	i:3
+latin_1_encode	a𝐀c	surrogateescape	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001d400' in position 1: ordinal not in range(256)
+latin_1_encode	a𝐀c	surrogatepass	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\U0001d400' in position 1: ordinal not in range(256)
+latin_1_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:a&#119808;c	i:3
+latin_1_encode			-	L:2	B:\x80	i:1
+latin_1_encode		strict	-	L:2	B:\x80	i:1
+latin_1_encode		ignore	-	L:2	B:\x80	i:1
+latin_1_encode		replace	-	L:2	B:\x80	i:1
+latin_1_encode		backslashreplace	-	L:2	B:\x80	i:1
+latin_1_encode		surrogateescape	-	L:2	B:\x80	i:1
+latin_1_encode		surrogatepass	-	L:2	B:\x80	i:1
+latin_1_encode		xmlcharrefreplace	-	L:2	B:\x80	i:1
+latin_1_encode	'\\\t\n\r		-	L:2	B:'\\\t\n\r	i:5
+latin_1_encode	'\\\t\n\r	strict	-	L:2	B:'\\\t\n\r	i:5
+latin_1_encode	'\\\t\n\r	ignore	-	L:2	B:'\\\t\n\r	i:5
+latin_1_encode	'\\\t\n\r	replace	-	L:2	B:'\\\t\n\r	i:5
+latin_1_encode	'\\\t\n\r	backslashreplace	-	L:2	B:'\\\t\n\r	i:5
+latin_1_encode	'\\\t\n\r	surrogateescape	-	L:2	B:'\\\t\n\r	i:5
+latin_1_encode	'\\\t\n\r	surrogatepass	-	L:2	B:'\\\t\n\r	i:5
+latin_1_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:'\\\t\n\r	i:5
+latin_1_encode	a\udcffb		-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\udcff' in position 1: ordinal not in range(256)
+latin_1_encode	a\udcffb	strict	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\udcff' in position 1: ordinal not in range(256)
+latin_1_encode	a\udcffb	ignore	-	L:2	B:ab	i:3
+latin_1_encode	a\udcffb	replace	-	L:2	B:a?b	i:3
+latin_1_encode	a\udcffb	backslashreplace	-	L:2	B:a\\udcffb	i:3
+latin_1_encode	a\udcffb	surrogateescape	-	L:2	B:a\xffb	i:3
+latin_1_encode	a\udcffb	surrogatepass	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\udcff' in position 1: ordinal not in range(256)
+latin_1_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:a&#56575;b	i:3
+latin_1_encode	\ud800		-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\ud800' in position 0: ordinal not in range(256)
+latin_1_encode	\ud800	strict	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\ud800' in position 0: ordinal not in range(256)
+latin_1_encode	\ud800	ignore	-	L:2	B:	i:1
+latin_1_encode	\ud800	replace	-	L:2	B:?	i:1
+latin_1_encode	\ud800	backslashreplace	-	L:2	B:\\ud800	i:1
+latin_1_encode	\ud800	surrogateescape	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\ud800' in position 0: ordinal not in range(256)
+latin_1_encode	\ud800	surrogatepass	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\ud800' in position 0: ordinal not in range(256)
+latin_1_encode	\ud800	xmlcharrefreplace	-	L:2	B:&#55296;	i:1
+latin_1_encode	a b		-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u2028' in position 1: ordinal not in range(256)
+latin_1_encode	a b	strict	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u2028' in position 1: ordinal not in range(256)
+latin_1_encode	a b	ignore	-	L:2	B:ab	i:3
+latin_1_encode	a b	replace	-	L:2	B:a?b	i:3
+latin_1_encode	a b	backslashreplace	-	L:2	B:a\\u2028b	i:3
+latin_1_encode	a b	surrogateescape	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u2028' in position 1: ordinal not in range(256)
+latin_1_encode	a b	surrogatepass	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u2028' in position 1: ordinal not in range(256)
+latin_1_encode	a b	xmlcharrefreplace	-	L:2	B:a&#8232;b	i:3
+latin_1_encode	İ		-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u0130' in position 0: ordinal not in range(256)
+latin_1_encode	İ	strict	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u0130' in position 0: ordinal not in range(256)
+latin_1_encode	İ	ignore	-	L:2	B:	i:1
+latin_1_encode	İ	replace	-	L:2	B:?	i:1
+latin_1_encode	İ	backslashreplace	-	L:2	B:\\u0130	i:1
+latin_1_encode	İ	surrogateescape	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u0130' in position 0: ordinal not in range(256)
+latin_1_encode	İ	surrogatepass	-	e:UnicodeEncodeError:'latin-1' codec can't encode character '\\u0130' in position 0: ordinal not in range(256)
+latin_1_encode	İ	xmlcharrefreplace	-	L:2	B:&#304;	i:1
+ascii_encode			-	L:2	B:	i:0
+ascii_encode		strict	-	L:2	B:	i:0
+ascii_encode		ignore	-	L:2	B:	i:0
+ascii_encode		replace	-	L:2	B:	i:0
+ascii_encode		backslashreplace	-	L:2	B:	i:0
+ascii_encode		surrogateescape	-	L:2	B:	i:0
+ascii_encode		surrogatepass	-	L:2	B:	i:0
+ascii_encode		xmlcharrefreplace	-	L:2	B:	i:0
+ascii_encode	a		-	L:2	B:a	i:1
+ascii_encode	a	strict	-	L:2	B:a	i:1
+ascii_encode	a	ignore	-	L:2	B:a	i:1
+ascii_encode	a	replace	-	L:2	B:a	i:1
+ascii_encode	a	backslashreplace	-	L:2	B:a	i:1
+ascii_encode	a	surrogateescape	-	L:2	B:a	i:1
+ascii_encode	a	surrogatepass	-	L:2	B:a	i:1
+ascii_encode	a	xmlcharrefreplace	-	L:2	B:a	i:1
+ascii_encode	café		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xe9' in position 3: ordinal not in range(128)
+ascii_encode	café	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xe9' in position 3: ordinal not in range(128)
+ascii_encode	café	ignore	-	L:2	B:caf	i:4
+ascii_encode	café	replace	-	L:2	B:caf?	i:4
+ascii_encode	café	backslashreplace	-	L:2	B:caf\\xe9	i:4
+ascii_encode	café	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xe9' in position 3: ordinal not in range(128)
+ascii_encode	café	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xe9' in position 3: ordinal not in range(128)
+ascii_encode	café	xmlcharrefreplace	-	L:2	B:caf&#233;	i:4
+ascii_encode	ÿ		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
+ascii_encode	ÿ	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
+ascii_encode	ÿ	ignore	-	L:2	B:	i:1
+ascii_encode	ÿ	replace	-	L:2	B:?	i:1
+ascii_encode	ÿ	backslashreplace	-	L:2	B:\\xff	i:1
+ascii_encode	ÿ	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
+ascii_encode	ÿ	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\xff' in position 0: ordinal not in range(128)
+ascii_encode	ÿ	xmlcharrefreplace	-	L:2	B:&#255;	i:1
+ascii_encode	Ā		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u0100' in position 0: ordinal not in range(128)
+ascii_encode	Ā	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u0100' in position 0: ordinal not in range(128)
+ascii_encode	Ā	ignore	-	L:2	B:	i:1
+ascii_encode	Ā	replace	-	L:2	B:?	i:1
+ascii_encode	Ā	backslashreplace	-	L:2	B:\\u0100	i:1
+ascii_encode	Ā	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u0100' in position 0: ordinal not in range(128)
+ascii_encode	Ā	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u0100' in position 0: ordinal not in range(128)
+ascii_encode	Ā	xmlcharrefreplace	-	L:2	B:&#256;	i:1
+ascii_encode	€		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u20ac' in position 0: ordinal not in range(128)
+ascii_encode	€	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u20ac' in position 0: ordinal not in range(128)
+ascii_encode	€	ignore	-	L:2	B:	i:1
+ascii_encode	€	replace	-	L:2	B:?	i:1
+ascii_encode	€	backslashreplace	-	L:2	B:\\u20ac	i:1
+ascii_encode	€	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u20ac' in position 0: ordinal not in range(128)
+ascii_encode	€	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u20ac' in position 0: ordinal not in range(128)
+ascii_encode	€	xmlcharrefreplace	-	L:2	B:&#8364;	i:1
+ascii_encode	😀		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(128)
+ascii_encode	😀	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(128)
+ascii_encode	😀	ignore	-	L:2	B:	i:1
+ascii_encode	😀	replace	-	L:2	B:?	i:1
+ascii_encode	😀	backslashreplace	-	L:2	B:\\U0001f600	i:1
+ascii_encode	😀	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(128)
+ascii_encode	😀	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001f600' in position 0: ordinal not in range(128)
+ascii_encode	😀	xmlcharrefreplace	-	L:2	B:&#128512;	i:1
+ascii_encode	a𝐀c		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001d400' in position 1: ordinal not in range(128)
+ascii_encode	a𝐀c	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001d400' in position 1: ordinal not in range(128)
+ascii_encode	a𝐀c	ignore	-	L:2	B:ac	i:3
+ascii_encode	a𝐀c	replace	-	L:2	B:a?c	i:3
+ascii_encode	a𝐀c	backslashreplace	-	L:2	B:a\\U0001d400c	i:3
+ascii_encode	a𝐀c	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001d400' in position 1: ordinal not in range(128)
+ascii_encode	a𝐀c	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\U0001d400' in position 1: ordinal not in range(128)
+ascii_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:a&#119808;c	i:3
+ascii_encode			-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\x80' in position 0: ordinal not in range(128)
+ascii_encode		strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\x80' in position 0: ordinal not in range(128)
+ascii_encode		ignore	-	L:2	B:	i:1
+ascii_encode		replace	-	L:2	B:?	i:1
+ascii_encode		backslashreplace	-	L:2	B:\\x80	i:1
+ascii_encode		surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\x80' in position 0: ordinal not in range(128)
+ascii_encode		surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\x80' in position 0: ordinal not in range(128)
+ascii_encode		xmlcharrefreplace	-	L:2	B:&#128;	i:1
+ascii_encode	'\\\t\n\r		-	L:2	B:'\\\t\n\r	i:5
+ascii_encode	'\\\t\n\r	strict	-	L:2	B:'\\\t\n\r	i:5
+ascii_encode	'\\\t\n\r	ignore	-	L:2	B:'\\\t\n\r	i:5
+ascii_encode	'\\\t\n\r	replace	-	L:2	B:'\\\t\n\r	i:5
+ascii_encode	'\\\t\n\r	backslashreplace	-	L:2	B:'\\\t\n\r	i:5
+ascii_encode	'\\\t\n\r	surrogateescape	-	L:2	B:'\\\t\n\r	i:5
+ascii_encode	'\\\t\n\r	surrogatepass	-	L:2	B:'\\\t\n\r	i:5
+ascii_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:'\\\t\n\r	i:5
+ascii_encode	a\udcffb		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\udcff' in position 1: ordinal not in range(128)
+ascii_encode	a\udcffb	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\udcff' in position 1: ordinal not in range(128)
+ascii_encode	a\udcffb	ignore	-	L:2	B:ab	i:3
+ascii_encode	a\udcffb	replace	-	L:2	B:a?b	i:3
+ascii_encode	a\udcffb	backslashreplace	-	L:2	B:a\\udcffb	i:3
+ascii_encode	a\udcffb	surrogateescape	-	L:2	B:a\xffb	i:3
+ascii_encode	a\udcffb	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\udcff' in position 1: ordinal not in range(128)
+ascii_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:a&#56575;b	i:3
+ascii_encode	\ud800		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\ud800' in position 0: ordinal not in range(128)
+ascii_encode	\ud800	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\ud800' in position 0: ordinal not in range(128)
+ascii_encode	\ud800	ignore	-	L:2	B:	i:1
+ascii_encode	\ud800	replace	-	L:2	B:?	i:1
+ascii_encode	\ud800	backslashreplace	-	L:2	B:\\ud800	i:1
+ascii_encode	\ud800	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\ud800' in position 0: ordinal not in range(128)
+ascii_encode	\ud800	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\ud800' in position 0: ordinal not in range(128)
+ascii_encode	\ud800	xmlcharrefreplace	-	L:2	B:&#55296;	i:1
+ascii_encode	a b		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u2028' in position 1: ordinal not in range(128)
+ascii_encode	a b	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u2028' in position 1: ordinal not in range(128)
+ascii_encode	a b	ignore	-	L:2	B:ab	i:3
+ascii_encode	a b	replace	-	L:2	B:a?b	i:3
+ascii_encode	a b	backslashreplace	-	L:2	B:a\\u2028b	i:3
+ascii_encode	a b	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u2028' in position 1: ordinal not in range(128)
+ascii_encode	a b	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u2028' in position 1: ordinal not in range(128)
+ascii_encode	a b	xmlcharrefreplace	-	L:2	B:a&#8232;b	i:3
+ascii_encode	İ		-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u0130' in position 0: ordinal not in range(128)
+ascii_encode	İ	strict	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u0130' in position 0: ordinal not in range(128)
+ascii_encode	İ	ignore	-	L:2	B:	i:1
+ascii_encode	İ	replace	-	L:2	B:?	i:1
+ascii_encode	İ	backslashreplace	-	L:2	B:\\u0130	i:1
+ascii_encode	İ	surrogateescape	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u0130' in position 0: ordinal not in range(128)
+ascii_encode	İ	surrogatepass	-	e:UnicodeEncodeError:'ascii' codec can't encode character '\\u0130' in position 0: ordinal not in range(128)
+ascii_encode	İ	xmlcharrefreplace	-	L:2	B:&#304;	i:1
+unicode_escape_encode			-	L:2	B:	i:0
+unicode_escape_encode		strict	-	L:2	B:	i:0
+unicode_escape_encode		ignore	-	L:2	B:	i:0
+unicode_escape_encode		replace	-	L:2	B:	i:0
+unicode_escape_encode		backslashreplace	-	L:2	B:	i:0
+unicode_escape_encode		surrogateescape	-	L:2	B:	i:0
+unicode_escape_encode		surrogatepass	-	L:2	B:	i:0
+unicode_escape_encode		xmlcharrefreplace	-	L:2	B:	i:0
+unicode_escape_encode	a		-	L:2	B:a	i:1
+unicode_escape_encode	a	strict	-	L:2	B:a	i:1
+unicode_escape_encode	a	ignore	-	L:2	B:a	i:1
+unicode_escape_encode	a	replace	-	L:2	B:a	i:1
+unicode_escape_encode	a	backslashreplace	-	L:2	B:a	i:1
+unicode_escape_encode	a	surrogateescape	-	L:2	B:a	i:1
+unicode_escape_encode	a	surrogatepass	-	L:2	B:a	i:1
+unicode_escape_encode	a	xmlcharrefreplace	-	L:2	B:a	i:1
+unicode_escape_encode	café		-	L:2	B:caf\\xe9	i:4
+unicode_escape_encode	café	strict	-	L:2	B:caf\\xe9	i:4
+unicode_escape_encode	café	ignore	-	L:2	B:caf\\xe9	i:4
+unicode_escape_encode	café	replace	-	L:2	B:caf\\xe9	i:4
+unicode_escape_encode	café	backslashreplace	-	L:2	B:caf\\xe9	i:4
+unicode_escape_encode	café	surrogateescape	-	L:2	B:caf\\xe9	i:4
+unicode_escape_encode	café	surrogatepass	-	L:2	B:caf\\xe9	i:4
+unicode_escape_encode	café	xmlcharrefreplace	-	L:2	B:caf\\xe9	i:4
+unicode_escape_encode	ÿ		-	L:2	B:\\xff	i:1
+unicode_escape_encode	ÿ	strict	-	L:2	B:\\xff	i:1
+unicode_escape_encode	ÿ	ignore	-	L:2	B:\\xff	i:1
+unicode_escape_encode	ÿ	replace	-	L:2	B:\\xff	i:1
+unicode_escape_encode	ÿ	backslashreplace	-	L:2	B:\\xff	i:1
+unicode_escape_encode	ÿ	surrogateescape	-	L:2	B:\\xff	i:1
+unicode_escape_encode	ÿ	surrogatepass	-	L:2	B:\\xff	i:1
+unicode_escape_encode	ÿ	xmlcharrefreplace	-	L:2	B:\\xff	i:1
+unicode_escape_encode	Ā		-	L:2	B:\\u0100	i:1
+unicode_escape_encode	Ā	strict	-	L:2	B:\\u0100	i:1
+unicode_escape_encode	Ā	ignore	-	L:2	B:\\u0100	i:1
+unicode_escape_encode	Ā	replace	-	L:2	B:\\u0100	i:1
+unicode_escape_encode	Ā	backslashreplace	-	L:2	B:\\u0100	i:1
+unicode_escape_encode	Ā	surrogateescape	-	L:2	B:\\u0100	i:1
+unicode_escape_encode	Ā	surrogatepass	-	L:2	B:\\u0100	i:1
+unicode_escape_encode	Ā	xmlcharrefreplace	-	L:2	B:\\u0100	i:1
+unicode_escape_encode	€		-	L:2	B:\\u20ac	i:1
+unicode_escape_encode	€	strict	-	L:2	B:\\u20ac	i:1
+unicode_escape_encode	€	ignore	-	L:2	B:\\u20ac	i:1
+unicode_escape_encode	€	replace	-	L:2	B:\\u20ac	i:1
+unicode_escape_encode	€	backslashreplace	-	L:2	B:\\u20ac	i:1
+unicode_escape_encode	€	surrogateescape	-	L:2	B:\\u20ac	i:1
+unicode_escape_encode	€	surrogatepass	-	L:2	B:\\u20ac	i:1
+unicode_escape_encode	€	xmlcharrefreplace	-	L:2	B:\\u20ac	i:1
+unicode_escape_encode	😀		-	L:2	B:\\U0001f600	i:1
+unicode_escape_encode	😀	strict	-	L:2	B:\\U0001f600	i:1
+unicode_escape_encode	😀	ignore	-	L:2	B:\\U0001f600	i:1
+unicode_escape_encode	😀	replace	-	L:2	B:\\U0001f600	i:1
+unicode_escape_encode	😀	backslashreplace	-	L:2	B:\\U0001f600	i:1
+unicode_escape_encode	😀	surrogateescape	-	L:2	B:\\U0001f600	i:1
+unicode_escape_encode	😀	surrogatepass	-	L:2	B:\\U0001f600	i:1
+unicode_escape_encode	😀	xmlcharrefreplace	-	L:2	B:\\U0001f600	i:1
+unicode_escape_encode	a𝐀c		-	L:2	B:a\\U0001d400c	i:3
+unicode_escape_encode	a𝐀c	strict	-	L:2	B:a\\U0001d400c	i:3
+unicode_escape_encode	a𝐀c	ignore	-	L:2	B:a\\U0001d400c	i:3
+unicode_escape_encode	a𝐀c	replace	-	L:2	B:a\\U0001d400c	i:3
+unicode_escape_encode	a𝐀c	backslashreplace	-	L:2	B:a\\U0001d400c	i:3
+unicode_escape_encode	a𝐀c	surrogateescape	-	L:2	B:a\\U0001d400c	i:3
+unicode_escape_encode	a𝐀c	surrogatepass	-	L:2	B:a\\U0001d400c	i:3
+unicode_escape_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:a\\U0001d400c	i:3
+unicode_escape_encode			-	L:2	B:\\x80	i:1
+unicode_escape_encode		strict	-	L:2	B:\\x80	i:1
+unicode_escape_encode		ignore	-	L:2	B:\\x80	i:1
+unicode_escape_encode		replace	-	L:2	B:\\x80	i:1
+unicode_escape_encode		backslashreplace	-	L:2	B:\\x80	i:1
+unicode_escape_encode		surrogateescape	-	L:2	B:\\x80	i:1
+unicode_escape_encode		surrogatepass	-	L:2	B:\\x80	i:1
+unicode_escape_encode		xmlcharrefreplace	-	L:2	B:\\x80	i:1
+unicode_escape_encode	'\\\t\n\r		-	L:2	B:'\\\\\\t\\n\\r	i:5
+unicode_escape_encode	'\\\t\n\r	strict	-	L:2	B:'\\\\\\t\\n\\r	i:5
+unicode_escape_encode	'\\\t\n\r	ignore	-	L:2	B:'\\\\\\t\\n\\r	i:5
+unicode_escape_encode	'\\\t\n\r	replace	-	L:2	B:'\\\\\\t\\n\\r	i:5
+unicode_escape_encode	'\\\t\n\r	backslashreplace	-	L:2	B:'\\\\\\t\\n\\r	i:5
+unicode_escape_encode	'\\\t\n\r	surrogateescape	-	L:2	B:'\\\\\\t\\n\\r	i:5
+unicode_escape_encode	'\\\t\n\r	surrogatepass	-	L:2	B:'\\\\\\t\\n\\r	i:5
+unicode_escape_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:'\\\\\\t\\n\\r	i:5
+unicode_escape_encode	a\udcffb		-	L:2	B:a\\udcffb	i:3
+unicode_escape_encode	a\udcffb	strict	-	L:2	B:a\\udcffb	i:3
+unicode_escape_encode	a\udcffb	ignore	-	L:2	B:a\\udcffb	i:3
+unicode_escape_encode	a\udcffb	replace	-	L:2	B:a\\udcffb	i:3
+unicode_escape_encode	a\udcffb	backslashreplace	-	L:2	B:a\\udcffb	i:3
+unicode_escape_encode	a\udcffb	surrogateescape	-	L:2	B:a\\udcffb	i:3
+unicode_escape_encode	a\udcffb	surrogatepass	-	L:2	B:a\\udcffb	i:3
+unicode_escape_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:a\\udcffb	i:3
+unicode_escape_encode	\ud800		-	L:2	B:\\ud800	i:1
+unicode_escape_encode	\ud800	strict	-	L:2	B:\\ud800	i:1
+unicode_escape_encode	\ud800	ignore	-	L:2	B:\\ud800	i:1
+unicode_escape_encode	\ud800	replace	-	L:2	B:\\ud800	i:1
+unicode_escape_encode	\ud800	backslashreplace	-	L:2	B:\\ud800	i:1
+unicode_escape_encode	\ud800	surrogateescape	-	L:2	B:\\ud800	i:1
+unicode_escape_encode	\ud800	surrogatepass	-	L:2	B:\\ud800	i:1
+unicode_escape_encode	\ud800	xmlcharrefreplace	-	L:2	B:\\ud800	i:1
+unicode_escape_encode	a b		-	L:2	B:a\\u2028b	i:3
+unicode_escape_encode	a b	strict	-	L:2	B:a\\u2028b	i:3
+unicode_escape_encode	a b	ignore	-	L:2	B:a\\u2028b	i:3
+unicode_escape_encode	a b	replace	-	L:2	B:a\\u2028b	i:3
+unicode_escape_encode	a b	backslashreplace	-	L:2	B:a\\u2028b	i:3
+unicode_escape_encode	a b	surrogateescape	-	L:2	B:a\\u2028b	i:3
+unicode_escape_encode	a b	surrogatepass	-	L:2	B:a\\u2028b	i:3
+unicode_escape_encode	a b	xmlcharrefreplace	-	L:2	B:a\\u2028b	i:3
+unicode_escape_encode	İ		-	L:2	B:\\u0130	i:1
+unicode_escape_encode	İ	strict	-	L:2	B:\\u0130	i:1
+unicode_escape_encode	İ	ignore	-	L:2	B:\\u0130	i:1
+unicode_escape_encode	İ	replace	-	L:2	B:\\u0130	i:1
+unicode_escape_encode	İ	backslashreplace	-	L:2	B:\\u0130	i:1
+unicode_escape_encode	İ	surrogateescape	-	L:2	B:\\u0130	i:1
+unicode_escape_encode	İ	surrogatepass	-	L:2	B:\\u0130	i:1
+unicode_escape_encode	İ	xmlcharrefreplace	-	L:2	B:\\u0130	i:1
+raw_unicode_escape_encode			-	L:2	B:	i:0
+raw_unicode_escape_encode		strict	-	L:2	B:	i:0
+raw_unicode_escape_encode		ignore	-	L:2	B:	i:0
+raw_unicode_escape_encode		replace	-	L:2	B:	i:0
+raw_unicode_escape_encode		backslashreplace	-	L:2	B:	i:0
+raw_unicode_escape_encode		surrogateescape	-	L:2	B:	i:0
+raw_unicode_escape_encode		surrogatepass	-	L:2	B:	i:0
+raw_unicode_escape_encode		xmlcharrefreplace	-	L:2	B:	i:0
+raw_unicode_escape_encode	a		-	L:2	B:a	i:1
+raw_unicode_escape_encode	a	strict	-	L:2	B:a	i:1
+raw_unicode_escape_encode	a	ignore	-	L:2	B:a	i:1
+raw_unicode_escape_encode	a	replace	-	L:2	B:a	i:1
+raw_unicode_escape_encode	a	backslashreplace	-	L:2	B:a	i:1
+raw_unicode_escape_encode	a	surrogateescape	-	L:2	B:a	i:1
+raw_unicode_escape_encode	a	surrogatepass	-	L:2	B:a	i:1
+raw_unicode_escape_encode	a	xmlcharrefreplace	-	L:2	B:a	i:1
+raw_unicode_escape_encode	café		-	L:2	B:caf\xe9	i:4
+raw_unicode_escape_encode	café	strict	-	L:2	B:caf\xe9	i:4
+raw_unicode_escape_encode	café	ignore	-	L:2	B:caf\xe9	i:4
+raw_unicode_escape_encode	café	replace	-	L:2	B:caf\xe9	i:4
+raw_unicode_escape_encode	café	backslashreplace	-	L:2	B:caf\xe9	i:4
+raw_unicode_escape_encode	café	surrogateescape	-	L:2	B:caf\xe9	i:4
+raw_unicode_escape_encode	café	surrogatepass	-	L:2	B:caf\xe9	i:4
+raw_unicode_escape_encode	café	xmlcharrefreplace	-	L:2	B:caf\xe9	i:4
+raw_unicode_escape_encode	ÿ		-	L:2	B:\xff	i:1
+raw_unicode_escape_encode	ÿ	strict	-	L:2	B:\xff	i:1
+raw_unicode_escape_encode	ÿ	ignore	-	L:2	B:\xff	i:1
+raw_unicode_escape_encode	ÿ	replace	-	L:2	B:\xff	i:1
+raw_unicode_escape_encode	ÿ	backslashreplace	-	L:2	B:\xff	i:1
+raw_unicode_escape_encode	ÿ	surrogateescape	-	L:2	B:\xff	i:1
+raw_unicode_escape_encode	ÿ	surrogatepass	-	L:2	B:\xff	i:1
+raw_unicode_escape_encode	ÿ	xmlcharrefreplace	-	L:2	B:\xff	i:1
+raw_unicode_escape_encode	Ā		-	L:2	B:\\u0100	i:1
+raw_unicode_escape_encode	Ā	strict	-	L:2	B:\\u0100	i:1
+raw_unicode_escape_encode	Ā	ignore	-	L:2	B:\\u0100	i:1
+raw_unicode_escape_encode	Ā	replace	-	L:2	B:\\u0100	i:1
+raw_unicode_escape_encode	Ā	backslashreplace	-	L:2	B:\\u0100	i:1
+raw_unicode_escape_encode	Ā	surrogateescape	-	L:2	B:\\u0100	i:1
+raw_unicode_escape_encode	Ā	surrogatepass	-	L:2	B:\\u0100	i:1
+raw_unicode_escape_encode	Ā	xmlcharrefreplace	-	L:2	B:\\u0100	i:1
+raw_unicode_escape_encode	€		-	L:2	B:\\u20ac	i:1
+raw_unicode_escape_encode	€	strict	-	L:2	B:\\u20ac	i:1
+raw_unicode_escape_encode	€	ignore	-	L:2	B:\\u20ac	i:1
+raw_unicode_escape_encode	€	replace	-	L:2	B:\\u20ac	i:1
+raw_unicode_escape_encode	€	backslashreplace	-	L:2	B:\\u20ac	i:1
+raw_unicode_escape_encode	€	surrogateescape	-	L:2	B:\\u20ac	i:1
+raw_unicode_escape_encode	€	surrogatepass	-	L:2	B:\\u20ac	i:1
+raw_unicode_escape_encode	€	xmlcharrefreplace	-	L:2	B:\\u20ac	i:1
+raw_unicode_escape_encode	😀		-	L:2	B:\\U0001f600	i:1
+raw_unicode_escape_encode	😀	strict	-	L:2	B:\\U0001f600	i:1
+raw_unicode_escape_encode	😀	ignore	-	L:2	B:\\U0001f600	i:1
+raw_unicode_escape_encode	😀	replace	-	L:2	B:\\U0001f600	i:1
+raw_unicode_escape_encode	😀	backslashreplace	-	L:2	B:\\U0001f600	i:1
+raw_unicode_escape_encode	😀	surrogateescape	-	L:2	B:\\U0001f600	i:1
+raw_unicode_escape_encode	😀	surrogatepass	-	L:2	B:\\U0001f600	i:1
+raw_unicode_escape_encode	😀	xmlcharrefreplace	-	L:2	B:\\U0001f600	i:1
+raw_unicode_escape_encode	a𝐀c		-	L:2	B:a\\U0001d400c	i:3
+raw_unicode_escape_encode	a𝐀c	strict	-	L:2	B:a\\U0001d400c	i:3
+raw_unicode_escape_encode	a𝐀c	ignore	-	L:2	B:a\\U0001d400c	i:3
+raw_unicode_escape_encode	a𝐀c	replace	-	L:2	B:a\\U0001d400c	i:3
+raw_unicode_escape_encode	a𝐀c	backslashreplace	-	L:2	B:a\\U0001d400c	i:3
+raw_unicode_escape_encode	a𝐀c	surrogateescape	-	L:2	B:a\\U0001d400c	i:3
+raw_unicode_escape_encode	a𝐀c	surrogatepass	-	L:2	B:a\\U0001d400c	i:3
+raw_unicode_escape_encode	a𝐀c	xmlcharrefreplace	-	L:2	B:a\\U0001d400c	i:3
+raw_unicode_escape_encode			-	L:2	B:\x80	i:1
+raw_unicode_escape_encode		strict	-	L:2	B:\x80	i:1
+raw_unicode_escape_encode		ignore	-	L:2	B:\x80	i:1
+raw_unicode_escape_encode		replace	-	L:2	B:\x80	i:1
+raw_unicode_escape_encode		backslashreplace	-	L:2	B:\x80	i:1
+raw_unicode_escape_encode		surrogateescape	-	L:2	B:\x80	i:1
+raw_unicode_escape_encode		surrogatepass	-	L:2	B:\x80	i:1
+raw_unicode_escape_encode		xmlcharrefreplace	-	L:2	B:\x80	i:1
+raw_unicode_escape_encode	'\\\t\n\r		-	L:2	B:'\\\t\n\r	i:5
+raw_unicode_escape_encode	'\\\t\n\r	strict	-	L:2	B:'\\\t\n\r	i:5
+raw_unicode_escape_encode	'\\\t\n\r	ignore	-	L:2	B:'\\\t\n\r	i:5
+raw_unicode_escape_encode	'\\\t\n\r	replace	-	L:2	B:'\\\t\n\r	i:5
+raw_unicode_escape_encode	'\\\t\n\r	backslashreplace	-	L:2	B:'\\\t\n\r	i:5
+raw_unicode_escape_encode	'\\\t\n\r	surrogateescape	-	L:2	B:'\\\t\n\r	i:5
+raw_unicode_escape_encode	'\\\t\n\r	surrogatepass	-	L:2	B:'\\\t\n\r	i:5
+raw_unicode_escape_encode	'\\\t\n\r	xmlcharrefreplace	-	L:2	B:'\\\t\n\r	i:5
+raw_unicode_escape_encode	a\udcffb		-	L:2	B:a\\udcffb	i:3
+raw_unicode_escape_encode	a\udcffb	strict	-	L:2	B:a\\udcffb	i:3
+raw_unicode_escape_encode	a\udcffb	ignore	-	L:2	B:a\\udcffb	i:3
+raw_unicode_escape_encode	a\udcffb	replace	-	L:2	B:a\\udcffb	i:3
+raw_unicode_escape_encode	a\udcffb	backslashreplace	-	L:2	B:a\\udcffb	i:3
+raw_unicode_escape_encode	a\udcffb	surrogateescape	-	L:2	B:a\\udcffb	i:3
+raw_unicode_escape_encode	a\udcffb	surrogatepass	-	L:2	B:a\\udcffb	i:3
+raw_unicode_escape_encode	a\udcffb	xmlcharrefreplace	-	L:2	B:a\\udcffb	i:3
+raw_unicode_escape_encode	\ud800		-	L:2	B:\\ud800	i:1
+raw_unicode_escape_encode	\ud800	strict	-	L:2	B:\\ud800	i:1
+raw_unicode_escape_encode	\ud800	ignore	-	L:2	B:\\ud800	i:1
+raw_unicode_escape_encode	\ud800	replace	-	L:2	B:\\ud800	i:1
+raw_unicode_escape_encode	\ud800	backslashreplace	-	L:2	B:\\ud800	i:1
+raw_unicode_escape_encode	\ud800	surrogateescape	-	L:2	B:\\ud800	i:1
+raw_unicode_escape_encode	\ud800	surrogatepass	-	L:2	B:\\ud800	i:1
+raw_unicode_escape_encode	\ud800	xmlcharrefreplace	-	L:2	B:\\ud800	i:1
+raw_unicode_escape_encode	a b		-	L:2	B:a\\u2028b	i:3
+raw_unicode_escape_encode	a b	strict	-	L:2	B:a\\u2028b	i:3
+raw_unicode_escape_encode	a b	ignore	-	L:2	B:a\\u2028b	i:3
+raw_unicode_escape_encode	a b	replace	-	L:2	B:a\\u2028b	i:3
+raw_unicode_escape_encode	a b	backslashreplace	-	L:2	B:a\\u2028b	i:3
+raw_unicode_escape_encode	a b	surrogateescape	-	L:2	B:a\\u2028b	i:3
+raw_unicode_escape_encode	a b	surrogatepass	-	L:2	B:a\\u2028b	i:3
+raw_unicode_escape_encode	a b	xmlcharrefreplace	-	L:2	B:a\\u2028b	i:3
+raw_unicode_escape_encode	İ		-	L:2	B:\\u0130	i:1
+raw_unicode_escape_encode	İ	strict	-	L:2	B:\\u0130	i:1
+raw_unicode_escape_encode	İ	ignore	-	L:2	B:\\u0130	i:1
+raw_unicode_escape_encode	İ	replace	-	L:2	B:\\u0130	i:1
+raw_unicode_escape_encode	İ	backslashreplace	-	L:2	B:\\u0130	i:1
+raw_unicode_escape_encode	İ	surrogateescape	-	L:2	B:\\u0130	i:1
+raw_unicode_escape_encode	İ	surrogatepass	-	L:2	B:\\u0130	i:1
+raw_unicode_escape_encode	İ	xmlcharrefreplace	-	L:2	B:\\u0130	i:1
+utf_16_encode			i:-1	L:2	B:	i:0
+utf_16_encode		strict	i:-1	L:2	B:	i:0
+utf_16_encode		ignore	i:-1	L:2	B:	i:0
+utf_16_encode		replace	i:-1	L:2	B:	i:0
+utf_16_encode		backslashreplace	i:-1	L:2	B:	i:0
+utf_16_encode		surrogateescape	i:-1	L:2	B:	i:0
+utf_16_encode		surrogatepass	i:-1	L:2	B:	i:0
+utf_16_encode		xmlcharrefreplace	i:-1	L:2	B:	i:0
+utf_16_encode			i:0	L:2	B:\xff\xfe	i:0
+utf_16_encode		strict	i:0	L:2	B:\xff\xfe	i:0
+utf_16_encode		ignore	i:0	L:2	B:\xff\xfe	i:0
+utf_16_encode		replace	i:0	L:2	B:\xff\xfe	i:0
+utf_16_encode		backslashreplace	i:0	L:2	B:\xff\xfe	i:0
+utf_16_encode		surrogateescape	i:0	L:2	B:\xff\xfe	i:0
+utf_16_encode		surrogatepass	i:0	L:2	B:\xff\xfe	i:0
+utf_16_encode		xmlcharrefreplace	i:0	L:2	B:\xff\xfe	i:0
+utf_16_encode			i:1	L:2	B:	i:0
+utf_16_encode		strict	i:1	L:2	B:	i:0
+utf_16_encode		ignore	i:1	L:2	B:	i:0
+utf_16_encode		replace	i:1	L:2	B:	i:0
+utf_16_encode		backslashreplace	i:1	L:2	B:	i:0
+utf_16_encode		surrogateescape	i:1	L:2	B:	i:0
+utf_16_encode		surrogatepass	i:1	L:2	B:	i:0
+utf_16_encode		xmlcharrefreplace	i:1	L:2	B:	i:0
+utf_16_encode	a		i:-1	L:2	B:a\x00	i:1
+utf_16_encode	a	strict	i:-1	L:2	B:a\x00	i:1
+utf_16_encode	a	ignore	i:-1	L:2	B:a\x00	i:1
+utf_16_encode	a	replace	i:-1	L:2	B:a\x00	i:1
+utf_16_encode	a	backslashreplace	i:-1	L:2	B:a\x00	i:1
+utf_16_encode	a	surrogateescape	i:-1	L:2	B:a\x00	i:1
+utf_16_encode	a	surrogatepass	i:-1	L:2	B:a\x00	i:1
+utf_16_encode	a	xmlcharrefreplace	i:-1	L:2	B:a\x00	i:1
+utf_16_encode	a		i:0	L:2	B:\xff\xfea\x00	i:1
+utf_16_encode	a	strict	i:0	L:2	B:\xff\xfea\x00	i:1
+utf_16_encode	a	ignore	i:0	L:2	B:\xff\xfea\x00	i:1
+utf_16_encode	a	replace	i:0	L:2	B:\xff\xfea\x00	i:1
+utf_16_encode	a	backslashreplace	i:0	L:2	B:\xff\xfea\x00	i:1
+utf_16_encode	a	surrogateescape	i:0	L:2	B:\xff\xfea\x00	i:1
+utf_16_encode	a	surrogatepass	i:0	L:2	B:\xff\xfea\x00	i:1
+utf_16_encode	a	xmlcharrefreplace	i:0	L:2	B:\xff\xfea\x00	i:1
+utf_16_encode	a		i:1	L:2	B:\x00a	i:1
+utf_16_encode	a	strict	i:1	L:2	B:\x00a	i:1
+utf_16_encode	a	ignore	i:1	L:2	B:\x00a	i:1
+utf_16_encode	a	replace	i:1	L:2	B:\x00a	i:1
+utf_16_encode	a	backslashreplace	i:1	L:2	B:\x00a	i:1
+utf_16_encode	a	surrogateescape	i:1	L:2	B:\x00a	i:1
+utf_16_encode	a	surrogatepass	i:1	L:2	B:\x00a	i:1
+utf_16_encode	a	xmlcharrefreplace	i:1	L:2	B:\x00a	i:1
+utf_16_encode	café		i:-1	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	strict	i:-1	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	ignore	i:-1	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	replace	i:-1	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	backslashreplace	i:-1	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	surrogateescape	i:-1	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	surrogatepass	i:-1	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	xmlcharrefreplace	i:-1	L:2	B:c\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café		i:0	L:2	B:\xff\xfec\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	strict	i:0	L:2	B:\xff\xfec\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	ignore	i:0	L:2	B:\xff\xfec\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	replace	i:0	L:2	B:\xff\xfec\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	backslashreplace	i:0	L:2	B:\xff\xfec\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	surrogateescape	i:0	L:2	B:\xff\xfec\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	surrogatepass	i:0	L:2	B:\xff\xfec\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café	xmlcharrefreplace	i:0	L:2	B:\xff\xfec\x00a\x00f\x00\xe9\x00	i:4
+utf_16_encode	café		i:1	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_encode	café	strict	i:1	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_encode	café	ignore	i:1	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_encode	café	replace	i:1	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_encode	café	backslashreplace	i:1	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_encode	café	surrogateescape	i:1	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_encode	café	surrogatepass	i:1	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_encode	café	xmlcharrefreplace	i:1	L:2	B:\x00c\x00a\x00f\x00\xe9	i:4
+utf_16_encode	ÿ		i:-1	L:2	B:\xff\x00	i:1
+utf_16_encode	ÿ	strict	i:-1	L:2	B:\xff\x00	i:1
+utf_16_encode	ÿ	ignore	i:-1	L:2	B:\xff\x00	i:1
+utf_16_encode	ÿ	replace	i:-1	L:2	B:\xff\x00	i:1
+utf_16_encode	ÿ	backslashreplace	i:-1	L:2	B:\xff\x00	i:1
+utf_16_encode	ÿ	surrogateescape	i:-1	L:2	B:\xff\x00	i:1
+utf_16_encode	ÿ	surrogatepass	i:-1	L:2	B:\xff\x00	i:1
+utf_16_encode	ÿ	xmlcharrefreplace	i:-1	L:2	B:\xff\x00	i:1
+utf_16_encode	ÿ		i:0	L:2	B:\xff\xfe\xff\x00	i:1
+utf_16_encode	ÿ	strict	i:0	L:2	B:\xff\xfe\xff\x00	i:1
+utf_16_encode	ÿ	ignore	i:0	L:2	B:\xff\xfe\xff\x00	i:1
+utf_16_encode	ÿ	replace	i:0	L:2	B:\xff\xfe\xff\x00	i:1
+utf_16_encode	ÿ	backslashreplace	i:0	L:2	B:\xff\xfe\xff\x00	i:1
+utf_16_encode	ÿ	surrogateescape	i:0	L:2	B:\xff\xfe\xff\x00	i:1
+utf_16_encode	ÿ	surrogatepass	i:0	L:2	B:\xff\xfe\xff\x00	i:1
+utf_16_encode	ÿ	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\xff\x00	i:1
+utf_16_encode	ÿ		i:1	L:2	B:\x00\xff	i:1
+utf_16_encode	ÿ	strict	i:1	L:2	B:\x00\xff	i:1
+utf_16_encode	ÿ	ignore	i:1	L:2	B:\x00\xff	i:1
+utf_16_encode	ÿ	replace	i:1	L:2	B:\x00\xff	i:1
+utf_16_encode	ÿ	backslashreplace	i:1	L:2	B:\x00\xff	i:1
+utf_16_encode	ÿ	surrogateescape	i:1	L:2	B:\x00\xff	i:1
+utf_16_encode	ÿ	surrogatepass	i:1	L:2	B:\x00\xff	i:1
+utf_16_encode	ÿ	xmlcharrefreplace	i:1	L:2	B:\x00\xff	i:1
+utf_16_encode	Ā		i:-1	L:2	B:\x00\x01	i:1
+utf_16_encode	Ā	strict	i:-1	L:2	B:\x00\x01	i:1
+utf_16_encode	Ā	ignore	i:-1	L:2	B:\x00\x01	i:1
+utf_16_encode	Ā	replace	i:-1	L:2	B:\x00\x01	i:1
+utf_16_encode	Ā	backslashreplace	i:-1	L:2	B:\x00\x01	i:1
+utf_16_encode	Ā	surrogateescape	i:-1	L:2	B:\x00\x01	i:1
+utf_16_encode	Ā	surrogatepass	i:-1	L:2	B:\x00\x01	i:1
+utf_16_encode	Ā	xmlcharrefreplace	i:-1	L:2	B:\x00\x01	i:1
+utf_16_encode	Ā		i:0	L:2	B:\xff\xfe\x00\x01	i:1
+utf_16_encode	Ā	strict	i:0	L:2	B:\xff\xfe\x00\x01	i:1
+utf_16_encode	Ā	ignore	i:0	L:2	B:\xff\xfe\x00\x01	i:1
+utf_16_encode	Ā	replace	i:0	L:2	B:\xff\xfe\x00\x01	i:1
+utf_16_encode	Ā	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x01	i:1
+utf_16_encode	Ā	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x01	i:1
+utf_16_encode	Ā	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x01	i:1
+utf_16_encode	Ā	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x01	i:1
+utf_16_encode	Ā		i:1	L:2	B:\x01\x00	i:1
+utf_16_encode	Ā	strict	i:1	L:2	B:\x01\x00	i:1
+utf_16_encode	Ā	ignore	i:1	L:2	B:\x01\x00	i:1
+utf_16_encode	Ā	replace	i:1	L:2	B:\x01\x00	i:1
+utf_16_encode	Ā	backslashreplace	i:1	L:2	B:\x01\x00	i:1
+utf_16_encode	Ā	surrogateescape	i:1	L:2	B:\x01\x00	i:1
+utf_16_encode	Ā	surrogatepass	i:1	L:2	B:\x01\x00	i:1
+utf_16_encode	Ā	xmlcharrefreplace	i:1	L:2	B:\x01\x00	i:1
+utf_16_encode	€		i:-1	L:2	B:\xac 	i:1
+utf_16_encode	€	strict	i:-1	L:2	B:\xac 	i:1
+utf_16_encode	€	ignore	i:-1	L:2	B:\xac 	i:1
+utf_16_encode	€	replace	i:-1	L:2	B:\xac 	i:1
+utf_16_encode	€	backslashreplace	i:-1	L:2	B:\xac 	i:1
+utf_16_encode	€	surrogateescape	i:-1	L:2	B:\xac 	i:1
+utf_16_encode	€	surrogatepass	i:-1	L:2	B:\xac 	i:1
+utf_16_encode	€	xmlcharrefreplace	i:-1	L:2	B:\xac 	i:1
+utf_16_encode	€		i:0	L:2	B:\xff\xfe\xac 	i:1
+utf_16_encode	€	strict	i:0	L:2	B:\xff\xfe\xac 	i:1
+utf_16_encode	€	ignore	i:0	L:2	B:\xff\xfe\xac 	i:1
+utf_16_encode	€	replace	i:0	L:2	B:\xff\xfe\xac 	i:1
+utf_16_encode	€	backslashreplace	i:0	L:2	B:\xff\xfe\xac 	i:1
+utf_16_encode	€	surrogateescape	i:0	L:2	B:\xff\xfe\xac 	i:1
+utf_16_encode	€	surrogatepass	i:0	L:2	B:\xff\xfe\xac 	i:1
+utf_16_encode	€	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\xac 	i:1
+utf_16_encode	€		i:1	L:2	B: \xac	i:1
+utf_16_encode	€	strict	i:1	L:2	B: \xac	i:1
+utf_16_encode	€	ignore	i:1	L:2	B: \xac	i:1
+utf_16_encode	€	replace	i:1	L:2	B: \xac	i:1
+utf_16_encode	€	backslashreplace	i:1	L:2	B: \xac	i:1
+utf_16_encode	€	surrogateescape	i:1	L:2	B: \xac	i:1
+utf_16_encode	€	surrogatepass	i:1	L:2	B: \xac	i:1
+utf_16_encode	€	xmlcharrefreplace	i:1	L:2	B: \xac	i:1
+utf_16_encode	😀		i:-1	L:2	B:=\xd8\x00\xde	i:1
+utf_16_encode	😀	strict	i:-1	L:2	B:=\xd8\x00\xde	i:1
+utf_16_encode	😀	ignore	i:-1	L:2	B:=\xd8\x00\xde	i:1
+utf_16_encode	😀	replace	i:-1	L:2	B:=\xd8\x00\xde	i:1
+utf_16_encode	😀	backslashreplace	i:-1	L:2	B:=\xd8\x00\xde	i:1
+utf_16_encode	😀	surrogateescape	i:-1	L:2	B:=\xd8\x00\xde	i:1
+utf_16_encode	😀	surrogatepass	i:-1	L:2	B:=\xd8\x00\xde	i:1
+utf_16_encode	😀	xmlcharrefreplace	i:-1	L:2	B:=\xd8\x00\xde	i:1
+utf_16_encode	😀		i:0	L:2	B:\xff\xfe=\xd8\x00\xde	i:1
+utf_16_encode	😀	strict	i:0	L:2	B:\xff\xfe=\xd8\x00\xde	i:1
+utf_16_encode	😀	ignore	i:0	L:2	B:\xff\xfe=\xd8\x00\xde	i:1
+utf_16_encode	😀	replace	i:0	L:2	B:\xff\xfe=\xd8\x00\xde	i:1
+utf_16_encode	😀	backslashreplace	i:0	L:2	B:\xff\xfe=\xd8\x00\xde	i:1
+utf_16_encode	😀	surrogateescape	i:0	L:2	B:\xff\xfe=\xd8\x00\xde	i:1
+utf_16_encode	😀	surrogatepass	i:0	L:2	B:\xff\xfe=\xd8\x00\xde	i:1
+utf_16_encode	😀	xmlcharrefreplace	i:0	L:2	B:\xff\xfe=\xd8\x00\xde	i:1
+utf_16_encode	😀		i:1	L:2	B:\xd8=\xde\x00	i:1
+utf_16_encode	😀	strict	i:1	L:2	B:\xd8=\xde\x00	i:1
+utf_16_encode	😀	ignore	i:1	L:2	B:\xd8=\xde\x00	i:1
+utf_16_encode	😀	replace	i:1	L:2	B:\xd8=\xde\x00	i:1
+utf_16_encode	😀	backslashreplace	i:1	L:2	B:\xd8=\xde\x00	i:1
+utf_16_encode	😀	surrogateescape	i:1	L:2	B:\xd8=\xde\x00	i:1
+utf_16_encode	😀	surrogatepass	i:1	L:2	B:\xd8=\xde\x00	i:1
+utf_16_encode	😀	xmlcharrefreplace	i:1	L:2	B:\xd8=\xde\x00	i:1
+utf_16_encode	a𝐀c		i:-1	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	strict	i:-1	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	ignore	i:-1	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	replace	i:-1	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	backslashreplace	i:-1	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	surrogateescape	i:-1	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	surrogatepass	i:-1	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	xmlcharrefreplace	i:-1	L:2	B:a\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c		i:0	L:2	B:\xff\xfea\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	strict	i:0	L:2	B:\xff\xfea\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	ignore	i:0	L:2	B:\xff\xfea\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	replace	i:0	L:2	B:\xff\xfea\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	backslashreplace	i:0	L:2	B:\xff\xfea\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	surrogateescape	i:0	L:2	B:\xff\xfea\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	surrogatepass	i:0	L:2	B:\xff\xfea\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c	xmlcharrefreplace	i:0	L:2	B:\xff\xfea\x005\xd8\x00\xdcc\x00	i:3
+utf_16_encode	a𝐀c		i:1	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_encode	a𝐀c	strict	i:1	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_encode	a𝐀c	ignore	i:1	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_encode	a𝐀c	replace	i:1	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_encode	a𝐀c	backslashreplace	i:1	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_encode	a𝐀c	surrogateescape	i:1	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_encode	a𝐀c	surrogatepass	i:1	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_encode	a𝐀c	xmlcharrefreplace	i:1	L:2	B:\x00a\xd85\xdc\x00\x00c	i:3
+utf_16_encode			i:-1	L:2	B:\x80\x00	i:1
+utf_16_encode		strict	i:-1	L:2	B:\x80\x00	i:1
+utf_16_encode		ignore	i:-1	L:2	B:\x80\x00	i:1
+utf_16_encode		replace	i:-1	L:2	B:\x80\x00	i:1
+utf_16_encode		backslashreplace	i:-1	L:2	B:\x80\x00	i:1
+utf_16_encode		surrogateescape	i:-1	L:2	B:\x80\x00	i:1
+utf_16_encode		surrogatepass	i:-1	L:2	B:\x80\x00	i:1
+utf_16_encode		xmlcharrefreplace	i:-1	L:2	B:\x80\x00	i:1
+utf_16_encode			i:0	L:2	B:\xff\xfe\x80\x00	i:1
+utf_16_encode		strict	i:0	L:2	B:\xff\xfe\x80\x00	i:1
+utf_16_encode		ignore	i:0	L:2	B:\xff\xfe\x80\x00	i:1
+utf_16_encode		replace	i:0	L:2	B:\xff\xfe\x80\x00	i:1
+utf_16_encode		backslashreplace	i:0	L:2	B:\xff\xfe\x80\x00	i:1
+utf_16_encode		surrogateescape	i:0	L:2	B:\xff\xfe\x80\x00	i:1
+utf_16_encode		surrogatepass	i:0	L:2	B:\xff\xfe\x80\x00	i:1
+utf_16_encode		xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x80\x00	i:1
+utf_16_encode			i:1	L:2	B:\x00\x80	i:1
+utf_16_encode		strict	i:1	L:2	B:\x00\x80	i:1
+utf_16_encode		ignore	i:1	L:2	B:\x00\x80	i:1
+utf_16_encode		replace	i:1	L:2	B:\x00\x80	i:1
+utf_16_encode		backslashreplace	i:1	L:2	B:\x00\x80	i:1
+utf_16_encode		surrogateescape	i:1	L:2	B:\x00\x80	i:1
+utf_16_encode		surrogatepass	i:1	L:2	B:\x00\x80	i:1
+utf_16_encode		xmlcharrefreplace	i:1	L:2	B:\x00\x80	i:1
+utf_16_encode	'\\\t\n\r		i:-1	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	strict	i:-1	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	ignore	i:-1	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	replace	i:-1	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	backslashreplace	i:-1	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	surrogateescape	i:-1	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	surrogatepass	i:-1	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	xmlcharrefreplace	i:-1	L:2	B:'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r		i:0	L:2	B:\xff\xfe'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	strict	i:0	L:2	B:\xff\xfe'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	ignore	i:0	L:2	B:\xff\xfe'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	replace	i:0	L:2	B:\xff\xfe'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	backslashreplace	i:0	L:2	B:\xff\xfe'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	surrogateescape	i:0	L:2	B:\xff\xfe'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	surrogatepass	i:0	L:2	B:\xff\xfe'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r	xmlcharrefreplace	i:0	L:2	B:\xff\xfe'\x00\\\x00\t\x00\n\x00\r\x00	i:5
+utf_16_encode	'\\\t\n\r		i:1	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_encode	'\\\t\n\r	strict	i:1	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_encode	'\\\t\n\r	ignore	i:1	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_encode	'\\\t\n\r	replace	i:1	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_encode	'\\\t\n\r	backslashreplace	i:1	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_encode	'\\\t\n\r	surrogateescape	i:1	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_encode	'\\\t\n\r	surrogatepass	i:1	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_encode	'\\\t\n\r	xmlcharrefreplace	i:1	L:2	B:\x00'\x00\\\x00\t\x00\n\x00\r	i:5
+utf_16_encode	a\udcffb		i:-1	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	strict	i:-1	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	ignore	i:-1	L:2	B:a\x00b\x00	i:3
+utf_16_encode	a\udcffb	replace	i:-1	L:2	B:a\x00?\x00b\x00	i:3
+utf_16_encode	a\udcffb	backslashreplace	i:-1	L:2	B:a\x00\\\x00u\x00d\x00c\x00f\x00f\x00b\x00	i:3
+utf_16_encode	a\udcffb	surrogateescape	i:-1	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	surrogatepass	i:-1	L:2	B:a\x00\xff\xdcb\x00	i:3
+utf_16_encode	a\udcffb	xmlcharrefreplace	i:-1	L:2	B:a\x00&\x00#\x005\x006\x005\x007\x005\x00;\x00b\x00	i:3
+utf_16_encode	a\udcffb		i:0	e:UnicodeEncodeError:'utf-16' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	strict	i:0	e:UnicodeEncodeError:'utf-16' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	ignore	i:0	L:2	B:\xff\xfea\x00b\x00	i:3
+utf_16_encode	a\udcffb	replace	i:0	L:2	B:\xff\xfea\x00?\x00b\x00	i:3
+utf_16_encode	a\udcffb	backslashreplace	i:0	L:2	B:\xff\xfea\x00\\\x00u\x00d\x00c\x00f\x00f\x00b\x00	i:3
+utf_16_encode	a\udcffb	surrogateescape	i:0	e:UnicodeEncodeError:'utf-16' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	surrogatepass	i:0	L:2	B:\xff\xfea\x00\xff\xdcb\x00	i:3
+utf_16_encode	a\udcffb	xmlcharrefreplace	i:0	L:2	B:\xff\xfea\x00&\x00#\x005\x006\x005\x007\x005\x00;\x00b\x00	i:3
+utf_16_encode	a\udcffb		i:1	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	strict	i:1	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	ignore	i:1	L:2	B:\x00a\x00b	i:3
+utf_16_encode	a\udcffb	replace	i:1	L:2	B:\x00a\x00?\x00b	i:3
+utf_16_encode	a\udcffb	backslashreplace	i:1	L:2	B:\x00a\x00\\\x00u\x00d\x00c\x00f\x00f\x00b	i:3
+utf_16_encode	a\udcffb	surrogateescape	i:1	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_16_encode	a\udcffb	surrogatepass	i:1	L:2	B:\x00a\xdc\xff\x00b	i:3
+utf_16_encode	a\udcffb	xmlcharrefreplace	i:1	L:2	B:\x00a\x00&\x00#\x005\x006\x005\x007\x005\x00;\x00b	i:3
+utf_16_encode	\ud800		i:-1	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	strict	i:-1	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	ignore	i:-1	L:2	B:	i:1
+utf_16_encode	\ud800	replace	i:-1	L:2	B:?\x00	i:1
+utf_16_encode	\ud800	backslashreplace	i:-1	L:2	B:\\\x00u\x00d\x008\x000\x000\x00	i:1
+utf_16_encode	\ud800	surrogateescape	i:-1	e:UnicodeEncodeError:'utf-16-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	surrogatepass	i:-1	L:2	B:\x00\xd8	i:1
+utf_16_encode	\ud800	xmlcharrefreplace	i:-1	L:2	B:&\x00#\x005\x005\x002\x009\x006\x00;\x00	i:1
+utf_16_encode	\ud800		i:0	e:UnicodeEncodeError:'utf-16' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	strict	i:0	e:UnicodeEncodeError:'utf-16' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	ignore	i:0	L:2	B:\xff\xfe	i:1
+utf_16_encode	\ud800	replace	i:0	L:2	B:\xff\xfe?\x00	i:1
+utf_16_encode	\ud800	backslashreplace	i:0	L:2	B:\xff\xfe\\\x00u\x00d\x008\x000\x000\x00	i:1
+utf_16_encode	\ud800	surrogateescape	i:0	e:UnicodeEncodeError:'utf-16' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	surrogatepass	i:0	L:2	B:\xff\xfe\x00\xd8	i:1
+utf_16_encode	\ud800	xmlcharrefreplace	i:0	L:2	B:\xff\xfe&\x00#\x005\x005\x002\x009\x006\x00;\x00	i:1
+utf_16_encode	\ud800		i:1	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	strict	i:1	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	ignore	i:1	L:2	B:	i:1
+utf_16_encode	\ud800	replace	i:1	L:2	B:\x00?	i:1
+utf_16_encode	\ud800	backslashreplace	i:1	L:2	B:\x00\\\x00u\x00d\x008\x000\x000	i:1
+utf_16_encode	\ud800	surrogateescape	i:1	e:UnicodeEncodeError:'utf-16-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_16_encode	\ud800	surrogatepass	i:1	L:2	B:\xd8\x00	i:1
+utf_16_encode	\ud800	xmlcharrefreplace	i:1	L:2	B:\x00&\x00#\x005\x005\x002\x009\x006\x00;	i:1
+utf_16_encode	a b		i:-1	L:2	B:a\x00( b\x00	i:3
+utf_16_encode	a b	strict	i:-1	L:2	B:a\x00( b\x00	i:3
+utf_16_encode	a b	ignore	i:-1	L:2	B:a\x00( b\x00	i:3
+utf_16_encode	a b	replace	i:-1	L:2	B:a\x00( b\x00	i:3
+utf_16_encode	a b	backslashreplace	i:-1	L:2	B:a\x00( b\x00	i:3
+utf_16_encode	a b	surrogateescape	i:-1	L:2	B:a\x00( b\x00	i:3
+utf_16_encode	a b	surrogatepass	i:-1	L:2	B:a\x00( b\x00	i:3
+utf_16_encode	a b	xmlcharrefreplace	i:-1	L:2	B:a\x00( b\x00	i:3
+utf_16_encode	a b		i:0	L:2	B:\xff\xfea\x00( b\x00	i:3
+utf_16_encode	a b	strict	i:0	L:2	B:\xff\xfea\x00( b\x00	i:3
+utf_16_encode	a b	ignore	i:0	L:2	B:\xff\xfea\x00( b\x00	i:3
+utf_16_encode	a b	replace	i:0	L:2	B:\xff\xfea\x00( b\x00	i:3
+utf_16_encode	a b	backslashreplace	i:0	L:2	B:\xff\xfea\x00( b\x00	i:3
+utf_16_encode	a b	surrogateescape	i:0	L:2	B:\xff\xfea\x00( b\x00	i:3
+utf_16_encode	a b	surrogatepass	i:0	L:2	B:\xff\xfea\x00( b\x00	i:3
+utf_16_encode	a b	xmlcharrefreplace	i:0	L:2	B:\xff\xfea\x00( b\x00	i:3
+utf_16_encode	a b		i:1	L:2	B:\x00a (\x00b	i:3
+utf_16_encode	a b	strict	i:1	L:2	B:\x00a (\x00b	i:3
+utf_16_encode	a b	ignore	i:1	L:2	B:\x00a (\x00b	i:3
+utf_16_encode	a b	replace	i:1	L:2	B:\x00a (\x00b	i:3
+utf_16_encode	a b	backslashreplace	i:1	L:2	B:\x00a (\x00b	i:3
+utf_16_encode	a b	surrogateescape	i:1	L:2	B:\x00a (\x00b	i:3
+utf_16_encode	a b	surrogatepass	i:1	L:2	B:\x00a (\x00b	i:3
+utf_16_encode	a b	xmlcharrefreplace	i:1	L:2	B:\x00a (\x00b	i:3
+utf_16_encode	İ		i:-1	L:2	B:0\x01	i:1
+utf_16_encode	İ	strict	i:-1	L:2	B:0\x01	i:1
+utf_16_encode	İ	ignore	i:-1	L:2	B:0\x01	i:1
+utf_16_encode	İ	replace	i:-1	L:2	B:0\x01	i:1
+utf_16_encode	İ	backslashreplace	i:-1	L:2	B:0\x01	i:1
+utf_16_encode	İ	surrogateescape	i:-1	L:2	B:0\x01	i:1
+utf_16_encode	İ	surrogatepass	i:-1	L:2	B:0\x01	i:1
+utf_16_encode	İ	xmlcharrefreplace	i:-1	L:2	B:0\x01	i:1
+utf_16_encode	İ		i:0	L:2	B:\xff\xfe0\x01	i:1
+utf_16_encode	İ	strict	i:0	L:2	B:\xff\xfe0\x01	i:1
+utf_16_encode	İ	ignore	i:0	L:2	B:\xff\xfe0\x01	i:1
+utf_16_encode	İ	replace	i:0	L:2	B:\xff\xfe0\x01	i:1
+utf_16_encode	İ	backslashreplace	i:0	L:2	B:\xff\xfe0\x01	i:1
+utf_16_encode	İ	surrogateescape	i:0	L:2	B:\xff\xfe0\x01	i:1
+utf_16_encode	İ	surrogatepass	i:0	L:2	B:\xff\xfe0\x01	i:1
+utf_16_encode	İ	xmlcharrefreplace	i:0	L:2	B:\xff\xfe0\x01	i:1
+utf_16_encode	İ		i:1	L:2	B:\x010	i:1
+utf_16_encode	İ	strict	i:1	L:2	B:\x010	i:1
+utf_16_encode	İ	ignore	i:1	L:2	B:\x010	i:1
+utf_16_encode	İ	replace	i:1	L:2	B:\x010	i:1
+utf_16_encode	İ	backslashreplace	i:1	L:2	B:\x010	i:1
+utf_16_encode	İ	surrogateescape	i:1	L:2	B:\x010	i:1
+utf_16_encode	İ	surrogatepass	i:1	L:2	B:\x010	i:1
+utf_16_encode	İ	xmlcharrefreplace	i:1	L:2	B:\x010	i:1
+utf_32_encode			i:-1	L:2	B:	i:0
+utf_32_encode		strict	i:-1	L:2	B:	i:0
+utf_32_encode		ignore	i:-1	L:2	B:	i:0
+utf_32_encode		replace	i:-1	L:2	B:	i:0
+utf_32_encode		backslashreplace	i:-1	L:2	B:	i:0
+utf_32_encode		surrogateescape	i:-1	L:2	B:	i:0
+utf_32_encode		surrogatepass	i:-1	L:2	B:	i:0
+utf_32_encode		xmlcharrefreplace	i:-1	L:2	B:	i:0
+utf_32_encode			i:0	L:2	B:\xff\xfe\x00\x00	i:0
+utf_32_encode		strict	i:0	L:2	B:\xff\xfe\x00\x00	i:0
+utf_32_encode		ignore	i:0	L:2	B:\xff\xfe\x00\x00	i:0
+utf_32_encode		replace	i:0	L:2	B:\xff\xfe\x00\x00	i:0
+utf_32_encode		backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00	i:0
+utf_32_encode		surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00	i:0
+utf_32_encode		surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00	i:0
+utf_32_encode		xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00	i:0
+utf_32_encode			i:1	L:2	B:	i:0
+utf_32_encode		strict	i:1	L:2	B:	i:0
+utf_32_encode		ignore	i:1	L:2	B:	i:0
+utf_32_encode		replace	i:1	L:2	B:	i:0
+utf_32_encode		backslashreplace	i:1	L:2	B:	i:0
+utf_32_encode		surrogateescape	i:1	L:2	B:	i:0
+utf_32_encode		surrogatepass	i:1	L:2	B:	i:0
+utf_32_encode		xmlcharrefreplace	i:1	L:2	B:	i:0
+utf_32_encode	a		i:-1	L:2	B:a\x00\x00\x00	i:1
+utf_32_encode	a	strict	i:-1	L:2	B:a\x00\x00\x00	i:1
+utf_32_encode	a	ignore	i:-1	L:2	B:a\x00\x00\x00	i:1
+utf_32_encode	a	replace	i:-1	L:2	B:a\x00\x00\x00	i:1
+utf_32_encode	a	backslashreplace	i:-1	L:2	B:a\x00\x00\x00	i:1
+utf_32_encode	a	surrogateescape	i:-1	L:2	B:a\x00\x00\x00	i:1
+utf_32_encode	a	surrogatepass	i:-1	L:2	B:a\x00\x00\x00	i:1
+utf_32_encode	a	xmlcharrefreplace	i:-1	L:2	B:a\x00\x00\x00	i:1
+utf_32_encode	a		i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00	i:1
+utf_32_encode	a	strict	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00	i:1
+utf_32_encode	a	ignore	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00	i:1
+utf_32_encode	a	replace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00	i:1
+utf_32_encode	a	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00	i:1
+utf_32_encode	a	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00	i:1
+utf_32_encode	a	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00	i:1
+utf_32_encode	a	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00	i:1
+utf_32_encode	a		i:1	L:2	B:\x00\x00\x00a	i:1
+utf_32_encode	a	strict	i:1	L:2	B:\x00\x00\x00a	i:1
+utf_32_encode	a	ignore	i:1	L:2	B:\x00\x00\x00a	i:1
+utf_32_encode	a	replace	i:1	L:2	B:\x00\x00\x00a	i:1
+utf_32_encode	a	backslashreplace	i:1	L:2	B:\x00\x00\x00a	i:1
+utf_32_encode	a	surrogateescape	i:1	L:2	B:\x00\x00\x00a	i:1
+utf_32_encode	a	surrogatepass	i:1	L:2	B:\x00\x00\x00a	i:1
+utf_32_encode	a	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00a	i:1
+utf_32_encode	café		i:-1	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	strict	i:-1	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	ignore	i:-1	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	replace	i:-1	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	backslashreplace	i:-1	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	surrogateescape	i:-1	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	surrogatepass	i:-1	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	xmlcharrefreplace	i:-1	L:2	B:c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café		i:0	L:2	B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	strict	i:0	L:2	B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	ignore	i:0	L:2	B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	replace	i:0	L:2	B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9\x00\x00\x00	i:4
+utf_32_encode	café		i:1	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_encode	café	strict	i:1	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_encode	café	ignore	i:1	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_encode	café	replace	i:1	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_encode	café	backslashreplace	i:1	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_encode	café	surrogateescape	i:1	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_encode	café	surrogatepass	i:1	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_encode	café	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00c\x00\x00\x00a\x00\x00\x00f\x00\x00\x00\xe9	i:4
+utf_32_encode	ÿ		i:-1	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	strict	i:-1	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	ignore	i:-1	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	replace	i:-1	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	backslashreplace	i:-1	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	surrogateescape	i:-1	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	surrogatepass	i:-1	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	xmlcharrefreplace	i:-1	L:2	B:\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ		i:0	L:2	B:\xff\xfe\x00\x00\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	strict	i:0	L:2	B:\xff\xfe\x00\x00\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	ignore	i:0	L:2	B:\xff\xfe\x00\x00\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	replace	i:0	L:2	B:\xff\xfe\x00\x00\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00\xff\x00\x00\x00	i:1
+utf_32_encode	ÿ		i:1	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_encode	ÿ	strict	i:1	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_encode	ÿ	ignore	i:1	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_encode	ÿ	replace	i:1	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_encode	ÿ	backslashreplace	i:1	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_encode	ÿ	surrogateescape	i:1	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_encode	ÿ	surrogatepass	i:1	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_encode	ÿ	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00\xff	i:1
+utf_32_encode	Ā		i:-1	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	strict	i:-1	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	ignore	i:-1	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	replace	i:-1	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	backslashreplace	i:-1	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	surrogateescape	i:-1	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	surrogatepass	i:-1	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	xmlcharrefreplace	i:-1	L:2	B:\x00\x01\x00\x00	i:1
+utf_32_encode	Ā		i:0	L:2	B:\xff\xfe\x00\x00\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	strict	i:0	L:2	B:\xff\xfe\x00\x00\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	ignore	i:0	L:2	B:\xff\xfe\x00\x00\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	replace	i:0	L:2	B:\xff\xfe\x00\x00\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00\x00\x01\x00\x00	i:1
+utf_32_encode	Ā	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00\x00\x01\x00\x00	i:1
+utf_32_encode	Ā		i:1	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_encode	Ā	strict	i:1	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_encode	Ā	ignore	i:1	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_encode	Ā	replace	i:1	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_encode	Ā	backslashreplace	i:1	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_encode	Ā	surrogateescape	i:1	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_encode	Ā	surrogatepass	i:1	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_encode	Ā	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x01\x00	i:1
+utf_32_encode	€		i:-1	L:2	B:\xac \x00\x00	i:1
+utf_32_encode	€	strict	i:-1	L:2	B:\xac \x00\x00	i:1
+utf_32_encode	€	ignore	i:-1	L:2	B:\xac \x00\x00	i:1
+utf_32_encode	€	replace	i:-1	L:2	B:\xac \x00\x00	i:1
+utf_32_encode	€	backslashreplace	i:-1	L:2	B:\xac \x00\x00	i:1
+utf_32_encode	€	surrogateescape	i:-1	L:2	B:\xac \x00\x00	i:1
+utf_32_encode	€	surrogatepass	i:-1	L:2	B:\xac \x00\x00	i:1
+utf_32_encode	€	xmlcharrefreplace	i:-1	L:2	B:\xac \x00\x00	i:1
+utf_32_encode	€		i:0	L:2	B:\xff\xfe\x00\x00\xac \x00\x00	i:1
+utf_32_encode	€	strict	i:0	L:2	B:\xff\xfe\x00\x00\xac \x00\x00	i:1
+utf_32_encode	€	ignore	i:0	L:2	B:\xff\xfe\x00\x00\xac \x00\x00	i:1
+utf_32_encode	€	replace	i:0	L:2	B:\xff\xfe\x00\x00\xac \x00\x00	i:1
+utf_32_encode	€	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00\xac \x00\x00	i:1
+utf_32_encode	€	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00\xac \x00\x00	i:1
+utf_32_encode	€	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00\xac \x00\x00	i:1
+utf_32_encode	€	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00\xac \x00\x00	i:1
+utf_32_encode	€		i:1	L:2	B:\x00\x00 \xac	i:1
+utf_32_encode	€	strict	i:1	L:2	B:\x00\x00 \xac	i:1
+utf_32_encode	€	ignore	i:1	L:2	B:\x00\x00 \xac	i:1
+utf_32_encode	€	replace	i:1	L:2	B:\x00\x00 \xac	i:1
+utf_32_encode	€	backslashreplace	i:1	L:2	B:\x00\x00 \xac	i:1
+utf_32_encode	€	surrogateescape	i:1	L:2	B:\x00\x00 \xac	i:1
+utf_32_encode	€	surrogatepass	i:1	L:2	B:\x00\x00 \xac	i:1
+utf_32_encode	€	xmlcharrefreplace	i:1	L:2	B:\x00\x00 \xac	i:1
+utf_32_encode	😀		i:-1	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	strict	i:-1	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	ignore	i:-1	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	replace	i:-1	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	backslashreplace	i:-1	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	surrogateescape	i:-1	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	surrogatepass	i:-1	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	xmlcharrefreplace	i:-1	L:2	B:\x00\xf6\x01\x00	i:1
+utf_32_encode	😀		i:0	L:2	B:\xff\xfe\x00\x00\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	strict	i:0	L:2	B:\xff\xfe\x00\x00\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	ignore	i:0	L:2	B:\xff\xfe\x00\x00\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	replace	i:0	L:2	B:\xff\xfe\x00\x00\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00\x00\xf6\x01\x00	i:1
+utf_32_encode	😀	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00\x00\xf6\x01\x00	i:1
+utf_32_encode	😀		i:1	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_encode	😀	strict	i:1	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_encode	😀	ignore	i:1	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_encode	😀	replace	i:1	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_encode	😀	backslashreplace	i:1	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_encode	😀	surrogateescape	i:1	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_encode	😀	surrogatepass	i:1	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_encode	😀	xmlcharrefreplace	i:1	L:2	B:\x00\x01\xf6\x00	i:1
+utf_32_encode	a𝐀c		i:-1	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	strict	i:-1	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	ignore	i:-1	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	replace	i:-1	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	backslashreplace	i:-1	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	surrogateescape	i:-1	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	surrogatepass	i:-1	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	xmlcharrefreplace	i:-1	L:2	B:a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c		i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	strict	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	ignore	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	replace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\x00\xd4\x01\x00c\x00\x00\x00	i:3
+utf_32_encode	a𝐀c		i:1	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_encode	a𝐀c	strict	i:1	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_encode	a𝐀c	ignore	i:1	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_encode	a𝐀c	replace	i:1	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_encode	a𝐀c	backslashreplace	i:1	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_encode	a𝐀c	surrogateescape	i:1	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_encode	a𝐀c	surrogatepass	i:1	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_encode	a𝐀c	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00a\x00\x01\xd4\x00\x00\x00\x00c	i:3
+utf_32_encode			i:-1	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_encode		strict	i:-1	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_encode		ignore	i:-1	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_encode		replace	i:-1	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_encode		backslashreplace	i:-1	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_encode		surrogateescape	i:-1	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_encode		surrogatepass	i:-1	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_encode		xmlcharrefreplace	i:-1	L:2	B:\x80\x00\x00\x00	i:1
+utf_32_encode			i:0	L:2	B:\xff\xfe\x00\x00\x80\x00\x00\x00	i:1
+utf_32_encode		strict	i:0	L:2	B:\xff\xfe\x00\x00\x80\x00\x00\x00	i:1
+utf_32_encode		ignore	i:0	L:2	B:\xff\xfe\x00\x00\x80\x00\x00\x00	i:1
+utf_32_encode		replace	i:0	L:2	B:\xff\xfe\x00\x00\x80\x00\x00\x00	i:1
+utf_32_encode		backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00\x80\x00\x00\x00	i:1
+utf_32_encode		surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00\x80\x00\x00\x00	i:1
+utf_32_encode		surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00\x80\x00\x00\x00	i:1
+utf_32_encode		xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00\x80\x00\x00\x00	i:1
+utf_32_encode			i:1	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_encode		strict	i:1	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_encode		ignore	i:1	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_encode		replace	i:1	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_encode		backslashreplace	i:1	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_encode		surrogateescape	i:1	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_encode		surrogatepass	i:1	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_encode		xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00\x80	i:1
+utf_32_encode	'\\\t\n\r		i:-1	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	strict	i:-1	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	ignore	i:-1	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	replace	i:-1	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	backslashreplace	i:-1	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	surrogateescape	i:-1	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	surrogatepass	i:-1	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	xmlcharrefreplace	i:-1	L:2	B:'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r		i:0	L:2	B:\xff\xfe\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	strict	i:0	L:2	B:\xff\xfe\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	ignore	i:0	L:2	B:\xff\xfe\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	replace	i:0	L:2	B:\xff\xfe\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r\x00\x00\x00	i:5
+utf_32_encode	'\\\t\n\r		i:1	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_encode	'\\\t\n\r	strict	i:1	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_encode	'\\\t\n\r	ignore	i:1	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_encode	'\\\t\n\r	replace	i:1	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_encode	'\\\t\n\r	backslashreplace	i:1	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_encode	'\\\t\n\r	surrogateescape	i:1	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_encode	'\\\t\n\r	surrogatepass	i:1	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_encode	'\\\t\n\r	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00'\x00\x00\x00\\\x00\x00\x00\t\x00\x00\x00\n\x00\x00\x00\r	i:5
+utf_32_encode	a\udcffb		i:-1	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	strict	i:-1	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	ignore	i:-1	L:2	B:a\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb	replace	i:-1	L:2	B:a\x00\x00\x00?\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb	backslashreplace	i:-1	L:2	B:a\x00\x00\x00\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x00c\x00\x00\x00f\x00\x00\x00f\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb	surrogateescape	i:-1	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	surrogatepass	i:-1	L:2	B:a\x00\x00\x00\xff\xdc\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb	xmlcharrefreplace	i:-1	L:2	B:a\x00\x00\x00&\x00\x00\x00#\x00\x00\x005\x00\x00\x006\x00\x00\x005\x00\x00\x007\x00\x00\x005\x00\x00\x00;\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb		i:0	e:UnicodeEncodeError:'utf-32' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	strict	i:0	e:UnicodeEncodeError:'utf-32' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	ignore	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb	replace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00?\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x00c\x00\x00\x00f\x00\x00\x00f\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb	surrogateescape	i:0	e:UnicodeEncodeError:'utf-32' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00\xff\xdc\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00&\x00\x00\x00#\x00\x00\x005\x00\x00\x006\x00\x00\x005\x00\x00\x007\x00\x00\x005\x00\x00\x00;\x00\x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a\udcffb		i:1	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	strict	i:1	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	ignore	i:1	L:2	B:\x00\x00\x00a\x00\x00\x00b	i:3
+utf_32_encode	a\udcffb	replace	i:1	L:2	B:\x00\x00\x00a\x00\x00\x00?\x00\x00\x00b	i:3
+utf_32_encode	a\udcffb	backslashreplace	i:1	L:2	B:\x00\x00\x00a\x00\x00\x00\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x00c\x00\x00\x00f\x00\x00\x00f\x00\x00\x00b	i:3
+utf_32_encode	a\udcffb	surrogateescape	i:1	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\udcff' in position 1: surrogates not allowed
+utf_32_encode	a\udcffb	surrogatepass	i:1	L:2	B:\x00\x00\x00a\x00\x00\xdc\xff\x00\x00\x00b	i:3
+utf_32_encode	a\udcffb	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00a\x00\x00\x00&\x00\x00\x00#\x00\x00\x005\x00\x00\x006\x00\x00\x005\x00\x00\x007\x00\x00\x005\x00\x00\x00;\x00\x00\x00b	i:3
+utf_32_encode	\ud800		i:-1	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	strict	i:-1	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	ignore	i:-1	L:2	B:	i:1
+utf_32_encode	\ud800	replace	i:-1	L:2	B:?\x00\x00\x00	i:1
+utf_32_encode	\ud800	backslashreplace	i:-1	L:2	B:\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x008\x00\x00\x000\x00\x00\x000\x00\x00\x00	i:1
+utf_32_encode	\ud800	surrogateescape	i:-1	e:UnicodeEncodeError:'utf-32-le' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	surrogatepass	i:-1	L:2	B:\x00\xd8\x00\x00	i:1
+utf_32_encode	\ud800	xmlcharrefreplace	i:-1	L:2	B:&\x00\x00\x00#\x00\x00\x005\x00\x00\x005\x00\x00\x002\x00\x00\x009\x00\x00\x006\x00\x00\x00;\x00\x00\x00	i:1
+utf_32_encode	\ud800		i:0	e:UnicodeEncodeError:'utf-32' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	strict	i:0	e:UnicodeEncodeError:'utf-32' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	ignore	i:0	L:2	B:\xff\xfe\x00\x00	i:1
+utf_32_encode	\ud800	replace	i:0	L:2	B:\xff\xfe\x00\x00?\x00\x00\x00	i:1
+utf_32_encode	\ud800	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x008\x00\x00\x000\x00\x00\x000\x00\x00\x00	i:1
+utf_32_encode	\ud800	surrogateescape	i:0	e:UnicodeEncodeError:'utf-32' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00\x00\xd8\x00\x00	i:1
+utf_32_encode	\ud800	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00&\x00\x00\x00#\x00\x00\x005\x00\x00\x005\x00\x00\x002\x00\x00\x009\x00\x00\x006\x00\x00\x00;\x00\x00\x00	i:1
+utf_32_encode	\ud800		i:1	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	strict	i:1	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	ignore	i:1	L:2	B:	i:1
+utf_32_encode	\ud800	replace	i:1	L:2	B:\x00\x00\x00?	i:1
+utf_32_encode	\ud800	backslashreplace	i:1	L:2	B:\x00\x00\x00\\\x00\x00\x00u\x00\x00\x00d\x00\x00\x008\x00\x00\x000\x00\x00\x000	i:1
+utf_32_encode	\ud800	surrogateescape	i:1	e:UnicodeEncodeError:'utf-32-be' codec can't encode character '\\ud800' in position 0: surrogates not allowed
+utf_32_encode	\ud800	surrogatepass	i:1	L:2	B:\x00\x00\xd8\x00	i:1
+utf_32_encode	\ud800	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00&\x00\x00\x00#\x00\x00\x005\x00\x00\x005\x00\x00\x002\x00\x00\x009\x00\x00\x006\x00\x00\x00;	i:1
+utf_32_encode	a b		i:-1	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	strict	i:-1	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	ignore	i:-1	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	replace	i:-1	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	backslashreplace	i:-1	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	surrogateescape	i:-1	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	surrogatepass	i:-1	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	xmlcharrefreplace	i:-1	L:2	B:a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b		i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	strict	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	ignore	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	replace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x00a\x00\x00\x00( \x00\x00b\x00\x00\x00	i:3
+utf_32_encode	a b		i:1	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_encode	a b	strict	i:1	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_encode	a b	ignore	i:1	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_encode	a b	replace	i:1	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_encode	a b	backslashreplace	i:1	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_encode	a b	surrogateescape	i:1	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_encode	a b	surrogatepass	i:1	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_encode	a b	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x00a\x00\x00 (\x00\x00\x00b	i:3
+utf_32_encode	İ		i:-1	L:2	B:0\x01\x00\x00	i:1
+utf_32_encode	İ	strict	i:-1	L:2	B:0\x01\x00\x00	i:1
+utf_32_encode	İ	ignore	i:-1	L:2	B:0\x01\x00\x00	i:1
+utf_32_encode	İ	replace	i:-1	L:2	B:0\x01\x00\x00	i:1
+utf_32_encode	İ	backslashreplace	i:-1	L:2	B:0\x01\x00\x00	i:1
+utf_32_encode	İ	surrogateescape	i:-1	L:2	B:0\x01\x00\x00	i:1
+utf_32_encode	İ	surrogatepass	i:-1	L:2	B:0\x01\x00\x00	i:1
+utf_32_encode	İ	xmlcharrefreplace	i:-1	L:2	B:0\x01\x00\x00	i:1
+utf_32_encode	İ		i:0	L:2	B:\xff\xfe\x00\x000\x01\x00\x00	i:1
+utf_32_encode	İ	strict	i:0	L:2	B:\xff\xfe\x00\x000\x01\x00\x00	i:1
+utf_32_encode	İ	ignore	i:0	L:2	B:\xff\xfe\x00\x000\x01\x00\x00	i:1
+utf_32_encode	İ	replace	i:0	L:2	B:\xff\xfe\x00\x000\x01\x00\x00	i:1
+utf_32_encode	İ	backslashreplace	i:0	L:2	B:\xff\xfe\x00\x000\x01\x00\x00	i:1
+utf_32_encode	İ	surrogateescape	i:0	L:2	B:\xff\xfe\x00\x000\x01\x00\x00	i:1
+utf_32_encode	İ	surrogatepass	i:0	L:2	B:\xff\xfe\x00\x000\x01\x00\x00	i:1
+utf_32_encode	İ	xmlcharrefreplace	i:0	L:2	B:\xff\xfe\x00\x000\x01\x00\x00	i:1
+utf_32_encode	İ		i:1	L:2	B:\x00\x00\x010	i:1
+utf_32_encode	İ	strict	i:1	L:2	B:\x00\x00\x010	i:1
+utf_32_encode	İ	ignore	i:1	L:2	B:\x00\x00\x010	i:1
+utf_32_encode	İ	replace	i:1	L:2	B:\x00\x00\x010	i:1
+utf_32_encode	İ	backslashreplace	i:1	L:2	B:\x00\x00\x010	i:1
+utf_32_encode	İ	surrogateescape	i:1	L:2	B:\x00\x00\x010	i:1
+utf_32_encode	İ	surrogatepass	i:1	L:2	B:\x00\x00\x010	i:1
+utf_32_encode	İ	xmlcharrefreplace	i:1	L:2	B:\x00\x00\x010	i:1
+escape_encode			-	L:2	B:	i:0
+readbuffer_encode			-	L:2	B:	i:0
+escape_encode	a		-	L:2	B:a	i:1
+readbuffer_encode	a		-	L:2	B:a	i:1
+escape_encode	'\\\t\n\r		-	L:2	B:\\'\\\\\\t\\n\\r	i:5
+readbuffer_encode	'\\\t\n\r		-	L:2	B:'\\\t\n\r	i:5
+escape_encode	\x00\xff\x7f		-	L:2	B:\\x00\\xff\\x7f	i:3
+readbuffer_encode	\x00\xff\x7f		-	L:2	B:\x00\xff\x7f	i:3
+escape_encode	abc		-	L:2	B:abc	i:3
+readbuffer_encode	abc		-	L:2	B:abc	i:3
