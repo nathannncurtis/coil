@@ -30,8 +30,16 @@ fn build_command(job_path: &Path) -> ExitCode {
         Ok(cache_root) => cache_root,
         Err(error) => return fail(&error),
     };
-    match build::run(&job, &cache_root) {
-        Ok(summary) => {
+    match build::program(&job, &cache_root) {
+        Ok(outcome) => {
+            if job.emit == Some(job::Emit::Ir) {
+                print!("{}", outcome.program.dump_ir());
+            }
+            let summary = build::Summary {
+                modules: outcome.program.modules.len(),
+                functions: outcome.program.functions.len(),
+                cache_hits: outcome.cache_hits,
+            };
             println!("coilc: {summary}");
             ExitCode::SUCCESS
         }

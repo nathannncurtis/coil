@@ -1,10 +1,13 @@
 //! `coilc build`: resolve the job's entries, run the per-module front end and
-//! cache each module's IR (spec sections 2, 11.1 and 13.2 step 4). The module
-//! set is the entries plus every module their static imports resolve to,
-//! transitively; the closed-world refinement (attribute loads, keep rules,
-//! dynamic imports) is `world`'s (spec section 6). The pipeline continues
-//! from here: world, analysis, opt, backend and link consume the module set
-//! this produces.
+//! cache each module's IR, then hand the module set to the closed-world
+//! refinement (spec sections 2, 6, 11.1 and 13.2 step 4). The module set is
+//! the entries, the modules their static imports resolve to transitively, and
+//! the modules the keep rules name. Resolution goes project and dependency
+//! roots, the stdlib root, then the stdlib manifest
+//! (`native/manifest/stdlib.toml`): native and pyd entries are leaves without
+//! source, a shim is its file under `native/shims/`, and an unsupported entry
+//! refuses the build (spec section 11.1). The pipeline continues from here:
+//! analysis, opt, backend and link consume the [`Program`] this produces.
 //!
 //! The IR cache lives at `<cache>/native/ir/<abi>/<optimize>/<module>.ir`,
 //! `<cache>` being `~/.coil/cache` or `COIL_CACHE` (spec section 11.1). A
@@ -27,6 +30,8 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 
 use crate::job::Job;
+use crate::world::manifest::Kind;
+use crate::world::{self, ModuleKind, keep, manifest};
 
 /// The cache root: `COIL_CACHE` when set (so tests and side-by-side builds
 /// stay out of the shared cache), else `~/.coil/cache` (spec section 11.1).
@@ -58,10 +63,12 @@ impl fmt::Display for Summary {
     }
 }
 
-/// Why a module is in the build: a job entry, or the import of a module.
+/// Why a module is in the build: a job entry, a keep rule, or the import of
+/// a module.
 #[derive(Clone, Debug)]
 pub enum Origin {
     Entry,
+    Keep { pattern: String },
     Import { module: String, line: u32 },
 }
 
@@ -69,6 +76,7 @@ impl fmt::Display for Origin {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Origin::Entry => write!(f, "as a job entry"),
+            Origin::Keep { pattern } => write!(f, "kept by keep rule '{pattern}'"),
             Origin::Import { module, line } => write!(f, "imported by {module} (line {line})"),
         }
     }
@@ -83,8 +91,28 @@ pub enum Error {
         path: PathBuf,
         source: std::io::Error,
     },
-    /// A module name no root resolves, for an entry or an import.
+    /// A module name no root and no manifest entry resolves, for an entry or
+    /// an import.
     Resolve { module: String, origin: Origin },
+    /// A module the manifest marks unsupported, statically imported (spec
+    /// section 11.1).
+    Unsupported {
+        module: String,
+        reason: String,
+        origin: Origin,
+    },
+    /// A shim entry whose file is missing from `native/shims/`.
+    ShimMissing {
+        module: String,
+        path: PathBuf,
+        origin: Origin,
+    },
+    /// No stdlib manifest where `world::manifest::discover` looks for one.
+    ManifestNotFound { tried: Vec<PathBuf> },
+    /// The manifest file is unreadable or malformed.
+    Manifest { path: PathBuf, message: String },
+    /// A keep rule that failed to parse.
+    Keep { pattern: String, message: String },
     /// A relative import reaching past the top-level package.
     RelativeBeyondTop {
         importer: String,
@@ -112,6 +140,31 @@ impl fmt::Display for Error {
             Error::Io { path, source } => write!(f, "{}: {source}", path.display()),
             Error::Resolve { module, origin } => {
                 write!(f, "cannot resolve module '{module}' {origin}")
+            }
+            Error::Unsupported {
+                module,
+                reason,
+                origin,
+            } => write!(f, "module '{module}' {origin} is not supported: {reason}"),
+            Error::ShimMissing {
+                module,
+                path,
+                origin,
+            } => write!(
+                f,
+                "module '{module}' {origin} needs a shim at {}",
+                path.display()
+            ),
+            Error::ManifestNotFound { tried } => {
+                write!(f, "cannot find the native stdlib manifest (tried")?;
+                for path in tried {
+                    write!(f, " {}", path.display())?;
+                }
+                write!(f, ")")
+            }
+            Error::Manifest { path, message } => write!(f, "{}: {message}", path.display()),
+            Error::Keep { pattern, message } => {
+                write!(f, "invalid keep pattern '{pattern}': {message}")
             }
             Error::RelativeBeyondTop {
                 importer,
@@ -160,22 +213,69 @@ struct CacheMeta {
     imports: Vec<CachedImport>,
 }
 
-/// A resolved module: its file and whether it is a package (`__init__.py`).
+/// A resolved module: its file (`None` for the manifest's native and pyd
+/// leaves) and how it is provided.
 struct Resolved {
     name: String,
-    file: PathBuf,
+    file: Option<PathBuf>,
+    kind: ModuleKind,
     is_package: bool,
 }
 
-/// Build the job's module closure through the front end, using and filling
-/// the IR cache.
-pub fn run(job: &Job, cache_root: &Path) -> Result<Summary, Error> {
-    let mut roots: Vec<PathBuf> = Vec::new();
-    roots.extend(job.source_roots.iter().cloned());
-    roots.extend(job.dependency_roots.iter().cloned());
+/// One compiled module as the world refinement consumes it: its identity,
+/// how it is provided, and its IR (`None` for the manifest's native and pyd
+/// leaves).
+pub struct Compiled {
+    pub name: String,
+    /// The file the module was compiled from; empty for leaves.
+    pub file: PathBuf,
+    pub kind: ModuleKind,
+    pub is_package: bool,
+    pub module: Option<Module>,
+}
+
+/// What a build produced: the closed-world program and the cache statistic
+/// the summary line reports.
+#[derive(Debug)]
+pub struct Outcome {
+    pub program: world::Program,
+    pub cache_hits: usize,
+}
+
+/// Build the job's closed-world program: the front end over the module
+/// closure (using and filling the IR cache), then the reachability, keep and
+/// sealing refinement of spec section 6.
+pub fn program(job: &Job, cache_root: &Path) -> Result<Outcome, Error> {
+    let rules = keep::Rules::parse(&job.keep).map_err(|error| Error::Keep {
+        pattern: error.pattern,
+        message: error.message,
+    })?;
+    let (manifest_path, shims) =
+        manifest::discover().map_err(|error| Error::ManifestNotFound { tried: error.tried })?;
+    let manifest = manifest::Manifest::load(&manifest_path).map_err(|error| match error {
+        manifest::Error::Read { path, source } => Error::Io { path, source },
+        manifest::Error::Parse { path, message } => Error::Manifest { path, message },
+    })?;
+    let mut roots: Vec<(PathBuf, ModuleKind)> = job
+        .source_roots
+        .iter()
+        .chain(job.dependency_roots.iter())
+        .map(|root| (root.clone(), ModuleKind::Source))
+        .collect();
     if let Some(stdlib) = &job.stdlib_source_root {
-        roots.push(stdlib.clone());
+        roots.push((stdlib.clone(), ModuleKind::Stdlib));
     }
+    // Member rules mark what they name in modules that end up in the
+    // program; module rules name modules nothing statically imports - the
+    // declared dependencies of variable-driven `import_module` - so their
+    // expansion seeds the closure.
+    let project_roots: Vec<PathBuf> = job
+        .source_roots
+        .iter()
+        .chain(job.dependency_roots.iter())
+        .cloned()
+        .collect();
+    let kept = rules.expand_modules(&project_roots);
     let cache_dir = cache_root
         .join("native")
         .join("ir")
@@ -186,6 +286,8 @@ pub fn run(job: &Job, cache_root: &Path) -> Result<Summary, Error> {
         source,
     })?;
     let mut build = Build {
+        manifest: &manifest,
+        shims,
         roots,
         cache_dir,
         optimize: job.optimize.0,
@@ -194,9 +296,16 @@ pub fn run(job: &Job, cache_root: &Path) -> Result<Summary, Error> {
             .entries
             .iter()
             .map(|entry| (entry.clone(), Origin::Entry))
+            .chain(kept.iter().map(|(name, pattern)| {
+                (
+                    name.clone(),
+                    Origin::Keep {
+                        pattern: pattern.clone(),
+                    },
+                )
+            }))
             .collect(),
-        modules: 0,
-        functions: 0,
+        compiled: Vec::new(),
         cache_hits: 0,
     };
     while let Some((name, origin)) = build.queue.pop_front() {
@@ -206,61 +315,169 @@ pub fn run(job: &Job, cache_root: &Path) -> Result<Summary, Error> {
         let chain = build.resolve(&name, &origin)?;
         for module in chain {
             if build.done.insert(module.name.clone()) {
-                build.modules += 1;
                 let imports = build.compile(&module)?;
                 build.schedule(&module.name, module.is_package, &imports)?;
             }
         }
     }
-    Ok(Summary {
-        modules: build.modules,
-        functions: build.functions,
+    let program = world::reach::refine(&rules, &job.entries, &kept, build.compiled);
+    Ok(Outcome {
+        program,
         cache_hits: build.cache_hits,
     })
 }
 
-struct Build {
-    roots: Vec<PathBuf>,
+/// The one-line summary the driver prints: the program the build compiled.
+pub fn run(job: &Job, cache_root: &Path) -> Result<Summary, Error> {
+    let outcome = program(job, cache_root)?;
+    Ok(Summary {
+        modules: outcome.program.modules.len(),
+        functions: outcome.program.functions.len(),
+        cache_hits: outcome.cache_hits,
+    })
+}
+
+struct Build<'a> {
+    manifest: &'a manifest::Manifest,
+    shims: PathBuf,
+    roots: Vec<(PathBuf, ModuleKind)>,
     cache_dir: PathBuf,
     optimize: u8,
     done: HashSet<String>,
     queue: VecDeque<(String, Origin)>,
-    modules: usize,
-    functions: usize,
+    compiled: Vec<Compiled>,
     cache_hits: usize,
 }
 
-impl Build {
+impl Build<'_> {
     fn resolve(&self, name: &str, origin: &Origin) -> Result<Vec<Resolved>, Error> {
-        self.probe(name).ok_or_else(|| Error::Resolve {
-            module: name.to_owned(),
-            origin: origin.clone(),
-        })
+        match self.probe(name, origin)? {
+            Some(chain) => Ok(chain),
+            None => Err(Error::Resolve {
+                module: name.to_owned(),
+                origin: origin.clone(),
+            }),
+        }
     }
 
-    /// The chain a dotted name resolves to: every ancestor package's
-    /// `__init__.py` and the module itself, from the first root that carries
-    /// the whole chain. `None` when no root does.
-    fn probe(&self, name: &str) -> Option<Vec<Resolved>> {
+    /// Where a module comes from, in resolution order: the roots' files
+    /// (project and dependency sources, then the stdlib root), then the
+    /// manifest. A native or pyd entry is a leaf without source; a shim is
+    /// its file under the shims directory; an unsupported entry refuses the
+    /// build; a compiled entry needs its source in one of the roots. `Err`
+    /// names the problem for a required lookup; an optional probe treats it
+    /// as absent.
+    fn probe(&self, name: &str, origin: &Origin) -> Result<Option<Vec<Resolved>>, Error> {
         let parts: Vec<&str> = name.split('.').collect();
-        self.roots.iter().find_map(|root| resolve_in(root, &parts))
+        for (root, kind) in &self.roots {
+            if let Some(mut chain) = resolve_in(root, &parts) {
+                for resolved in &mut chain {
+                    resolved.kind = *kind;
+                }
+                return Ok(Some(chain));
+            }
+        }
+        let Some(entry) = self.manifest.get(name) else {
+            return Ok(None);
+        };
+        match entry.kind {
+            Kind::Native | Kind::Pyd => {
+                let leaf = Resolved {
+                    name: name.to_owned(),
+                    file: None,
+                    kind: entry
+                        .kind
+                        .module_kind()
+                        .expect("unsupported entries do not resolve to modules"),
+                    is_package: false,
+                };
+                // A leaf below a package still runs the package's sources.
+                let chain = match parts.len() {
+                    1 => vec![leaf],
+                    _ => {
+                        let parent = parts[..parts.len() - 1].join(".");
+                        let mut chain =
+                            self.probe(&parent, origin)?.ok_or_else(|| Error::Resolve {
+                                module: name.to_owned(),
+                                origin: origin.clone(),
+                            })?;
+                        chain.push(leaf);
+                        chain
+                    }
+                };
+                Ok(Some(chain))
+            }
+            Kind::Shim => {
+                let mut path = self.shims.clone();
+                let mut segments = name.split('.');
+                let last = segments.next_back().unwrap_or(name);
+                for segment in segments {
+                    path.push(segment);
+                }
+                path.push(format!("{last}.py"));
+                if !path.is_file() {
+                    return Err(Error::ShimMissing {
+                        module: name.to_owned(),
+                        path,
+                        origin: origin.clone(),
+                    });
+                }
+                Ok(Some(vec![Resolved {
+                    name: name.to_owned(),
+                    file: Some(path),
+                    kind: ModuleKind::Shim,
+                    is_package: false,
+                }]))
+            }
+            Kind::Unsupported => Err(Error::Unsupported {
+                module: name.to_owned(),
+                reason: entry
+                    .reason
+                    .clone()
+                    .expect("manifest entries marked unsupported carry a reason"),
+                origin: origin.clone(),
+            }),
+            // The manifest's pure-Python fallbacks compile from the stdlib
+            // root like any other source; without it the name is
+            // unresolvable.
+            Kind::Compiled => Ok(None),
+        }
     }
 
     /// Front-end one module, from the cache when the source and schema match,
-    /// returning its static imports for the closure walk.
+    /// returning its static imports for the closure walk and keeping the IR
+    /// for the world refinement.
     fn compile(&mut self, module: &Resolved) -> Result<Vec<CachedImport>, Error> {
-        let source = fs::read(&module.file).map_err(|source| Error::Io {
-            path: module.file.clone(),
+        let Some(file) = module.file.as_ref() else {
+            // A native or pyd leaf: the runtime provides it, so there is
+            // nothing to compile and no imports to schedule.
+            self.compiled.push(Compiled {
+                name: module.name.clone(),
+                file: PathBuf::new(),
+                kind: module.kind,
+                is_package: false,
+                module: None,
+            });
+            return Ok(Vec::new());
+        };
+        let source = fs::read(file).map_err(|source| Error::Io {
+            path: file.clone(),
             source,
         })?;
         let digest = sha256_hex(&source);
-        if let Some((imports, ir)) = self.load_cache(module, &digest) {
-            self.functions += ir.functions.len();
+        if let Some((imports, ir)) = self.load_cache(module, file, &digest) {
             self.cache_hits += 1;
+            self.compiled.push(Compiled {
+                name: module.name.clone(),
+                file: file.clone(),
+                kind: module.kind,
+                is_package: module.is_package,
+                module: Some(ir),
+            });
             return Ok(imports);
         }
         let (ast, mut interner) =
-            parse_module(&source, Some(module.file.as_path())).map_err(|error| Error::Front {
+            parse_module(&source, Some(file.as_path())).map_err(|error| Error::Front {
                 module: module.name.clone(),
                 message: positioned(&error.message, error.lineno),
             })?;
@@ -270,7 +487,7 @@ impl Build {
         })?;
         let ir = lower_module(
             &module.name,
-            module.file.clone(),
+            file.clone(),
             &ast,
             &source,
             &interner,
@@ -284,12 +501,23 @@ impl Build {
             message: error.to_string(),
         })?;
         let imports = extract_imports(&ir)?;
-        self.functions += ir.functions.len();
         self.store_cache(module, &digest, &ir, &imports)?;
+        self.compiled.push(Compiled {
+            name: module.name.clone(),
+            file: file.clone(),
+            kind: module.kind,
+            is_package: module.is_package,
+            module: Some(ir),
+        });
         Ok(imports)
     }
 
-    fn load_cache(&self, module: &Resolved, digest: &str) -> Option<(Vec<CachedImport>, Module)> {
+    fn load_cache(
+        &self,
+        module: &Resolved,
+        file: &Path,
+        digest: &str,
+    ) -> Option<(Vec<CachedImport>, Module)> {
         let ir_bytes = fs::read(self.cache_dir.join(format!("{}.ir", module.name))).ok()?;
         let meta_bytes = fs::read(self.cache_dir.join(format!("{}.meta", module.name))).ok()?;
         let meta: CacheMeta = serde_json::from_slice(&meta_bytes).ok()?;
@@ -299,7 +527,7 @@ impl Build {
         let mut ir = serialize::deserialize(&ir_bytes).ok()?;
         // The cache is keyed by source content, so the same bytes at a new
         // path stay a hit; point the module at this job's file.
-        ir.file = module.file.clone();
+        ir.file = file.to_path_buf();
         Some((meta.imports, ir))
     }
 
@@ -372,7 +600,9 @@ impl Build {
     }
 
     fn schedule_optional(&mut self, name: &str, origin: &Origin) {
-        if self.probe(name).is_some() {
+        // An unsupported entry or a missing shim under a from-list name is
+        // not imported as a module here, so it is not an error either.
+        if matches!(self.probe(name, origin), Ok(Some(_))) {
             self.schedule_required(name, origin);
         }
     }
@@ -397,7 +627,8 @@ fn resolve_in(root: &Path, parts: &[&str]) -> Option<Vec<Resolved>> {
         }
         chain.push(Resolved {
             name: name.clone(),
-            file: init,
+            file: Some(init),
+            kind: ModuleKind::Source,
             is_package: true,
         });
     }
@@ -410,7 +641,8 @@ fn resolve_in(root: &Path, parts: &[&str]) -> Option<Vec<Resolved>> {
     if file.is_file() {
         chain.push(Resolved {
             name,
-            file,
+            file: Some(file),
+            kind: ModuleKind::Source,
             is_package: false,
         });
         return Some(chain);
@@ -419,7 +651,8 @@ fn resolve_in(root: &Path, parts: &[&str]) -> Option<Vec<Resolved>> {
     if init.is_file() {
         chain.push(Resolved {
             name,
-            file: init,
+            file: Some(init),
+            kind: ModuleKind::Source,
             is_package: true,
         });
         return Some(chain);
@@ -430,7 +663,7 @@ fn resolve_in(root: &Path, parts: &[&str]) -> Option<Vec<Resolved>> {
 /// The package a level-`level` relative import in `module` resolves against:
 /// the module's own package, one level up per extra dot. `None` when it
 /// reaches past the top-level package.
-fn relative_base(module: &str, is_package: bool, level: i32) -> Option<String> {
+pub(crate) fn relative_base(module: &str, is_package: bool, level: i32) -> Option<String> {
     let up = usize::try_from(level - 1).ok()?;
     let mut parts: Vec<&str> = module.split('.').collect();
     if !is_package {
