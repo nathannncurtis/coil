@@ -154,8 +154,15 @@ pub struct Function {
     pub entry: BlockId,
     pub locals: Vec<LocalMeta>,
     pub flags: FnFlags,
-    /// Types indexed by `Value`; parameters are the first values.
+    /// Types indexed by `Value`; parameters are the first values. The
+    /// representation view the verifier checks: an atom here means the value
+    /// is an unboxed machine scalar.
     pub types: Vec<Type>,
+    /// The inference's per-value facts, indexed by `Value` like `types`
+    /// (spec section 7): the analysis view, where `Int64` means "an int
+    /// whose value fits in 64 bits", not an unboxed representation. Empty
+    /// until `infer` runs.
+    pub facts: Vec<Type>,
     /// Line table: `(instruction, line, column)`, sorted by instruction.
     pub lines: Vec<(InstrId, u32, u32)>,
 }

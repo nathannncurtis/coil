@@ -45,6 +45,20 @@ pub fn print_module(m: &Module) -> String {
     out
 }
 
+/// Print a whole module with each value annotated by its analysis facts
+/// (`Function::facts`) instead of its representation type: the inference's
+/// view, where `Int64` means "an int that fits in 64 bits". A function with
+/// no facts (inference has not run) prints its representation types.
+pub fn print_module_facts(m: &Module) -> String {
+    let mut swapped = m.clone();
+    for f in &mut swapped.functions {
+        if !f.facts.is_empty() {
+            std::mem::swap(&mut f.types, &mut f.facts);
+        }
+    }
+    print_module(&swapped)
+}
+
 /// Print one function against the module's constant pool.
 pub fn print_function(pool: &ConstPool, index: u32, f: &Function) -> String {
     let mut out = String::new();

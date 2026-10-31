@@ -866,6 +866,7 @@ impl FunctionBuilder {
             locals: self.locals,
             flags: self.flags,
             types: self.types,
+            facts: Vec::new(),
             lines,
         })
     }

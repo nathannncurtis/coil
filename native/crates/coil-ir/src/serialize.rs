@@ -333,6 +333,7 @@ fn function(w: &mut W, f: &Function) {
     });
     w.u16(f.flags.0);
     w.seq(&f.types, put_ty);
+    w.seq(&f.facts, put_ty);
     w.seq(&f.lines, |w, (i, l, c)| {
         w.u32(i.0);
         w.u32(*l);
@@ -354,6 +355,7 @@ fn function_r(r: &mut R) -> Result<Function, Error> {
         })?,
         flags: FnFlags(r.u16()?),
         types: r.seq(ty_r)?,
+        facts: r.seq(ty_r)?,
         lines: r.seq(|r| Ok((InstrId(r.u32()?), r.u32()?, r.u32()?)))?,
     })
 }

@@ -807,6 +807,7 @@ fn func_flags(blocks: Vec<Block>, types: Vec<Type>, flags: FnFlags) -> Function 
         locals: vec![],
         flags,
         types,
+        facts: vec![],
         lines: vec![],
     }
 }
@@ -1517,6 +1518,7 @@ fn parameter_values_cannot_be_redefined() {
         locals: vec![],
         flags: FnFlags(0),
         types: vec![Type::Top],
+        facts: Vec::new(),
         lines: vec![],
     };
     assert!(matches!(
