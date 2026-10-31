@@ -234,6 +234,23 @@ pub extern "C" fn PyGILState_Check() -> c_int {
     (!tstate.is_null() && unsafe { (*tstate).attached }) as c_int
 }
 
+/// The `--features debug-heap` attachment assertion of section 9.3: an
+/// API entry point must run on a thread that holds the GIL, the way a
+/// `.pyd` or compiled code always enters. `entry` names the function for
+/// the failure message. A release build compiles this to nothing.
+#[cfg(feature = "debug-heap")]
+pub fn require_attached(entry: &str) {
+    let tstate = tstate::try_current();
+    assert!(
+        !tstate.is_null() && unsafe { (*tstate).attached },
+        "debug-heap: {entry} entered without the GIL attached"
+    );
+}
+
+#[cfg(not(feature = "debug-heap"))]
+#[inline]
+pub fn require_attached(_entry: &str) {}
+
 /// The switch interval in microseconds, `sys.getswitchinterval`'s value.
 pub fn switch_interval_us() -> u64 {
     GIL.interval_us.load(Ordering::Relaxed)

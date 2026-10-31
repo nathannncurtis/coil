@@ -89,16 +89,26 @@ pub(crate) fn note_born(addr: usize) {
 
 /// `gc.collect()`: a full collection. Returns the number of unreachable
 /// objects it freed. Reentrant calls (a finalizer or weakref callback
-/// reaching back here) return 0 immediately.
+/// reaching back here) return 0 immediately. A `--features debug-heap`
+/// assertion firing inside the collection unwinds through here, so the
+/// flag lives in a guard and the lock recovers from the poisoning the
+/// unwind leaves behind — the assertion itself is the failure report.
 pub fn collect() -> usize {
     if is_collecting() {
         return 0;
     }
-    let _serial = collect_lock().lock().expect("collection lock poisoned");
+    let _serial = collect_lock()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
     COLLECTING.store(true, Ordering::Relaxed);
-    let freed = run_collection();
-    COLLECTING.store(false, Ordering::Relaxed);
-    freed
+    struct Collecting;
+    impl Drop for Collecting {
+        fn drop(&mut self) {
+            COLLECTING.store(false, Ordering::Relaxed);
+        }
+    }
+    let _flag = Collecting;
+    run_collection()
 }
 
 /// Whether `addr` addresses a live GC-heap object (an allocated block

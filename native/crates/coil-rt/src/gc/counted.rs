@@ -337,6 +337,7 @@ pub fn note_escape(object: *mut PyObject) {
 /// Both pointers must be null or valid objects.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn coil_rt_barrier_ext(overwritten: *mut PyObject, stored: *mut PyObject) {
+    crate::gil::require_attached("coil_rt_barrier_ext");
     // SAFETY: the caller's contract.
     unsafe { barrier(overwritten, stored) };
 }
@@ -353,6 +354,7 @@ pub unsafe extern "C" fn coil_rt_barrier_dynamic(
     overwritten: *mut PyObject,
     stored: *mut PyObject,
 ) {
+    crate::gil::require_attached("coil_rt_barrier_dynamic");
     // SAFETY: the caller's contract.
     unsafe { barrier(overwritten, stored) };
 }
@@ -706,6 +708,14 @@ pub unsafe extern "C" fn _Py_DecRef(object: *mut PyObject) {
     if unsafe { header::is_immortal(object) } {
         return;
     }
+    // The debug-heap checks of section 9.3 at the entry: the decrement
+    // runs on the GIL thread and never takes a live count below zero.
+    crate::gil::require_attached("_Py_DecRef");
+    #[cfg(feature = "debug-heap")]
+    assert!(
+        unsafe { (*object).ob_refcnt } > 0,
+        "debug-heap: ob_refcnt underflow at {object:p} (0)"
+    );
     // SAFETY: as `Py_DecRef`.
     unsafe {
         (*object).ob_refcnt -= 1;
@@ -726,6 +736,7 @@ pub unsafe extern "C" fn _Py_Dealloc(object: *mut PyObject) {
     if object.is_null() {
         return;
     }
+    crate::gil::require_attached("_Py_Dealloc");
     // SAFETY: the caller's contract.
     unsafe { dealloc_at_zero(object) };
 }
@@ -902,6 +913,7 @@ pub unsafe extern "C" fn PyObject_Init(
     if object.is_null() || ty.is_null() {
         return core::ptr::null_mut();
     }
+    crate::gil::require_attached("PyObject_Init");
     // SAFETY: the caller's contract.
     unsafe { header::c_init(object, ty) };
     // SAFETY: the type is readied.

@@ -3,7 +3,9 @@
 //! of the release-timing table, the store barrier entry points, the
 //! zero-count table's three processing triggers, the counted-container
 //! and escape rules for C-created objects, the foreign side map, and the
-//! `--features debug-heap` quarantine.
+//! `--features debug-heap` checks — poisoning, quarantine, both underflow
+//! detections, the heap-walk barrier verification and the attachment
+//! assertions at the API entry points.
 
 use std::sync::Mutex;
 use std::sync::MutexGuard;
@@ -13,8 +15,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use coil_capi_sys::{PyObject, PyTypeObject, visitproc};
 use python312::abi_generated;
 use python312::gc::{self, counted, stack};
+use python312::gil;
 use python312::object::{singletons, typeobject};
-use python312::types::{dict, long};
+use python312::types::{dict, long, tuple};
 
 static INIT: Once = Once::new();
 
@@ -23,14 +26,72 @@ static INIT: Once = Once::new();
 /// tests do.
 static SERIAL: Mutex<()> = Mutex::new(());
 
-fn init() -> MutexGuard<'static, ()> {
+/// What `init` hands out: the serialization hold plus the thread's
+/// `PyGILState_Ensure` reference, given back when the test ends. The
+/// `--features debug-heap` entry-point assertions make attachment part
+/// of every test's setup.
+struct Serial {
+    _lock: MutexGuard<'static, ()>,
+    gil: core::ffi::c_int,
+}
+
+impl Drop for Serial {
+    fn drop(&mut self) {
+        // The state is this thread's own, attached by `init`.
+        gil::PyGILState_Release(self.gil);
+    }
+}
+
+fn init() -> Serial {
     INIT.call_once(|| {
         assert_eq!(typeobject::init_static_types(), 0);
         // Explicit collections only: the ZCT's own triggers have their
         // tests, which run with the pacing switch off.
         gc::disable();
     });
-    SERIAL.lock().unwrap()
+    Serial {
+        _lock: SERIAL.lock().unwrap(),
+        gil: gil::PyGILState_Ensure(),
+    }
+}
+
+/// The process-global setup without the attach: the attachment fault's
+/// child must stay detached for the fault under test.
+#[cfg(feature = "debug-heap")]
+fn init_detached() {
+    INIT.call_once(|| {
+        assert_eq!(typeobject::init_static_types(), 0);
+        gc::disable();
+    });
+}
+
+/// Whether this run is a fault test's child, and which fault it plays.
+#[cfg(feature = "debug-heap")]
+fn fault_child_name() -> Option<String> {
+    std::env::var("COIL_REGIMES_FAULT").ok()
+}
+
+/// Run `test`'s child that performs `fault` and hand back its output.
+/// The faults abort rather than unwind — the panic crosses the
+/// `extern "C"` boundary of the entry point under test — so the parent
+/// asserts the abort and its message. The child's harness captures the
+/// check's panic message into the test's stdout while the abort notice
+/// goes to stderr, so both streams are returned.
+#[cfg(feature = "debug-heap")]
+fn fault_child(test: &str, fault: &str) -> String {
+    let exe = std::env::current_exe().expect("the test binary's path");
+    let output = std::process::Command::new(exe)
+        .args(["--exact", test, "--test-threads=1"])
+        .env("COIL_REGIMES_FAULT", fault)
+        .output()
+        .expect("spawn the fault child");
+    let stdout = String::from_utf8_lossy(&output.stdout).into_owned();
+    let stderr = String::from_utf8_lossy(&output.stderr).into_owned();
+    assert!(
+        output.status.code().is_none(),
+        "the fault must abort the child, not return: {stdout}{stderr}"
+    );
+    format!("{stdout}{stderr}")
 }
 
 // -------------------------------------------------- the tests' object types
@@ -39,6 +100,10 @@ fn init() -> MutexGuard<'static, ()> {
 /// after the header, standing in for an extension struct's members.
 const SLOT0: usize = 16;
 const SLOT1: usize = 24;
+
+/// Offset of a var-object's inline `ob_item` array (a tuple's) and of a
+/// list's `ob_item` pointer: the header plus `ob_size`.
+const VAR_ITEMS: usize = 24;
 
 /// How many times the synthetic `tp_dealloc` ran.
 static DEALLOCS: AtomicUsize = AtomicUsize::new(0);
@@ -416,6 +481,99 @@ fn escaped_c_object_waits_for_the_collection() {
     assert_eq!(gc::collect(), 0);
 }
 
+// ------------------------------------------------------ counted containers
+
+/// The counted-container rule of 9.3: a C-created tuple's slots hold
+/// counted references — `PyTuple_SET_ITEM`'s inline store is a raw slot
+/// write that steals, no barrier, no `heap_refs` — so the item's release
+/// follows the rows above: at once with an unescaped container, through
+/// the ZCT for an escaped one.
+#[test]
+fn counted_tuple_slots_hold_counted_references() {
+    let _serial = init();
+    let tuple_object = tuple::PyTuple_New(2);
+    assert!(!tuple_object.is_null());
+    let immediate = new_ext();
+    let deferred = new_ext();
+    counted::note_escape(deferred);
+    // The macro's expansion, as the extension's C compiles it: two raw
+    // slot writes that steal the constructor references.
+    set_slot(tuple_object, VAR_ITEMS, immediate); // ob_item[0]
+    set_slot(tuple_object, VAR_ITEMS + 8, deferred); // ob_item[1]
+    // The slots are counted references, not heap references.
+    assert_eq!(unsafe { counted::heap_refs_of(immediate) }, 0);
+    assert_eq!(unsafe { counted::heap_refs_of(deferred) }, 0);
+    let before = deallocs();
+    // The tuple never escaped into compiled code: C's last reference
+    // tears it down at once, and the unescaped item dies with it, as in
+    // CPython.
+    // SAFETY: the constructor's reference to the tuple.
+    unsafe { counted::_Py_DecRef(tuple_object) };
+    assert_eq!(deallocs(), before + 1);
+    // The escaped item's release belongs to the next ZCT processing.
+    counted::process_zct();
+    assert_eq!(deallocs(), before + 2);
+}
+
+/// The collected-holder row through a counted container: the tuple
+/// escaped, so the collector owns its death; the subtraction counts the
+/// slot's counted reference as internal, and the sweep frees item and
+/// holder in one collection.
+#[test]
+fn collected_counted_tuple_frees_its_item() {
+    let _serial = init();
+    let tuple_object = tuple::PyTuple_New(1);
+    let object = new_ext();
+    set_slot(tuple_object, VAR_ITEMS, object);
+    counted::note_escape(tuple_object);
+    let before = deallocs();
+    // SAFETY: the constructors' references; the item's is the slot's
+    // now, the holder's death belongs to the collector.
+    unsafe { counted::_Py_DecRef(tuple_object) };
+    assert_eq!(deallocs(), before);
+    assert_eq!(gc::collect(), 2);
+    assert_eq!(deallocs(), before + 1);
+}
+
+/// The list side of the counted-container rule: `PyList_SET_ITEM`'s
+/// inline store writes through the item array, `PyList_Append` on a
+/// counted list takes the slow path and increfs (spec 9.3), and the
+/// container's death drops what its slots hold.
+#[test]
+fn counted_list_slots_hold_counted_references() {
+    let _serial = init();
+    let built = python312::types::list::PyList_New(1);
+    let object = new_ext();
+    // The macro's expansion: the write lands in the item array the list
+    // owns, stealing the constructor's reference.
+    let items = slot(built, VAR_ITEMS);
+    set_slot(items, 0, object);
+    assert_eq!(unsafe { counted::heap_refs_of(object) }, 0);
+    // A read borrows; for an R item nothing changes.
+    // SAFETY: the list holds the item.
+    unsafe {
+        assert_eq!(python312::types::list::PyList_GetItem(built, 0), object);
+    }
+    let appended = python312::types::list::PyList_New(0);
+    // SAFETY: the list is fresh; CPython's append takes a reference.
+    unsafe {
+        assert_eq!(python312::types::list::PyList_Append(appended, object), 0);
+    }
+    assert_eq!(unsafe { (*object).ob_refcnt }, 2);
+    let before = deallocs();
+    // SAFETY: the constructors' references to the containers; each
+    // death drops its slot's counted reference.
+    unsafe {
+        counted::_Py_DecRef(built);
+        counted::_Py_DecRef(appended);
+    }
+    assert_eq!(
+        deallocs(),
+        before + 1,
+        "the second container's drop frees it"
+    );
+}
+
 /// Row 7, R↔R: a cycle through C objects — the full collection's
 /// subtraction finds no external holder, `tp_clear` breaks the cycle,
 /// `tp_dealloc` runs once per object.
@@ -607,7 +765,7 @@ fn zct_safepoint_at_sixty_four_entries() {
 /// table, whatever thread enqueued it.
 #[test]
 fn zct_tick_on_thread_attach() {
-    let _serial = init();
+    let serial = init();
     let before = deallocs();
     // SAFETY: three objects escape and lose their counted references.
     unsafe {
@@ -618,13 +776,18 @@ fn zct_tick_on_thread_attach() {
         }
     }
     assert_eq!(deallocs(), before);
+    // Give the GIL up for the worker's attach: joining while holding it
+    // would leave both threads waiting for each other. The state is this
+    // thread's own, attached by `init`.
+    gil::PyGILState_Release(serial.gil);
     let worker = std::thread::spawn(|| {
         // The GIL attaches the fresh thread; the attach's tick is the
         // trigger under test.
-        let state = python312::gil::PyGILState_Ensure();
-        python312::gil::PyGILState_Release(state);
+        let state = gil::PyGILState_Ensure();
+        gil::PyGILState_Release(state);
     });
     worker.join().unwrap();
+    gil::PyGILState_Ensure();
     assert_eq!(deallocs(), before + 3);
 }
 
@@ -781,6 +944,17 @@ fn freed_counted_object_is_quarantined() {
     assert!(page.allocated(block_granule));
     assert!(!page.is_object(granule));
     assert!(!page.regime(granule));
+    // And poisoned from the block's base: the pre-header's last bytes
+    // sit inside the fill, whereas a fill measured from the object
+    // address would leave them zeroed and run past the block's end.
+    // SAFETY: the read stays inside the quarantined block, which is
+    // exclusively the runtime's.
+    unsafe {
+        assert_eq!(
+            core::ptr::read((block + 8) as *const u8),
+            python312::alloc::page::POISON_BYTE
+        );
+    }
     // Nothing reuses the quarantined block.
     let fresh = new_ext();
     assert_ne!(fresh as usize, object as usize);
@@ -789,4 +963,167 @@ fn freed_counted_object_is_quarantined() {
     // The next collection releases the quarantine.
     gc::collect();
     assert!(!page.allocated(block_granule));
+}
+
+/// The message a caught panic carried, whatever form it was formatted
+/// into.
+#[cfg(feature = "debug-heap")]
+fn panic_message(panic: Box<dyn std::any::Any + Send>) -> String {
+    if let Some(text) = panic.downcast_ref::<&'static str>() {
+        return (*text).to_string();
+    }
+    panic.downcast_ref::<String>().cloned().unwrap_or_default()
+}
+
+/// The `--features debug-heap` underflow detection on `heap_refs`: a
+/// barrier decrement below zero — the pairing bug, one increment against
+/// two decrements — aborts at the entry point's boundary.
+#[test]
+#[cfg(feature = "debug-heap")]
+fn heap_refs_underflow_is_detected() {
+    if let Some(fault) = fault_child_name() {
+        assert_eq!(fault, "heap-refs-underflow");
+        let _serial = init();
+        let object = new_ext();
+        // SAFETY: the object is alive; the call is the fault under
+        // test, a decrement with no matching increment.
+        unsafe { counted::coil_rt_barrier_ext(object, core::ptr::null_mut()) };
+        unreachable!("the underflow aborts the child");
+    }
+    let output = fault_child("heap_refs_underflow_is_detected", "heap-refs-underflow");
+    assert!(
+        output.contains("heap_refs underflow"),
+        "the abort names the check: {output}"
+    );
+}
+
+/// The `--features debug-heap` underflow detection on `ob_refcnt`: a
+/// decrement of a count already at zero — the double decrement — aborts
+/// at the entry point's boundary.
+#[test]
+#[cfg(feature = "debug-heap")]
+fn ob_refcnt_underflow_is_detected() {
+    if let Some(fault) = fault_child_name() {
+        assert_eq!(fault, "ob-refcnt-underflow");
+        let _serial = init();
+        let object = new_ext();
+        // SAFETY: the header write simulates the extension's bug: one
+        // reference too many already dropped; the call is the fault.
+        unsafe {
+            (*object).ob_refcnt = 0;
+            counted::_Py_DecRef(object);
+        }
+        unreachable!("the underflow aborts the child");
+    }
+    let output = fault_child("ob_refcnt_underflow_is_detected", "ob-refcnt-underflow");
+    assert!(
+        output.contains("ob_refcnt underflow"),
+        "the abort names the check: {output}"
+    );
+}
+
+/// The `--features debug-heap` barrier verification: every collection
+/// recomputes `heap_refs` from a heap walk. Real edges agree; a heap
+/// reference with no edge behind it — what a store path that skipped
+/// the barrier leaves — fails the recomputation.
+#[test]
+#[cfg(feature = "debug-heap")]
+fn heap_walk_verification_catches_a_skipped_barrier() {
+    let _serial = init();
+    let object = new_ext();
+    let holder = dict::PyDict_New();
+    // SAFETY: both objects are freshly created.
+    unsafe {
+        assert_eq!(dict::PyDict_SetItem(holder, singletons::none(), object), 0);
+    }
+    assert_eq!(unsafe { counted::heap_refs_of(object) }, 1);
+    // The real edge: the recomputation at this collection counts the
+    // dict's reference and agrees.
+    let before = deallocs();
+    gc::collect();
+    assert_eq!(deallocs(), before, "the held object survives");
+    // The fault: one heap reference with no edge behind it.
+    // SAFETY: the barrier entry point is the injector.
+    unsafe { counted::coil_rt_barrier_ext(core::ptr::null_mut(), object) };
+    assert_eq!(unsafe { counted::heap_refs_of(object) }, 2);
+    // The collection is the fault's witness; the panic unwinds through
+    // Rust frames only, so the test catches it.
+    let panic = std::panic::catch_unwind(std::panic::AssertUnwindSafe(gc::collect))
+        .expect_err("the mismatch must be detected");
+    assert!(
+        panic_message(panic).contains("heap_refs mismatch"),
+        "the panic names the check"
+    );
+    // Repair: drop the fake reference; the recomputation agrees again.
+    // SAFETY: as the injecting call.
+    unsafe { counted::coil_rt_barrier_ext(object, core::ptr::null_mut()) };
+    gc::collect();
+    assert_eq!(deallocs(), before);
+    // Tear down: the overwrite releases the last heap reference, C's
+    // last reference frees the object, the holder dies at the refcount.
+    // SAFETY: the dict is alive and the key present; the object holds
+    // the constructor's reference still.
+    unsafe {
+        assert_eq!(
+            dict::PyDict_SetItem(holder, singletons::none(), singletons::none()),
+            0
+        );
+        counted::_Py_DecRef(object);
+    }
+    assert_eq!(deallocs(), before + 1);
+    // SAFETY: the holder's own reference.
+    unsafe { counted::_Py_DecRef(holder) };
+}
+
+/// The `--features debug-heap` attachment assertions: the API entry
+/// points a `.pyd` reaches must run on a thread that holds the GIL; a
+/// detached caller fails before anything is touched.
+#[test]
+#[cfg(feature = "debug-heap")]
+fn api_entries_assert_attachment() {
+    const FAULTS: &[(&str, &str)] = &[
+        ("decref", "_Py_DecRef"),
+        ("dealloc", "_Py_Dealloc"),
+        ("barrier-ext", "coil_rt_barrier_ext"),
+        ("barrier-dynamic", "coil_rt_barrier_dynamic"),
+    ];
+    if let Some(fault) = fault_child_name() {
+        let entry = FAULTS
+            .iter()
+            .find(|(name, _)| *name == fault)
+            .expect("a named fault")
+            .1;
+        init_detached();
+        // A stand-in object the detached calls can point at; the entry
+        // points fail before they touch it.
+        // SAFETY: the raw block is this child's own, and the header
+        // write initialises it as its one reference.
+        let object = unsafe {
+            let block = python312::alloc::alloc_object(48);
+            let object = block.cast::<PyObject>();
+            python312::object::header::c_init(object, &raw mut EXT_TYPE);
+            object
+        };
+        // SAFETY: the caller is deliberately detached; each entry point
+        // is the fault under test.
+        unsafe {
+            match fault.as_str() {
+                "decref" => counted::_Py_DecRef(object),
+                "dealloc" => counted::_Py_Dealloc(object),
+                "barrier-ext" => counted::coil_rt_barrier_ext(core::ptr::null_mut(), object),
+                "barrier-dynamic" => {
+                    counted::coil_rt_barrier_dynamic(core::ptr::null_mut(), object)
+                }
+                _ => unreachable!(),
+            }
+        }
+        unreachable!("the {entry} entry aborts the child");
+    }
+    for (fault, entry) in FAULTS {
+        let output = fault_child("api_entries_assert_attachment", fault);
+        assert!(
+            output.contains(&format!("{entry} entered without the GIL attached")),
+            "the abort names {entry}: {output}"
+        );
+    }
 }
