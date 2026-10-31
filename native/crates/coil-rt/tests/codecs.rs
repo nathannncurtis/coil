@@ -779,9 +779,7 @@ fn registry_state_matches_the_interim_contract() {
         // Lookup of a native name: the CodecInfo object is what is
         // missing, not the codec.
         assert!(codecs::_PyCodec_Lookup(utf8.as_ptr()).is_null());
-        expect_error(
-            "e:SystemError:coil: building CodecInfo objects needs the container runtime",
-        );
+        expect_error("e:SystemError:coil: building CodecInfo objects needs the container runtime");
         assert!(codecs::_PyCodec_Lookup(nosuch.as_ptr()).is_null());
         expect_error("e:LookupError:no codec search functions registered: can't find encoding");
 
@@ -799,7 +797,9 @@ fn registry_state_matches_the_interim_contract() {
         expect_error("e:TypeError:argument must be callable");
         assert_eq!(codecs::PyCodec_Register(&raw mut CALLABLE), 0);
         assert!(codecs::_PyCodec_Lookup(nosuch.as_ptr()).is_null());
-        expect_error("e:SystemError:coil: calling codec search functions needs the container runtime");
+        expect_error(
+            "e:SystemError:coil: calling codec search functions needs the container runtime",
+        );
         assert_eq!(codecs::PyCodec_Unregister(&raw mut CALLABLE), 0);
         assert!(codecs::_PyCodec_Lookup(nosuch.as_ptr()).is_null());
         expect_error("e:LookupError:no codec search functions registered: can't find encoding");
@@ -817,7 +817,9 @@ fn registry_state_matches_the_interim_contract() {
             0
         );
         assert!(codecs::PyCodec_LookupError(handler.as_ptr()).is_null());
-        expect_error("e:SystemError:coil: returning an error handler object needs the container runtime");
+        expect_error(
+            "e:SystemError:coil: returning an error handler object needs the container runtime",
+        );
         assert!(codecs::PyCodec_LookupError(utf8.as_ptr()).is_null());
         expect_error("e:LookupError:unknown error handler name 'utf-8'");
         assert!(codecs::PyCodec_LookupError(core::ptr::null()).is_null());
@@ -835,7 +837,9 @@ fn registry_state_matches_the_interim_contract() {
             c"invalid start byte".as_ptr(),
         );
         assert!(codecs::PyCodec_NameReplaceErrors(exc).is_null());
-        expect_error("e:SystemError:coil: the 'namereplace' error handler needs the unicodedata name tables");
+        expect_error(
+            "e:SystemError:coil: the 'namereplace' error handler needs the unicodedata name tables",
+        );
 
         // The Windows code pages are absent off Windows.
         let mbcs = CString::new("mbcs").unwrap();
