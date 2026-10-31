@@ -23,7 +23,7 @@ use super::{ClassRef, FnRef, KeepMarks, ModuleState, Program};
 /// A top-level binding of a module namespace: the module's own definitions,
 /// re-exported imports, and module aliases.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum TopDef {
+pub(crate) enum TopDef {
     Function(FnRef),
     Class(ClassRef),
     Module(u32),
@@ -33,8 +33,8 @@ enum TopDef {
 /// store order, with re-exported names resolved through the namespaces of
 /// the modules it imports.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
-struct Namespace {
-    defs: BTreeMap<String, Vec<TopDef>>,
+pub(crate) struct Namespace {
+    pub(crate) defs: BTreeMap<String, Vec<TopDef>>,
 }
 
 /// What one `MakeClass` records about a class: its resolved bases (`None`
@@ -113,6 +113,34 @@ pub fn refine(
         module: index[&cr.module],
         class: cr.class,
     };
+    // Namespaces carry the pre-prune module indices; renumber them into the
+    // program's so the analyses resolve global loads against the program.
+    // A def pointing at a module the program dropped goes with it.
+    let remap_ns = |ns: &Namespace| Namespace {
+        defs: ns
+            .defs
+            .iter()
+            .filter_map(|(name, targets)| {
+                let mapped: Vec<TopDef> = targets
+                    .iter()
+                    .filter_map(|def| match def {
+                        TopDef::Function(fr) => Some(TopDef::Function(remap_fn(fr))),
+                        TopDef::Class(cr) => Some(TopDef::Class(remap_cls(cr))),
+                        TopDef::Module(m) => index.get(m).map(|&m| TopDef::Module(m)),
+                    })
+                    .collect();
+                (!mapped.is_empty()).then(|| (name.clone(), mapped))
+            })
+            .collect(),
+    };
+    let program_namespaces: Vec<Namespace> = (0..modules.len())
+        .filter(|old| walk.reached.contains(&(*old as u32)))
+        .map(|old| {
+            walk.namespaces[old]
+                .as_ref()
+                .map_or_else(Namespace::default, remap_ns)
+        })
+        .collect();
     Program {
         modules: program_modules,
         functions: walk.functions.iter().map(remap_fn).collect(),
@@ -123,6 +151,7 @@ pub fn refine(
             classes: keep_marks.classes.iter().map(remap_cls).collect(),
         },
         seal_candidates: seal_candidates.iter().map(remap_cls).collect(),
+        namespaces: program_namespaces,
     }
 }
 
