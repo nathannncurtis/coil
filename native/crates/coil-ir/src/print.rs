@@ -271,6 +271,7 @@ pub fn instr_results(ins: &Instr) -> Vec<Value> {
         | I::StoreCell { .. }
         | I::StoreGlobal { .. }
         | I::StoreName { .. }
+        | I::DelName { .. }
         | I::StoreField { .. }
         | I::ImportStar { .. }
         | I::Safepoint
@@ -515,6 +516,7 @@ fn op_text(pool: &ConstPool, ins: &Instr) -> String {
             quote(pool.sym_str(*name)),
             val(*value)
         )),
+        I::DelName { name } => s.push_str(&format!("delname {}", quote(pool.sym_str(*name)))),
         I::CallDirect { func, args, .. } => {
             s.push_str(&format!("calldirect fn {}, ({})", func.0, vals(args)))
         }

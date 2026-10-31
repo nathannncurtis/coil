@@ -59,6 +59,7 @@ fn module() -> Module {
         qualname: s_add,
         params: Params {
             positional: vec![s_a, s_b],
+            posonly: 0,
             vararg: None,
             kwonly: vec![],
             kwarg: None,
@@ -156,6 +157,7 @@ fn module() -> Module {
         qualname: s_safe_div,
         params: Params {
             positional: vec![s_a, s_b],
+            posonly: 0,
             vararg: None,
             kwonly: vec![],
             kwarg: None,
@@ -239,6 +241,7 @@ fn module() -> Module {
         qualname: s_counter,
         params: Params {
             positional: vec![s_n],
+            posonly: 0,
             vararg: None,
             kwonly: vec![],
             kwarg: None,
