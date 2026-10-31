@@ -25,9 +25,14 @@
 //! ([`ATy`]): the IR's `Type` indexes class tables per module, so a type
 //! crossing a function boundary (a routed argument tuple, an attribute type)
 //! carries its [`ClassRef`] along and narrows back to the module-local
-//! `Type` only when written into that module's `Function::types`. A class of
+//! `Type` only when written into that module's `Function::facts`. A class of
 //! another module has no point in the target module's lattice and reads as
 //! `Top` there.
+//!
+//! The analysis view is a side table: `Function::types` keeps the
+//! representation view the verifier checks (an atom there means an unboxed
+//! machine scalar), while a fact `Int64` only says the value fits in 64
+//! bits. `unbox` is the pass that turns facts into representation types.
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
@@ -558,7 +563,7 @@ struct CloneRec {
     top: bool,
     returns: ATy,
     /// Per-value types of the last analysis; the join over clones is what
-    /// lands in `Function::types`.
+    /// lands in `Function::facts`.
     types: Vec<ATy>,
     /// Narrowed types by `(block, value)`, the guard-consuming passes' map.
     narrow: BTreeMap<(u32, u32), ATy>,
@@ -601,9 +606,10 @@ struct Driver<'a> {
     guards: BTreeSet<Guard>,
 }
 
-/// Run inference over the program, filling every `Function::types` with the
+/// Run inference over the program, filling every `Function::facts` with the
 /// join over its clones and returning the specialisation table, the guards
 /// and the attribute types for the later passes (spec sections 7 and 8.3).
+/// `Function::types` keeps the representation view lowering wrote.
 pub fn analyze(program: &mut Program, shapes: &Shapes, graph: &CallGraph) -> Inference {
     let mut driver = Driver::new(program, shapes, graph);
     driver.seed();
@@ -613,7 +619,7 @@ pub fn analyze(program: &mut Program, shapes: &Shapes, graph: &CallGraph) -> Inf
         if let Some(ir) = program.modules[fr.module as usize].ir.as_mut()
             && let Some(f) = ir.functions.get_mut(fr.function.0 as usize)
         {
-            f.types = types;
+            f.facts = types;
         }
     }
     inference
