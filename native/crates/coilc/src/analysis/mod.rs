@@ -3,5 +3,6 @@
 //! (spec sections 7 and 8.3).
 
 pub mod callgraph;
+pub mod infer;
 pub mod shapes;
 pub mod signatures;
