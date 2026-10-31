@@ -319,7 +319,7 @@ jobs:
         working-directory: native
         run: cargo build --lib -p coil-rt
       - name: Build the _testcapi extension against the cdylib
-        run: python tools/build_testcapi.py
+        run: python tools/build_testcapi.py --python-lib native/target/debug/deps/python312.dll.lib
       - name: Run the _testcapi conformance suite
         working-directory: native
         env:

@@ -51,7 +51,10 @@ def find_python_lib(explicit: Path | None) -> Path:
         lib = explicit.resolve()
     else:
         # Cargo links the cdylib through deps/python312.dll.lib; only the dll
-        # itself is copied up into the profile directory.
+        # itself is copied up into the profile directory. CI passes
+        # --python-lib because the shared build cache can restore other
+        # profiles' import libraries into the target directory, and linking
+        # against one of those would resolve against a stale export table.
         lib = None
         for profile in ("release", "debug"):
             candidate = ROOT / "native" / "target" / profile / "deps" / "python312.dll.lib"
