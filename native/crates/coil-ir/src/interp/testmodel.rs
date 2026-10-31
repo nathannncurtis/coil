@@ -59,6 +59,7 @@ pub enum Obj {
     Property {
         fget: Option<Val>,
         fset: Option<Val>,
+        fdel: Option<Val>,
     },
     StaticMethod(Val),
     ClassMethod(Val),
@@ -108,6 +109,8 @@ pub enum Obj {
     IterMap {
         f: Val,
         it: Val,
+        // multi-iterator map: each turn's zip tuple is spread as arguments
+        spread: bool,
     },
     IterFilter {
         f: Option<Val>,
@@ -119,6 +122,19 @@ pub enum Obj {
     IterEnum {
         it: Val,
         count: Cell<i128>,
+    },
+    IterRevGetItem {
+        obj: Val,
+        pos: Cell<i128>,
+    },
+    /// `agen.asend(v)` / `agen.__anext__()`: a lazy awaitable that forwards
+    /// each send into the async generator and yields what it yields;
+    /// the generator's `StopAsyncIteration` surfaces as the awaiter's
+    /// exception, and other errors pass through. `pending` holds the value
+    /// `asend` was called with for the first drive.
+    AsendAwaiter {
+        agen: Val,
+        pending: Cell<Option<Val>>,
     },
     IterRevList {
         list: Val,
@@ -200,7 +216,9 @@ pub enum AbcKind {
 
 pub struct InstObj {
     pub class: Val,
-    pub attrs: RefCell<AttrMap>,
+    /// Instance attributes, held as a live dict so `obj.__dict__` shares
+    /// storage with the instance.
+    pub attrs: Val,
     pub exc: RefCell<Option<ExcData>>,
 }
 
@@ -626,20 +644,26 @@ impl BigInt {
         if other.is_zero() {
             return None;
         }
-        if Self::cmp_mag(&self.mag, &other.mag) == Ordering::Less {
-            return Some((Self::zero(), self.clone()));
-        }
-        let (q, r) = Self::knuth_div(self.mag.clone(), &other.mag);
-        let mut quo = BigInt {
-            neg: self.neg != other.neg,
-            mag: q,
-        }
-        .trim();
-        let mut rem = BigInt {
-            neg: self.neg,
-            mag: r,
-        }
-        .trim();
+        // Floor division: adjust quotient and remainder toward negative
+        // infinity whenever the signs differ, including the |self| < |other|
+        // case (Python: -8 % 26 == 18, -8 // 26 == -1).
+        let (mut quo, mut rem) = if Self::cmp_mag(&self.mag, &other.mag) == Ordering::Less {
+            (Self::zero(), self.clone())
+        } else {
+            let (q, r) = Self::knuth_div(self.mag.clone(), &other.mag);
+            (
+                BigInt {
+                    neg: self.neg != other.neg,
+                    mag: q,
+                }
+                .trim(),
+                BigInt {
+                    neg: self.neg,
+                    mag: r,
+                }
+                .trim(),
+            )
+        };
         if !rem.is_zero() && (rem.is_negative() != other.is_negative()) {
             rem = rem.add(other);
             quo = quo.sub(&BigInt::from_i64(1));
@@ -1368,6 +1392,9 @@ impl SetTable {
 
 pub struct TestModel {
     builtins: HashMap<String, Val>,
+    /// When set, `print` appends here instead of writing to stdout, so
+    /// embedders (tests) can compare program output.
+    pub captured: RefCell<Option<String>>,
     pub class_object: Val,
     class_type: Val,
     class_int: Val,
@@ -1402,6 +1429,7 @@ pub struct TestModel {
     exc_group: Val,
     exc_base_group: Val,
     typing_module: Val,
+    collections_module: Val,
     abc_module: Val,
     exc_stop_async: Val,
 }
@@ -1694,7 +1722,9 @@ fn type_name_of(v: &Obj) -> &'static str {
         | Obj::IterFilter { .. }
         | Obj::IterZip { .. }
         | Obj::IterEnum { .. }
-        | Obj::IterRevList { .. } => "iterator",
+        | Obj::IterRevList { .. }
+        | Obj::IterRevGetItem { .. } => "iterator",
+        Obj::AsendAwaiter { .. } => "coroutine",
         Obj::Traceback => "traceback",
         Obj::TypeVar(_) => "TypeVar",
         Obj::TypeVarTuple(_) => "TypeVarTuple",
@@ -1801,7 +1831,7 @@ fn new_instance(class: &Val, args: Vec<Val>, group: Option<GroupData>) -> Val {
         .unwrap_or(false);
     Rc::new(Obj::Instance(Rc::new(InstObj {
         class: class.clone(),
-        attrs: RefCell::new(AttrMap::default()),
+        attrs: new_dict(),
         exc: RefCell::new(if exc_kind {
             Some(ExcData {
                 args,
@@ -2059,42 +2089,28 @@ fn slice_indices(
             v.clamp(-i64::MAX, i64::MAX)
         }
     };
-    let def = if step < 0 { -1 } else { 0 };
-    let start = match start {
-        None => def,
-        Some(s) if matches!(&*s, Obj::None_) => def,
-        Some(s) => {
-            let v = py_index(m, vm, &s)?;
-            if v < 0 {
-                (v + len).max(def)
-            } else {
-                v.min(len)
-            }
+    let is_none = |v: &Option<Val>| v.as_ref().is_none_or(|s| matches!(&**s, Obj::None_));
+    let start = if is_none(&start) {
+        if step < 0 { len - 1 } else { 0 }
+    } else {
+        let s = start.unwrap();
+        let v = py_index(m, vm, &s)?;
+        let v = if v < 0 { v + len } else { v };
+        if step < 0 {
+            if v < 0 { -1 } else { v.min(len - 1) }
+        } else if v < 0 {
+            0
+        } else {
+            v.min(len)
         }
     };
-    let stop = match stop {
-        None => {
-            if step < 0 {
-                len
-            } else {
-                0
-            }
-        }
-        Some(s) if matches!(&*s, Obj::None_) => {
-            if step < 0 {
-                len
-            } else {
-                0
-            }
-        }
-        Some(s) => {
-            let v = py_index(m, vm, &s)?;
-            if v < 0 {
-                (v + len).max(if step < 0 { -1 } else { 0 })
-            } else {
-                v.min(len)
-            }
-        }
+    let stop = if is_none(&stop) {
+        if step < 0 { -1 } else { len }
+    } else {
+        let s = stop.unwrap();
+        let v = py_index(m, vm, &s)?;
+        let v = if v < 0 { v + len } else { v };
+        if step < 0 { v.max(-1) } else { v.clamp(0, len) }
     };
     Ok((start, stop, step))
 }
@@ -2198,16 +2214,23 @@ fn val_type_name(_m: &TestModel, v: &Val) -> String {
 // Attribute protocol
 // ---------------------------------------------------------------------------
 
-/// Raw lookup in a class's MRO (no descriptor binding).
-fn mro_attr(class: &Val, name: &str) -> Option<Val> {
-    let c = as_class(class)?;
-    if let Some(v) = c.dict.borrow().get(name) {
-        return Some(v.clone());
+/// `type(v)`'s MRO lookup of `name`: `v` a class (its own MRO) or an
+/// instance (its class's MRO), `_PyObject_LookupSpecial`'s rule. Returns the
+/// raw entry; descriptor binding happens at the call site.
+fn mro_attr(v: &Val, name: &str) -> Option<Val> {
+    let class = match &**v {
+        Obj::Class(_) => v.clone(),
+        Obj::Instance(i) => i.class.clone(),
+        _ => return None,
+    };
+    let c = as_class(&class)?;
+    if let Some(hit) = c.dict.borrow().get(name) {
+        return Some(hit.clone());
     }
     for b in &c.mro {
         let bc = as_class(b)?;
-        if let Some(v) = bc.dict.borrow().get(name) {
-            return Some(v.clone());
+        if let Some(hit) = bc.dict.borrow().get(name) {
+            return Some(hit.clone());
         }
     }
     None
@@ -2282,7 +2305,7 @@ fn bind(
 }
 
 /// The full `getattr` protocol.
-fn getattr_val(
+fn instance_plain_getattr(
     m: &mut TestModel,
     vm: &mut Interp<'_, TestModel>,
     obj: &Val,
@@ -2296,8 +2319,8 @@ fn getattr_val(
             {
                 return bind(m, vm, &a, &i.class, Some(obj.clone()));
             }
-            if let Some(v) = i.attrs.borrow().get(name) {
-                return Ok(v.clone());
+            if let Some(v) = dict_get_str(&i.attrs, name) {
+                return Ok(v);
             }
             if let Some(a) = mro_attr(&i.class, name) {
                 return bind(m, vm, &a, &i.class, Some(obj.clone()));
@@ -2313,6 +2336,15 @@ fn getattr_val(
                             .map(|e| e.args.clone())
                             .unwrap_or_default();
                         return Ok(Rc::new(Obj::Tuple(Rc::new(args))));
+                    }
+                    "value" if is_exc_matches(m, obj, "StopIteration") => {
+                        let v = i
+                            .exc
+                            .borrow()
+                            .as_ref()
+                            .and_then(|e| e.args.first().cloned())
+                            .unwrap_or_else(v_none);
+                        return Ok(v);
                     }
                     "exceptions" => {
                         let children = i
@@ -2356,11 +2388,60 @@ fn getattr_val(
                             .unwrap_or(false);
                         return Ok(v_bool(v));
                     }
+                    "__traceback__" => {
+                        return Ok(v_none());
+                    }
                     _ => {}
                 }
             }
             if name == "__class__" {
                 return Ok(i.class.clone());
+            }
+            if name == "__dict__" {
+                return Ok(i.attrs.clone());
+            }
+            Err(attr_error(m, obj, name))
+        }
+        _ => unreachable!("instance"),
+    }
+}
+
+fn getattr_val(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    obj: &Val,
+    name: &str,
+) -> Result<Val, Val> {
+    match &**obj {
+        Obj::Instance(_) => {
+            // A user `__getattribute__` wraps the whole lookup;
+            // AttributeError from it falls through to `__getattr__`.
+            let hook = mro_attr(obj, "__getattribute__")
+                .filter(|f| is_function_like(f) && !matches!(&**f, Obj::Native(..)));
+            match hook {
+                Some(f) => {
+                    if let Obj::Instance(i) = &**obj {
+                        let bound = bind(m, vm, &f, &i.class, Some(obj.clone()))?;
+                        match call_val(m, vm, &bound, &[v_str(name)], &[]) {
+                            Ok(v) => return Ok(v),
+                            Err(e) if is_exc_matches(m, &e, "AttributeError") => {}
+                            Err(e) => return Err(e),
+                        }
+                    }
+                }
+                None => match instance_plain_getattr(m, vm, obj, name) {
+                    Ok(v) => return Ok(v),
+                    Err(e) if is_exc_matches(m, &e, "AttributeError") => {}
+                    Err(e) => return Err(e),
+                },
+            }
+            // `__getattr__` runs only after ordinary lookup fails
+            if let Some(f) = mro_attr(obj, "__getattr__")
+                && is_function_like(&f)
+                && let Obj::Instance(i) = &**obj
+            {
+                let bound = bind(m, vm, &f, &i.class, Some(obj.clone()))?;
+                return call_val(m, vm, &bound, &[v_str(name)], &[]);
             }
             Err(attr_error(m, obj, name))
         }
@@ -2387,6 +2468,15 @@ fn getattr_val(
                 if let Some(v) = bc.dict.borrow().get(name) {
                     return bind(m, vm, v, obj, None);
                 }
+            }
+            // `str.upper` and friends: an unbound native taking the
+            // receiver as its first argument.
+            if let ClassKind::Builtin(bt) = c.kind
+                && let Some(proto) = builtin_prototype(bt)
+                && let Some(bound) = builtin_method(m, &proto, name)
+                && let Obj::BoundMethod { func, .. } = &*bound
+            {
+                return Ok(func.clone());
             }
             // type's own attrs
             if let Some(v) = builtin_method(m, obj, name) {
@@ -2415,16 +2505,30 @@ fn getattr_val(
             Err(attr_error(m, obj, name))
         }
         Obj::Super(s) => {
-            // search the MRO after typ
-            let tc = as_class(&s.typ).expect("super type");
-            let pos = tc
-                .mro
+            // Search `obj`'s MRO strictly after `typ`; a class's `mro`
+            // excludes itself, so rebuild the full chain first. An unbound
+            // super (no obj) searches typ's own MRO after typ.
+            let start = s
+                .obj
+                .clone()
+                .map(|o| match &*o {
+                    Obj::Instance(i) => i.class.clone(),
+                    _ => o.clone(),
+                })
+                .unwrap_or_else(|| s.typ.clone());
+            let mut chain: Vec<Val> = vec![start.clone()];
+            if let Obj::Class(c) = &*start {
+                chain.extend(c.mro.iter().cloned());
+            }
+            let pos = chain
                 .iter()
                 .position(|x| Rc::ptr_eq(x, &s.typ))
                 .map(|p| p + 1)
-                .unwrap_or(tc.mro.len());
-            for b in &tc.mro[pos.min(tc.mro.len())..] {
-                let bc = as_class(b).expect("mro class");
+                .unwrap_or(chain.len());
+            for b in &chain[pos.min(chain.len())..] {
+                let Some(bc) = as_class(b) else {
+                    continue;
+                };
                 if let Some(v) = bc.dict.borrow().get(name) {
                     return bind(m, vm, v, &s.typ, s.obj.clone());
                 }
@@ -2435,7 +2539,7 @@ fn getattr_val(
             Err(err(
                 m,
                 ErrorTag::AttributeError,
-                "'super' object has no attribute '{name}'",
+                &format!("'super' object has no attribute '{name}'"),
             ))
         }
         Obj::Function(f) => match name {
@@ -2453,8 +2557,30 @@ fn getattr_val(
             if name == "__class__" {
                 return Ok(m_class_of(m, obj));
             }
+            if let Some(v) = builtin_attr(m, obj, name) {
+                return Ok(v);
+            }
             Err(attr_error(m, obj, name))
         }
+    }
+}
+
+/// Non-callable attributes of builtin values: `(1).real` and friends.
+fn builtin_attr(_m: &TestModel, obj: &Val, name: &str) -> Option<Val> {
+    let num = |v: f64| Rc::new(Obj::Float(v));
+    match (&**obj, name) {
+        (Obj::Int(i), "real") => Some(Rc::new(Obj::Int(i.clone()))),
+        (Obj::Int(_), "imag") => Some(v_int(0)),
+        (Obj::Int(i), "numerator") => Some(Rc::new(Obj::Int(i.clone()))),
+        (Obj::Int(_), "denominator") => Some(v_int(1)),
+        (Obj::Float(f), "real") => Some(num(*f)),
+        (Obj::Float(_), "imag") => Some(num(0.0)),
+        (Obj::Bool(b), "real") => Some(v_int(*b as i64)),
+        (Obj::Bool(_), "imag") => Some(v_int(0)),
+        (Obj::Slice { start, .. }, "start") => Some(start.clone().unwrap_or_else(v_none)),
+        (Obj::Slice { stop, .. }, "stop") => Some(stop.clone().unwrap_or_else(v_none)),
+        (Obj::Slice { step, .. }, "step") => Some(step.clone().unwrap_or_else(v_none)),
+        _ => None,
     }
 }
 
@@ -2479,13 +2605,37 @@ fn setattr_val(
 ) -> Result<(), Val> {
     match &**obj {
         Obj::Instance(i) => {
-            if let Some(a) = mro_attr(&i.class, name)
-                && let Obj::Property { fset: Some(f), .. } = &*a
+            if let Some(f) = mro_attr(&i.class, "__setattr__")
+                .filter(|f| is_function_like(f) && !matches!(&**f, Obj::Native(..)))
             {
-                call_val(m, vm, f, &[obj.clone(), value.clone()], &[])?;
+                let bound = bind(m, vm, &f, &i.class, Some(obj.clone()))?;
+                call_val(m, vm, &bound, &[v_str(name), value.clone()], &[])?;
                 return Ok(());
             }
-            i.attrs.borrow_mut().set(name, value.clone());
+            if let Some(a) = mro_attr(&i.class, name) {
+                if let Obj::Property { fset: Some(f), .. } = &*a {
+                    call_val(m, vm, f, &[obj.clone(), value.clone()], &[])?;
+                    return Ok(());
+                }
+                if let Obj::Property { fset: None, .. } = &*a {
+                    return Err(err(
+                        m,
+                        ErrorTag::AttributeError,
+                        &format!(
+                            "property '{}' of '{}' object has no setter",
+                            name,
+                            class_name(&i.class)
+                        ),
+                    ));
+                }
+                // A non-property data descriptor with `__set__`.
+                if let Some(setter) = mro_attr(&a, "__set__").filter(is_function_like) {
+                    let descr = a.clone();
+                    call_val(m, vm, &setter, &[descr, obj.clone(), value.clone()], &[])?;
+                    return Ok(());
+                }
+            }
+            dict_set_str(&i.attrs, name, value.clone());
             Ok(())
         }
         Obj::Class(c) => {
@@ -2517,14 +2667,24 @@ fn setattr_val(
     }
 }
 
-fn delattr_val(m: &mut TestModel, obj: &Val, name: &str) -> Result<(), Val> {
+fn delattr_val(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    obj: &Val,
+    name: &str,
+) -> Result<(), Val> {
     match &**obj {
         Obj::Instance(i) => {
-            if i.attrs.borrow_mut().del(name) {
-                Ok(())
-            } else {
-                Err(attr_error(m, obj, name))
+            if dict_del_str(&i.attrs, name) {
+                return Ok(());
             }
+            if let Some(a) = mro_attr(&i.class, name)
+                && let Obj::Property { fdel: Some(f), .. } = &*a
+            {
+                call_val(m, vm, f, std::slice::from_ref(obj), &[])?;
+                return Ok(());
+            }
+            Err(attr_error(m, obj, name))
         }
         Obj::Class(c) => {
             if c.dict.borrow_mut().del(name) {
@@ -2637,7 +2797,24 @@ fn call_class(
             Ok(inst)
         }
         ClassKind::User => {
-            let inst = new_instance(class, Vec::new(), None);
+            let user_new = mro_attr(class, "__new__")
+                .filter(|f| is_function_like(f) && !matches!(&**f, Obj::Native(..)));
+            let inst = match user_new {
+                // `__new__` is an implicit static method: called on the
+                // class with `cls` as the first argument.
+                Some(new) => {
+                    let mut full = Vec::with_capacity(args.len() + 1);
+                    full.push(class.clone());
+                    full.extend(args.iter().cloned());
+                    call_val(m, vm, &new, &full, kwargs)?
+                }
+                None => new_instance(class, Vec::new(), None),
+            };
+            // `__init__` runs only when `__new__` returned an instance of
+            // this class (CPython's type_call).
+            if !isinstance_val(m, &inst, class) {
+                return Ok(inst);
+            }
             match mro_attr(class, "__init__") {
                 Some(init) if is_function_like(&init) => {
                     let bound = bind(m, vm, &init, class, Some(inst.clone()))?;
@@ -3315,7 +3492,29 @@ fn repr_val(m: &mut TestModel, vm: &mut Interp<'_, TestModel>, v: &Val) -> Resul
             }
         }
         Obj::Function(f) => format!("<function {}>", f.qualname.borrow()),
-        Obj::Class(c) => format!("<class '{}.{}'>", c.module, c.name),
+        Obj::BoundMethod { recv, func } => {
+            let name = match &**func {
+                Obj::Function(f) => f.qualname.borrow().clone(),
+                Obj::Native(name, _) => (*name).to_string(),
+                _ => "?".to_string(),
+            };
+            format!("<bound method {} of {}>", name, repr_val(m, vm, recv)?)
+        }
+        Obj::Class(c) => {
+            // Builtin classes print bare; user classes print the qualified
+            // name the class body stored (`Outer.Inner`).
+            if c.module == "builtins" {
+                format!("<class '{}'>", c.name)
+            } else {
+                let q = c
+                    .dict
+                    .borrow()
+                    .get("__qualname__")
+                    .and_then(|v| str_of(v).map(str::to_owned))
+                    .unwrap_or_else(|| c.name.clone());
+                format!("<class '{}.{}'>", c.module, q)
+            }
+        }
         Obj::Module(modu) => format!("<module '{}'>", modu.name),
         Obj::TypeVar(n) => format!("~{n}"),
         Obj::TypeVarTuple(n) => format!("~{n}"),
@@ -3404,14 +3603,16 @@ fn repr_instance(
 }
 
 /// `BaseException.__str__`: the single argument, or the repr tuple.
-fn exc_str(m: &TestModel, args: &[Val]) -> String {
+fn exc_str(m: &TestModel, args: &[Val], key_error: bool) -> String {
     match args.len() {
         0 => String::new(),
         1 => match &*args[0] {
+            Obj::Str(s) if key_error => format!("'{s}'"),
             Obj::Str(s) => s.to_string(),
             _ => repr_static(m, &args[0]).unwrap_or_else(|| "?".to_string()),
         },
         _ => {
+            // Multiple args: str(e) is the repr of the args tuple.
             let inner: Vec<String> = args
                 .iter()
                 .map(|a| repr_static(m, a).unwrap_or_else(|| "?".to_string()))
@@ -3455,7 +3656,8 @@ fn str_val(m: &mut TestModel, vm: &mut Interp<'_, TestModel>, v: &Val) -> Result
                     ));
                 }
                 let args = d.args.clone();
-                return Ok(exc_str(m, &args));
+                let key_error = is_exc_matches(m, v, "KeyError");
+                return Ok(exc_str(m, &args, key_error));
             }
             repr_val(m, vm, v)
         }
@@ -3641,13 +3843,36 @@ fn iter_val(m: &mut TestModel, vm: &mut Interp<'_, TestModel>, v: &Val) -> Resul
         | Obj::IterFilter { .. }
         | Obj::IterZip { .. }
         | Obj::IterEnum { .. }
-        | Obj::IterRevList { .. } => v.clone(),
+        | Obj::IterRevList { .. }
+        | Obj::IterRevGetItem { .. } => v.clone(),
         Obj::Instance(_) => {
             if let Some(f) = mro_attr(v, "__iter__")
                 && is_function_like(&f)
             {
                 let bound = bind(m, vm, &f, v, Some(v.clone()))?;
-                return call_val(m, vm, &bound, &[], &[]);
+                let out = call_val(m, vm, &bound, &[], &[])?;
+                // `__iter__` returning `self` hands back the instance;
+                // wrap anything without a native iterator representation
+                // so `__next__` dispatches through IterObj.
+                return Ok(match &*out {
+                    Obj::Generator(_)
+                    | Obj::IterList { .. }
+                    | Obj::IterTuple { .. }
+                    | Obj::IterRange { .. }
+                    | Obj::IterStr { .. }
+                    | Obj::IterBytes { .. }
+                    | Obj::IterDict { .. }
+                    | Obj::IterSet { .. }
+                    | Obj::IterObj { .. }
+                    | Obj::IterSeq { .. }
+                    | Obj::IterMap { .. }
+                    | Obj::IterFilter { .. }
+                    | Obj::IterZip { .. }
+                    | Obj::IterEnum { .. }
+                    | Obj::IterRevList { .. }
+                    | Obj::IterRevGetItem { .. } => out,
+                    _ => Rc::new(Obj::IterObj { obj: out }),
+                });
             }
             if mro_attr(v, "__getitem__").is_some() {
                 return Ok(Rc::new(Obj::IterSeq {
@@ -3809,9 +4034,14 @@ fn next_val(m: &mut TestModel, vm: &mut Interp<'_, TestModel>, it: &Val) -> Resu
                 Err(e) => Err(e),
             }
         }
-        Obj::IterMap { it, f } => {
+        Obj::IterMap { it, f, spread } => {
             let item = next_val(m, vm, it)?;
-            call_val(m, vm, f, &[item], &[])
+            if *spread && let Obj::Tuple(t) = &*item {
+                let a: Vec<Val> = t.iter().cloned().collect();
+                call_val(m, vm, f, &a, &[])
+            } else {
+                call_val(m, vm, f, &[item], &[])
+            }
         }
         Obj::IterFilter { it, f } => loop {
             let item = next_val(m, vm, it)?;
@@ -3841,6 +4071,21 @@ fn next_val(m: &mut TestModel, vm: &mut Interp<'_, TestModel>, it: &Val) -> Resu
             let c = count.get();
             count.set(c + 1);
             Ok(Rc::new(Obj::Tuple(Rc::new(vec![v_int(c as i64), item]))))
+        }
+        Obj::IterRevGetItem { obj, pos } => {
+            let i = match pos.get().checked_sub(1) {
+                Some(i) if i >= 0 => i,
+                _ => return Err(stop_iteration_value(m, v_none())),
+            };
+            pos.set(i);
+            let idx = v_int(i as i64);
+            match getitem_val(m, vm, obj, &idx) {
+                Ok(v) => Ok(v),
+                Err(e) if is_exc_matches(m, &e, "IndexError") => {
+                    Err(stop_iteration_value(m, v_none()))
+                }
+                Err(e) => Err(e),
+            }
         }
         Obj::IterRevList { list, pos } => {
             // pos is the next index to yield, walking down from len
@@ -4002,6 +4247,17 @@ fn binop_val(
             out.extend(y.iter().cloned());
             Ok(Rc::new(Obj::Tuple(Rc::new(out))))
         }
+        (BinOp::Add, Obj::Bytes(x), Obj::Bytes(y)) => {
+            let mut out: Vec<u8> = Vec::with_capacity(x.len() + y.len());
+            out.extend_from_slice(x);
+            out.extend_from_slice(y);
+            Ok(Rc::new(Obj::Bytes(Rc::from(out.as_slice()))))
+        }
+        (BinOp::Add, Obj::Bytes(_), _) => Err(err(
+            m,
+            ErrorTag::TypeError,
+            &format!("can't concat {} to bytes", val_type_name(m, b)),
+        )),
         (BinOp::Add, Obj::Tuple(_), _) => Err(err(
             m,
             ErrorTag::TypeError,
@@ -4063,6 +4319,31 @@ fn binop_val(
                 out.push_str(s);
             }
             Ok(v_str(&out))
+        }
+        (BinOp::Mul, Obj::Bytes(x), _) | (BinOp::Mul, _, Obj::Bytes(x)) => {
+            let (bs, n) = if matches!(&**a, Obj::Bytes(_)) {
+                (x, b)
+            } else {
+                (x, a)
+            };
+            let n = to_big(n)
+                .and_then(|n| n.to_i64())
+                .filter(|n| *n >= 0)
+                .ok_or_else(|| {
+                    err(
+                        m,
+                        ErrorTag::TypeError,
+                        &format!(
+                            "can't multiply sequence by non-int of type '{}'",
+                            val_type_name(m, if matches!(&**a, Obj::Bytes(_)) { b } else { a })
+                        ),
+                    )
+                })?;
+            let mut out: Vec<u8> = Vec::with_capacity(bs.len().saturating_mul(n as usize));
+            for _ in 0..n {
+                out.extend_from_slice(bs);
+            }
+            Ok(Rc::new(Obj::Bytes(Rc::from(out.as_slice()))))
         }
         (BinOp::Mul, Obj::List(x), _) | (BinOp::Mul, _, Obj::List(x)) => {
             let (l, n) = if matches!(&**a, Obj::List(_)) {
@@ -4297,9 +4578,8 @@ fn int_binop(m: &mut TestModel, op: crate::ir::BinOp, x: &BigInt, y: &BigInt) ->
                     .abs()
                     .to_i64()
                     .ok_or_else(|| err(m, ErrorTag::OverflowError, "exponent too large"))?;
-                return Ok(Rc::new(Obj::Float(
-                    fx.powi(ey.clamp(0, i32::MAX as i64) as i32),
-                )));
+                let mag = fx.powi(ey.min(i32::MAX as i64) as i32);
+                return Ok(Rc::new(Obj::Float(1.0 / mag)));
             }
             let e = y
                 .to_i64()
@@ -4639,13 +4919,42 @@ fn compare_val(
                 _ => unreachable!(),
             })
         }
+        (Obj::Slice { .. }, Obj::Slice { .. }) => {
+            if matches!(op, CmpOp::Eq | CmpOp::Ne) {
+                let (sa, sb, ss) = slice_parts(m, a).expect("slice");
+                let (ta, tb, ts) = slice_parts(m, b).expect("slice");
+                // `slice(None)` stores an explicit None; an omitted bound is
+                // the same value to Python.
+                let norm =
+                    |x: &Option<Val>| x.as_ref().filter(|v| !matches!(&***v, Obj::None_)).cloned();
+                let sa = norm(&sa);
+                let sb = norm(&sb);
+                let ss = norm(&ss);
+                let ta = norm(&ta);
+                let tb = norm(&tb);
+                let ts = norm(&ts);
+                let mut part = |x: &Option<Val>, y: &Option<Val>| -> Result<bool, Val> {
+                    match (x, y) {
+                        (None, None) => Ok(true),
+                        (Some(x), Some(y)) => compare_val(m, vm, CmpOp::Eq, x, y),
+                        _ => Ok(false),
+                    }
+                };
+                let eq = part(&sa, &ta)? && part(&sb, &tb)? && part(&ss, &ts)?;
+                Ok(if op == CmpOp::Eq { eq } else { !eq })
+            } else {
+                Err(ordering_unsupported(m, op, a, b))
+            }
+        }
         (Obj::Bool(x), Obj::Bool(y)) => Ok(apply_ord(op, x.cmp(y))),
         _ => {
+            // Identity is the default equality for objects without a
+            // structural comparison (classes, functions, ...).
             if op == CmpOp::Eq {
-                return Ok(false);
+                return Ok(Rc::ptr_eq(a, b));
             }
             if op == CmpOp::Ne {
-                return Ok(true);
+                return Ok(!Rc::ptr_eq(a, b));
             }
             Err(ordering_unsupported(m, op, a, b))
         }
@@ -4751,10 +5060,7 @@ fn contains_val(
     needle: &Val,
 ) -> Result<bool, Val> {
     match &**hay {
-        Obj::Dict(d) => {
-            let h = py_hash(needle).map_err(|t| unhashable(m, &t))?;
-            Ok(d.borrow().get_hash(needle, h).is_some())
-        }
+        Obj::Dict(d) => Ok(dict_lookup(m, vm, &d.borrow(), needle)?.is_some()),
         Obj::Set(t) | Obj::FrozenSet(t) => {
             let h = py_hash(needle).map_err(|t| unhashable(m, &t))?;
             let eq = |x: &Val| eq_novm(x, needle);
@@ -4843,7 +5149,18 @@ fn contains_val(
             }
         }
         _ => {
-            let it = iter_val(m, vm, hay)?;
+            // Only base types reach here; `x in y` words the failure
+            // differently from iter(y).
+            let it = iter_val(m, vm, hay).map_err(|_| {
+                err(
+                    m,
+                    ErrorTag::TypeError,
+                    &format!(
+                        "argument of type '{}' is not iterable",
+                        val_type_name(m, hay)
+                    ),
+                )
+            })?;
             loop {
                 match next_val(m, vm, &it) {
                     Ok(item) => {
@@ -4880,6 +5197,177 @@ fn unhashable(m: &TestModel, type_name: &str) -> Val {
         ErrorTag::TypeError,
         &format!("unhashable type: '{type_name}'"),
     )
+}
+
+/// Hash honouring a user `__hash__` (calling back into the interpreter).
+/// A class body defining `__eq__` without `__hash__` implicitly sets
+/// `__hash__ = None`, making instances unhashable.
+fn hash_vm(m: &mut TestModel, vm: &mut Interp<'_, TestModel>, v: &Val) -> Result<i64, Val> {
+    if let Obj::Instance(i) = &**v {
+        let mut classes = vec![i.class.clone()];
+        if let Some(c) = as_class(&i.class) {
+            classes.extend(c.mro.iter().cloned());
+        }
+        for owner in &classes {
+            let Some(c) = as_class(owner) else { continue };
+            let d = c.dict.borrow();
+            if let Some(h) = d.get("__hash__") {
+                if matches!(&**h, Obj::None_) {
+                    return Err(unhashable(m, &class_name(&i.class)));
+                }
+                if is_function_like(h) && !matches!(&**h, Obj::Native(..)) {
+                    let h = h.clone();
+                    drop(d);
+                    let bound = bind(m, vm, &h, owner, Some(v.clone()))?;
+                    let out = call_val(m, vm, &bound, &[], &[])?;
+                    let Some(big) = to_big(&out) else {
+                        return Err(err(
+                            m,
+                            ErrorTag::TypeError,
+                            "__hash__ method should return an integer",
+                        ));
+                    };
+                    return Ok(big.py_hash());
+                }
+                break;
+            }
+            if d.get("__eq__").is_some() {
+                return Err(unhashable(m, &class_name(&i.class)));
+            }
+        }
+    }
+    py_hash(v).map_err(|t| unhashable(m, &t))
+}
+
+/// Does either side define `__eq__` the hash index cannot evaluate?
+fn custom_eq_key(a: &Val, keys: &[Val]) -> bool {
+    let inst = |v: &Val| matches!(&**v, Obj::Instance(_));
+    inst(a) || keys.iter().any(inst)
+}
+
+fn dict_lookup(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    d: &Dict,
+    key: &Val,
+) -> Result<Option<Val>, Val> {
+    let h = hash_vm(m, vm, key)?;
+    if let Some(v) = d.get_hash(key, h) {
+        return Ok(Some(v));
+    }
+    if custom_eq_key(key, &d.keys()) {
+        for (k, v) in d.items() {
+            if !Rc::ptr_eq(&k, key) && compare_val(m, vm, crate::ir::CmpOp::Eq, &k, key)? {
+                return Ok(Some(v));
+            }
+        }
+    }
+    Ok(None)
+}
+
+fn dict_insert(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    d: &mut Dict,
+    key: &Val,
+    value: &Val,
+) -> Result<(), Val> {
+    let h = hash_vm(m, vm, key)?;
+    if d.get_hash(key, h).is_none() && custom_eq_key(key, &d.keys()) {
+        let items = d.items();
+        for (k, _) in items {
+            if !Rc::ptr_eq(&k, key) && compare_val(m, vm, crate::ir::CmpOp::Eq, &k, key)? {
+                d.del_hash(&k, h);
+                break;
+            }
+        }
+    }
+    d.set_hash(key.clone(), h, value.clone());
+    Ok(())
+}
+
+fn dict_del(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    d: &mut Dict,
+    key: &Val,
+) -> Result<bool, Val> {
+    let h = hash_vm(m, vm, key)?;
+    if d.get_hash(key, h).is_some() {
+        d.del_hash(key, h);
+        return Ok(true);
+    }
+    if custom_eq_key(key, &d.keys()) {
+        let items = d.items();
+        for (k, _) in items {
+            if !Rc::ptr_eq(&k, key) && compare_val(m, vm, crate::ir::CmpOp::Eq, &k, key)? {
+                d.del_hash(&k, h);
+                return Ok(true);
+            }
+        }
+    }
+    Ok(false)
+}
+
+/// `a, b = 5` words a non-iterable as unpack failure, not iteration.
+/// Only base types reach this: instance `__iter__` errors pass through.
+fn noniterable_unpack(m: &TestModel, src: &Val, e: Val) -> Val {
+    if matches!(&**src, Obj::Instance(_)) {
+        return e;
+    }
+    err(
+        m,
+        ErrorTag::TypeError,
+        &format!(
+            "cannot unpack non-iterable {} object",
+            val_type_name(m, src)
+        ),
+    )
+}
+
+fn new_dict() -> Val {
+    Rc::new(Obj::Dict(RefCell::new(Dict::default())))
+}
+
+/// String-keyed access into a dict value (instance attribute storage).
+fn dict_get_str(d: &Val, name: &str) -> Option<Val> {
+    let Obj::Dict(dd) = &**d else {
+        return None;
+    };
+    let key = v_str(name);
+    let h = py_hash(&key).ok()?;
+    dd.borrow().get_hash(&key, h)
+}
+
+fn dict_set_str(d: &Val, name: &str, v: Val) {
+    if let Obj::Dict(dd) = &**d {
+        let key = v_str(name);
+        if let Ok(h) = py_hash(&key) {
+            dd.borrow_mut().set_hash(key, h, v);
+        }
+    }
+}
+
+fn dict_del_str(d: &Val, name: &str) -> bool {
+    let Obj::Dict(dd) = &**d else {
+        return false;
+    };
+    let key = v_str(name);
+    match py_hash(&key) {
+        Ok(h) => dd.borrow_mut().del_hash(&key, h),
+        Err(_) => false,
+    }
+}
+
+fn new_dict_from(entries: Vec<(String, Val)>) -> Val {
+    let mut d = Dict::default();
+    for (k, v) in entries {
+        let key = v_str(&k);
+        if let Ok(h) = py_hash(&key) {
+            d.set_hash(key, h, v);
+        }
+    }
+    Rc::new(Obj::Dict(RefCell::new(d)))
 }
 
 // ---------------------------------------------------------------------------
@@ -4970,8 +5458,8 @@ fn getitem_val(
                 .ok_or_else(|| err(m, ErrorTag::IndexError, "index out of range"))
         }
         Obj::Dict(d) => {
-            let h = py_hash(key).map_err(|t| unhashable(m, &t))?;
-            d.borrow().get_hash(key, h).ok_or_else(|| key_error(m, key))
+            let found = dict_lookup(m, vm, &d.borrow(), key)?;
+            found.ok_or_else(|| key_error(m, key))
         }
         Obj::Range { start, stop, step } => {
             let len = range_len(*start, *stop, *step) as i64;
@@ -5033,32 +5521,16 @@ fn not_subscriptable(m: &TestModel, obj: &Val) -> Val {
     )
 }
 
+/// `KeyError` carries the missing key itself as `args[0]`; `str()` is what
+/// quotes a string key.
 fn key_error(m: &TestModel, key: &Val) -> Val {
-    let r = match &**key {
-        Obj::Str(s) => format!("'{}'", str_repr(s)),
-        Obj::Tuple(t) => {
-            let inner: Vec<String> = t
-                .iter()
-                .map(|v| match &**v {
-                    Obj::Str(s) => format!("'{}'", str_repr(s)),
-                    _ => match repr_static(m, v) {
-                        Some(r) => r,
-                        None => "?".to_string(),
-                    },
-                })
-                .collect();
-            if inner.len() == 1 {
-                format!("({},)", inner[0])
-            } else {
-                format!("({})", inner.join(", "))
-            }
-        }
-        _ => match repr_static(m, key) {
-            Some(r) => r,
-            None => "?".to_string(),
-        },
-    };
-    err(m, ErrorTag::KeyError, &r)
+    let class = m
+        .exc_by_tag
+        .get(&ErrorTag::KeyError)
+        .or_else(|| m.exc_by_tag.get(&ErrorTag::RuntimeError))
+        .expect("KeyError class")
+        .clone();
+    new_instance(&class, vec![key.clone()], None)
 }
 
 /// repr of builtin values without running user code (KeyError messages).
@@ -5155,8 +5627,7 @@ fn setitem_val(
             }
         }
         Obj::Dict(d) => {
-            let h = py_hash(key).map_err(|t| unhashable(m, &t))?;
-            d.borrow_mut().set_hash(key.clone(), h, value.clone());
+            dict_insert(m, vm, &mut d.borrow_mut(), key, value)?;
             Ok(())
         }
         Obj::Instance(_) => {
@@ -5228,8 +5699,7 @@ fn delitem_val(
             }
         }
         Obj::Dict(d) => {
-            let h = py_hash(key).map_err(|t| unhashable(m, &t))?;
-            if d.borrow_mut().del_hash(key, h) {
+            if dict_del(m, vm, &mut d.borrow_mut(), key)? {
                 Ok(())
             } else {
                 Err(key_error(m, key))
@@ -5513,12 +5983,10 @@ fn pad_numeric(
     width: Option<usize>,
     body: &str,
 ) {
+    // `out` is empty on entry: this appends `body` padded to `width`.
     let w = width.unwrap_or(0);
-    if out.len() >= w {
-        return;
-    }
-    let pad = w - out.len();
-    let align = align.unwrap_or('>');
+    let pad = w.saturating_sub(body.chars().count());
+    let align = align.or(if zero { Some('=') } else { None }).unwrap_or('>');
     match align {
         '<' => {
             out.push_str(body);
@@ -5756,11 +6224,22 @@ fn fmt_float_parts(m: &mut TestModel, v: f64, spec: &str, ty: Option<char>) -> R
         }
         Some('e') | Some('E') => {
             let raw = format!("{:.*e}", precision, mag);
-            let d = fix_exp(&raw);
+            let mut d = fix_exp(&raw);
+            if ty == Some('E') {
+                d = d.to_uppercase();
+            }
             let grouped = apply_group(&d, s.grouping);
             apply_sign(neg, s.sign, &grouped)
         }
         Some('g') | Some('G') | None => {
+            // No type and no precision means str(): the shortest
+            // round-trip repr, not 'g' with 6 digits.
+            if ty.is_none() && s.precision.is_none() {
+                let d = float_repr(v);
+                let mut out = String::new();
+                pad_numeric(&mut out, s.fill, s.align, s.zero, s.width, &d);
+                return Ok(out);
+            }
             let exp = decimal_exp(mag);
             let p = if precision == 0 { 1 } else { precision };
             let mut d = if exp < -4 || exp >= p as i32 {
@@ -5782,6 +6261,9 @@ fn fmt_float_parts(m: &mut TestModel, v: f64, spec: &str, ty: Option<char>) -> R
                 } else if (ty == Some('g') || ty == Some('G') || ty.is_none()) && d.contains('e') {
                     // exponent form keeps its digits as-is
                 }
+            }
+            if ty == Some('G') {
+                d = d.to_uppercase();
             }
             let grouped = apply_group(&d, s.grouping);
             apply_sign(neg, s.sign, &grouped)
@@ -5868,7 +6350,30 @@ fn format_str(
 ) -> Result<String, Val> {
     match &**v {
         Obj::Int(i) => fmt_int_spec(m, i, spec),
-        Obj::Bool(b) => fmt_int_spec(m, &BigInt::from_i64(i64::from(*b)), spec),
+        Obj::Bool(b) => {
+            // bool formats as its name unless a numeric type is asked for.
+            let has_num_ty = spec
+                .chars()
+                .last()
+                .is_some_and(|c| "bodxXeEfFgGn%".contains(c));
+            if has_num_ty {
+                fmt_int_spec(m, &BigInt::from_i64(i64::from(*b)), spec)
+            } else {
+                let sp = parse_spec(spec).map_err(|msg| err(m, ErrorTag::ValueError, &msg))?;
+                let body = if *b { "True" } else { "False" };
+                let mut out = String::new();
+                let align = sp.align.or(Some('<'));
+                pad_numeric(&mut out, sp.fill, align, false, sp.width, body);
+                Ok(out)
+            }
+        }
+        Obj::None_ => {
+            let sp = parse_spec(spec).map_err(|msg| err(m, ErrorTag::ValueError, &msg))?;
+            let mut out = String::new();
+            let align = sp.align.or(Some('<'));
+            pad_numeric(&mut out, sp.fill, align, false, sp.width, "None");
+            Ok(out)
+        }
         Obj::Float(f) => fmt_float_spec(m, *f, spec),
         Obj::Str(s) => {
             let sp = parse_spec(spec).map_err(|msg| err(m, ErrorTag::ValueError, &msg))?;
@@ -5953,6 +6458,29 @@ fn bmethod(recv: Val, name: &'static str, f: NativeFn) -> Val {
     })
 }
 
+/// A placeholder value of a builtin type, used to look up that type's
+/// methods on the class itself (`str.upper`).
+fn builtin_prototype(bt: BuiltinType) -> Option<Val> {
+    Some(match bt {
+        BuiltinType::Str => v_str(""),
+        BuiltinType::Bytes => Rc::new(Obj::Bytes(Rc::from(&b""[..]))),
+        BuiltinType::Int => v_int(0),
+        BuiltinType::Float => Rc::new(Obj::Float(0.0)),
+        BuiltinType::Bool => v_bool(false),
+        BuiltinType::List => Rc::new(Obj::List(RefCell::new(Vec::new()))),
+        BuiltinType::Tuple => Rc::new(Obj::Tuple(Rc::new(Vec::new()))),
+        BuiltinType::Dict => Rc::new(Obj::Dict(RefCell::new(Dict::default()))),
+        BuiltinType::Set => Rc::new(Obj::Set(RefCell::new(SetTable::default()))),
+        BuiltinType::FrozenSet => Rc::new(Obj::FrozenSet(RefCell::new(SetTable::default()))),
+        BuiltinType::Slice => Rc::new(Obj::Slice {
+            start: None,
+            stop: None,
+            step: None,
+        }),
+        _ => return None,
+    })
+}
+
 /// Drain an iterable into a `Vec`, stopping at `StopIteration`.
 fn drain_iter(m: &mut TestModel, vm: &mut Interp<'_, TestModel>, v: &Val) -> Result<Vec<Val>, Val> {
     let it = iter_val(m, vm, v)?;
@@ -6012,10 +6540,15 @@ fn sort_items(
         };
         keyed.push((k, x.clone()));
     }
-    keyed.sort_by(|a, b| cmp_total(m, vm, &a.0, &b.0));
-    if reverse {
-        keyed.reverse();
-    }
+    // Inverting the comparator (rather than reversing afterwards) keeps
+    // the sort stable under reverse=True, as CPython's is.
+    keyed.sort_by(|a, b| {
+        if reverse {
+            cmp_total(m, vm, &b.0, &a.0)
+        } else {
+            cmp_total(m, vm, &a.0, &b.0)
+        }
+    });
     Ok(keyed.into_iter().map(|(_, x)| x).collect())
 }
 
@@ -6033,6 +6566,62 @@ fn kwarg_val(kwargs: &[(&str, Val)], name: &str) -> Option<Val> {
         .map(|(_, v)| (*v).clone())
 }
 
+/// `prop.setter(f)`: a copy of the property with `fset` replaced.
+/// `getter`/`deleter` follow the same shape with their slot.
+fn prop_setter(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let (fget, fset, fdel) = match &*args[0] {
+        Obj::Property { fget, fset, fdel } => (fget.clone(), fset.clone(), fdel.clone()),
+        _ => (None, None, None),
+    };
+    let fset = args
+        .get(1)
+        .filter(|f| !matches!(&***f, Obj::None_))
+        .cloned()
+        .or(fset);
+    Ok(Rc::new(Obj::Property { fget, fset, fdel }))
+}
+
+fn prop_getter(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let (fget, fset, fdel) = match &*args[0] {
+        Obj::Property { fget, fset, fdel } => (fget.clone(), fset.clone(), fdel.clone()),
+        _ => (None, None, None),
+    };
+    let fget = args
+        .get(1)
+        .filter(|f| !matches!(&***f, Obj::None_))
+        .cloned()
+        .or(fget);
+    Ok(Rc::new(Obj::Property { fget, fset, fdel }))
+}
+
+fn prop_deleter(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let (fget, fset, fdel) = match &*args[0] {
+        Obj::Property { fget, fset, fdel } => (fget.clone(), fset.clone(), fdel.clone()),
+        _ => (None, None, None),
+    };
+    let fdel = args
+        .get(1)
+        .filter(|f| !matches!(&***f, Obj::None_))
+        .cloned()
+        .or(fdel);
+    Ok(Rc::new(Obj::Property { fget, fset, fdel }))
+}
+
 fn builtin_method(_m: &mut TestModel, obj: &Val, name: &str) -> Option<Val> {
     let recv = obj.clone();
     match &**obj {
@@ -6048,11 +6637,13 @@ fn builtin_method(_m: &mut TestModel, obj: &Val, name: &str) -> Option<Val> {
             "sort" => Some(bmethod(recv, "sort", list_sort)),
             "reverse" => Some(bmethod(recv, "reverse", list_reverse)),
             "copy" => Some(bmethod(recv, "copy", list_copy)),
+            "__len__" => Some(bmethod(recv, "__len__", list_dunder_len)),
             _ => None,
         },
         Obj::Tuple(_) => match name {
             "count" => Some(bmethod(recv, "count", tuple_count)),
             "index" => Some(bmethod(recv, "index", tuple_index)),
+            "__len__" => Some(bmethod(recv, "__len__", tuple_dunder_len)),
             _ => None,
         },
         Obj::Dict(_) => match name {
@@ -6064,6 +6655,7 @@ fn builtin_method(_m: &mut TestModel, obj: &Val, name: &str) -> Option<Val> {
             "setdefault" => Some(bmethod(recv, "setdefault", dict_setdefault)),
             "pop" => Some(bmethod(recv, "pop", dict_pop)),
             "popitem" => Some(bmethod(recv, "popitem", dict_popitem)),
+            "__len__" => Some(bmethod(recv, "__len__", dict_dunder_len)),
             "clear" => Some(bmethod(recv, "clear", dict_clear)),
             "copy" => Some(bmethod(recv, "copy", dict_copy)),
             _ => None,
@@ -6089,6 +6681,7 @@ fn builtin_method(_m: &mut TestModel, obj: &Val, name: &str) -> Option<Val> {
             "issubset" => Some(bmethod(recv, "issubset", set_issubset)),
             "issuperset" => Some(bmethod(recv, "issuperset", set_issuperset)),
             "copy" => Some(bmethod(recv, "copy", set_copy)),
+            "__len__" => Some(bmethod(recv, "__len__", set_dunder_len)),
             _ => None,
         },
         Obj::Str(_) => match name {
@@ -6121,6 +6714,16 @@ fn builtin_method(_m: &mut TestModel, obj: &Val, name: &str) -> Option<Val> {
             "expandtabs" => Some(bmethod(recv, "expandtabs", str_expandtabs)),
             "partition" => Some(bmethod(recv, "partition", str_partition)),
             "rpartition" => Some(bmethod(recv, "rpartition", str_rpartition)),
+            "index" => Some(bmethod(recv, "index", str_index)),
+            "rindex" => Some(bmethod(recv, "rindex", str_rindex)),
+            "islower" => Some(bmethod(recv, "islower", str_islower)),
+            "isupper" => Some(bmethod(recv, "isupper", str_isupper)),
+            "isspace" => Some(bmethod(recv, "isspace", str_isspace)),
+            "istitle" => Some(bmethod(recv, "istitle", str_istitle)),
+            "casefold" => Some(bmethod(recv, "casefold", str_lower)),
+            "removeprefix" => Some(bmethod(recv, "removeprefix", str_removeprefix)),
+            "removesuffix" => Some(bmethod(recv, "removesuffix", str_removesuffix)),
+            "__len__" => Some(bmethod(recv, "__len__", str_dunder_len)),
             _ => None,
         },
         Obj::Bytes(_) => match name {
@@ -6132,6 +6735,8 @@ fn builtin_method(_m: &mut TestModel, obj: &Val, name: &str) -> Option<Val> {
             "replace" => Some(bmethod(recv, "replace", bytes_replace)),
             "count" => Some(bmethod(recv, "count", bytes_count)),
             "find" => Some(bmethod(recv, "find", bytes_find)),
+            "startswith" => Some(bmethod(recv, "startswith", bytes_startswith)),
+            "endswith" => Some(bmethod(recv, "endswith", bytes_endswith)),
             "hex" => Some(bmethod(recv, "hex", bytes_hex)),
             "join" => Some(bmethod(recv, "join", bytes_join)),
             _ => None,
@@ -6142,12 +6747,38 @@ fn builtin_method(_m: &mut TestModel, obj: &Val, name: &str) -> Option<Val> {
         },
         Obj::Float(_) => match name {
             "is_integer" => Some(bmethod(recv, "is_integer", float_is_integer)),
+            "hex" => Some(bmethod(recv, "hex", float_hex)),
             _ => None,
         },
-        Obj::Generator(_) => match name {
-            "send" => Some(bmethod(recv, "send", gen_send_m)),
-            "throw" => Some(bmethod(recv, "throw", gen_throw_m)),
-            "close" => Some(bmethod(recv, "close", gen_close_m)),
+        Obj::Property { .. } => match name {
+            "setter" => Some(bmethod(recv, "setter", prop_setter)),
+            "getter" => Some(bmethod(recv, "getter", prop_getter)),
+            "deleter" => Some(bmethod(recv, "deleter", prop_deleter)),
+            _ => None,
+        },
+        Obj::Slice { .. } => match name {
+            "indices" => Some(bmethod(recv, "indices", slice_indices_method)),
+            _ => None,
+        },
+        Obj::Generator(g) => match (name, g.kind) {
+            ("send", _) => Some(bmethod(recv, "send", gen_send_m)),
+            ("throw", _) => Some(bmethod(recv, "throw", gen_throw_m)),
+            ("close", _) => Some(bmethod(recv, "close", gen_close_m)),
+            ("__iter__", _) => Some(recv.clone()),
+            ("__next__", GenKind::Generator) => Some(bmethod(recv, "__next__", gen_next_m)),
+            // `await coro`: the coroutine is its own awaiter.
+            ("__await__", GenKind::Coroutine) => Some(bmethod(recv, "__await__", gen_self_m)),
+            ("__aiter__", GenKind::AsyncGen) => Some(bmethod(recv, "__aiter__", gen_self_m)),
+            ("__anext__", GenKind::AsyncGen) => Some(bmethod(recv, "__anext__", gen_anext_m)),
+            ("asend", GenKind::AsyncGen) => Some(bmethod(recv, "asend", gen_asend_m)),
+            ("aclose", GenKind::AsyncGen) => Some(bmethod(recv, "aclose", gen_aclose_m)),
+            _ => None,
+        },
+        Obj::AsendAwaiter { .. } => match name {
+            "send" => Some(bmethod(recv, "send", asend_send_m)),
+            "throw" => Some(bmethod(recv, "throw", asend_throw_m)),
+            "close" => Some(bmethod(recv, "close", asend_close_m)),
+            "__await__" => Some(bmethod(recv, "__await__", gen_self_m)),
             _ => None,
         },
         _ => None,
@@ -6278,9 +6909,12 @@ fn list_pop(
 ) -> Result<Val, Val> {
     if let Obj::List(l) = &*args[0] {
         let len = l.borrow().len();
+        if len == 0 {
+            return Err(err(m, ErrorTag::IndexError, "pop from empty list"));
+        }
         let idx = match args.get(1) {
             Some(i) => py_index(m, vm, i)?,
-            None => -(len as i64),
+            None => -1,
         };
         let Some(pos) = norm_index(idx, len) else {
             return Err(err(m, ErrorTag::IndexError, "pop index out of range"));
@@ -6329,7 +6963,11 @@ fn list_index(
                 return Ok(v_int(i as i64));
             }
         }
-        Err(err(m, ErrorTag::ValueError, "value not in list"))
+        Err(err(
+            m,
+            ErrorTag::ValueError,
+            &format!("{} is not in list", repr_static(m, x).unwrap_or_default()),
+        ))
     } else {
         Err(err(
             m,
@@ -6697,11 +7335,7 @@ fn dict_popitem(
                 d.del_hash(k, h);
                 Ok(Rc::new(Obj::Tuple(Rc::new(vec![k.clone(), v.clone()]))))
             }
-            None => Err(err(
-                m,
-                ErrorTag::KeyError,
-                "'popitem(): dictionary is empty'",
-            )),
+            None => Err(err(m, ErrorTag::KeyError, "popitem(): dictionary is empty")),
         }
     } else {
         Err(err(
@@ -6774,7 +7408,7 @@ fn set_add(
 
 fn set_remove(
     m: &mut TestModel,
-    vm: &mut Interp<'_, TestModel>,
+    _vm: &mut Interp<'_, TestModel>,
     args: &[Val],
     _kwargs: &[(&str, Val)],
 ) -> Result<Val, Val> {
@@ -6790,8 +7424,7 @@ fn set_remove(
         if s.borrow_mut().remove(x, h, &|o| eq_novm(o, x)) {
             Ok(v_none())
         } else {
-            let key_repr = repr_val(m, vm, x)?;
-            Err(err(m, ErrorTag::KeyError, &key_repr))
+            Err(key_error(m, x))
         }
     } else {
         Err(err(
@@ -7195,13 +7828,15 @@ fn str_split(
     _m: &mut TestModel,
     _vm: &mut Interp<'_, TestModel>,
     args: &[Val],
-    _kwargs: &[(&str, Val)],
+    kwargs: &[(&str, Val)],
 ) -> Result<Val, Val> {
     let s = str_of(&args[0]).unwrap_or("");
     let sep = args.get(1).and_then(str_of);
     let maxsplit = args
         .get(2)
-        .and_then(to_big)
+        .cloned()
+        .or_else(|| kwarg_val(kwargs, "maxsplit"))
+        .and_then(|v| to_big(&v))
         .map(|b| b.to_i64().unwrap_or(-1))
         .unwrap_or(-1);
     let parts = py_split(s, sep, maxsplit);
@@ -7266,13 +7901,15 @@ fn str_rsplit(
     _m: &mut TestModel,
     _vm: &mut Interp<'_, TestModel>,
     args: &[Val],
-    _kwargs: &[(&str, Val)],
+    kwargs: &[(&str, Val)],
 ) -> Result<Val, Val> {
     let s = str_of(&args[0]).unwrap_or("");
     let sep = args.get(1).and_then(str_of);
     let maxsplit = args
         .get(2)
-        .and_then(to_big)
+        .cloned()
+        .or_else(|| kwarg_val(kwargs, "maxsplit"))
+        .and_then(|v| to_big(&v))
         .map(|b| b.to_i64().unwrap_or(-1))
         .unwrap_or(-1);
     let parts = py_rsplit(s, sep, maxsplit);
@@ -7360,7 +7997,8 @@ fn str_count(
             "str.count() takes at least one argument",
         ));
     };
-    let n = s.matches(sub).count();
+    let (start, end) = str_span(m, s, args, 2)?;
+    let n = s[start..end].matches(sub).count();
     Ok(v_int(n as i64))
 }
 
@@ -7418,7 +8056,8 @@ fn str_startswith(
             "str.startswith() takes at least one argument",
         ));
     };
-    Ok(v_bool(s.starts_with(p)))
+    let (start, end) = str_span(m, s, args, 2)?;
+    Ok(v_bool(s[start..end].starts_with(p)))
 }
 
 fn str_endswith(
@@ -7435,7 +8074,72 @@ fn str_endswith(
             "str.endswith() takes at least one argument",
         ));
     };
-    Ok(v_bool(s.ends_with(p)))
+    let (start, end) = str_span(m, s, args, 2)?;
+    Ok(v_bool(s[start..end].ends_with(p)))
+}
+
+/// `sl.indices(n)`: the (start, stop, step) triple a slice denotes for a
+/// length-`n` sequence.
+fn slice_indices_method(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let Some(n) = args.get(1).and_then(to_big).and_then(|b| b.to_i64()) else {
+        return Err(err(
+            m,
+            ErrorTag::TypeError,
+            "slice.indices() takes one argument",
+        ));
+    };
+    if n < 0 {
+        return Err(err(
+            m,
+            ErrorTag::ValueError,
+            "length should not be negative",
+        ));
+    }
+    let (start, stop, step) = slice_indices(m, vm, &args[0], n)?;
+    Ok(Rc::new(Obj::Tuple(Rc::new(vec![
+        v_int(start),
+        v_int(stop),
+        v_int(step),
+    ]))))
+}
+
+/// The optional `start`/`end` operand pair shared by several string
+/// methods, as byte indices into `s`.
+fn str_span(m: &TestModel, s: &str, args: &[Val], at: usize) -> Result<(usize, usize), Val> {
+    let n = s.len();
+    let clamp = |v: &Val| -> Option<i64> {
+        match &**v {
+            Obj::Int(i) => i.to_i64(),
+            Obj::Bool(b) => Some(*b as i64),
+            _ => None,
+        }
+    };
+    let mut start = 0usize;
+    let mut end = n;
+    if let Some(a) = args.get(at).and_then(clamp) {
+        start = if a < 0 {
+            n.saturating_sub(a.unsigned_abs() as usize)
+        } else {
+            (a as usize).min(n)
+        };
+    }
+    if let Some(b) = args.get(at + 1).and_then(clamp) {
+        end = if b < 0 {
+            n.saturating_sub(b.unsigned_abs() as usize)
+        } else {
+            (b as usize).min(n)
+        };
+    }
+    if start > end {
+        start = end;
+    }
+    let _ = m;
+    Ok((start, end))
 }
 
 fn str_splitlines(
@@ -7445,10 +8149,14 @@ fn str_splitlines(
     _kwargs: &[(&str, Val)],
 ) -> Result<Val, Val> {
     let s = str_of(&args[0]).unwrap_or("");
-    let parts: Vec<Val> = s
+    let mut parts: Vec<Val> = s
         .split('\n')
         .map(|l| v_str(l.trim_end_matches('\r')))
         .collect();
+    // A trailing boundary does not open a new line.
+    if s.ends_with('\n') || s.ends_with('\r') {
+        parts.pop();
+    }
     Ok(Rc::new(Obj::List(RefCell::new(parts))))
 }
 
@@ -7488,6 +8196,126 @@ fn str_isalnum(
     ))
 }
 
+fn str_index(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let v = str_find(m, vm, args, &[])?;
+    match &*v {
+        Obj::Int(i) if i.to_i64() == Some(-1) => {
+            Err(err(m, ErrorTag::ValueError, "substring not found"))
+        }
+        _ => Ok(v),
+    }
+}
+
+fn str_rindex(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let v = str_rfind(m, vm, args, &[])?;
+    match &*v {
+        Obj::Int(i) if i.to_i64() == Some(-1) => {
+            Err(err(m, ErrorTag::ValueError, "substring not found"))
+        }
+        _ => Ok(v),
+    }
+}
+
+fn str_islower(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let s = str_of(&args[0]).unwrap_or("");
+    Ok(v_bool(
+        s.chars().any(|c| c.is_lowercase()) && !s.chars().any(|c| c.is_uppercase()),
+    ))
+}
+
+fn str_isupper(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let s = str_of(&args[0]).unwrap_or("");
+    Ok(v_bool(
+        s.chars().any(|c| c.is_uppercase()) && !s.chars().any(|c| c.is_lowercase()),
+    ))
+}
+
+fn str_isspace(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let s = str_of(&args[0]).unwrap_or("");
+    Ok(v_bool(
+        !s.is_empty() && s.chars().all(|c| c.is_whitespace()),
+    ))
+}
+
+fn str_istitle(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    // an upper-case letter after any non-cased character, no lower-case
+    // letter following a cased one
+    let s = str_of(&args[0]).unwrap_or("");
+    let mut cased = false;
+    let mut valid = !s.is_empty();
+    let mut prev_cased = false;
+    for c in s.chars() {
+        if c.is_uppercase() {
+            if prev_cased {
+                valid = false;
+            }
+            cased = true;
+            prev_cased = true;
+        } else if c.is_lowercase() {
+            if !prev_cased {
+                valid = false;
+            }
+            cased = true;
+            prev_cased = true;
+        } else {
+            prev_cased = false;
+        }
+    }
+    Ok(v_bool(valid && cased))
+}
+
+fn str_removeprefix(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let s = str_of(&args[0]).unwrap_or("");
+    let p = args.get(1).and_then(str_of).unwrap_or("");
+    Ok(v_str(s.strip_prefix(p).unwrap_or(s)))
+}
+
+fn str_removesuffix(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let s = str_of(&args[0]).unwrap_or("");
+    let p = args.get(1).and_then(str_of).unwrap_or("");
+    Ok(v_str(s.strip_suffix(p).unwrap_or(s)))
+}
+
 fn str_title(
     _m: &mut TestModel,
     _vm: &mut Interp<'_, TestModel>,
@@ -7495,19 +8323,23 @@ fn str_title(
     _kwargs: &[(&str, Val)],
 ) -> Result<Val, Val> {
     let s = str_of(&args[0]).unwrap_or("");
-    let out: String = s
-        .split(|c: char| !c.is_alphanumeric())
-        .map(|w| {
-            let mut ch = w.chars();
-            let first = ch
-                .next()
-                .map(|c| c.to_uppercase().collect::<String>())
-                .unwrap_or_default();
-            let rest = ch.as_str().to_lowercase();
-            format!("{first}{rest}")
-        })
-        .collect::<Vec<_>>()
-        .join(" ");
+    // a cased character starts a word: uppercase it, lowercase the rest,
+    // leave separators in place
+    let mut out = String::with_capacity(s.len());
+    let mut prev_cased = false;
+    for c in s.chars() {
+        if c.is_lowercase() || c.is_uppercase() {
+            if prev_cased {
+                out.extend(c.to_lowercase());
+            } else {
+                out.extend(c.to_uppercase());
+            }
+            prev_cased = true;
+        } else {
+            out.push(c);
+            prev_cased = false;
+        }
+    }
     Ok(v_str(&out))
 }
 
@@ -7576,6 +8408,32 @@ fn str_zfill(
     Ok(v_str(&format!("{sign}{:0>width$}{body}", "", width = pad)))
 }
 
+/// The fill character argument shared by ljust/rjust/center: a single
+/// character string, defaulting to a space.
+fn fill_char(m: &TestModel, args: &[Val]) -> Result<char, Val> {
+    match args.get(2) {
+        None => Ok(' '),
+        Some(v) => {
+            let Some(s) = str_of(v) else {
+                return Err(err(
+                    m,
+                    ErrorTag::TypeError,
+                    "The fill character must be exactly one character long",
+                ));
+            };
+            let mut it = s.chars();
+            match (it.next(), it.next()) {
+                (Some(c), None) => Ok(c),
+                _ => Err(err(
+                    m,
+                    ErrorTag::TypeError,
+                    "The fill character must be exactly one character long",
+                )),
+            }
+        }
+    }
+}
+
 fn str_center(
     m: &mut TestModel,
     _vm: &mut Interp<'_, TestModel>,
@@ -7590,19 +8448,20 @@ fn str_center(
             "str.center() takes at least one argument",
         ));
     };
+    let fill = fill_char(m, args)?;
     let w = w.to_i64().unwrap_or(0) as usize;
-    if s.len() >= w {
+    let n = s.chars().count();
+    if n >= w {
         return Ok(v_str(s));
     }
-    let total = w - s.len();
+    let total = w - n;
     let left = total / 2;
     let right = total - left;
-    Ok(v_str(&format!(
-        "{}{}{}",
-        " ".repeat(left),
-        s,
-        " ".repeat(right)
-    )))
+    let mut out = String::new();
+    out.extend(std::iter::repeat_n(fill, left));
+    out.push_str(s);
+    out.extend(std::iter::repeat_n(fill, right));
+    Ok(v_str(&out))
 }
 
 fn str_ljust(
@@ -7619,11 +8478,15 @@ fn str_ljust(
             "str.ljust() takes at least one argument",
         ));
     };
+    let fill = fill_char(m, args)?;
     let w = w.to_i64().unwrap_or(0) as usize;
-    if s.len() >= w {
+    let n = s.chars().count();
+    if n >= w {
         return Ok(v_str(s));
     }
-    Ok(v_str(&format!("{s:<width$}", width = w)))
+    let mut out = String::from(s);
+    out.extend(std::iter::repeat_n(fill, w - n));
+    Ok(v_str(&out))
 }
 
 fn str_rjust(
@@ -7640,11 +8503,15 @@ fn str_rjust(
             "str.rjust() takes at least one argument",
         ));
     };
+    let fill = fill_char(m, args)?;
     let w = w.to_i64().unwrap_or(0) as usize;
-    if s.len() >= w {
+    let n = s.chars().count();
+    if n >= w {
         return Ok(v_str(s));
     }
-    Ok(v_str(&format!("{s:>width$}", width = w)))
+    let mut out: String = std::iter::repeat_n(fill, w - n).collect();
+    out.push_str(s);
+    Ok(v_str(&out))
 }
 
 fn str_encode(
@@ -7881,6 +8748,40 @@ fn bytes_count(
     Ok(v_int(n as i64))
 }
 
+fn bytes_startswith(
+    m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let b = bytes_of(&args[0]).unwrap_or(&[]);
+    let Some(p) = args.get(1).and_then(bytes_of) else {
+        return Err(err(
+            m,
+            ErrorTag::TypeError,
+            "bytes.startswith() takes at least one argument",
+        ));
+    };
+    Ok(v_bool(b.starts_with(p)))
+}
+
+fn bytes_endswith(
+    m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let b = bytes_of(&args[0]).unwrap_or(&[]);
+    let Some(p) = args.get(1).and_then(bytes_of) else {
+        return Err(err(
+            m,
+            ErrorTag::TypeError,
+            "bytes.endswith() takes at least one argument",
+        ));
+    };
+    Ok(v_bool(b.ends_with(p)))
+}
+
 fn bytes_find(
     m: &mut TestModel,
     _vm: &mut Interp<'_, TestModel>,
@@ -7960,7 +8861,8 @@ fn int_bit_length(
     let i = to_big(&args[0]).unwrap_or_else(|| Rc::new(BigInt::zero()));
     let bits = match i.mag.last() {
         None => 0,
-        Some(top) => (i.mag.len() - 1) as i64 * 32 + (32 - top.trailing_zeros() as i64),
+        // bits used by the top limb, plus every full limb below it
+        Some(top) => (i.mag.len() - 1) as i64 * 32 + (32 - top.leading_zeros() as i64),
     };
     Ok(v_int(bits))
 }
@@ -7978,7 +8880,260 @@ fn float_is_integer(
     Ok(v_bool(f.is_finite() && f.fract() == 0.0))
 }
 
+fn float_hex(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let f = match &*args[0] {
+        Obj::Float(f) => *f,
+        _ => 0.0,
+    };
+    if !f.is_finite() {
+        return Err(err(
+            _m,
+            ErrorTag::OverflowError,
+            "cannot convert float to hexadecimal",
+        ));
+    }
+    Ok(v_str(&float_hex_str(f)))
+}
+
+/// `float.hex()`'s format: `[-]0x1.<13 hex digits>p<+/-exp>`, always 13
+/// mantissa digits.
+fn float_hex_str(f: f64) -> String {
+    if f == 0.0 {
+        return format!(
+            "0x0.0000000000000p{}0",
+            if f.is_sign_negative() { '-' } else { '+' }
+        );
+    }
+    let neg = f.is_sign_negative();
+    let bits = f.to_bits();
+    let exp = ((bits >> 52) & 0x7ff) as i64;
+    let frac = bits & 0xf_ffff_ffff_ffff;
+    let (fraction, e) = if exp == 0 {
+        (frac << 1, -1022i64)
+    } else {
+        (frac, exp - 1023)
+    };
+    let hex = format!("{fraction:013x}");
+    format!("{}0x1.{hex}p{e:+}", if neg { "-" } else { "" })
+}
+
+fn str_dunder_len(
+    m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let s = str_of(&args[0]).unwrap_or("");
+    let _ = m;
+    Ok(v_int(s.chars().count() as i64))
+}
+
+fn list_dunder_len(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    match &*args[0] {
+        Obj::List(l) => Ok(v_int(l.borrow().len() as i64)),
+        _ => Ok(v_int(0)),
+    }
+}
+
+fn tuple_dunder_len(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    match &*args[0] {
+        Obj::Tuple(t) => Ok(v_int(t.len() as i64)),
+        _ => Ok(v_int(0)),
+    }
+}
+
+fn dict_dunder_len(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    match &*args[0] {
+        Obj::Dict(d) => Ok(v_int(d.borrow().len() as i64)),
+        _ => Ok(v_int(0)),
+    }
+}
+
+fn set_dunder_len(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    match &*args[0] {
+        Obj::Set(t) | Obj::FrozenSet(t) => Ok(v_int(t.borrow().values().len() as i64)),
+        _ => Ok(v_int(0)),
+    }
+}
+
 // ---- generator ------------------------------------------------------------
+
+fn gen_self_m(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    Ok(args.first().cloned().unwrap_or_else(v_none))
+}
+
+fn gen_next_m(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let none = v_none();
+    let recv = args.first().cloned().unwrap_or_else(v_none);
+    gen_send_m(m, vm, &[recv, none], &[])
+}
+
+/// A finished awaitable: driving it raises `StopIteration(value)`, which is
+/// exactly what a `YieldFrom` over it resolves to.
+fn finished_awaiter(value: Val) -> Val {
+    Rc::new(Obj::Generator(Rc::new(GenState {
+        frame: RefCell::new(None),
+        running: Cell::new(false),
+        started: Cell::new(true),
+        kind: GenKind::Coroutine,
+        ret: RefCell::new(Some(value)),
+    })))
+}
+
+/// `agen.__anext__()` / `agen.asend(v)`: the awaiter is lazy; the
+/// interpreter's `await` machinery drives it, forwarding yields outward.
+fn gen_anext_m(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    Ok(Rc::new(Obj::AsendAwaiter {
+        agen: args[0].clone(),
+        pending: Cell::new(None),
+    }))
+}
+
+fn gen_asend_m(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    Ok(Rc::new(Obj::AsendAwaiter {
+        agen: args[0].clone(),
+        pending: Cell::new(Some(args.get(1).cloned().unwrap_or_else(v_none))),
+    }))
+}
+
+fn gen_aclose_m(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    gen_close_m(m, vm, args, &[])?;
+    Ok(finished_awaiter(v_none()))
+}
+
+fn asend_agen(args: &[Val]) -> Option<(Val, Option<Val>)> {
+    match args.first().map(|v| &**v) {
+        Some(Obj::AsendAwaiter { agen, pending }) => Some((agen.clone(), pending.take())),
+        _ => None,
+    }
+}
+
+/// Drive an async generator on behalf of an `asend()`/`__anext__()`
+/// awaiter. A yield the generator forwards from its own `await` passes
+/// outward; the generator's own `yield` is the awaiter's return value.
+fn asend_step(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    g: &Rc<GenState>,
+    v: &Val,
+) -> Result<Val, Val> {
+    match gen_send(m, vm, g, v) {
+        Ok(y) => {
+            let forwarded = g.frame.borrow().as_ref().is_some_and(|f| f.is_delegating());
+            if forwarded {
+                Ok(y)
+            } else {
+                Err(stop_iteration_value(m, y))
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
+
+fn asend_send_m(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let Some((agen, pending)) = asend_agen(args) else {
+        return Err(err(m, ErrorTag::TypeError, "send() on a bad awaiter"));
+    };
+    let v = pending
+        .or_else(|| args.get(1).cloned())
+        .unwrap_or_else(v_none);
+    let Obj::Generator(g) = &*agen else {
+        return Err(err(
+            m,
+            ErrorTag::TypeError,
+            "asend() awaiter without an async generator",
+        ));
+    };
+    asend_step(m, vm, g, &v)
+}
+
+fn asend_throw_m(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let Some((agen, _)) = asend_agen(args) else {
+        return Err(err(m, ErrorTag::TypeError, "throw() on a bad awaiter"));
+    };
+    let exc = args
+        .get(1)
+        .cloned()
+        .ok_or_else(|| err(m, ErrorTag::TypeError, "throw() requires an exception"))?;
+    let Obj::Generator(g) = &*agen else {
+        return Err(err(
+            m,
+            ErrorTag::TypeError,
+            "asend() awaiter without an async generator",
+        ));
+    };
+    let out = gen_throw(m, vm, g, &exc)?;
+    Ok(out)
+}
+
+fn asend_close_m(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    _args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    Ok(v_none())
+}
 
 fn gen_send_m(
     m: &mut TestModel,
@@ -8108,6 +9263,10 @@ fn bi_print(
         out.push_str(&str_val(m, vm, a)?);
     }
     out.push_str(&end);
+    if m.captured.borrow().is_some() {
+        m.captured.borrow_mut().as_mut().unwrap().push_str(&out);
+        return Ok(v_none());
+    }
     let mut stdout = std::io::stdout().lock();
     let written = stdout
         .write_all(out.as_bytes())
@@ -8369,18 +9528,26 @@ fn bi_reversed(
             pos: Cell::new(l.borrow().len()),
         })),
         Obj::Tuple(_) | Obj::Str(_) | Obj::Bytes(_) | Obj::Range { .. } => {
+            // Drain in order, reverse, then iterate the result forward.
             let mut items = drain_iter(m, vm, v)?;
             items.reverse();
-            let len = items.len();
-            Ok(Rc::new(Obj::IterRevList {
+            Ok(Rc::new(Obj::IterList {
                 list: Rc::new(Obj::List(RefCell::new(items))),
-                pos: Cell::new(len),
+                pos: Cell::new(0),
             }))
         }
         Obj::Instance(_) => {
             if let Some(f) = mro_attr(v, "__reversed__") {
                 let bound = bind(m, vm, &f, v, Some(v.clone()))?;
                 return call_val(m, vm, &bound, &[], &[]);
+            }
+            // Sequence protocol fallback: __len__ + __getitem__.
+            if mro_attr(v, "__len__").is_some() && mro_attr(v, "__getitem__").is_some() {
+                let n = len_val(m, vm, v)?;
+                return Ok(Rc::new(Obj::IterRevGetItem {
+                    obj: v.clone(),
+                    pos: Cell::new(n as i128),
+                }));
             }
             Err(err(
                 m,
@@ -8484,12 +9651,16 @@ fn bi_map(
         }
         out
     };
-    let it = if its.len() == 1 {
-        its[0].clone()
+    let (it, spread) = if its.len() == 1 {
+        (its[0].clone(), false)
     } else {
-        Rc::new(Obj::IterZip { its })
+        (Rc::new(Obj::IterZip { its }), true)
     };
-    Ok(Rc::new(Obj::IterMap { f: f.clone(), it }))
+    Ok(Rc::new(Obj::IterMap {
+        f: f.clone(),
+        it,
+        spread,
+    }))
 }
 
 fn bi_filter(
@@ -8586,14 +9757,14 @@ fn bi_next(
 
 fn bi_hash(
     m: &mut TestModel,
-    _vm: &mut Interp<'_, TestModel>,
+    vm: &mut Interp<'_, TestModel>,
     args: &[Val],
     _kwargs: &[(&str, Val)],
 ) -> Result<Val, Val> {
     let v = need(m, "hash", args)?;
-    match py_hash(v) {
+    match hash_vm(m, vm, v) {
         Ok(h) => Ok(v_int(h)),
-        Err(t) => Err(unhashable(m, &t)),
+        Err(e) => Err(e),
     }
 }
 
@@ -8771,7 +9942,44 @@ fn bi_round(
         None => None,
     };
     match &**v {
-        Obj::Int(_) | Obj::Bool(_) => Ok(v.clone()),
+        Obj::Int(_) | Obj::Bool(_) => match ndigits {
+            None | Some(0) => Ok(v.clone()),
+            Some(n) if n > 0 => Ok(v.clone()),
+            Some(n) => {
+                let iv = match &**v {
+                    Obj::Int(i) => (**i).clone(),
+                    Obj::Bool(b) => BigInt::from_i64(i64::from(*b)),
+                    _ => unreachable!("matched above"),
+                };
+                // Round half to even to a multiple of 10^k (k = -n).
+                let k = -(n as i128) as u64;
+                if k > iv.bit_len() as u64 + 8 {
+                    return Ok(Rc::new(Obj::Int(Rc::new(BigInt::zero()))));
+                }
+                let unit = BigInt::from_i64(10).pow(k);
+                let neg = iv.is_negative();
+                let mag = if neg { BigInt::zero().sub(&iv) } else { iv };
+                let (mut q, r) = mag.divmod(&unit).expect("unit nonzero");
+                let twice = r.add(&r);
+                let diff = twice.sub(&unit);
+                let q_even = q
+                    .divmod(&BigInt::from_i64(2))
+                    .is_some_and(|(_, rem)| rem.is_zero());
+                let round_up = if diff.is_zero() {
+                    !q_even
+                } else {
+                    !diff.is_negative()
+                };
+                if round_up {
+                    q = q.add(&BigInt::from_i64(1));
+                }
+                let mut res = q.mul(&unit);
+                if neg && !res.is_zero() {
+                    res = BigInt::zero().sub(&res);
+                }
+                Ok(Rc::new(Obj::Int(Rc::new(res))))
+            }
+        },
         Obj::Float(f) => match ndigits {
             None => {
                 let s = format!("{:.0}", f);
@@ -8906,7 +10114,7 @@ fn bi_setattr(
 
 fn bi_delattr(
     m: &mut TestModel,
-    _vm: &mut Interp<'_, TestModel>,
+    vm: &mut Interp<'_, TestModel>,
     args: &[Val],
     _kwargs: &[(&str, Val)],
 ) -> Result<Val, Val> {
@@ -8916,7 +10124,7 @@ fn bi_delattr(
     let Obj::Str(name) = &**name_v else {
         return Err(err(m, ErrorTag::TypeError, "attribute name must be string"));
     };
-    delattr_val(m, obj, name)?;
+    delattr_val(m, vm, obj, name)?;
     Ok(v_none())
 }
 
@@ -8993,7 +10201,7 @@ fn bi_type(
                 },
                 None => Vec::new(),
             };
-            make_class_value(m, vm, name, &bases, entries, &v_none())
+            make_class_value(m, vm, name, &bases, entries, &v_none(), &[])
         }
         n => Err(err(
             m,
@@ -9051,7 +10259,11 @@ fn bi_property(
         Some(f) if !matches!(&**f, Obj::None_) => Some(f.clone()),
         _ => kwarg_val(kwargs, "fset").filter(|f| !matches!(&**f, Obj::None_)),
     };
-    Ok(Rc::new(Obj::Property { fget, fset }))
+    let fdel = match args.get(2) {
+        Some(f) if !matches!(&**f, Obj::None_) => Some(f.clone()),
+        _ => kwarg_val(kwargs, "fdel").filter(|f| !matches!(&**f, Obj::None_)),
+    };
+    Ok(Rc::new(Obj::Property { fget, fset, fdel }))
 }
 
 fn bi_staticmethod(
@@ -9105,24 +10317,9 @@ fn bi_vars(
         return Ok(vm.globals.clone());
     };
     match &**v {
-        Obj::Module(md) => {
-            let mut d = Dict::default();
-            for (k, val) in md.dict.borrow().entries.clone() {
-                let key = v_str(&k);
-                let h = py_hash(&key).unwrap_or(0);
-                d.set_hash(key, h, val);
-            }
-            Ok(Rc::new(Obj::Dict(RefCell::new(d))))
-        }
-        Obj::Instance(i) => {
-            let mut d = Dict::default();
-            for (k, val) in i.attrs.borrow().entries.clone() {
-                let key = v_str(&k);
-                let h = py_hash(&key).unwrap_or(0);
-                d.set_hash(key, h, val);
-            }
-            Ok(Rc::new(Obj::Dict(RefCell::new(d))))
-        }
+        Obj::Module(md) => Ok(new_dict_from(md.dict.borrow().entries.clone())),
+        Obj::Instance(i) => Ok(i.attrs.clone()),
+        Obj::Class(c) => Ok(new_dict_from(c.dict.borrow().entries.clone())),
         _ => Err(err(
             m,
             ErrorTag::TypeError,
@@ -9417,6 +10614,7 @@ fn make_class_value(
     bases: &[Val],
     entries: Vec<(String, Val)>,
     classcell: &Val,
+    kwds: &[(String, Val)],
 ) -> Result<Val, Val> {
     for b in bases {
         if !matches!(&**b, Obj::Class(_)) {
@@ -9474,7 +10672,9 @@ fn make_class_value(
             call_val(m, vm, &f, &[v.clone(), owner, name_v], &[])?;
         }
     }
-    // __init_subclass__ of the nearest base that defines it (beyond object)
+    // __init_subclass__ of the nearest base that defines it (beyond object),
+    // with the class statement's keyword arguments
+    let mut consumed_kwds = false;
     for b in &bases {
         let mut defined = false;
         if let Some(f) = mro_attr(b, "__init_subclass__")
@@ -9485,12 +10685,23 @@ fn make_class_value(
             if !is_object {
                 defined = true;
                 let bound = bind(m, vm, &f, b, None)?;
-                call_val(m, vm, &bound, std::slice::from_ref(&cls), &[])?;
+                let kw: Vec<(&str, Val)> =
+                    kwds.iter().map(|(k, v)| (k.as_str(), v.clone())).collect();
+                call_val(m, vm, &bound, std::slice::from_ref(&cls), &kw)?;
+                consumed_kwds = true;
             }
         }
         if defined {
             break;
         }
+    }
+    if !consumed_kwds && !kwds.is_empty() {
+        // No base consumed them: object.__init_subclass__ rejects kwargs.
+        return Err(err(
+            m,
+            ErrorTag::TypeError,
+            &format!("{name}() takes no keyword arguments"),
+        ));
     }
     Ok(cls)
 }
@@ -9509,6 +10720,25 @@ fn cls_dict(cls: &Val) -> &RefCell<AttrMap> {
 
 fn bt_class(name: &str, bases: &[Val], bt: BuiltinType) -> Val {
     new_class(name, bases, ClassKind::Builtin(bt))
+}
+
+/// `BaseException.__init__`: replace the instance's args.
+fn exc_init(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    if let Some(inst) = args.first()
+        && let Obj::Instance(i) = &**inst
+    {
+        i.exc
+            .borrow_mut()
+            .as_mut()
+            .expect("exception instance")
+            .args = args[1..].to_vec();
+    }
+    Ok(v_none())
 }
 
 fn exc_class(name: &str, bases: &[Val], base: bool) -> Val {
@@ -9544,9 +10774,111 @@ fn mod_set(module: &Val, name: &str, v: Val) {
     }
 }
 
+/// `object.__getattribute__(self, name)`: the hook-free lookup.
+fn obj_getattribute(
+    m: &mut TestModel,
+    vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let (Some(obj), Some(name_v)) = (args.first(), args.get(1)) else {
+        return Err(err(
+            m,
+            ErrorTag::TypeError,
+            "__getattribute__ expected 2 arguments",
+        ));
+    };
+    let Obj::Str(name) = &**name_v else {
+        return Err(err(m, ErrorTag::TypeError, "attribute name must be string"));
+    };
+    instance_plain_getattr(m, vm, obj, name)
+}
+
+/// `object.__setattr__(self, name, value)`: the instance-dict write.
+fn obj_setattribute(
+    m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let (Some(obj), Some(name_v), Some(value)) = (args.first(), args.get(1), args.get(2)) else {
+        return Err(err(
+            m,
+            ErrorTag::TypeError,
+            "__setattr__ expected 3 arguments",
+        ));
+    };
+    let Obj::Str(name) = &**name_v else {
+        return Err(err(m, ErrorTag::TypeError, "attribute name must be string"));
+    };
+    if let Obj::Instance(i) = &**obj {
+        dict_set_str(&i.attrs, name, value.clone());
+        Ok(v_none())
+    } else {
+        Err(attr_error(m, obj, name))
+    }
+}
+
+fn native_noop(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    _args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    Ok(Rc::new(Obj::None_))
+}
+
+/// `object.__new__(cls)`: a fresh instance of `cls`'s own kind.
+fn obj_new(
+    _m: &mut TestModel,
+    _vm: &mut Interp<'_, TestModel>,
+    args: &[Val],
+    _kwargs: &[(&str, Val)],
+) -> Result<Val, Val> {
+    let Some(cls) = args.first() else {
+        return Err(err(
+            _m,
+            ErrorTag::TypeError,
+            "object.__new__(): not enough arguments",
+        ));
+    };
+    if !matches!(&**cls, Obj::Class(_)) {
+        return Err(err(
+            _m,
+            ErrorTag::TypeError,
+            "object.__new__(X): X is not a type object",
+        ));
+    }
+    Ok(new_instance(cls, Vec::new(), None))
+}
+
 impl TestModel {
     pub fn new() -> TestModel {
         let object = new_class("object", &[], ClassKind::Object);
+        // `object.__init__`/`__init_subclass__` exist on every instance and
+        // `super()` lookup: no-ops accepting (and ignoring) any arguments.
+        if let Obj::Class(c) = &*object {
+            c.dict
+                .borrow_mut()
+                .set("__init__", Rc::new(Obj::Native("__init__", native_noop)));
+            c.dict.borrow_mut().set(
+                "__init_subclass__",
+                Rc::new(Obj::Native("__init_subclass__", native_noop)),
+            );
+            // `object.__getattribute__`/`__setattr__`: the plain lookup
+            // users reach for from their own hooks.
+            c.dict.borrow_mut().set(
+                "__getattribute__",
+                Rc::new(Obj::Native("__getattribute__", obj_getattribute)),
+            );
+            c.dict.borrow_mut().set(
+                "__setattr__",
+                Rc::new(Obj::Native("__setattr__", obj_setattribute)),
+            );
+            c.dict
+                .borrow_mut()
+                .set("__new__", Rc::new(Obj::Native("__new__", obj_new)));
+        }
         let type_cls = new_class("type", std::slice::from_ref(&object), ClassKind::Type);
         let int = bt_class("int", std::slice::from_ref(&object), BuiltinType::Int);
         let bool_cls = bt_class("bool", std::slice::from_ref(&int), BuiltinType::Bool);
@@ -9615,6 +10947,12 @@ impl TestModel {
 
         // the exception hierarchy
         let root = exc_class("BaseException", std::slice::from_ref(&object), true);
+        // `super().__init__(...)` from a user __init__ resets args.
+        if let Obj::Class(c) = &*root {
+            c.dict
+                .borrow_mut()
+                .set("__init__", Rc::new(Obj::Native("__init__", exc_init)));
+        }
         let ki = exc_class("KeyboardInterrupt", std::slice::from_ref(&root), false);
         let se = exc_class("SystemExit", std::slice::from_ref(&root), false);
         let gen_exit = exc_class("GeneratorExit", std::slice::from_ref(&root), false);
@@ -9678,6 +11016,7 @@ impl TestModel {
             native("TypeVarTuple", bi_typevartuple),
         );
         mod_set(&typing_mod, "cast", native("cast", bi_cast));
+        mod_set(&typing_mod, "List", native("List", bi_cast));
         mod_set(&typing_mod, "TYPE_CHECKING", v_bool(false));
 
         let abc_iterable =
@@ -9872,9 +11211,21 @@ impl TestModel {
             exc_group: group,
             exc_base_group: base_group,
             typing_module: typing_mod,
+            collections_module: collections_mod,
             abc_module: abc_mod,
             exc_stop_async: stop_async,
+            captured: RefCell::new(None),
         }
+    }
+
+    /// Redirect `print` into an internal buffer; returns the buffer's
+    /// contents and restores direct stdout output.
+    pub fn take_output(&mut self) -> String {
+        self.captured.borrow_mut().take().unwrap_or_default()
+    }
+
+    pub fn capture_output(&mut self) {
+        *self.captured.borrow_mut() = Some(String::new());
     }
 }
 
@@ -10012,8 +11363,8 @@ impl ObjectModel for TestModel {
         setattr_val(self, vm, obj, name, value)
     }
 
-    fn delattr(&mut self, _vm: &mut Interp<'_, Self>, obj: &Val, name: &str) -> Result<(), Val> {
-        delattr_val(self, obj, name)
+    fn delattr(&mut self, vm: &mut Interp<'_, Self>, obj: &Val, name: &str) -> Result<(), Val> {
+        delattr_val(self, vm, obj, name)
     }
 
     fn getitem(&mut self, vm: &mut Interp<'_, Self>, obj: &Val, key: &Val) -> Result<Val, Val> {
@@ -10050,6 +11401,17 @@ impl ObjectModel for TestModel {
     ) -> Result<Val, Val> {
         match &**iter {
             Obj::Generator(g) => gen_send(self, vm, g, &value.unwrap_or_else(v_none)),
+            Obj::AsendAwaiter { agen, pending } => {
+                let v = pending.take().or(value).unwrap_or_else(v_none);
+                let Obj::Generator(g) = &**agen else {
+                    return Err(err(
+                        self,
+                        ErrorTag::TypeError,
+                        "asend() awaiter without an async generator",
+                    ));
+                };
+                asend_step(self, vm, g, &v)
+            }
             _ => next_val(self, vm, iter),
         }
     }
@@ -10071,6 +11433,7 @@ impl ObjectModel for TestModel {
     fn await_iter(&mut self, vm: &mut Interp<'_, Self>, v: &Val) -> Result<Val, Val> {
         match &**v {
             Obj::Generator(g) if g.kind == GenKind::Coroutine => Ok(v.clone()),
+            Obj::AsendAwaiter { .. } => Ok(v.clone()),
             _ => {
                 let aw = getattr_val(self, vm, v, "__await__")?;
                 call_val(self, vm, &aw, &[], &[])
@@ -10194,7 +11557,9 @@ impl ObjectModel for TestModel {
     ) -> Result<Vec<Val>, Val> {
         match star {
             None => {
-                let items = drain_iter(self, vm, src)?;
+                // `a, b = 5` words the failure as unpack, not iteration.
+                let items =
+                    drain_iter(self, vm, src).map_err(|e| noniterable_unpack(self, src, e))?;
                 if (items.len() as u32) < n {
                     return Err(err(
                         self,
@@ -10218,7 +11583,7 @@ impl ObjectModel for TestModel {
             Some(s) => {
                 let before = s;
                 let after = n - 1 - s;
-                let it = iter_val(self, vm, src)?;
+                let it = iter_val(self, vm, src).map_err(|e| noniterable_unpack(self, src, e))?;
                 let mut out = Vec::new();
                 let mut got = 0u32;
                 for _ in 0..before {
@@ -10232,7 +11597,8 @@ impl ObjectModel for TestModel {
                                 self,
                                 ErrorTag::ValueError,
                                 &format!(
-                                    "not enough values to unpack (expected at least {n}, got {got})"
+                                    "not enough values to unpack (expected at least {}, got {got})",
+                                    n - 1
                                 ),
                             ));
                         }
@@ -10252,7 +11618,10 @@ impl ObjectModel for TestModel {
                     return Err(err(
                         self,
                         ErrorTag::ValueError,
-                        &format!("not enough values to unpack (expected at least {n}, got {got})"),
+                        &format!(
+                            "not enough values to unpack (expected at least {}, got {got})",
+                            n - 1
+                        ),
                     ));
                 }
                 let tail: Vec<Val> = if after > 0 {
@@ -10297,11 +11666,7 @@ impl ObjectModel for TestModel {
         };
         match target.as_str() {
             "typing" => Ok(self.typing_module.clone()),
-            "collections" => {
-                let m = new_module("collections");
-                mod_set(&m, "abc", self.abc_module.clone());
-                Ok(m)
-            }
+            "collections" => Ok(self.collections_module.clone()),
             "collections.abc" => Ok(self.abc_module.clone()),
             _ => Err(err(
                 self,
@@ -10388,6 +11753,10 @@ impl ObjectModel for TestModel {
         }
     }
 
+    fn dict_del(&mut self, dict: &Val, key: &str) -> bool {
+        dict_del_str(dict, key)
+    }
+
     fn builtin(&self, name: &str) -> Option<Val> {
         self.builtins.get(name).cloned()
     }
@@ -10428,19 +11797,15 @@ impl ObjectModel for TestModel {
         bases: &[Val],
         kwds: &Val,
     ) -> Result<Val, Val> {
-        if !self.is_none(kwds) {
-            let empty = match &**kwds {
-                Obj::Dict(d) => d.borrow().is_empty(),
-                _ => false,
-            };
-            if !empty {
-                return Err(err(
-                    self,
-                    ErrorTag::TypeError,
-                    "class keyword arguments are not supported by the test model",
-                ));
-            }
-        }
+        let class_kwds: Vec<(String, Val)> = match &**kwds {
+            Obj::Dict(d) if !d.borrow().is_empty() => d
+                .borrow()
+                .items()
+                .into_iter()
+                .filter_map(|(k, v)| str_of(&k).map(|s| (s.to_string(), v)))
+                .collect(),
+            _ => Vec::new(),
+        };
         let Obj::Function(f) = &**body else {
             return Err(err(
                 self,
@@ -10488,7 +11853,7 @@ impl ObjectModel for TestModel {
                 .collect(),
             _ => Vec::new(),
         };
-        make_class_value(self, vm, name, bases, entries, &ret)
+        make_class_value(self, vm, name, bases, entries, &ret, &class_kwds)
     }
 
     fn new_cell(&self, initial: Option<Val>) -> Val {
@@ -10554,11 +11919,13 @@ impl ObjectModel for TestModel {
     }
 
     fn set_exc_cause(&mut self, exc: &Val, cause: Option<Val>) {
+        // Only called for an explicit `from` clause, which suppresses the
+        // implicit context whether the cause is an exception or None.
         if let Obj::Instance(i) = &**exc
             && let Some(d) = i.exc.borrow_mut().as_mut()
         {
             d.cause = cause.clone();
-            d.suppress_context = cause.is_none();
+            d.suppress_context = true;
         }
     }
 
@@ -10734,7 +12101,8 @@ impl ObjectModel for TestModel {
                         } else if d.args.is_empty() {
                             String::new()
                         } else {
-                            exc_str(self, &d.args)
+                            let key_error = is_exc_matches(self, e, "KeyError");
+                            exc_str(self, &d.args, key_error)
                         }
                     })
                     .unwrap_or_default(),
@@ -10767,9 +12135,8 @@ impl ObjectModel for TestModel {
         }
         let inst = new_instance(cls, Vec::new(), None);
         if let Obj::Instance(i) = &*inst {
-            let mut attrs = i.attrs.borrow_mut();
             for s in 0..slots {
-                attrs.set(&format!("__slot{s}"), v_none());
+                dict_set_str(&i.attrs, &format!("__slot{s}"), v_none());
             }
         }
         Ok(inst)
@@ -10778,12 +12145,9 @@ impl ObjectModel for TestModel {
     fn field_get(&self, obj: &Val, slot: u32) -> Result<Val, Val> {
         let name = format!("__slot{slot}");
         match &**obj {
-            Obj::Instance(i) => i
-                .attrs
-                .borrow()
-                .get(&name)
-                .cloned()
-                .ok_or_else(|| attr_error_static(self, obj, &name)),
+            Obj::Instance(i) => {
+                dict_get_str(&i.attrs, &name).ok_or_else(|| attr_error_static(self, obj, &name))
+            }
             _ => Err(attr_error_static(self, obj, &name)),
         }
     }
@@ -10792,7 +12156,7 @@ impl ObjectModel for TestModel {
         let name = format!("__slot{slot}");
         match &**obj {
             Obj::Instance(i) => {
-                i.attrs.borrow_mut().set(&name, value.clone());
+                dict_set_str(&i.attrs, &name, value.clone());
                 Ok(())
             }
             _ => Err(attr_error_static(self, obj, &name)),

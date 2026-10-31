@@ -109,6 +109,12 @@ pub struct Frame<M: ObjectModel> {
 }
 
 impl<M: ObjectModel> Frame<M> {
+    /// Suspended at a `YieldFrom`/`Await` delegation (a forwarded yield),
+    /// as opposed to the function's own `yield`.
+    pub fn is_delegating(&self) -> bool {
+        self.deleg.is_some()
+    }
+
     fn new(
         fid: FnId,
         slots: Vec<Slot<M>>,
@@ -228,6 +234,7 @@ const TAG_NAMES: &[&str] = &[
     "FinallyExit",
     "CatchStarBegin",
     "PrepReraiseStar",
+    "DelName",
     "Jump",
     "Branch",
     "Switch",
@@ -238,7 +245,7 @@ const TAG_NAMES: &[&str] = &[
     "Phi",
 ];
 
-const T_TERM: usize = 90;
+const T_TERM: usize = 91;
 const T_PHI: usize = T_TERM + 7;
 
 /// The name of one coverage tag: `Instr` variants, then `Terminator`
@@ -345,6 +352,7 @@ fn tag_of_instr(i: &Instr) -> usize {
         I::FinallyExit { .. } => 87,
         I::CatchStarBegin { .. } => 88,
         I::PrepReraiseStar { .. } => 89,
+        I::DelName { .. } => 90,
     }
 }
 
@@ -414,6 +422,11 @@ pub struct Interp<'m, M: ObjectModel> {
     /// The runtime class values of `MakeClass` results, by `ClassId`, for
     /// `AllocInst` and `TypeGuard`.
     classes: Vec<Option<M::Val>>,
+    /// One shared value per constant: repeated loads of a constant yield
+    /// the same object, so `is` between two loads of the same constant
+    /// holds, as it does for CPython's interned constants (the lowering's
+    /// `.break`/`.continue` finally markers rely on this).
+    const_cache: Vec<Option<M::Val>>,
     pub coverage: Coverage,
     file: String,
 }
@@ -430,6 +443,7 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
             globals,
             depth: 0,
             classes: vec![None; module.classes.len()],
+            const_cache: vec![None; module.consts.consts.len()],
             coverage: Coverage::new(),
             file: module.file.display().to_string(),
         }
@@ -534,6 +548,12 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
         for set_flag in &mut set[..take] {
             *set_flag = true;
         }
+        // Positional params not supplied positionally still occupy a slot
+        // until the default/missing pass below fills or rejects them, like
+        // CPython's NULL fast locals.
+        for _ in take..n_pos {
+            slots.push(Slot::Box(m.none()));
+        }
         if args.len() > n_pos && params.vararg.is_none() {
             let given = args.len();
             let want = if defaults.is_empty() {
@@ -576,6 +596,7 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
         }
 
         let mut leftover: Vec<(&str, M::Val)> = Vec::new();
+        let mut posonly_given: Vec<&str> = Vec::new();
         for (name, value) in kwargs {
             let pos = params
                 .positional
@@ -586,6 +607,7 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
                 .iter()
                 .position(|p| self.module.consts.sym_str(*p) == *name);
             match (pos, kwonly) {
+                (Some(i), _) if i < params.posonly as usize => posonly_given.push(name),
                 (Some(i), _) => {
                     if set[i] {
                         return Err(m.error(
@@ -615,6 +637,15 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
                     ));
                 }
             }
+        }
+        if !posonly_given.is_empty() {
+            return Err(m.error(
+                ErrorTag::TypeError,
+                &format!(
+                    "{qualname}() got some positional-only arguments passed as keyword arguments: {}",
+                    name_list(&posonly_given)
+                ),
+            ));
         }
         if has_kwarg
             && let Slot::Box(d) =
@@ -647,10 +678,9 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
             return Err(m.error(
                 ErrorTag::TypeError,
                 &format!(
-                    "{qualname}() missing {} required positional {}{}: {}",
+                    "{qualname}() missing {} required positional {}: {}",
                     missing.len(),
                     noun,
-                    if missing.len() == 1 { "" } else { "s" },
                     name_list(&missing)
                 ),
             ));
@@ -679,13 +709,19 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
             return Err(m.error(
                 ErrorTag::TypeError,
                 &format!(
-                    "{qualname}() missing {} required keyword-only {}{}: {}",
+                    "{qualname}() missing {} required keyword-only {}: {}",
                     missing_kw.len(),
                     noun,
-                    if missing_kw.len() == 1 { "" } else { "s" },
                     name_list(&missing_kw)
                 ),
             ));
+        }
+        // Values beyond the parameters (locals and named temporaries) are
+        // always defined before use in lowered IR, so their entry state is
+        // never observable; CPython's fast locals start as NULL the same way.
+        let total = func.types.len();
+        for _ in slots.len()..total {
+            slots.push(Slot::Box(m.none()));
         }
         Ok(Frame::new(fid, slots, closure, namespace))
     }
@@ -1007,8 +1043,11 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
         }
     }
 
-    fn const_val(&self, m: &mut M, idx: ConstIdx) -> M::Val {
-        match &self.module.consts.consts[idx.0 as usize] {
+    fn const_val(&mut self, m: &mut M, idx: ConstIdx) -> M::Val {
+        if let Some(v) = &self.const_cache[idx.0 as usize] {
+            return v.clone();
+        }
+        let v = match &self.module.consts.consts[idx.0 as usize] {
             Const::None => m.none(),
             Const::Bool(b) => m.bool(*b),
             Const::Int(i) => m.int(*i),
@@ -1021,7 +1060,9 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
                 m.tuple(vals)
             }
             Const::Ellipsis => m.ellipsis(),
-        }
+        };
+        self.const_cache[idx.0 as usize] = Some(v.clone());
+        v
     }
 
     fn is_stop_iteration(&mut self, m: &mut M, e: &M::Val) -> bool {
@@ -1313,10 +1354,15 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
                 frame.slots[into.idx()] = Slot::Bool(v);
             }
             I::Box { src, scalar, into } => {
+                // A rich comparison whose `__lt__`-family method returned a
+                // non-bool reaches here already boxed: the lowering types
+                // `Compare`'s result `Bool` without a guard, so the box is a
+                // no-op on that value.
                 let v = match (&frame.slots[src.idx()], scalar) {
                     (Slot::Int(i), Scalar::Int64) => m.int(*i),
                     (Slot::Float(f), Scalar::Float64) => m.float(*f),
                     (Slot::Bool(b), Scalar::Bool) => m.bool(*b),
+                    (Slot::Box(b), _) => b.clone(),
                     _ => panic!("Box of a mismatched scalar"),
                 };
                 frame.slots[into.idx()] = Slot::Box(v);
@@ -1646,6 +1692,15 @@ impl<'m, M: ObjectModel> Interp<'m, M> {
                 let v = self.val(frame, *value).clone();
                 let ns = self.namespace_of(frame);
                 m.dict_set(&ns, n, v);
+            }
+            I::DelName { name } => {
+                let n = self.module.consts.sym_str(*name);
+                let ns = self.namespace_of(frame);
+                if !m.dict_del(&ns, n) {
+                    let e = m.error(ErrorTag::NameError, &format!("name '{n}' is not defined"));
+                    self.route_or_propagate(m, frame, e)?;
+                    return Ok(Step::Next);
+                }
             }
             I::CallDirect { func, args, into } => {
                 let a: Vec<M::Val> = args.iter().map(|v| self.val(frame, *v).clone()).collect();

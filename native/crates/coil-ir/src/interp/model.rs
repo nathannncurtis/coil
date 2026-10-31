@@ -309,6 +309,8 @@ pub trait ObjectModel: Sized {
     fn dict_get(&self, dict: &Self::Val, key: &str) -> Option<Self::Val>;
     fn dict_get_val(&self, dict: &Self::Val, key: &Self::Val) -> Option<Self::Val>;
     fn dict_set(&mut self, dict: &Self::Val, key: &str, value: Self::Val);
+    /// Unbind `key` from a namespace dict; whether it was present.
+    fn dict_del(&mut self, dict: &Self::Val, key: &str) -> bool;
     /// The named builtin, or `None` when no such builtin exists.
     fn builtin(&self, name: &str) -> Option<Self::Val>;
 
