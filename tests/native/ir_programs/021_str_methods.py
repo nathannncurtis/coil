@@ -1,0 +1,15 @@
+s = "  Hello, World  "
+print(s.strip(), s.lstrip(), s.rstrip())
+t = "Hello"
+print(t.upper(), t.lower(), t.title(), t.capitalize(), t.swapcase())
+print(t.startswith("He"), t.endswith("lo"), t.startswith("x"))
+print(t.replace("l", "L"), t.replace("l", "L", 1))
+print("-".join(["a", "b", "c"]), "".join(["x", "y"]))
+print(t.find("l"), t.rfind("l"), t.index("e"))
+print(t.center(11, "*"), t.ljust(8, "."), t.rjust(8, "."))
+print("42".zfill(6), "-42".zfill(6))
+print(t.split("l"), "a,b,,c".split(","), "a b  c".split())
+print("a,b,c".rsplit(",", 1), " line1\nline2 ".splitlines())
+print("aXbXc".partition("X"), "aXbXc".rpartition("X"))
+print(t.isalpha(), "123".isdigit(), "ab1".isalnum(), "ab".isalnum())
+print(t.count("l"), t.count("l", 3))
