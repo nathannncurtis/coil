@@ -86,13 +86,15 @@ def main() -> None:
     archive = build_dir / f"Python-{VERSION}.tar.xz"
     modules = prepare_module_sources(archive, build_dir)
     python_lib = find_python_lib(args.python_lib)
-    # pyconfig.h nominates python312.lib via #pragma comment(lib, ...); stage
-    # the cargo import library under that name and put it on the lib path so
-    # the pragma resolves to the same archive we pass explicitly.
-    staged_lib = build_dir / "python312.lib"
-    if python_lib != staged_lib.resolve():
-        shutil.copyfile(python_lib, staged_lib)
-        python_lib = staged_lib
+    # pyconfig.h nominates python312.lib via #pragma comment(lib, ...), and
+    # python3.lib for objects built with Py_LIMITED_API; stage the cargo
+    # import library under both names on the lib path so the pragmas resolve
+    # to the same archive we pass explicitly.
+    for name in ("python312.lib", "python3.lib"):
+        staged = build_dir / name
+        if python_lib != staged.resolve():
+            shutil.copyfile(python_lib, staged)
+    python_lib = build_dir / "python312.lib"
     include_flags = [
         f"/I{headers}",
         f"/I{headers / 'internal'}",
