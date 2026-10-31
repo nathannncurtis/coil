@@ -71,6 +71,10 @@ unsafe extern "C" fn none_hash(_object: *mut PyObject) -> isize {
     0xFCA86420
 }
 
+unsafe extern "C" fn none_repr(_object: *mut PyObject) -> *mut PyObject {
+    crate::types::unicode::str_from_utf8("None")
+}
+
 unsafe extern "C" fn none_new(
     _type_: *mut PyTypeObject,
     args: *mut PyObject,
@@ -91,6 +95,7 @@ const fn none_type_object() -> PyTypeObject {
     let mut t = zero_type();
     t.tp_name = c"NoneType".as_ptr();
     t.tp_dealloc = Some(none_dealloc);
+    t.tp_repr = Some(none_repr);
     t.tp_hash = Some(none_hash);
     t.tp_richcompare = Some(super::typeobject::object_identity_richcompare);
     t.tp_new = Some(none_new);

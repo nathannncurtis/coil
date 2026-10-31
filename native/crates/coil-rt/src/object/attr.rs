@@ -1,7 +1,8 @@
 //! Attribute access by C-string name (spec section 10.1): the
-//! `tp_getattro` and `tp_setattro` dispatch behind `PyObject_GetAttrString`
-//! and `PyObject_SetAttrString`, which the module machinery and the import
-//! system call with interned names.
+//! `tp_getattro` and `tp_setattro` dispatch behind the exported
+//! `PyObject_GetAttrString`/`PyObject_SetAttrString` (`capi/object.rs`),
+//! which the module machinery and the import system call with interned
+//! names.
 
 use core::ffi::{c_char, c_int};
 
@@ -51,35 +52,6 @@ pub(crate) unsafe fn set_attr_string(
     // SAFETY: our own interned reference.
     unsafe { crate::gc::counted::Py_DecRef(name) };
     res
-}
-
-/// See the CPython 3.12 contract for this entry point.
-///
-/// # Safety
-///
-/// As `get_attr_string`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyObject_GetAttrString(
-    obj: *mut PyObject,
-    name: *const c_char,
-) -> *mut PyObject {
-    // SAFETY: the contracts above.
-    unsafe { get_attr_string(obj, name) }
-}
-
-/// See the CPython 3.12 contract for this entry point.
-///
-/// # Safety
-///
-/// As `set_attr_string`.
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn PyObject_SetAttrString(
-    obj: *mut PyObject,
-    name: *const c_char,
-    value: *mut PyObject,
-) -> c_int {
-    // SAFETY: the contracts above.
-    unsafe { set_attr_string(obj, name, value) }
 }
 
 /// `tp_getattro` dispatch; the generic attribute protocol (descriptors and

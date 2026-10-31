@@ -6474,16 +6474,43 @@ pub unsafe extern "C" fn PyObject_Str(v: *mut PyObject) -> *mut PyObject {
     }
 }
 
-/// `PyObject_ASCII`: the ASCII-safe spelling, which is `repr` for every
-/// type whose repr escapes (all of them here).
+/// `PyObject_ASCII`: the repr unchanged when it is pure ASCII, else the
+/// repr with every non-ASCII code point escaped, as CPython's
+/// encode-as-ASCII `backslashreplace` round trip produces.
 ///
 /// # Safety
 ///
 /// `v` must be a valid object.
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn PyObject_ASCII(v: *mut PyObject) -> *mut PyObject {
-    // SAFETY: forwards to the checked repr path.
-    unsafe { PyObject_Repr(v) }
+    // SAFETY: the repr slot is respected and its result is a string.
+    unsafe {
+        let repr = PyObject_Repr(v);
+        if repr.is_null() {
+            return core::ptr::null_mut();
+        }
+        let Some(chars) = as_chars(repr) else {
+            return repr;
+        };
+        let mut ascii: Vec<u8> = Vec::new();
+        for index in 0..chars.len() {
+            let ch = chars.get(index);
+            if ch < 0x80 {
+                ascii.push(ch as u8);
+            } else if ch <= 0xff {
+                ascii.extend_from_slice(b"\\x");
+                push_hex(&mut ascii, ch, 2);
+            } else if ch <= 0xffff {
+                ascii.extend_from_slice(b"\\u");
+                push_hex(&mut ascii, ch, 4);
+            } else {
+                ascii.extend_from_slice(b"\\U");
+                push_hex(&mut ascii, ch, 8);
+            }
+        }
+        let chars: Vec<u32> = ascii.iter().map(|&b| b as u32).collect();
+        chars_to_object(&chars, 0x7f)
+    }
 }
 
 // ---------------------------------------------------------- %-formatting

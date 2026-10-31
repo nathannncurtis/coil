@@ -1568,7 +1568,8 @@ pub unsafe extern "C" fn PyBytes_FromObject(x: *mut PyObject) -> *mut PyObject {
             return from_vec(Some(data)).unwrap_or(core::ptr::null_mut());
         }
         let ty = header::type_of(x);
-        if (*ty).tp_iter.is_some() {
+        // CPython never iterates a str here: bytes(str) needs an encoding.
+        if (*ty).tp_iter.is_some() && !crate::types::unicode::check(x) {
             // An iterable of integers in 0..256.
             let iterator = ((*ty).tp_iter.unwrap())(x);
             if iterator.is_null() {

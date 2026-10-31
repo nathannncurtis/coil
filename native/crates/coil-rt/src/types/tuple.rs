@@ -290,6 +290,113 @@ fn op_name(op: c_int) -> &'static str {
     }
 }
 
+/// `tuplen` (`tp_as_sequence.sq_length`).
+unsafe extern "C" fn tuple_length(op: *mut PyObject) -> isize {
+    // SAFETY: the var-object header is the first 24 bytes.
+    unsafe { (*op.cast::<PyTupleObject>()).ob_base.ob_size }
+}
+
+/// `tupleitem` (`tp_as_sequence.sq_item`): a new reference with negative
+/// indices wrapping, `IndexError` outside the bounds.
+unsafe extern "C" fn tuple_item(op: *mut PyObject, i: isize) -> *mut PyObject {
+    let tuple = op.cast::<PyTupleObject>();
+    // SAFETY: the size read is within the tuple.
+    let size = unsafe { (*tuple).ob_base.ob_size };
+    let i = if i < 0 { i + size } else { i };
+    if i < 0 || i >= size {
+        crate::tstate::set_string(exceptions::index_error(), b"tuple index out of range");
+        return core::ptr::null_mut();
+    }
+    // SAFETY: the bounds check precedes the item read.
+    unsafe {
+        let item = *(*tuple).ob_item.as_ptr().add(i as usize);
+        if crate::gc::counted::slots_are_counted(op) {
+            crate::gc::counted::note_read_from_counted(item);
+        }
+        // The slot hands out a reference C owns.
+        crate::gc::counted::Py_IncRef(item);
+        item
+    }
+}
+
+/// `tuple_concat` (`tp_as_sequence.sq_concat`).
+unsafe extern "C" fn tuple_concat(a: *mut PyObject, bb: *mut PyObject) -> *mut PyObject {
+    if !(unsafe { is_tuple(bb) }) {
+        // SAFETY: the name read is the type object's own.
+        let name = unsafe { crate::util::cstr((*header::type_of(bb)).tp_name) };
+        crate::tstate::set_string(
+            exceptions::type_error(),
+            format!("can only concatenate tuple (not \"{name}\") to tuple").as_bytes(),
+        );
+        return core::ptr::null_mut();
+    }
+    // SAFETY: both operands are tuples; the item reads are within them.
+    let combined: Vec<*mut PyObject> = unsafe {
+        let asize = (*a.cast::<PyTupleObject>()).ob_base.ob_size;
+        let bsize = (*bb.cast::<PyTupleObject>()).ob_base.ob_size;
+        let mut items = Vec::with_capacity((asize + bsize).max(0) as usize);
+        items.extend_from_slice(core::slice::from_raw_parts(
+            (*a.cast::<PyTupleObject>()).ob_item.as_ptr(),
+            asize as usize,
+        ));
+        items.extend_from_slice(core::slice::from_raw_parts(
+            (*bb.cast::<PyTupleObject>()).ob_item.as_ptr(),
+            bsize as usize,
+        ));
+        items
+    };
+    // `from_array` takes the references its barrier accounts.
+    from_array(&combined)
+}
+
+/// `tuple_repeat` (`tp_as_sequence.sq_repeat`).
+unsafe extern "C" fn tuple_repeat(op: *mut PyObject, n: isize) -> *mut PyObject {
+    let tuple = op.cast::<PyTupleObject>();
+    // SAFETY: the size read and item reads are within the tuple.
+    let repeated: Vec<*mut PyObject> = unsafe {
+        let size = (*tuple).ob_base.ob_size;
+        let items = core::slice::from_raw_parts((*tuple).ob_item.as_ptr(), size.max(0) as usize);
+        let n = n.max(0) as usize;
+        let mut all = Vec::with_capacity(items.len() * n);
+        for _ in 0..n {
+            all.extend_from_slice(items);
+        }
+        all
+    };
+    from_array(&repeated)
+}
+
+/// `tuplecontains` (`tp_as_sequence.sq_contains`).
+unsafe extern "C" fn tuple_contains(op: *mut PyObject, el: *mut PyObject) -> c_int {
+    let tuple = op.cast::<PyTupleObject>();
+    // SAFETY: the size read is within the tuple.
+    let size = unsafe { (*tuple).ob_base.ob_size };
+    for i in 0..size {
+        // SAFETY: the item read is within the tuple's allocation.
+        let item = unsafe { *(*tuple).ob_item.as_ptr().add(i as usize) };
+        // SAFETY: both are valid objects.
+        match unsafe { objects_equal(item, el) } {
+            Ok(true) => return 1,
+            Ok(false) => {}
+            Err(()) => return -1,
+        }
+    }
+    0
+}
+
+static mut TUPLE_AS_SEQUENCE: coil_capi_sys::PySequenceMethods = coil_capi_sys::PySequenceMethods {
+    sq_length: Some(tuple_length),
+    sq_concat: Some(tuple_concat),
+    sq_repeat: Some(tuple_repeat),
+    sq_item: Some(tuple_item),
+    was_sq_slice: core::ptr::null_mut(),
+    sq_ass_item: None,
+    was_sq_ass_slice: core::ptr::null_mut(),
+    sq_contains: Some(tuple_contains),
+    sq_inplace_concat: None,
+    sq_inplace_repeat: None,
+};
+
 const fn tuple_type() -> PyTypeObject {
     let mut t = zero_type();
     t.tp_name = c"tuple".as_ptr();
@@ -307,6 +414,7 @@ const fn tuple_type() -> PyTypeObject {
     t.tp_richcompare = Some(tuplerichcompare);
     t.tp_hash = Some(tuplehash);
     t.tp_iter = Some(tuple_iter);
+    t.tp_as_sequence = &raw mut TUPLE_AS_SEQUENCE;
     t.tp_alloc = Some(PyType_GenericAlloc);
     t.tp_free = Some(crate::alloc::pymem::PyObject_Free);
     t
