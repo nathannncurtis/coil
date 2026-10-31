@@ -94,6 +94,8 @@ fn run(args: &[String]) -> i32 {
             "--ast" if mode.is_none() => mode = Some(Mode::Ast),
             "--symtable" if mode.is_none() => mode = Some(Mode::Symtable),
             "--ir" if mode.is_none() => mode = Some(Mode::Ir),
+            "--run" if mode.is_none() => mode = Some(Mode::Run),
+            "--coverage" if mode.is_none() => mode = Some(Mode::Coverage),
             "--snippets" if mode.is_none() => {
                 return snippets_run(rest.next().map(String::as_str));
             }
@@ -113,11 +115,38 @@ fn run(args: &[String]) -> i32 {
         Some(mode) => mode,
         None => {
             eprintln!(
-                "usage: coil-front-dump --tokens|--ast|--symtable|--ir|--snippets [--optimize N] FILE..."
+                "usage: coil-front-dump --tokens|--ast|--symtable|--ir|--run|--coverage|--snippets [--optimize N] FILE..."
             );
             return 2;
         }
     };
+    if matches!(mode, Mode::Run | Mode::Coverage) {
+        if optimize != 0 || files.is_empty() {
+            eprintln!("error: --run/--coverage take exactly FILE arguments");
+            return 2;
+        }
+        let names: Vec<String> = files.into_iter().cloned().collect();
+        let coverage = matches!(mode, Mode::Coverage);
+        // Interpreting nests one Rust frame per Python frame; corpus
+        // programs recurse to CPython's 1000-frame limit, which overflows
+        // the default thread stack.
+        let worker = std::thread::Builder::new()
+            .stack_size(256 * 1024 * 1024)
+            .spawn(move || run_programs(&names, coverage));
+        match worker {
+            Ok(handle) => match handle.join() {
+                Ok(code) => return code,
+                Err(_) => {
+                    eprintln!("error: interpreter thread panicked");
+                    return 2;
+                }
+            },
+            Err(err) => {
+                eprintln!("error: {err}");
+                return 2;
+            }
+        }
+    }
     let mut out = String::new();
     let mut stdout = std::io::stdout().lock();
     for path in &files {
@@ -133,6 +162,8 @@ fn run(args: &[String]) -> i32 {
             Mode::Ast => ast_record(path, &bytes, &mut out),
             Mode::Symtable => symtable_record(path, &bytes, &mut out),
             Mode::Ir => ir_record(path, &bytes, optimize, &mut out),
+            // handled before the per-file loop
+            Mode::Run | Mode::Coverage => unreachable!("handled above"),
         }
         if stdout.write_all(out.as_bytes()).is_err() {
             return 2;
@@ -308,6 +339,85 @@ enum Mode {
     Ast,
     Symtable,
     Ir,
+    Run,
+    Coverage,
+}
+
+/// Runs each program on the IR interpreter's test object model: the
+/// program's `print` output goes to stdout, an uncaught exception report to
+/// stderr (exit 1). With `coverage`, prints the union of the interpreter's
+/// covered instruction tags, one name per line, instead of running output.
+fn run_programs(files: &[String], coverage: bool) -> i32 {
+    use coil_ir::interp::Interp;
+    use coil_ir::interp::model::ObjectModel;
+    use coil_ir::interp::testmodel::TestModel;
+
+    let mut covered: Vec<bool> = vec![false; coil_ir::interp::tag_count()];
+    for path in files {
+        let path = path.as_str();
+        let bytes = match std::fs::read(path) {
+            Ok(bytes) => bytes,
+            Err(err) => {
+                eprintln!("error: {path}: {err}");
+                return 2;
+            }
+        };
+        let module = match parse_lower(path, &bytes) {
+            Ok(module) => module,
+            Err(message) => {
+                eprintln!("error: {path}: {message}");
+                return 2;
+            }
+        };
+        let mut model = TestModel::new();
+        let globals = model.new_dict();
+        let mut vm = Interp::new(&module, globals);
+        let failed = vm.run_main(&mut model).err();
+        for tag in vm.coverage.covered() {
+            covered[tag] = true;
+        }
+        if let Some(exc) = failed {
+            if coverage {
+                // coverage scanning tolerates the corpus's intentionally
+                // uncaught exceptions; the instructions still ran
+                eprintln!("note: {path}: uncaught exception");
+            } else {
+                let report = model.format_uncaught(&exc);
+                eprintln!("{report}");
+                return 1;
+            }
+        }
+    }
+    if coverage {
+        let mut stdout = std::io::stdout().lock();
+        for (tag, seen) in covered.iter().enumerate() {
+            if *seen {
+                let _ = writeln!(stdout, "{}", coil_ir::interp::tag_name(tag));
+            }
+        }
+    }
+    0
+}
+
+fn parse_lower(path: &str, bytes: &[u8]) -> Result<coil_ir::ir::Module, String> {
+    let (module, mut interner) =
+        coil_front::parser::parse_module(bytes, Some(std::path::Path::new(path)))
+            .map_err(|e| format!("{}: {}", e.kind.name(), e.message))?;
+    let table = coil_front::symtable::symtable(&module, &mut interner)
+        .map_err(|e| format!("{}: {}", e.kind.name(), e.message))?;
+    let module_name = std::path::Path::new(path)
+        .file_stem()
+        .map_or_else(|| path.to_string(), |s| s.to_string_lossy().into_owned());
+    coil_front::lower::lower_module(
+        &module_name,
+        std::path::PathBuf::from(path),
+        &module,
+        bytes,
+        &interner,
+        &table,
+        coil_front::lower::LowerOptions { optimize: 0 },
+    )
+    .map_err(|e| e.to_string())
 }
 
 fn main() {

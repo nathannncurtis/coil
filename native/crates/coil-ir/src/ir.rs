@@ -35,6 +35,8 @@ impl FnFlags {
 #[derive(Clone, PartialEq, Eq, Debug, Default)]
 pub struct Params {
     pub positional: Vec<Sym>,
+    /// How many of `positional` are positional-only (before the `/`).
+    pub posonly: u32,
     pub vararg: Option<Sym>,
     pub kwonly: Vec<Sym>,
     pub kwarg: Option<Sym>,
@@ -576,6 +578,10 @@ pub enum Instr {
     LoadName { name: Sym, into: Value },
     /// `StoreName(name, value)`: no result.
     StoreName { name: Sym, value: Value },
+    /// `DelName(name)`: unbind `name` from the frame namespace (the module
+    /// globals when the frame has none, which covers `DELETE_GLOBAL`); raises
+    /// `NameError` when absent.
+    DelName { name: Sym },
 
     // static operations the optimiser introduces
     /// `CallDirect(func, args) -> into`: direct call to a known function.
@@ -767,6 +773,7 @@ impl Instr {
                 | I::LoadCell { .. }
                 | I::LoadGlobal { .. }
                 | I::LoadName { .. }
+                | I::DelName { .. }
                 | I::CallDirect { .. }
                 | I::Yield { .. }
                 | I::YieldFrom { .. }

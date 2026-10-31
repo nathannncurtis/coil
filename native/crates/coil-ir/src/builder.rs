@@ -897,6 +897,7 @@ fn map_operands_mut(instr: &mut Instr, f: &mut impl FnMut(&mut Value)) {
         I::Const { .. }
         | I::LoadGlobal { .. }
         | I::LoadName { .. }
+        | I::DelName { .. }
         | I::LoadClosure { .. }
         | I::Safepoint
         | I::CatchEnd

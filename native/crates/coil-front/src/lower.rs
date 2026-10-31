@@ -499,6 +499,7 @@ impl<'a> Lowerer<'a> {
             qualname: Sym(u32::MAX),
             params: Params {
                 positional: Vec::new(),
+                posonly: 0,
                 vararg: None,
                 kwonly: Vec::new(),
                 kwarg: None,
@@ -767,6 +768,7 @@ impl<'a> Lowerer<'a> {
             self.pool(qualname),
             Params {
                 positional: params.positional.iter().map(|p| self.pool(p)).collect(),
+                posonly: params.posonly as u32,
                 vararg: params.vararg.as_ref().map(|p| self.pool(p)),
                 kwonly: params.kwonly.iter().map(|p| self.pool(p)).collect(),
                 kwarg: params.kwarg.as_ref().map(|p| self.pool(p)),
@@ -1468,22 +1470,22 @@ impl<'a, 'b> FnLower<'a, 'b> {
         let name_ops = self.kind.uses_name_ops() && !self.comp_isolated(&mangled);
         let flags = self.flags_for(&mangled).unwrap_or(0);
         match scope_of(flags) {
-            symtable::GLOBAL_EXPLICIT | symtable::GLOBAL_IMPLICIT if !name_ops => {
+            // DELETE_NAME / DELETE_GLOBAL: both unbind from the frame
+            // namespace, which is the globals when the frame has none.
+            symtable::GLOBAL_EXPLICIT | symtable::GLOBAL_IMPLICIT => {
                 let name = self.pool(&mangled);
-                let value = self.none()?;
-                self.emit(Instr::StoreGlobal { name, value }, pos)?;
+                self.emit(Instr::DelName { name }, pos)?;
             }
             symtable::CELL | symtable::FREE => {
+                // DELETE_DEREF. The IR has no cell unbind; storing None
+                // leaves the cell readable (None, not NameError).
                 let cell = self.cell_of(&mangled, pos)?;
                 let value = self.none()?;
                 self.emit(Instr::StoreCell { cell, value }, pos)?;
             }
             _ if name_ops => {
-                // DELETE_NAME. The IR has no unbind; storing None leaves the
-                // name bound (reads after `del` yield None, not NameError).
                 let name = self.pool(&mangled);
-                let value = self.none()?;
-                self.emit(Instr::StoreName { name, value }, pos)?;
+                self.emit(Instr::DelName { name }, pos)?;
             }
             _ => {
                 // DELETE_FAST. SSA has no unbind; a marker store of None.
@@ -2290,7 +2292,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         }
         let it_val = self.expr(iter)?;
         let aiter_m = self.method(&it_val, "__aiter__", pos)?;
-        let it = self.call(aiter_m, vec![it_val], Vec::new(), pos)?;
+        let it = self.call(aiter_m, Vec::new(), Vec::new(), pos)?;
         let types = self.except_tuple("StopAsyncIteration", pos)?;
         let head = self.new_block()?;
         let catch = self.new_block()?;
@@ -2302,7 +2304,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         // Only the __anext__ await is covered by the handler.
         self.b.set_handler(head, Some(catch))?;
         let anext_m = self.method(&it, "__anext__", pos)?;
-        let anext = self.call(anext_m, vec![it], Vec::new(), pos)?;
+        let anext = self.call(anext_m, Vec::new(), Vec::new(), pos)?;
         let next = self.await_of(anext, pos)?;
         self.jump(cont)?;
         self.terminated = false;
@@ -2396,7 +2398,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
     /// `__anext__`, `__aenter__`/`__aexit__`).
     fn await_of(&mut self, v: Value, pos: Pos) -> Result<Value, LowerError> {
         let m = self.method(&v, "__await__", pos)?;
-        let awaiter = self.call(m, vec![v], Vec::new(), pos)?;
+        let awaiter = self.call(m, Vec::new(), Vec::new(), pos)?;
         let send = self.none()?;
         let state = self.next_state();
         self.value_of(pos, move |into| Instr::YieldFrom {
@@ -2440,6 +2442,10 @@ impl<'a, 'b> FnLower<'a, 'b> {
     }
 
     fn fill_stopiteration_landing(&mut self, landing: BlockId, pos: Pos) -> Result<(), LowerError> {
+        // The landing's own blocks must not route back into it: a reraise
+        // there leaves the generator. Pop the region before filling.
+        debug_assert!(self.handlers.last() == Some(&landing));
+        self.handlers.pop();
         let back = self
             .b
             .current_block()
@@ -2539,7 +2545,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         let outermost_async = generators[0].is_async != 0;
         let outer_it = if outermost_async {
             let m = self.method(&iter_val, "__aiter__", pos)?;
-            self.call(m, vec![iter_val], Vec::new(), pos)?
+            self.call(m, Vec::new(), Vec::new(), pos)?
         } else {
             self.value_of(pos, move |into| Instr::GetIter {
                 obj: iter_val,
@@ -2682,7 +2688,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
                 let v = self.expr(&g.iter)?;
                 if g.is_async != 0 {
                     let m = self.method(&v, "__aiter__", pos)?;
-                    self.call(m, vec![v], Vec::new(), pos)?
+                    self.call(m, Vec::new(), Vec::new(), pos)?
                 } else {
                     self.value_of(pos, move |into| Instr::GetIter { obj: v, into })?
                 }
@@ -2800,7 +2806,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         // SETUP_FINALLY placement in the async comprehension generator).
         self.b.set_handler(head, Some(catch))?;
         let anext_m = self.method(&it, "__anext__", pos)?;
-        let anext = self.call(anext_m, vec![it], Vec::new(), pos)?;
+        let anext = self.call(anext_m, Vec::new(), Vec::new(), pos)?;
         let next = self.await_of(anext, pos)?;
         self.jump(cont)?;
         self.terminated = false;
@@ -2939,6 +2945,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         let cells = self.child_cells(scope, pos)?;
         let params = ParamSpec {
             positional: vec![".0".to_owned()],
+            posonly: 0,
             vararg: None,
             kwonly: Vec::new(),
             kwarg: None,
@@ -2975,7 +2982,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         let iter_val = self.expr(&generators[0].iter)?;
         let it = if generators[0].is_async != 0 {
             let m = self.method(&iter_val, "__aiter__", pos)?;
-            self.call(m, vec![iter_val], Vec::new(), pos)?
+            self.call(m, Vec::new(), Vec::new(), pos)?
         } else {
             self.value_of(pos, move |into| Instr::GetIter {
                 obj: iter_val,
@@ -4590,10 +4597,9 @@ impl<'a, 'b> FnLower<'a, 'b> {
             let mut names = Vec::with_capacity(nargs);
             for i in 0..nargs {
                 let iv = self.const_int(i as i32, pos)?;
-                let key = self.build_tuple(vec![iv], pos)?;
                 names.push(self.value_of(pos, move |into| Instr::GetItem {
                     obj: ma,
-                    key,
+                    key: iv,
                     into,
                 })?);
             }
@@ -5514,10 +5520,16 @@ impl<'a, 'b> FnLower<'a, 'b> {
             Ok(c) => c,
             Err(_) => return Ok(None),
         };
+        // Zero-argument `super()` reads the class *from* the closure cell
+        // (`LOAD_CLASSDEREF` in CPython's bytecode).
+        let class_v = self.value_of(pos, move |into| Instr::LoadCell {
+            cell: class_cell,
+            into,
+        })?;
         let sym = self.pool("super");
         let callee = self.value_of(pos, move |into| Instr::LoadGlobal { name: sym, into })?;
         let first_param = Value(0);
-        let v = self.call(callee, vec![class_cell, first_param], Vec::new(), pos)?;
+        let v = self.call(callee, vec![class_v, first_param], Vec::new(), pos)?;
         Ok(Some(v))
     }
 
@@ -5675,6 +5687,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
 /// `**kwarg`.
 struct ParamSpec {
     positional: Vec<String>,
+    posonly: usize,
     vararg: Option<String>,
     kwonly: Vec<String>,
     kwarg: Option<String>,
@@ -5684,6 +5697,7 @@ impl ParamSpec {
     fn none() -> Self {
         Self {
             positional: Vec::new(),
+            posonly: 0,
             vararg: None,
             kwonly: Vec::new(),
             kwarg: None,
@@ -5709,6 +5723,7 @@ fn param_names(f: &mut FnLower, args: &Arguments) -> ParamSpec {
         positional.push(f.mangle(&f.text(a.arg)));
     }
     ParamSpec {
+        posonly: args.posonlyargs.len(),
         positional,
         vararg: args.vararg.as_ref().map(|v| f.mangle(&f.text(v.arg))),
         kwonly: args
@@ -6012,6 +6027,7 @@ impl<'a, 'b> FnLower<'a, 'b> {
         }
         let tp_params = ParamSpec {
             positional: tp_positional,
+            posonly: 0,
             vararg: None,
             kwonly: Vec::new(),
             kwarg: None,
@@ -6579,13 +6595,13 @@ impl<'a, 'b> FnLower<'a, 'b> {
         }
         self.lower_namespace_body(body)?;
         if let Some(cell) = self.classdict_cell {
-            let v = self.value_of(pos, move |into| Instr::LoadCell { cell, into })?;
-            self.store_plain_name("__classdictcell__", v, pos)?;
+            // The slot already holds the cell object; `__classdictcell__`
+            // names the cell itself, not its contents.
+            self.store_plain_name("__classdictcell__", cell, pos)?;
         }
         if let Some(cell) = self.class_cell {
-            let v = self.value_of(pos, move |into| Instr::LoadCell { cell, into })?;
-            self.store_plain_name("__classcell__", v, pos)?;
-            self.ret(v)?;
+            self.store_plain_name("__classcell__", cell, pos)?;
+            self.ret(cell)?;
         } else {
             self.return_none()?;
         }

@@ -360,6 +360,7 @@ fn function_r(r: &mut R) -> Result<Function, Error> {
 
 fn params(w: &mut W, p: &Params) {
     w.seq(&p.positional, |w, s| w.u32(s.0));
+    w.u32(p.posonly);
     w.opt(&p.vararg, |w, s| w.u32(s.0));
     w.seq(&p.kwonly, |w, s| w.u32(s.0));
     w.opt(&p.kwarg, |w, s| w.u32(s.0));
@@ -368,6 +369,7 @@ fn params(w: &mut W, p: &Params) {
 fn params_r(r: &mut R) -> Result<Params, Error> {
     Ok(Params {
         positional: r.seq(|r| Ok(Sym(r.u32()?)))?,
+        posonly: r.u32()?,
         vararg: r.opt(|r| Ok(Sym(r.u32()?)))?,
         kwonly: r.seq(|r| Ok(Sym(r.u32()?)))?,
         kwarg: r.opt(|r| Ok(Sym(r.u32()?)))?,
@@ -1086,6 +1088,10 @@ fn instr(w: &mut W, i: &Instr) {
             w.u32(name.0);
             w.u32(value.0);
         }
+        I::DelName { name } => {
+            w.u16(92);
+            w.u32(name.0);
+        }
         I::CallDirect { func, args, into } => {
             w.u16(62);
             w.u32(func.0);
@@ -1554,6 +1560,9 @@ fn instr_r(r: &mut R) -> Result<Instr, Error> {
         61 => I::StoreName {
             name: Sym(r.u32()?),
             value: Value(r.u32()?),
+        },
+        92 => I::DelName {
+            name: Sym(r.u32()?),
         },
         62 => I::CallDirect {
             func: FnId(r.u32()?),

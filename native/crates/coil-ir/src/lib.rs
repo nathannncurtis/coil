@@ -2,6 +2,7 @@
 //! edges, shared by the compiler middle end and the IR interpreter.
 
 pub mod builder;
+pub mod interp;
 pub mod ir;
 pub mod print;
 pub mod serialize;

@@ -1,0 +1,8 @@
+print(format(3.14159, ".2f"), format(42, "5d"), format(42, "05d"))
+print(format(42, "x"), format(255, "X"), format(42, "b"), format(42, "o"))
+print(format(1234567, ","), format(0.25, ".0%"))
+print(format("hi", ">6"), format("hi", "<6") + "|", format("hi", "^6") + "|")
+print(format(3, "+d"), format(-3, "+d"), format(3, " d"))
+print(format(1.5, "e"), format(1.5, "E"), format(0.000123, ".2e"))
+print(format(True), format(None), format(1.0, ".3g"))
+print(f"{3.14159:.1f}", f"{7:b}", f"{255:#x}", f"{10:*>6}")

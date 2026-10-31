@@ -22,6 +22,7 @@ fn v(n: u32) -> Value {
 fn one_param() -> Params {
     Params {
         positional: vec![Sym(0)],
+        posonly: 0,
         vararg: None,
         kwonly: vec![],
         kwarg: None,

@@ -1472,7 +1472,7 @@ fn check_types(
             c.use_boxed(*value)?;
             c.def_boxed(*into)?;
         }
-        I::Safepoint | I::CatchEnd | I::PopExcInfo => {}
+        I::Safepoint | I::CatchEnd | I::PopExcInfo | I::DelName { .. } => {}
         I::CatchBegin {
             types,
             matched,

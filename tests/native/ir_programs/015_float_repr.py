@@ -1,0 +1,10 @@
+for v in [0.0, -0.0, 1.0, 0.5, 1.5, 2.25, 100.0, 1e-5, 1e16, 1e17, 1.23e-7, 123456789.123]:
+    print(repr(v), str(v))
+print(1.0 == 1, 0.5 + 0.5 == 1.0)
+print(float("inf"), float("-inf"), float("Infinity"))
+inf = float("inf")
+print(inf > 1e308, -inf < -1e308, inf == inf)
+nan = float("nan")
+print(nan != nan, nan == nan, nan < 1.0)
+print(3.0.is_integer(), (2.0).hex(), (1.5).hex())
+print(0.1 + 0.2 == 0.3, abs(0.1 + 0.2 - 0.3) < 1e-12)
