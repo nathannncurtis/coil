@@ -15,10 +15,17 @@
 //! gives non-str keys.
 
 pub mod _codecs;
+pub mod _codecs_cn;
+pub mod _codecs_hk;
+pub mod _codecs_iso2022;
+pub mod _codecs_jp;
+pub mod _codecs_kr;
+pub mod _codecs_tw;
 pub mod _multibytecodec;
 pub mod _sre;
 pub mod binascii;
 pub mod builtins;
+pub mod cjk_data;
 pub mod cmath;
 pub mod imp;
 pub mod math;
